@@ -1,0 +1,38 @@
+# Непрерывная интеграция: на каждый push/PR автоматически проверяем
+# форматирование, линты и тесты. Это автоматизирует «ритуал» из LESSONS (Урок 9).
+#
+# Инструменты — современный стандарт 2025 для Rust:
+#   • dtolnay/rust-toolchain  — быстрая установка тулчейна;
+#   • Swatinem/rust-cache     — кэш зависимостей/сборки (работает «из коробки»).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # macroquad/miniquad на Linux требует системных библиотек для сборки.
+      - name: Установить системные зависимости (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Проверка форматирования
+        run: cargo fmt --all --check
+
+      - name: Линты (предупреждения = ошибки)
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Тесты
+        run: cargo test --locked
