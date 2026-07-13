@@ -50,11 +50,12 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut game = Game::new(World::new(GRID_W, GRID_H));
+    let textures = render::load_textures().await; // спрайты грузим один раз, не каждый кадр
 
     loop {
         input::handle(&mut game); // 1. ввод  → намерения игрока меняют мир
         game.update(); // 2. апдейт → системы двигают мир по тикам
-        render::draw(&game); // 3. рендер → только читаем мир и рисуем
+        render::draw(&game, &textures); // 3. рендер → только читаем мир и рисуем
 
         next_frame().await; // отдать кадр экрану и ждать следующий
     }

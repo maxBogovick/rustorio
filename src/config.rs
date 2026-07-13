@@ -28,3 +28,5 @@ pub const MAX_FRAME_TIME: f32 = 0.25;
 pub const MINER_TIME: f32 = 0.9;
 /// Секунд на плавку руды в пластину.
 pub const SMELT_TIME: f32 = 1.2;
+/// Секунд на сборку одной шестерёнки.
+pub const ASSEMBLE_TIME: f32 = 0.8;

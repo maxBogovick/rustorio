@@ -8,13 +8,28 @@
 //!
 //! Зависит только от `types` и `config` (стрелки зависимостей смотрят вниз).
 
-use crate::config::{MINER_TIME, SMELT_TIME};
+use crate::config::{ASSEMBLE_TIME, MINER_TIME, SMELT_TIME};
 use crate::types::{Direction, Item, Tool};
 
 /// Всё, что можно поставить на клетку.
 ///
 /// `Debug` — чтобы удобно печатать в тестах/при отладке; `Clone` — пригодится
 /// для копирования схем и сохранения (веха M5).
+struct Recipe { machine: Tool, input: Item, output: Item, time: f32 }
+static RECIPES: &[Recipe] = &[
+    Recipe { machine: Tool::Furnace,   input: Item::IronOre,   output: Item::IronPlate, time: SMELT_TIME },
+    Recipe { machine: Tool::Assembler, input: Item::IronPlate, output: Item::Gear,      time: ASSEMBLE_TIME },
+    // 500 рецептов = 500 строк ДАННЫХ, ноль нового кода и ноль новых match
+];
+
+impl Recipe {
+    /// Найти рецепт для конкретного здания и его сырья (печь ищет только среди
+    /// своих рецептов — иначе она могла бы «случайно» принять чужое сырьё,
+    /// например пластины, которые на самом деле идут в сборщик).
+    fn find(machine: Tool, input: Item) -> Option<&'static Recipe> {
+        RECIPES.iter().find(|r| r.machine == machine && r.input == input)
+    }
+}
 #[derive(Debug, Clone)]
 pub enum Building {
     /// Бур: стоит на руде, раз в `MINER_TIME` кладёт руду в `output`,
@@ -36,6 +51,12 @@ pub enum Building {
     },
     /// Ящик: просто копит предметы (счётчик).
     Chest { items: u32 },
+    Assembler {
+        dir: Direction,
+        input: Option<Item>,
+        progress: f32,
+        output: Option<Item>,
+    }
 }
 
 impl Building {
@@ -48,7 +69,7 @@ impl Building {
                 cooldown: MINER_TIME,
                 output: None,
             },
-            Tool::Belt => Building::Belt { dir, item: None },
+            Tool::Belt => Building::Belt { dir, item: None},
             Tool::Furnace => Building::Furnace {
                 dir,
                 input: None,
@@ -56,6 +77,7 @@ impl Building {
                 output: None,
             },
             Tool::Chest => Building::Chest { items: 0 },
+            Tool::Assembler => Building::Assembler {dir, input: None, progress: 0.0, output: None},
         }
     }
 
@@ -75,16 +97,18 @@ impl Building {
                     *cooldown = MINER_TIME;
                 }
             }
-            // Печь плавит, пока выход свободен и есть сырьё.
+            // Печь плавит по рецепту из RECIPES, пока выход свободен и есть сырьё.
             Building::Furnace {
                 input,
                 progress,
                 output,
                 ..
             } if output.is_none() && input.is_some() => {
+                let recipe = Recipe::find(Tool::Furnace, input.unwrap())
+                    .expect("can_accept уже проверил, что рецепт для этого сырья есть");
                 *progress += dt;
-                if *progress >= SMELT_TIME {
-                    *output = Some(Item::IronPlate);
+                if *progress >= recipe.time {
+                    *output = Some(recipe.output);
                     *input = None;
                     *progress = 0.0;
                 }
@@ -97,8 +121,26 @@ impl Building {
             | Building::Furnace { .. }
             | Building::Belt { .. }
             | Building::Chest { .. } => {}
+            Building::Assembler {
+                input,
+                progress,
+                output,
+                ..
+            }
+            if output.is_none() && input.is_some() => {
+                let recipe = Recipe::find(Tool::Assembler, input.unwrap())
+                    .expect("can_accept уже проверил, что рецепт для этого сырья есть");
+                *progress += dt;
+                if *progress >= recipe.time {
+                    *output = Some(recipe.output);
+                    *input = None;
+                    *progress = 0.0;
+                }
+            }
+            | Building::Assembler { .. } => {}
         }
     }
+
 
     /// Что здание готово отдать наружу и в какую сторону (`None` — нечего).
     ///
@@ -120,11 +162,17 @@ impl Building {
                 output: Some(it),
                 ..
             } => Some((*it, *dir)),
+            Building::Assembler {
+                dir,
+                output: Some(it),
+                ..
+            } => Some((*it, *dir)),
             // выход пуст или это ящик — отдавать нечего:
             Building::Miner { output: None, .. }
             | Building::Belt { item: None, .. }
             | Building::Furnace { output: None, .. }
             | Building::Chest { .. } => None,
+            | Building::Assembler { output: None, .. } => None,
         }
     }
 
@@ -132,10 +180,11 @@ impl Building {
     pub fn can_accept(&self, item: Item) -> bool {
         match self {
             Building::Belt { item: None, .. } => true,
-            Building::Furnace { input: None, .. } => item == Item::IronOre,
+            Building::Furnace { input: None, .. } => Recipe::find(Tool::Furnace, item).is_some(),
             Building::Chest { .. } => true,
             // бур ничего не принимает; занятые лента/печь — тоже нет:
             Building::Miner { .. } | Building::Belt { .. } | Building::Furnace { .. } => false,
+            Building::Assembler { .. } => item == Item::IronPlate,
         }
     }
 
@@ -146,6 +195,7 @@ impl Building {
             Building::Belt { item, .. } => *item = None,
             Building::Furnace { output, .. } => *output = None,
             Building::Chest { .. } => {}
+            Building::Assembler { output, .. } => *output = None,
         }
     }
 
@@ -156,6 +206,7 @@ impl Building {
             Building::Furnace { input, .. } => *input = Some(item),
             Building::Chest { items } => *items += 1,
             Building::Miner { .. } => {}
+            Building::Assembler { input, .. } => *input = Some(item),
         }
     }
 
@@ -166,6 +217,7 @@ impl Building {
             Building::Belt { dir, .. } => Some(*dir),
             Building::Furnace { dir, .. } => Some(*dir),
             Building::Chest { .. } => None,
+            Building::Assembler { dir, .. } => Some(*dir),
         }
     }
 

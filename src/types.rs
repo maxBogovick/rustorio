@@ -54,16 +54,18 @@ impl Direction {
 pub enum Item {
     IronOre,
     IronPlate,
+    Gear
 }
 
 // ─────────────────────────────────────────────────────────────────────
 /// Что выбрано в панели (клавиши 1..4). «Чертёж», по которому строим здание.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Tool {
     Miner,
     Belt,
     Furnace,
     Chest,
+    Assembler,
 }
 
 impl Tool {
@@ -73,6 +75,7 @@ impl Tool {
             Tool::Belt => "Belt",
             Tool::Furnace => "Furnace",
             Tool::Chest => "Chest",
+            Tool::Assembler => "Assembler",
         }
     }
 }

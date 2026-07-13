@@ -60,4 +60,15 @@ pub fn handle(game: &mut Game) {
             game.world.remove(x, y);
         }
     }
+    if is_key_pressed(KeyCode::Key5) {
+        game.tool = Tool::Assembler;
+    }
+    if is_key_pressed(KeyCode::A) {
+        game.tool = Tool::Belt;
+    }
+    if is_key_pressed(KeyCode::D) {
+
+    }
+    if is_key_pressed(KeyCode::W) {}
+    if is_key_pressed(KeyCode::S) {}
 }

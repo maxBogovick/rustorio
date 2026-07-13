@@ -191,6 +191,9 @@ mod tests {
         if let Some(Building::Belt { item, .. }) = &mut w.tiles[2].building {
             *item = Some(Item::IronPlate);
         }
+        if let Some (Building::Assembler { output, .. }) = &mut w.tiles[2].building { 
+            *output = Some(Item::Gear);
+        }
 
         step(&mut w, TICK);
 
