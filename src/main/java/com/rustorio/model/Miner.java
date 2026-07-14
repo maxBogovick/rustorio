@@ -3,6 +3,7 @@ package com.rustorio.model;
 import com.rustorio.core.Config;
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Optional;
 
@@ -19,7 +20,7 @@ public final class Miner implements Building {
     private final Direction dir;
     private float cooldown;
     /** Готовая руда на выходе (или {@code null} — выход пуст). */
-    private Item output;
+    private @Nullable Item output;
 
     public Miner(Direction dir) {
         this.dir = dir;

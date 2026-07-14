@@ -1,1 +1,7 @@
+plugins {
+    // Автоматически скачивает нужный JDK для toolchain (JDK 25), если его нет в
+    // системе — сборка воспроизводима на любой машине без ручной установки Java.
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
 rootProject.name = 'rustorio'

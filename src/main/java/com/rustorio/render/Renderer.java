@@ -82,7 +82,11 @@ public final class Renderer implements Disposable {
 
         Gdx.gl.glClearColor(C_BG.r, C_BG.g, C_BG.b, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        Gdx.gl.glEnable(GL20.GL_BLEND); // для полупрозрачных сетки и «призрака»
+        // Для полупрозрачных сетки и «призрака». Функцию смешивания задаём явно:
+        // проход сетки идёт до первого SpriteBatch.begin(), который иначе
+        // выставил бы её за нас, — без этого alpha не смешивалась бы.
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
         batch.setProjectionMatrix(camera.combined);
         shapes.setProjectionMatrix(camera.combined);
@@ -146,8 +150,9 @@ public final class Renderer implements Disposable {
                     case Furnace f -> batch.draw(
                             f.input().isPresent() ? textures.furnaceOn : textures.furnaceOff,
                             px, py, TILE, TILE);
-                    case Assembler a -> batch.draw(textures.assembler, px, py, TILE, TILE);
-                    case Chest c -> batch.draw(textures.chest, px, py, TILE, TILE);
+                    // `_` — здание известно по типу, а само значение здесь не нужно.
+                    case Assembler _ -> batch.draw(textures.assembler, px, py, TILE, TILE);
+                    case Chest _ -> batch.draw(textures.chest, px, py, TILE, TILE);
                 }
             }
         }
@@ -177,8 +182,8 @@ public final class Renderer implements Disposable {
                         drawArrow(px, py, a.dir(), a.input().isPresent() && a.outputItem().isEmpty());
                         drawProgressBar(px, py, a.progressFraction());
                     }
-                    case Belt belt -> { /* у ленты стрелки нет */ }
-                    case Chest c -> { /* у ящика накладок нет */ }
+                    case Belt _ -> { /* у ленты стрелки нет */ }
+                    case Chest _ -> { /* у ящика накладок нет */ }
                 }
             }
         }

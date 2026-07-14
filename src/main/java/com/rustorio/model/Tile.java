@@ -1,5 +1,7 @@
 package com.rustorio.model;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Одна клетка поля: есть ли под ней руда и какое здание на ней стоит.
  *
@@ -11,7 +13,7 @@ package com.rustorio.model;
 public final class Tile {
 
     private final boolean ore;
-    private Building building;
+    private @Nullable Building building;
 
     Tile(boolean ore) {
         this.ore = ore;
@@ -24,13 +26,13 @@ public final class Tile {
     }
 
     /** Здание на клетке, либо {@code null}, если пусто. */
-    public Building building() {
+    public @Nullable Building building() {
         return building;
     }
 
     // Пакетно-приватно: менять здание клетки вправе только World,
     // чтобы соблюдались правила постановки/сноса из одного места.
-    void setBuilding(Building building) {
+    void setBuilding(@Nullable Building building) {
         this.building = building;
     }
 }

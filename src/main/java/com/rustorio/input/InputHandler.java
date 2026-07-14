@@ -7,6 +7,7 @@ import com.rustorio.core.Tool;
 import com.rustorio.game.GameState;
 import com.rustorio.model.Building;
 import com.rustorio.model.Cell;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Фаза 1 игрового цикла: ввод.
@@ -70,7 +71,7 @@ public final class InputHandler {
      * в Rust-версии, поэтому формула перевода совпадает один-в-один. Перевод в
      * систему Y-вверх нужен только отрисовке, вводу — нет.
      */
-    private static Cell hoveredCell(GameState game) {
+    private static @Nullable Cell hoveredCell(GameState game) {
         float mx = Gdx.input.getX();
         float my = Gdx.input.getY();
         int tx = (int) Math.floor((mx - Config.OFFSET_X) / Config.TILE);

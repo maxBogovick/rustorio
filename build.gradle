@@ -1,15 +1,17 @@
 plugins {
     id 'application'
+    id 'jacoco' // покрытие тестами (встроенный плагин Gradle)
 }
 
 group = 'com.rustorio'
 version = '0.1.0'
 
-// Java 21 LTS. Toolchain фиксирует версию: сборка одинакова у всех, даже если
-// у разработчика в PATH другой JDK.
+// Java 25 LTS (сентябрь 2025, поддержка до 2033) — новейшая LTS. Toolchain
+// фиксирует версию: сборка одинакова у всех, а нужный JDK при отсутствии
+// скачивается автоматически (см. foojay-плагин в settings.gradle).
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -21,6 +23,7 @@ repositories {
 ext {
     gdxVersion = '1.14.2'   // последняя стабильная libGDX (май 2026)
     junitVersion = '5.11.3'
+    jspecifyVersion = '1.0.0'
 }
 
 dependencies {
@@ -28,6 +31,11 @@ dependencies {
     implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
     // Нативные библиотеки движка для десктопа (OpenGL/окно/ввод).
     runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+
+    // JSpecify: стандартные аннотации null-безопасности (@Nullable/@NullMarked).
+    // Проверяются IDE и статическими анализаторами — контракт «может быть null»
+    // становится машинно-проверяемым, а не «на словах».
+    implementation "org.jspecify:jspecify:$jspecifyVersion"
 
     testImplementation platform("org.junit:junit-bom:$junitVersion")
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -40,14 +48,22 @@ application {
 
 // Ассеты (спрайты) лежат в resources/. Запускаем из корня проекта, чтобы
 // Gdx.files.internal("resources/...") их находил.
-run {
+tasks.named('run', JavaExec) {
     workingDir = rootProject.projectDir
     // На macOS бэкенд LWJGL3/GLFW обязан работать на главном потоке.
     if (System.getProperty('os.name').toLowerCase().contains('mac')) {
-        jvmArgs += '-XstartOnFirstThread'
+        jvmArgs('-XstartOnFirstThread')
     }
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+    finalizedBy tasks.named('jacocoTestReport')
+}
+
+tasks.named('jacocoTestReport') {
+    dependsOn tasks.named('test')
+    reports {
+        xml.required = true
+    }
 }

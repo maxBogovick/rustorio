@@ -2,6 +2,7 @@ package com.rustorio.model;
 
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Optional;
 
@@ -13,7 +14,7 @@ public final class Belt implements Building {
 
     private final Direction dir;
     /** Предмет на ленте (или {@code null} — лента пуста). */
-    private Item item;
+    private @Nullable Item item;
 
     public Belt(Direction dir) {
         this.dir = dir;

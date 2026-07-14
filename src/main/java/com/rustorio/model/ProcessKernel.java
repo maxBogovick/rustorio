@@ -2,6 +2,7 @@ package com.rustorio.model;
 
 import com.rustorio.core.Item;
 import com.rustorio.core.Tool;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Optional;
 
@@ -22,10 +23,10 @@ final class ProcessKernel {
 
     private final Tool machine;
     /** Загруженное сырьё (или {@code null}). */
-    private Item input;
+    private @Nullable Item input;
     private float progress;
     /** Готовый продукт (или {@code null} — выход пуст). */
-    private Item output;
+    private @Nullable Item output;
 
     ProcessKernel(Tool machine) {
         this.machine = machine;

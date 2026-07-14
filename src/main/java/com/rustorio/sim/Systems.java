@@ -8,6 +8,7 @@ import com.rustorio.model.World;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 /**
@@ -76,7 +77,7 @@ public final class Systems {
             if (source == null) {
                 continue;
             }
-            var handoff = source.output();
+            Optional<Handoff> handoff = source.output();
             if (handoff.isEmpty()) {
                 continue;
             }
@@ -91,19 +92,21 @@ public final class Systems {
             Building target = world.tileAt(j).building();
             Item item = handoff.get().item();
             if (target != null && target.canAccept(item)) {
-                moves.add(new Move(i, j, item));
+                // Держим сами здания, а не индексы: в фазе 2 не нужен повторный
+                // поиск, и оба здания заведомо не null (проверены здесь).
+                moves.add(new Move(source, target, item));
                 claimed[j] = true;
             }
         }
 
         // Фаза 2: применение (можно менять).
         for (Move move : moves) {
-            world.tileAt(move.from()).building().removeOutput();
-            world.tileAt(move.to()).building().accept(move.item());
+            move.source().removeOutput();
+            move.target().accept(move.item());
         }
     }
 
-    /** Запланированная передача: из клетки {@code from} в клетку {@code to}. */
-    private record Move(int from, int to, Item item) {
+    /** Запланированная передача предмета от здания-источника к приёмнику. */
+    private record Move(Building source, Building target, Item item) {
     }
 }

@@ -5,7 +5,10 @@ import com.rustorio.core.Item;
 import com.rustorio.core.Tool;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Рецепт превращения одного предмета в другой конкретной машиной.
@@ -28,6 +31,11 @@ public record Recipe(Tool machine, Item input, Item output, float time) {
             new Recipe(Tool.ASSEMBLER, Item.IRON_PLATE, Item.GEAR, Config.ASSEMBLE_TIME)
     );
 
+    /** Индекс «(машина, сырьё) → рецепт» для поиска за O(1). */
+    private static final Map<Key, Recipe> BY_KEY = ALL.stream()
+            .collect(Collectors.toUnmodifiableMap(
+                    r -> new Key(r.machine(), r.input()), Function.identity()));
+
     /**
      * Найти рецепт для конкретной машины и её сырья.
      *
@@ -35,8 +43,10 @@ public record Recipe(Tool machine, Item input, Item output, float time) {
      *         иначе {@link Optional#empty()}
      */
     public static Optional<Recipe> find(Tool machine, Item input) {
-        return ALL.stream()
-                .filter(r -> r.machine == machine && r.input == input)
-                .findFirst();
+        return Optional.ofNullable(BY_KEY.get(new Key(machine, input)));
+    }
+
+    /** Ключ поиска рецепта. Вложенный {@code record} даёт готовые equals/hashCode. */
+    private record Key(Tool machine, Item input) {
     }
 }

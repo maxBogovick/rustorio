@@ -6,6 +6,7 @@ import com.rustorio.core.Tool;
 import com.rustorio.model.Cell;
 import com.rustorio.model.World;
 import com.rustorio.sim.Systems;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Optional;
 
@@ -29,7 +30,7 @@ public final class GameState {
     private Direction direction = Direction.EAST;
     private boolean paused = false;
     /** Клетка под курсором в этом кадре (её ставит ввод, читает отрисовка). */
-    private Cell hover = null;
+    private @Nullable Cell hover = null;
     /** Накопленное реальное время, ещё не «проигранное» в тиках. */
     private float accumulator = 0f;
 
@@ -92,7 +93,7 @@ public final class GameState {
         this.paused = !paused;
     }
 
-    public void setHover(Cell hover) {
+    public void setHover(@Nullable Cell hover) {
         this.hover = hover;
     }
 }
