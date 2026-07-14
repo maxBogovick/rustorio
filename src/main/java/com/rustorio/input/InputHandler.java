@@ -3,6 +3,7 @@ package com.rustorio.input;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.rustorio.core.Config;
+import com.rustorio.core.Tech;
 import com.rustorio.core.Tool;
 import com.rustorio.game.GameState;
 import com.rustorio.model.Building;
@@ -27,21 +28,23 @@ public final class InputHandler {
         // ниже, и отрисовка «призрака» (рендер читает game.hover, а не мышь).
         game.setHover(hoveredCell(game));
 
-        // Выбор инструмента (клавиши 1..5).
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
-            game.selectTool(Tool.MINER);
+        // Выбор инструмента: идём по СПИСКУ инструментов, а не по руками написанной
+        // лесенке «if (нажата 1) … if (нажата 5)». Раньше добавить здание и забыть
+        // привязать ему клавишу можно было молча — компилятор не возражал, а здание
+        // просто оказывалось недоступным. Теперь номер слота объявлен в самом Tool,
+        // и забыть его нельзя: не скомпилируется.
+        for (Tool tool : Tool.values()) {
+            if (Gdx.input.isKeyJustPressed(keyForSlot(tool.hotkeySlot()))) {
+                game.selectTool(tool);
+            }
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
-            game.selectTool(Tool.BELT);
-        }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) {
-            game.selectTool(Tool.FURNACE);
-        }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) {
-            game.selectTool(Tool.CHEST);
-        }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_5)) {
-            game.selectTool(Tool.ASSEMBLER);
+
+        // Открыть технологию: F1..F4 по списку Tech — снова НЕ лесенка из if'ов, а цикл
+        // по данным. Добавится пятая технология — клавиша появится сама.
+        for (Tech tech : Tech.values()) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.F1 + tech.ordinal())) {
+                game.research().research(tech); // сам проверит, можно ли: очки, предпосылки
+            }
         }
 
         // Поворот и пауза.
@@ -62,6 +65,17 @@ public final class InputHandler {
                 game.world().remove(cell.x(), cell.y());
             }
         });
+    }
+
+    /**
+     * Номер слота (1..9) → код клавиши libGDX.
+     *
+     * <p>Перевод живёт ЗДЕСЬ, а не в {@code Tool}: {@code Tool} лежит в {@code core},
+     * которому запрещено знать про движок (это стережёт {@code ArchitectureTest}).
+     * Слой ввода про движок знать обязан — вот пусть он и переводит.
+     */
+    private static int keyForSlot(int slot) {
+        return Input.Keys.NUM_0 + slot;
     }
 
     /**

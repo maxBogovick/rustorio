@@ -2,6 +2,7 @@ package com.rustorio.model;
 
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
+import com.rustorio.core.TickContext;
 import com.rustorio.core.Tool;
 
 import java.util.Optional;
@@ -23,8 +24,8 @@ public final class Furnace implements Building {
     }
 
     @Override
-    public void update(float dt, boolean hasOre) {
-        kernel.update(dt);
+    public void update(TickContext ctx) {
+        kernel.update(ctx);
     }
 
     @Override
@@ -57,12 +58,19 @@ public final class Furnace implements Building {
         return dir;
     }
 
-    public Optional<Item> input() {
-        return kernel.input();
+    /** Что показать на машине: готовый продукт, иначе — сырьё со склада. */
+    public Optional<Item> displayItem() {
+        return kernel.displayItem();
     }
 
-    public Optional<Item> outputItem() {
-        return kernel.output();
+    /** Машина сейчас работает (есть рецепт в работе)? */
+    public boolean isWorking() {
+        return kernel.progressFraction() > 0f;
+    }
+
+    /** Есть ли на складе сырьё (печь по этому решает, гореть ли ей). */
+    public boolean hasStock() {
+        return kernel.hasStock();
     }
 
     public float progressFraction() {

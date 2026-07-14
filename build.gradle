@@ -80,6 +80,15 @@ tasks.named('run', JavaExec) {
     }
 }
 
+// Бенчмарк симуляции: `./gradlew benchmark`. Окно не открывается — домен не зависит
+// от libGDX, поэтому симуляция запускается как обычная консольная программа.
+tasks.register('benchmark', JavaExec) {
+    group = 'verification'
+    description = 'Замер: сколько миллисекунд занимает один шаг симуляции'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.rustorio.bench.SimulationBenchmark'
+}
+
 tasks.named('test') {
     useJUnitPlatform()
     finalizedBy tasks.named('jacocoTestReport')

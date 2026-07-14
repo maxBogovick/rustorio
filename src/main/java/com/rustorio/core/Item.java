@@ -9,5 +9,7 @@ package com.rustorio.core;
 public enum Item {
     IRON_ORE,
     IRON_PLATE,
-    GEAR
+    GEAR,
+    /** Первый предмет, собираемый из ДВУХ разных ингредиентов (пластина + шестерёнки). */
+    MECHANISM
 }

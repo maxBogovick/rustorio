@@ -1,14 +1,14 @@
 package com.rustorio.sim;
 
+import com.rustorio.core.Balance;
 import com.rustorio.core.Config;
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
+import com.rustorio.core.TickContext;
 import com.rustorio.core.Tool;
-import com.rustorio.model.Assembler;
 import com.rustorio.model.Belt;
 import com.rustorio.model.Building;
 import com.rustorio.model.Chest;
-import com.rustorio.model.Furnace;
 import com.rustorio.model.World;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,15 +19,29 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Тесты симуляции. Логика мира чистая (не зависит от libGDX), поэтому её легко
- * проверить без окна и мыши — те же сценарии, что были в Rust {@code systems.rs}.
+ * Тесты ПЕРЕДАЧИ предметов между зданиями (трек B).
+ *
+ * <p>Раньше это был один файл {@code SystemsTest}, проверявший и передачу, и работу
+ * печи со сборщиком. Так он принадлежал бы сразу двум трекам — а у нас правило «один
+ * файл — один хозяин». Логика машин переехала в {@code MachinesTest} (трек C).
  */
-class SystemsTest {
+class MovementTest {
+
+    static TickContext ctx() {
+        return new TickContext(Config.TICK, new Balance());
+    }
+
+    /** Один шаг новой симуляции над этим миром. */
+    static void step(World world) {
+        new Simulation(world).step(ctx());
+    }
 
     /** Прогнать N тиков симуляции. */
-    private static void stepTimes(World world, int n) {
+    static void stepTimes(World world, int n) {
+        Simulation simulation = new Simulation(world);
+        TickContext ctx = ctx();
         for (int i = 0; i < n; i++) {
-            Systems.step(world, Config.TICK);
+            simulation.step(ctx);
         }
     }
 
@@ -62,38 +76,6 @@ class SystemsTest {
     }
 
     @Test
-    @DisplayName("Печь плавит руду в пластину и отдаёт дальше")
-    void furnaceSmeltsAndHandsOff() {
-        World world = World.generate(Config.GRID_W, Config.GRID_H);
-        world.place(0, 0, Building.create(Tool.FURNACE, Direction.EAST));
-        world.place(1, 0, Building.create(Tool.CHEST, Direction.EAST));
-        // Кладём руду в печь вручную (обычно это делает лента).
-        ((Furnace) world.tile(0, 0).building()).accept(Item.IRON_ORE);
-        stepTimes(world, 60);
-
-        Chest chest = assertInstanceOf(Chest.class, world.tile(1, 0).building());
-        assertTrue(chest.items() >= 1, "печь должна выдать пластину");
-    }
-
-    @Test
-    @DisplayName("Сборщик собирает шестерёнку из пластины")
-    void assemblerBuildsGear() {
-        World world = World.generate(Config.GRID_W, Config.GRID_H);
-        world.place(0, 0, Building.create(Tool.ASSEMBLER, Direction.EAST));
-        world.place(1, 0, Building.create(Tool.CHEST, Direction.EAST));
-
-        Building assembler = world.tile(0, 0).building();
-        assertTrue(assembler.canAccept(Item.IRON_PLATE), "сборщик принимает пластину");
-        assertFalse(assembler.canAccept(Item.IRON_ORE), "сборщик НЕ принимает руду");
-
-        ((Assembler) assembler).accept(Item.IRON_PLATE);
-        stepTimes(world, 60);
-
-        Chest chest = assertInstanceOf(Chest.class, world.tile(1, 0).building());
-        assertTrue(chest.items() >= 1, "сборщик должен выдать шестерёнку");
-    }
-
-    @Test
     @DisplayName("Передача предмета — это перемещение, а не копирование")
     void itemMovesExactlyOnce() {
         World world = World.generate(4, 1);
@@ -101,7 +83,7 @@ class SystemsTest {
         world.place(1, 0, Building.create(Tool.BELT, Direction.EAST));
         ((Belt) world.tile(0, 0).building()).accept(Item.IRON_ORE);
 
-        Systems.step(world, Config.TICK);
+        step(world);
 
         assertTrue(((Belt) world.tile(0, 0).building()).item().isEmpty(),
                 "источник должен опустеть");
@@ -119,15 +101,10 @@ class SystemsTest {
         ((Belt) world.tile(0, 0).building()).accept(Item.IRON_ORE);
         ((Belt) world.tile(2, 0).building()).accept(Item.IRON_PLATE);
 
-        Systems.step(world, Config.TICK);
+        step(world);
 
-        long occupied = 0;
-        for (int x = 0; x < 3; x++) {
-            if (((Belt) world.tile(x, 0).building()).item().isPresent()) {
-                occupied++;
-            }
-        }
-        assertEquals(2, occupied, "предмет не должен продублироваться или потеряться");
+        assertEquals(2, world.belts().itemCount(),
+                "предмет не должен продублироваться или потеряться");
         assertTrue(((Belt) world.tile(1, 0).building()).item().isPresent(),
                 "средняя лента должна получить один предмет");
     }

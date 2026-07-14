@@ -5,6 +5,7 @@ import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
@@ -51,4 +52,37 @@ class ArchitectureTest {
                     .resideInAnyPackage("..model..", "..sim..", "..game..",
                             "..render..", "..input..", "..screen..")
                     .because("core — фундамент домена, зависит только от себя и JDK");
+
+    /**
+     * [5] {@code Config} — только неизменяемые константы.
+     *
+     * <p>В спринте 0 баланс уехал из {@code Config} в {@code Balance}: константы времени
+     * компиляции нельзя менять, а прогрессия обязана менять числа во время игры. Это
+     * правило стережёт, чтобы через полгода, когда все забудут почему, изменяемое поле не
+     * приползло обратно в {@code Config}.
+     */
+    @ArchTest
+    static final ArchRule config_holds_only_constants =
+            fields().that().areDeclaredInClassesThat().haveSimpleName("Config")
+                    .should().beStatic().andShould().beFinal()
+                    .because("изменяемый баланс живёт в Balance, а не в Config");
+
+    /**
+     * [6] Симуляция ДЕТЕРМИНИРОВАНА: никакой случайности и никаких «настенных часов».
+     *
+     * <p>Одинаковые действия игрока обязаны давать одинаковый мир. Без этого не будет ни
+     * сохранений (загруженная фабрика поедет иначе, чем сохранённая), ни надёжных тестов
+     * (падает через раз — ищи потом причину).
+     *
+     * <p>Отрисовки правило не касается: там {@code System.nanoTime()} и анимации законны —
+     * они не меняют мир.
+     */
+    @ArchTest
+    static final ArchRule simulation_is_deterministic =
+            noClasses().that().resideInAnyPackage("..model..", "..sim..", "..game..")
+                    .should().callMethod(Math.class, "random")
+                    .orShould().callMethod(System.class, "currentTimeMillis")
+                    .orShould().callMethod(System.class, "nanoTime")
+                    .because("симуляция должна быть воспроизводимой: без этого не будет "
+                            + "ни сохранений, ни надёжных тестов");
 }

@@ -14,9 +14,14 @@ import com.rustorio.core.Item;
 import com.rustorio.game.GameState;
 import com.rustorio.model.Assembler;
 import com.rustorio.model.Belt;
+import com.rustorio.model.BeltItemPos;
+import com.rustorio.model.BeltSegment;
 import com.rustorio.model.Building;
 import com.rustorio.model.Cell;
 import com.rustorio.model.Chest;
+import com.rustorio.model.Lab;
+import com.rustorio.model.Splitter;
+import com.rustorio.model.UndergroundBelt;
 import com.rustorio.model.Furnace;
 import com.rustorio.model.Miner;
 import com.rustorio.model.Tile;
@@ -138,8 +143,7 @@ public final class Renderer implements Disposable {
                 // новое здание — компилятор ПОТРЕБУЕТ здесь новую ветку.
                 switch (b) {
                     case Miner m -> {
-                        float progress = clamp(1f - m.cooldown() / Config.MINER_TIME, 0f, 0.999f);
-                        int frame = (int) (progress * 3);
+                        int frame = (int) (clamp(m.progressFraction(), 0f, 0.999f) * 3);
                         batch.draw(textures.miner[frame], px, py, TILE, TILE);
                     }
                     case Belt belt -> {
@@ -148,11 +152,16 @@ public final class Renderer implements Disposable {
                                 TILE, TILE, 1f, 1f, beltRotation(belt.dir()));
                     }
                     case Furnace f -> batch.draw(
-                            f.input().isPresent() ? textures.furnaceOn : textures.furnaceOff,
+                            f.hasStock() ? textures.furnaceOn : textures.furnaceOff,
                             px, py, TILE, TILE);
                     // `_` — здание известно по типу, а само значение здесь не нужно.
                     case Assembler _ -> batch.draw(textures.assembler, px, py, TILE, TILE);
                     case Chest _ -> batch.draw(textures.chest, px, py, TILE, TILE);
+                    case Splitter s -> batch.draw(textures.splitter, px, py, TILE / 2, TILE / 2,
+                            TILE, TILE, 1f, 1f, beltRotation(s.dir()));
+                    case UndergroundBelt u -> batch.draw(textures.underground, px, py,
+                            TILE / 2, TILE / 2, TILE, TILE, 1f, 1f, beltRotation(u.dir()));
+                    case Lab _ -> batch.draw(textures.lab, px, py, TILE, TILE);
                 }
             }
         }
@@ -175,15 +184,17 @@ public final class Renderer implements Disposable {
                     case Miner m ->
                             drawArrow(px, py, m.dir(), m.outputItem().isEmpty() && tile.hasOre());
                     case Furnace f -> {
-                        drawArrow(px, py, f.dir(), f.input().isPresent() && f.outputItem().isEmpty());
+                        drawArrow(px, py, f.dir(), f.isWorking());
                         drawProgressBar(px, py, f.progressFraction());
                     }
                     case Assembler a -> {
-                        drawArrow(px, py, a.dir(), a.input().isPresent() && a.outputItem().isEmpty());
+                        drawArrow(px, py, a.dir(), a.isWorking());
                         drawProgressBar(px, py, a.progressFraction());
                     }
                     case Belt _ -> { /* у ленты стрелки нет */ }
                     case Chest _ -> { /* у ящика накладок нет */ }
+                    case Lab lab -> drawProgressBar(px, py, lab.progressFraction());
+                    case Splitter _, UndergroundBelt _ -> { /* заглушки: накладок нет */ }
                 }
             }
         }
@@ -227,21 +238,50 @@ public final class Renderer implements Disposable {
                 float py = tileYBottom(y);
                 switch (b) {
                     case Miner m -> m.outputItem().ifPresent(it -> drawItemIcon(px, py, it));
-                    case Belt belt -> belt.item().ifPresent(it -> drawItemIcon(px, py, it));
-                    case Furnace f -> shownItem(f.outputItem().orElse(null), f.input().orElse(null))
-                            .ifPresent(it -> drawItemIcon(px, py, it));
-                    case Assembler a -> shownItem(a.outputItem().orElse(null), a.input().orElse(null))
-                            .ifPresent(it -> drawItemIcon(px, py, it));
+                    // Предметы на лентах рисуются НЕ здесь: они больше не принадлежат
+                    // клетке, а едут внутри линии — см. drawBeltItems().
+                    case Belt _ -> { }
+                    case Furnace f -> f.displayItem().ifPresent(it -> drawItemIcon(px, py, it));
+                    case Assembler a -> a.displayItem().ifPresent(it -> drawItemIcon(px, py, it));
                     case Chest c -> {
                         font.getData().setScale(0.9f);
                         font.setColor(Color.WHITE);
                         font.draw(batch, Integer.toString(c.items()), px + 6, py + 20);
                     }
+                    case Lab lab -> {
+                        font.getData().setScale(0.9f);
+                        font.setColor(Color.WHITE);
+                        font.draw(batch, Integer.toString(lab.points()), px + 6, py + 20);
+                    }
+                    case Splitter _, UndergroundBelt _ -> { /* заглушки: предметов нет */ }
                 }
             }
         }
+        drawBeltItems(world, game.tickAlpha());
         drawHud(game);
         batch.end();
+    }
+
+    /**
+     * Предметы, едущие по транспортным линиям.
+     *
+     * <p><b>Здесь и появляется плавность.</b> Модель считает целыми слотами и
+     * шагает пять раз в секунду; {@code alpha} — доля прожитого тика — говорит,
+     * насколько предмет уже уехал от прошлой позиции к текущей. Дробные координаты
+     * существуют только тут, в отрисовке: симуляция остаётся целочисленной и
+     * воспроизводимой.
+     */
+    private void drawBeltItems(World world, float alpha) {
+        float size = TILE * 0.42f;
+        for (BeltSegment segment : world.belts().segments()) {
+            for (BeltItemPos pos : segment.itemPositions(alpha)) {
+                // Целая координата — это ЦЕНТР клетки, поэтому +0.5 клетки.
+                float cx = Config.OFFSET_X + (pos.x() + 0.5f) * TILE;
+                float cy = worldHeight - Config.OFFSET_Y - (pos.y() + 0.5f) * TILE;
+                batch.draw(textures.itemTexture(pos.item()),
+                        cx - size / 2f, cy - size / 2f, size, size);
+            }
+        }
     }
 
     private void drawHud(GameState game) {
@@ -253,10 +293,34 @@ public final class Renderer implements Disposable {
         font.draw(batch, status, 20, worldHeight - 16);
         font.setColor(C_HINT);
         font.getData().setScale(0.9f);
-        font.draw(batch,
-                "1 Miner  2 Belt  3 Furnace  4 Chest  5 Assembler    |    "
-                        + "LMB place   RMB remove   R rotate   Space pause",
-                20, worldHeight - 46);
+        // Панель собирается из СПИСКА инструментов: добавили здание — подсказка
+        // обновилась сама. Раньше эта строка была захардкожена и врала бы.
+        StringBuilder hints = new StringBuilder();
+        for (com.rustorio.core.Tool t : com.rustorio.core.Tool.values()) {
+            hints.append(t.hotkeySlot()).append(' ').append(t.displayName()).append("  ");
+        }
+        hints.append("   |    LMB place   RMB remove   R rotate   Space pause");
+        font.draw(batch, hints.toString(), 20, worldHeight - 46);
+
+        // Строка исследований: очки и состояние каждой технологии. Собирается из ДАННЫХ
+        // (Tech.values() + таблица Technology), поэтому новая технология появится тут сама.
+        var research = game.research();
+        StringBuilder techs = new StringBuilder("Science: " + research.points() + "    ");
+        for (com.rustorio.core.Tech tech : com.rustorio.core.Tech.values()) {
+            var technology = com.rustorio.model.Technology.of(tech);
+            String state;
+            if (research.isUnlocked(tech)) {
+                state = "OK";
+            } else if (research.canResearch(tech)) {
+                state = "ready";
+            } else {
+                state = String.valueOf(technology.cost());
+            }
+            techs.append('F').append(tech.ordinal() + 1).append(' ')
+                    .append(tech.displayName()).append(" [").append(state).append("]   ");
+        }
+        font.setColor(C_HINT);
+        font.draw(batch, techs.toString(), 20, worldHeight - 66);
         font.getData().setScale(1f);
     }
 
@@ -302,14 +366,6 @@ public final class Renderer implements Disposable {
     private void drawItemIcon(float px, float py, Item item) {
         float size = TILE * 0.4f;
         batch.draw(textures.itemTexture(item), px + TILE - size - 2, py + 2, size, size);
-    }
-
-    /** Что показать на машине: приоритет у продукта, иначе — сырьё. */
-    private static java.util.Optional<Item> shownItem(Item output, Item input) {
-        if (output != null) {
-            return java.util.Optional.of(output);
-        }
-        return java.util.Optional.ofNullable(input);
     }
 
     /** Угол поворота спрайта ленты (спрайт нарисован вдоль East), Y-вверх. */

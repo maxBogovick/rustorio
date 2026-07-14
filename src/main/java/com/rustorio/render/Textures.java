@@ -1,6 +1,7 @@
 package com.rustorio.render;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Disposable;
@@ -29,9 +30,14 @@ public final class Textures implements Disposable {
     final Texture furnaceOn;
     final Texture furnaceOff;
     final Texture assembler;
+    final TextureRegion splitter;
+    final TextureRegion underground;
+    /** Плашка-заглушка: нарисованного спрайта лаборатории в resources/ ещё нет. */
+    final Texture lab;
     private final Texture ironOre;
     private final Texture ironPlate;
     private final Texture gear;
+    private final Texture mechanism;
 
     public Textures() {
         miner[0] = load("resources/miner_1.png");
@@ -43,9 +49,30 @@ public final class Textures implements Disposable {
         furnaceOn = load("resources/furnace_on.png");
         furnaceOff = load("resources/furnace_off.png");
         assembler = load("resources/assembler.png");
+        splitter = new TextureRegion(load("resources/branch_1.png"));
+        underground = new TextureRegion(load("resources/underground_in.png"));
+        lab = solidColor(0.45f, 0.30f, 0.65f);
         ironOre = load("resources/iron_ore.png");
         ironPlate = load("resources/iron_plate.png");
         gear = load("resources/iron_gear.png");
+        // Новый предмет — компилятор ПОТРЕБОВАЛ ветку в itemTexture(): «карта задач» в деле.
+        mechanism = load("resources/bronse_gear.png");
+    }
+
+    /**
+     * Однотонная плашка, нарисованная в памяти.
+     *
+     * <p>Нужна лаборатории: спрайты сплиттера и подземки в {@code resources/} лежат
+     * (остались от Rust-версии), а лаборатории — нет. Честнее нарисовать заметную
+     * заглушку, чем подсунуть чужую картинку и потом гадать, что это за здание.
+     */
+    private static Texture solidColor(float r, float g, float b) {
+        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pixmap.setColor(r, g, b, 1f);
+        pixmap.fill();
+        Texture texture = new Texture(pixmap);
+        pixmap.dispose(); // Pixmap живёт в обычной памяти, текстура уже уехала в GPU
+        return texture;
     }
 
     private static Texture load(String path) {
@@ -60,6 +87,7 @@ public final class Textures implements Disposable {
             case IRON_ORE -> ironOre;
             case IRON_PLATE -> ironPlate;
             case GEAR -> gear;
+            case MECHANISM -> mechanism;
         };
     }
 
@@ -75,8 +103,12 @@ public final class Textures implements Disposable {
         furnaceOn.dispose();
         furnaceOff.dispose();
         assembler.dispose();
+        splitter.getTexture().dispose();
+        underground.getTexture().dispose();
+        lab.dispose();
         ironOre.dispose();
         ironPlate.dispose();
         gear.dispose();
+        mechanism.dispose();
     }
 }

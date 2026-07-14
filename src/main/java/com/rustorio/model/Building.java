@@ -2,6 +2,7 @@ package com.rustorio.model;
 
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
+import com.rustorio.core.TickContext;
 import com.rustorio.core.Tool;
 
 import java.util.Optional;
@@ -31,15 +32,17 @@ import java.util.Optional;
  * {@code render} (стрелки зависимостей смотрят вниз, к данным).
  */
 public sealed interface Building
-        permits Miner, Belt, Furnace, Chest, Assembler {
+        permits Miner, Belt, Furnace, Chest, Assembler, Splitter, UndergroundBelt, Lab {
 
     /**
      * «Внутренняя» работа здания за один шаг симуляции (тик).
      *
-     * @param dt     длительность тика в секундах
-     * @param hasOre есть ли под зданием залежь руды (нужно только буру)
+     * <p>Единственный параметр — {@link TickContext}: коробка со всем, что нужно всем
+     * зданиям (длина тика, баланс). Раньше здесь был ещё {@code boolean hasOre},
+     * нужный ОДНОМУ буру, но навязанный всем; теперь бур узнаёт про руду при
+     * постройке, а сигнатура этого метода больше не меняется никогда.
      */
-    void update(float dt, boolean hasOre);
+    void update(TickContext ctx);
 
     /**
      * Что здание готово отдать соседу прямо сейчас (и в какую сторону).
@@ -89,6 +92,9 @@ public sealed interface Building
             case FURNACE -> new Furnace(dir);
             case CHEST -> new Chest();
             case ASSEMBLER -> new Assembler(dir);
+            case SPLITTER -> new Splitter(dir);
+            case UNDERGROUND -> new UndergroundBelt(dir);
+            case LAB -> new Lab();
         };
     }
 }

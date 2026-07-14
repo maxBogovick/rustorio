@@ -2,6 +2,7 @@ package com.rustorio.model;
 
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
+import com.rustorio.core.TickContext;
 
 import java.util.Optional;
 
@@ -14,7 +15,7 @@ public final class Chest implements Building {
     private int items;
 
     @Override
-    public void update(float dt, boolean hasOre) {
+    public void update(TickContext ctx) {
         // Ящик пассивен: за тик ничего не делает.
     }
 
