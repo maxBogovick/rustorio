@@ -1,0 +1,53 @@
+plugins {
+    id 'application'
+}
+
+group = 'com.rustorio'
+version = '0.1.0'
+
+// Java 21 LTS. Toolchain фиксирует версию: сборка одинакова у всех, даже если
+// у разработчика в PATH другой JDK.
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+// Версии зависимостей — сверху, чтобы «крутить» их в одном месте.
+ext {
+    gdxVersion = '1.14.2'   // последняя стабильная libGDX (май 2026)
+    junitVersion = '5.11.3'
+}
+
+dependencies {
+    implementation "com.badlogicgames.gdx:gdx:$gdxVersion"
+    implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+    // Нативные библиотеки движка для десктопа (OpenGL/окно/ввод).
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+
+    testImplementation platform("org.junit:junit-bom:$junitVersion")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+application {
+    mainClass = 'com.rustorio.Main'
+}
+
+// Ассеты (спрайты) лежат в resources/. Запускаем из корня проекта, чтобы
+// Gdx.files.internal("resources/...") их находил.
+run {
+    workingDir = rootProject.projectDir
+    // На macOS бэкенд LWJGL3/GLFW обязан работать на главном потоке.
+    if (System.getProperty('os.name').toLowerCase().contains('mac')) {
+        jvmArgs += '-XstartOnFirstThread'
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
