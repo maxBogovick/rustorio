@@ -22,8 +22,24 @@ repositories {
 // Версии зависимостей — сверху, чтобы «крутить» их в одном месте.
 ext {
     gdxVersion = '1.14.2'   // последняя стабильная libGDX (май 2026)
+    lwjglVersion = '3.3.6'  // libGDX 1.14.2 тянет 3.3.3 (старше Java 25); см. ниже
     junitVersion = '5.11.3'
     jspecifyVersion = '1.0.0'
+    archunitVersion = '1.4.2'
+}
+
+// libGDX 1.14.2 по умолчанию подтягивает LWJGL 3.3.3, который старше Java 25 и на
+// запуске ругается «Unsupported JNI version… may crash». Поднимаем весь набор
+// LWJGL (включая natives-классификаторы) до 3.3.6 — та же ветка API 3.3, что ждёт
+// libGDX, но с поддержкой актуальных JDK. На 3.4.x не идём: там переход на FFM,
+// который может разойтись с API бэкенда libGDX.
+configurations.all {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'org.lwjgl') {
+            details.useVersion(lwjglVersion)
+            details.because('поддержка Java 25; по умолчанию libGDX тянет LWJGL 3.3.3')
+        }
+    }
 }
 
 dependencies {
@@ -40,6 +56,10 @@ dependencies {
     testImplementation platform("org.junit:junit-bom:$junitVersion")
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // ArchUnit: архитектурные инварианты как обычные тесты — ацикличность,
+    // изоляция домена и направление зависимостей проверяются на каждой сборке.
+    testImplementation "com.tngtech.archunit:archunit-junit5:$archunitVersion"
 }
 
 application {
@@ -50,6 +70,10 @@ application {
 // Gdx.files.internal("resources/...") их находил.
 tasks.named('run', JavaExec) {
     workingDir = rootProject.projectDir
+    // Java 25 предупреждает про «restricted method» при загрузке нативных
+    // библиотек движка. Явно разрешаем native access (в будущих версиях без
+    // этого флага вызовы начнут блокироваться).
+    jvmArgs('--enable-native-access=ALL-UNNAMED')
     // На macOS бэкенд LWJGL3/GLFW обязан работать на главном потоке.
     if (System.getProperty('os.name').toLowerCase().contains('mac')) {
         jvmArgs('-XstartOnFirstThread')
