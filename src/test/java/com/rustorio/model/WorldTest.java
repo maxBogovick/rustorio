@@ -1,122 +1,61 @@
 package com.rustorio.model;
 
-import com.rustorio.core.Direction;
-import com.rustorio.core.Item;
-import com.rustorio.core.Tool;
-import org.junit.jupiter.api.DisplayName;
+import com.rustorio.core.Config;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Тесты хранения мира: соседи, правила постановки зданий, обход.
- *
- * <p><b>Важно про этот файл.</b> Он написан ТОЛЬКО через координаты
- * ({@code tile(x, y)}, {@code neighborBuilding(x, y, dir)}) и ничего не знает о том,
- * как мир хранит клетки. Это не стилистика, а условие: в задаче B1 мир изнутри станет
- * набором чанков, и тогда эти тесты обязаны пройти БЕЗ ЕДИНОЙ ПРАВКИ. Если после B1
- * их пришлось чинить — значит, устройство мира протекло наружу.
+ * Мир — чистая модель без движка: тестируется без окна и OpenGL.
+ * Эти тесты стерегут два свойства фундамента, на которых стоит весь курс:
+ * ленивые чанки и детерминированную руду.
  */
 class WorldTest {
 
     @Test
-    @DisplayName("Соседа за краем поля не существует")
-    void neighborRespectsEdges() {
-        World world = World.generate(3, 2);
-        world.place(1, 0, Building.create(Tool.BELT, Direction.EAST));
-
-        assertNull(world.neighborBuilding(0, 0, Direction.WEST), "за левым краем никого нет");
-        assertNull(world.neighborBuilding(0, 0, Direction.NORTH), "за верхним краем никого нет");
-        assertInstanceOf(Belt.class, world.neighborBuilding(0, 0, Direction.EAST),
-                "сосед справа — лента, которую мы поставили");
+    void freshWorldCreatesNoChunks() {
+        // Кусок мира создаётся, только когда в него заглянули. Пустой мир —
+        // ноль кусков: память не тратится на клетки, которых никто не видел.
+        World world = World.generate(Config.GRID_W, Config.GRID_H);
+        assertEquals(0, world.chunkCount());
     }
 
     @Test
-    @DisplayName("Повторная постановка не сбрасывает содержимое, другой тип не затирает")
-    void placeProtectsExistingBuilding() {
-        World world = World.generate(1, 1);
-        world.place(0, 0, Building.create(Tool.BELT, Direction.EAST));
-        ((Belt) world.tile(0, 0).building()).accept(Item.IRON_ORE);
-
-        // Такая же лента поверх — предмет на месте.
-        world.place(0, 0, Building.create(Tool.BELT, Direction.EAST));
-        Belt belt = assertInstanceOf(Belt.class, world.tile(0, 0).building());
-        assertTrue(belt.item().isPresent(), "повторная постановка не должна сбрасывать предмет");
-
-        // Другой тип поверх — существующее здание НЕ затёрто.
-        world.place(0, 0, Building.create(Tool.MINER, Direction.EAST));
-        assertInstanceOf(Belt.class, world.tile(0, 0).building());
-    }
-
-    @Test
-    @DisplayName("Смена направления тем же типом обновляет здание")
-    void placeReplacesWhenDirectionDiffers() {
-        World world = World.generate(1, 1);
-        world.place(0, 0, Building.create(Tool.BELT, Direction.EAST));
-        world.place(0, 0, Building.create(Tool.BELT, Direction.SOUTH));
-        Belt belt = assertInstanceOf(Belt.class, world.tile(0, 0).building());
-        assertSame(Direction.SOUTH, belt.dir());
-    }
-
-    @Test
-    @DisplayName("Постановка вне поля безопасна (ничего не происходит)")
-    void placeOutOfBoundsIsSafe() {
-        World world = World.generate(2, 2);
-        world.place(-1, 0, Building.create(Tool.BELT, Direction.EAST));
-        world.place(5, 5, Building.create(Tool.BELT, Direction.EAST));
-        assertFalse(world.inBounds(-1, 0));
-        assertFalse(world.inBounds(5, 5));
-    }
-
-    @Test
-    @DisplayName("Мир сообщает буру про руду при постройке — здание не знает своих координат")
-    void minerLearnsAboutOreWhenPlaced() {
-        World world = World.generate(20, 20);
-        world.place(6, 5, Building.create(Tool.MINER, Direction.EAST));   // на руде
-        world.place(0, 0, Building.create(Tool.MINER, Direction.EAST));   // без руды
-
-        assertTrue(((Miner) world.tile(6, 5).building()).onOre());
-        assertFalse(((Miner) world.tile(0, 0).building()).onOre());
-    }
-
-    // ── Чанки (задача B1). Тесты ВЫШЕ не менялись — в этом и была цель. ──
-
-    @Test
-    @DisplayName("Пустой мир не создаёт ни одного куска")
-    void emptyWorldAllocatesNothing() {
-        World world = World.generate(250, 250);
-        assertSame(0, world.chunkCount(), "пока в мир не заглянули — он ничего не занимает");
-
+    void readingOneTileCreatesExactlyOneChunk() {
+        World world = World.generate(Config.GRID_W, Config.GRID_H);
         world.tile(0, 0);
-        assertSame(1, world.chunkCount(), "заглянули в один угол — создался один кусок");
-
-        world.tile(200, 200);
-        assertSame(2, world.chunkCount(), "далёкая клетка — ещё один кусок, а не весь мир");
+        assertEquals(1, world.chunkCount());
+        // Соседняя клетка того же куска 32×32 второй кусок не создаёт.
+        world.tile(5, 7);
+        assertEquals(1, world.chunkCount());
     }
 
     @Test
-    @DisplayName("Клетка далеко от начала координат работает как любая другая")
-    void farAwayCellBehavesNormally() {
-        World world = World.generate(250, 250);
-        world.place(200, 200, Building.create(Tool.CHEST, Direction.EAST));
-
-        assertInstanceOf(Chest.class, world.tile(200, 200).building());
-        assertNull(world.tile(199, 200).building(), "соседняя клетка пуста");
+    void oreIsDeterministic() {
+        // Руда — функция от координат: два независимых мира обязаны согласиться
+        // о каждой клетке. Без этого не будет ни сохранений, ни честных тестов.
+        World a = World.generate(Config.GRID_W, Config.GRID_H);
+        World b = World.generate(Config.GRID_W, Config.GRID_H);
+        for (int y = 0; y < Config.GRID_H; y += 3) {
+            for (int x = 0; x < Config.GRID_W; x += 3) {
+                assertEquals(a.tile(x, y).hasOre(), b.tile(x, y).hasOre(),
+                        "клетка (" + x + ", " + y + ")");
+            }
+        }
+        // И залежи вообще существуют: центр первой — (6, 5).
+        assertTrue(a.tile(6, 5).hasOre());
+        assertFalse(a.tile(20, 30).hasOre());
     }
 
     @Test
-    @DisplayName("Обход мира видит все здания и только их")
-    void forEachBuildingVisitsEveryBuilding() {
-        World world = World.generate(5, 5);
-        world.place(1, 1, Building.create(Tool.CHEST, Direction.EAST));
-        world.place(3, 2, Building.create(Tool.CHEST, Direction.EAST));
-
-        int[] count = {0};
-        world.forEachBuilding((x, y, building) -> count[0]++);
-        assertSame(2, count[0]);
+    void inBoundsMatchesWorldSize() {
+        World world = World.generate(10, 8);
+        assertTrue(world.inBounds(0, 0));
+        assertTrue(world.inBounds(9, 7));
+        assertFalse(world.inBounds(10, 0));
+        assertFalse(world.inBounds(0, 8));
+        assertFalse(world.inBounds(-1, 0));
     }
 }

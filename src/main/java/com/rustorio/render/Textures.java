@@ -7,23 +7,25 @@ import com.badlogic.gdx.graphics.g2d.PixmapPacker;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Disposable;
-import com.rustorio.core.Item;
 
 /**
  * Все спрайты игры, загруженные ОДИН раз при старте и склеенные в ЕДИНЫЙ атлас.
  *
- * <p><b>Зачем атлас (задача A2).</b> Видеокарта рисует «пачками» и обязана прервать
- * пачку при каждой смене текстуры. Пока у каждого спрайта своя {@link Texture}, на
- * соседних клетках стоят бур/лента/печь — смена почти на каждой клетке, и пачка
- * рвётся десятки тысяч раз за кадр. Склеив все спрайты в одну большую картинку
- * (одну {@link Texture}), мы убираем смены вовсе: вся сцена рисуется одной пачкой.
+ * <p><b>Зачем атлас.</b> Видеокарта рисует «пачками» и обязана прервать пачку при
+ * каждой смене текстуры. Пока у каждого спрайта своя {@link Texture}, на соседних
+ * клетках стоят бур/лента/печь — смена почти на каждой клетке, и пачка рвётся
+ * десятки тысяч раз за кадр. Склеив все спрайты в одну большую картинку (одну
+ * {@link Texture}), мы убираем смены вовсе: вся сцена рисуется одной пачкой.
  *
  * <p><b>Как склеиваем.</b> {@link PixmapPacker} упаковывает исходные картинки в одну
  * страницу в памяти при старте — без внешнего инструмента и без правки {@code
  * build.gradle}. Наружу каждый спрайт отдаётся как {@link TextureRegion} — «окно» в
  * общий атлас; все окна смотрят в одну и ту же {@link Texture}.
  *
- * <p>Спрайты лежат в {@code resources/} (оставлены от Rust-версии), фильтр
+ * <p><b>Пока эти спрайты никто не рисует</b> — зданий в мире ещё нет. Регионы уже
+ * готовы: как только появится первое здание, его рендер возьмёт спрайт отсюда.
+ *
+ * <p>Спрайты лежат в {@code resources/}, фильтр
  * {@link Texture.TextureFilter#Nearest} — иначе пиксель-арт размажется при
  * растягивании до размера клетки. {@link Disposable} обязывает освободить атлас в
  * {@link #dispose()}: libGDX не собирает нативную память GPU сборщиком мусора.
@@ -43,12 +45,10 @@ public final class Textures implements Disposable {
     final TextureRegion assembler;
     final TextureRegion splitter;
     final TextureRegion underground;
-    /** Плашка-заглушка: нарисованного спрайта лаборатории в resources/ ещё нет. */
-    final TextureRegion lab;
-    private final TextureRegion ironOre;
-    private final TextureRegion ironPlate;
-    private final TextureRegion gear;
-    private final TextureRegion mechanism;
+    final TextureRegion ironOre;
+    final TextureRegion ironPlate;
+    final TextureRegion gear;
+    final TextureRegion mechanism;
 
     public Textures() {
         // padding=2 + duplicateBorder: соседние спрайты не «протекают» друг в друга
@@ -68,7 +68,6 @@ public final class Textures implements Disposable {
         packFile(packer, "assembler", "resources/assembler.png");
         packFile(packer, "splitter", "resources/branch_1.png");
         packFile(packer, "underground", "resources/underground_in.png");
-        packLabPlaceholder(packer);
         packFile(packer, "iron_ore", "resources/iron_ore.png");
         packFile(packer, "iron_plate", "resources/iron_plate.png");
         packFile(packer, "gear", "resources/iron_gear.png");
@@ -91,11 +90,9 @@ public final class Textures implements Disposable {
         assembler = region("assembler");
         splitter = region("splitter");
         underground = region("underground");
-        lab = region("lab");
         ironOre = region("iron_ore");
         ironPlate = region("iron_plate");
         gear = region("gear");
-        // Новый предмет — компилятор ПОТРЕБУЕТ ветку в itemTexture(): «карта задач» в деле.
         mechanism = region("mechanism");
     }
 
@@ -112,31 +109,6 @@ public final class Textures implements Disposable {
         Pixmap pixmap = new Pixmap(Gdx.files.internal(path));
         packer.pack(name, pixmap);
         pixmap.dispose(); // пиксели скопированы на страницу упаковщика
-    }
-
-    /**
-     * Заметная однотонная плашка для лаборатории.
-     *
-     * <p>Спрайты сплиттера и подземки в {@code resources/} лежат (остались от
-     * Rust-версии), а лаборатории — нет. Честнее упаковать заметную заглушку, чем
-     * подсунуть чужую картинку и потом гадать, что это за здание.
-     */
-    private static void packLabPlaceholder(PixmapPacker packer) {
-        Pixmap pixmap = new Pixmap(16, 16, Pixmap.Format.RGBA8888);
-        pixmap.setColor(0.45f, 0.30f, 0.65f, 1f);
-        pixmap.fill();
-        packer.pack("lab", pixmap);
-        pixmap.dispose();
-    }
-
-    /** Спрайт предмета по его типу. Новый предмет — одна ветка здесь. */
-    TextureRegion itemTexture(Item item) {
-        return switch (item) {
-            case IRON_ORE -> ironOre;
-            case IRON_PLATE -> ironPlate;
-            case GEAR -> gear;
-            case MECHANISM -> mechanism;
-        };
     }
 
     @Override

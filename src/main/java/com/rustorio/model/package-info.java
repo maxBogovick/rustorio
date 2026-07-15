@@ -1,7 +1,9 @@
 /**
- * Данные и поведение мира: sealed-тип {@link com.rustorio.model.Building} и его
- * реализации, {@link com.rustorio.model.World}/{@link com.rustorio.model.Tile},
- * рецепты. Отрисовки и ввода здесь нет — только модель.
+ * Данные мира: {@link com.rustorio.model.World} (фасад над чанками),
+ * {@link com.rustorio.model.Tile}, {@link com.rustorio.model.Cell}.
+ * По ходу курса здесь появятся здания (sealed-тип {@code Building} и его
+ * реализации), рецепты и транспортные линии. Отрисовки и ввода здесь нет —
+ * только модель.
  */
 @NullMarked
 package com.rustorio.model;

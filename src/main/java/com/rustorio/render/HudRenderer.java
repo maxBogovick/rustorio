@@ -4,14 +4,14 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.rustorio.core.Tech;
-import com.rustorio.core.Tool;
 import com.rustorio.game.GameState;
-import com.rustorio.model.Technology;
 
 /**
  * HUD — текст, прибитый к «стеклу» окна. Рисуется отдельной матрицей
  * ({@link GameCamera#hudMatrix()}), поэтому зум и скролл камеры его не двигают.
+ *
+ * <p>По ходу курса сюда добавятся: панель инструментов, счётчик отмен,
+ * строка исследований.
  */
 final class HudRenderer {
 
@@ -27,9 +27,11 @@ final class HudRenderer {
         float top = Gdx.graphics.getHeight();
         batch.begin();
 
-        String status = "Tool: " + game.tool().displayName()
-                + "   Dir: " + game.direction().shortName()
-                + "   Undo: " + game.undoDepth()
+        // Клетка под курсором — живое доказательство, что камера и пик работают.
+        String cell = game.hover()
+                .map(c -> "(" + c.x() + ", " + c.y() + ")")
+                .orElse("—");
+        String status = "Rustorio   Cell: " + cell
                 + (game.isPaused() ? "   [PAUSED]" : "");
         font.setColor(Color.WHITE);
         font.getData().setScale(1.15f);
@@ -37,35 +39,7 @@ final class HudRenderer {
 
         font.setColor(Palette.HINT);
         font.getData().setScale(0.9f);
-        // Панель собирается из СПИСКА инструментов: добавили здание — подсказка
-        // обновилась сама. Раньше эта строка была захардкожена и врала бы.
-        StringBuilder hints = new StringBuilder();
-        for (Tool t : Tool.values()) {
-            hints.append(t.hotkeySlot()).append(' ').append(t.displayName()).append("  ");
-        }
-        hints.append("   |    LMB place   RMB remove   R rotate   Ctrl+Z/Y undo/redo"
-                + "   F5 save   F9 load   Space pause   WASD/MMB pan   wheel zoom");
-        font.draw(batch, hints.toString(), 20, top - 46);
-
-        // Строка исследований: очки и состояние каждой технологии. Собирается из ДАННЫХ
-        // (Tech.values() + таблица Technology), поэтому новая технология появится тут сама.
-        var research = game.research();
-        StringBuilder techs = new StringBuilder("Science: " + research.points() + "    ");
-        for (Tech tech : Tech.values()) {
-            Technology technology = Technology.of(tech);
-            String state;
-            if (research.isUnlocked(tech)) {
-                state = "OK";
-            } else if (research.canResearch(tech)) {
-                state = "ready";
-            } else {
-                state = String.valueOf(technology.cost());
-            }
-            techs.append('F').append(tech.ordinal() + 1).append(' ')
-                    .append(tech.displayName()).append(" [").append(state).append("]   ");
-        }
-        font.setColor(Palette.HINT);
-        font.draw(batch, techs.toString(), 20, top - 66);
+        font.draw(batch, "WASD/arrows/MMB pan   wheel zoom   Space pause", 20, top - 46);
         font.getData().setScale(1f);
 
         batch.end();
