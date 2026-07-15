@@ -96,6 +96,35 @@ public final class Chest implements Building {
 Обратите внимание: `Chest` — `final`. Классы из `permits` обязаны быть `final`,
 `sealed` или `non-sealed` — замкнутость списка распространяется вглубь.
 
+### ❌ Частые неправильные варианты (шаг 1)
+
+```java
+public class Chest implements Building { ... }
+// компилятор: sealed, non-sealed or final modifiers expected
+// Забыли final. Замкнутость иерархии распространяется вглубь — иначе кто угодно
+// отнаследовался бы от Chest и пролез в иерархию через чёрный ход.
+```
+
+```java
+static Optional<Building> create(Tool tool, Direction dir) {
+    return switch (tool) {
+        case CHEST -> Optional.of(new Chest());
+        default -> Optional.empty();   // ← компилируется. И ЭТО ПЛОХО.
+    };
+}
+// default «съедает» будущие инструменты: добавите Tool.LAB — компилятор
+// промолчит, а клавиша 8 будет молча мёртвой. Перечисляйте ветки явно:
+// case MINER, BELT, FURNACE -> Optional.empty();
+```
+
+```java
+@Override
+public Optional<Direction> direction() {
+    return null;   // ← НЕТ. Возвращать null вместо Optional.empty() —
+}                  // худшее из двух миров: сигнатура обещает коробку,
+                   // а прилетает бомба. Optional либо есть, либо empty.
+```
+
 ---
 
 ## П2 — Какой баг предотвращает правило «sameKind — не пересоздаём»
@@ -202,9 +231,10 @@ public void remove(int x, int y) {
 
 ## П4 — Ввод: направление
 
-Два блока по образцу друг друга: `Gdx.input.isButtonPressed(Input.Buttons.LEFT)` →
-`game.hover().ifPresent(...)` → внутри фабрика + `ifPresent(place)`. Для ПКМ —
-`Input.Buttons.RIGHT` и `remove`. Не забудьте импорт `com.rustorio.model.Building`.
+Начните с «многословной» версии из алгоритма шага 3 (`isPresent()`/`get()` через
+`if`) — она правильная. Затем сверните в цепочку: `game.hover().ifPresent(...)` →
+внутри фабрика + `ifPresent(place)`. Для ПКМ — `Input.Buttons.RIGHT` и `remove`,
+без фабрики. Не забудьте импорт `com.rustorio.model.Building`.
 
 ## Р4 — InputHandler: что добавить
 
@@ -223,6 +253,19 @@ if (Gdx.input.isButtonPressed(Input.Buttons.LEFT)) {
 if (Gdx.input.isButtonPressed(Input.Buttons.RIGHT)) {
     game.hover().ifPresent(cell -> game.world().remove(cell.x(), cell.y()));
 }
+```
+
+«Многословная» версия с `isPresent()/get()` из шага 3 — тоже засчитывается: она
+делает то же самое. Свёрнутая читается быстрее, когда глаз привыкнет к лямбдам;
+если пока не привык — оставьте развёрнутую и вернитесь через лекцию.
+
+### ❌ Частая ошибка (шаг 3)
+
+```java
+if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) { ... }
+// «JustPressed» = только в кадр нажатия: линию протаскиванием нарисовать
+// нельзя, каждый ящик — отдельный клик. Нам нужно «зажата» = isButtonPressed;
+// от пересоздания на месте защищает sameKind-правило мира, а не ввод.
 ```
 
 ---
@@ -310,3 +353,26 @@ buildingRenderer.renderSprites(world, visible);                  // 2. спра�
 ```
 
 Порядок вызовов — это порядок слоёв картинки: земля под зданиями, HUD поверх всего.
+
+### ❌ Частые неправильные варианты (шаг 4)
+
+```java
+switch (b) {
+    case Chest _ -> batch.draw(...);
+    default -> {}   // ← компилируется — и НАВСЕГДА выключает проверку полноты.
+}                   // Правило курса: в switch по sealed-типам default запрещён.
+```
+
+```java
+for (...) {
+    batch.begin();                    // ← begin/end на КАЖДУЮ клетку —
+    batch.draw(...);                  // видеокарта рисует по одному спрайту,
+    batch.end();                      // весь смысл батчинга (и атласа из L0) убит.
+}                                     // begin — один раз ДО циклов, end — после.
+```
+
+```java
+float py = y * Config.TILE;           // ← свой расчёт Y вместо grid.yBottom(y):
+                                      // здания встанут зеркально по вертикали.
+                                      // Переворот оси живёт ТОЛЬКО в Grid.
+```
