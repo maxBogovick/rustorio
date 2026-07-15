@@ -37,6 +37,12 @@ public final class Miner implements Building {
         this.cooldown = Config.MINER_TIME;
     }
 
+    /** Восстановить бур с уже готовой рудой на выходе — для загрузки сохранения (B2). */
+    public Miner(Direction dir, @Nullable Item output) {
+        this(dir);
+        this.output = output;
+    }
+
     /** Мир сообщает буру, стоит ли он на руде (см. javadoc класса). */
     void setOnOre(boolean onOre) {
         this.onOre = onOre;

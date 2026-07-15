@@ -5,6 +5,7 @@ import com.rustorio.core.Config;
 import com.rustorio.core.Direction;
 import com.rustorio.core.TickContext;
 import com.rustorio.core.Tool;
+import com.rustorio.game.action.PlayerAction;
 import com.rustorio.model.Cell;
 import com.rustorio.model.World;
 import com.rustorio.sim.Simulation;
@@ -37,6 +38,8 @@ public final class GameState {
     private final Balance balance = new Balance();
     /** Прогресс исследований: очки из лабораторий и открытые технологии. */
     private final Research research = new Research(balance);
+    /** История отмен строительных действий (паттерн Command). */
+    private final ActionHistory history = new ActionHistory();
     private Tool tool = Tool.MINER;
     private Direction direction = Direction.EAST;
     private boolean paused = false;
@@ -118,6 +121,49 @@ public final class GameState {
      */
     public float tickAlpha() {
         return Math.min(accumulator / Config.TICK, 1f);
+    }
+
+    /** Сколько отмен доступно сейчас (читает HUD). */
+    public int undoDepth() {
+        return history.undoDepth();
+    }
+
+    // ── Действия игрока (паттерн Command) ─────────────────────────────
+
+    /**
+     * Выполнить команду и записать её в историю (атомарно: применили → запомнили).
+     * Канонический «вызов» команды.
+     */
+    public void perform(PlayerAction action) {
+        action.apply(world);
+        history.push(action);
+    }
+
+    /**
+     * Записать в историю команду, которую слой ввода уже применил САМ.
+     *
+     * <p>Нужно протаскиванию: пока игрок ведёт линию с зажатой ЛКМ, каждая клетка
+     * применяется сразу (иначе линия не рисовалась бы под курсором), а в историю весь
+     * штрих кладётся ОДНОЙ командой лишь на отпускании кнопки. Здесь мы только запоминаем,
+     * не применяя повторно.
+     */
+    public void commit(PlayerAction action) {
+        history.push(action);
+    }
+
+    /** Забыть историю отмен. Загрузка сохранения зовёт это: прежние команды больше не к месту. */
+    public void resetHistory() {
+        history.clear();
+    }
+
+    /** Отменить последнее строительное действие. */
+    public void undo() {
+        history.undo(world);
+    }
+
+    /** Повторить последнее отменённое действие. */
+    public void redo() {
+        history.redo(world);
     }
 
     // ── Состояние: изменение (этим пользуется слой ввода) ─────────────

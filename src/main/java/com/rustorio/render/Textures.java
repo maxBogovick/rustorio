@@ -3,86 +3,134 @@ package com.rustorio.render;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.PixmapPacker;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Disposable;
 import com.rustorio.core.Item;
 
 /**
- * Все спрайты игры, загруженные ОДИН раз при старте.
+ * Все спрайты игры, загруженные ОДИН раз при старте и склеенные в ЕДИНЫЙ атлас.
  *
- * <p>Текстуры — это ресурсы GPU, их нельзя грузить каждый кадр (утечка памяти и
- * тормоза), поэтому грузим один раз здесь и держим до выхода. {@link Disposable}
- * обязывает освободить их в {@link #dispose()} — libGDX сам не собирает нативную
- * память сборщиком мусора.
+ * <p><b>Зачем атлас (задача A2).</b> Видеокарта рисует «пачками» и обязана прервать
+ * пачку при каждой смене текстуры. Пока у каждого спрайта своя {@link Texture}, на
+ * соседних клетках стоят бур/лента/печь — смена почти на каждой клетке, и пачка
+ * рвётся десятки тысяч раз за кадр. Склеив все спрайты в одну большую картинку
+ * (одну {@link Texture}), мы убираем смены вовсе: вся сцена рисуется одной пачкой.
+ *
+ * <p><b>Как склеиваем.</b> {@link PixmapPacker} упаковывает исходные картинки в одну
+ * страницу в памяти при старте — без внешнего инструмента и без правки {@code
+ * build.gradle}. Наружу каждый спрайт отдаётся как {@link TextureRegion} — «окно» в
+ * общий атлас; все окна смотрят в одну и ту же {@link Texture}.
  *
  * <p>Спрайты лежат в {@code resources/} (оставлены от Rust-версии), фильтр
  * {@link Texture.TextureFilter#Nearest} — иначе пиксель-арт размажется при
- * растягивании до размера клетки.
+ * растягивании до размера клетки. {@link Disposable} обязывает освободить атлас в
+ * {@link #dispose()}: libGDX не собирает нативную память GPU сборщиком мусора.
  */
 public final class Textures implements Disposable {
 
+    /** Единственная текстура-атлас, куда смотрят все регионы ниже. */
+    private final TextureAtlas atlas;
+
     // Бур: 3 кадра прогресса добычи.
-    final Texture[] miner = new Texture[3];
-    // Лента: 2 кадра «бегущей дорожки». TextureRegion — чтобы рисовать с
-    // поворотом под направление.
+    final TextureRegion[] miner = new TextureRegion[3];
+    // Лента: 2 кадра «бегущей дорожки», рисуются с поворотом под направление.
     final TextureRegion[] belt = new TextureRegion[2];
-    final Texture chest;
-    final Texture furnaceOn;
-    final Texture furnaceOff;
-    final Texture assembler;
+    final TextureRegion chest;
+    final TextureRegion furnaceOn;
+    final TextureRegion furnaceOff;
+    final TextureRegion assembler;
     final TextureRegion splitter;
     final TextureRegion underground;
     /** Плашка-заглушка: нарисованного спрайта лаборатории в resources/ ещё нет. */
-    final Texture lab;
-    private final Texture ironOre;
-    private final Texture ironPlate;
-    private final Texture gear;
-    private final Texture mechanism;
+    final TextureRegion lab;
+    private final TextureRegion ironOre;
+    private final TextureRegion ironPlate;
+    private final TextureRegion gear;
+    private final TextureRegion mechanism;
 
     public Textures() {
-        miner[0] = load("resources/miner_1.png");
-        miner[1] = load("resources/miner_2.png");
-        miner[2] = load("resources/miner_3.png");
-        belt[0] = new TextureRegion(load("resources/belt_1.png"));
-        belt[1] = new TextureRegion(load("resources/belt_2.png"));
-        chest = load("resources/chest.png");
-        furnaceOn = load("resources/furnace_on.png");
-        furnaceOff = load("resources/furnace_off.png");
-        assembler = load("resources/assembler.png");
-        splitter = new TextureRegion(load("resources/branch_1.png"));
-        underground = new TextureRegion(load("resources/underground_in.png"));
-        lab = solidColor(0.45f, 0.30f, 0.65f);
-        ironOre = load("resources/iron_ore.png");
-        ironPlate = load("resources/iron_plate.png");
-        gear = load("resources/iron_gear.png");
-        // Новый предмет — компилятор ПОТРЕБОВАЛ ветку в itemTexture(): «карта задач» в деле.
-        mechanism = load("resources/bronse_gear.png");
+        // padding=2 + duplicateBorder: соседние спрайты не «протекают» друг в друга
+        // при повороте/растяжении, а край каждого спрайта продлён в отступ.
+        PixmapPacker packer = new PixmapPacker(1024, 1024, Pixmap.Format.RGBA8888, 2, true);
+        // Имена БЕЗ завершающих цифр: generateTextureAtlas() разбирает хвостовые
+        // цифры имени в «индекс региона» ("miner_1" → name="miner", index=1), и
+        // тогда findRegion("miner_1") ничего не находит. Суффиксы-буквы этого избегают.
+        packFile(packer, "miner_a", "resources/miner_1.png");
+        packFile(packer, "miner_b", "resources/miner_2.png");
+        packFile(packer, "miner_c", "resources/miner_3.png");
+        packFile(packer, "belt_a", "resources/belt_1.png");
+        packFile(packer, "belt_b", "resources/belt_2.png");
+        packFile(packer, "chest", "resources/chest.png");
+        packFile(packer, "furnace_on", "resources/furnace_on.png");
+        packFile(packer, "furnace_off", "resources/furnace_off.png");
+        packFile(packer, "assembler", "resources/assembler.png");
+        packFile(packer, "splitter", "resources/branch_1.png");
+        packFile(packer, "underground", "resources/underground_in.png");
+        packLabPlaceholder(packer);
+        packFile(packer, "iron_ore", "resources/iron_ore.png");
+        packFile(packer, "iron_plate", "resources/iron_plate.png");
+        packFile(packer, "gear", "resources/iron_gear.png");
+        packFile(packer, "mechanism", "resources/bronse_gear.png");
+
+        // Пока всё уместилось в одну страницу 1024×1024, атлас — это ровно ОДНА
+        // текстура: все регионы делят её, и SpriteBatch не сбрасывает пачку.
+        atlas = packer.generateTextureAtlas(
+                Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest, false);
+        packer.dispose(); // страницы скопированы в текстуры атласа — упаковщик больше не нужен
+
+        miner[0] = region("miner_a");
+        miner[1] = region("miner_b");
+        miner[2] = region("miner_c");
+        belt[0] = region("belt_a");
+        belt[1] = region("belt_b");
+        chest = region("chest");
+        furnaceOn = region("furnace_on");
+        furnaceOff = region("furnace_off");
+        assembler = region("assembler");
+        splitter = region("splitter");
+        underground = region("underground");
+        lab = region("lab");
+        ironOre = region("iron_ore");
+        ironPlate = region("iron_plate");
+        gear = region("gear");
+        // Новый предмет — компилятор ПОТРЕБУЕТ ветку в itemTexture(): «карта задач» в деле.
+        mechanism = region("mechanism");
+    }
+
+    /** Регион атласа по имени; отсутствие — ошибка сборки атласа, а не тихий null. */
+    private TextureRegion region(String name) {
+        TextureRegion r = atlas.findRegion(name);
+        if (r == null) {
+            throw new IllegalStateException("В атласе нет региона: " + name);
+        }
+        return r;
+    }
+
+    private static void packFile(PixmapPacker packer, String name, String path) {
+        Pixmap pixmap = new Pixmap(Gdx.files.internal(path));
+        packer.pack(name, pixmap);
+        pixmap.dispose(); // пиксели скопированы на страницу упаковщика
     }
 
     /**
-     * Однотонная плашка, нарисованная в памяти.
+     * Заметная однотонная плашка для лаборатории.
      *
-     * <p>Нужна лаборатории: спрайты сплиттера и подземки в {@code resources/} лежат
-     * (остались от Rust-версии), а лаборатории — нет. Честнее нарисовать заметную
-     * заглушку, чем подсунуть чужую картинку и потом гадать, что это за здание.
+     * <p>Спрайты сплиттера и подземки в {@code resources/} лежат (остались от
+     * Rust-версии), а лаборатории — нет. Честнее упаковать заметную заглушку, чем
+     * подсунуть чужую картинку и потом гадать, что это за здание.
      */
-    private static Texture solidColor(float r, float g, float b) {
-        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-        pixmap.setColor(r, g, b, 1f);
+    private static void packLabPlaceholder(PixmapPacker packer) {
+        Pixmap pixmap = new Pixmap(16, 16, Pixmap.Format.RGBA8888);
+        pixmap.setColor(0.45f, 0.30f, 0.65f, 1f);
         pixmap.fill();
-        Texture texture = new Texture(pixmap);
-        pixmap.dispose(); // Pixmap живёт в обычной памяти, текстура уже уехала в GPU
-        return texture;
-    }
-
-    private static Texture load(String path) {
-        Texture texture = new Texture(Gdx.files.internal(path));
-        texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
-        return texture;
+        packer.pack("lab", pixmap);
+        pixmap.dispose();
     }
 
     /** Спрайт предмета по его типу. Новый предмет — одна ветка здесь. */
-    Texture itemTexture(Item item) {
+    TextureRegion itemTexture(Item item) {
         return switch (item) {
             case IRON_ORE -> ironOre;
             case IRON_PLATE -> ironPlate;
@@ -93,22 +141,6 @@ public final class Textures implements Disposable {
 
     @Override
     public void dispose() {
-        for (Texture t : miner) {
-            t.dispose();
-        }
-        for (TextureRegion r : belt) {
-            r.getTexture().dispose();
-        }
-        chest.dispose();
-        furnaceOn.dispose();
-        furnaceOff.dispose();
-        assembler.dispose();
-        splitter.getTexture().dispose();
-        underground.getTexture().dispose();
-        lab.dispose();
-        ironOre.dispose();
-        ironPlate.dispose();
-        gear.dispose();
-        mechanism.dispose();
+        atlas.dispose(); // одна текстура-атлас — одно освобождение
     }
 }

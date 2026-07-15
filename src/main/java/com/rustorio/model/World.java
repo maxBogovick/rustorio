@@ -1,9 +1,13 @@
 package com.rustorio.model;
 
+import com.rustorio.core.Config;
 import com.rustorio.core.Direction;
+import com.rustorio.core.Item;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -197,6 +201,43 @@ public final class World {
             belts.onBeltRemoved(new Cell(x, y), belt);
         }
         tile.setBuilding(null);
+    }
+
+    /**
+     * Снять ВСЕ здания с поля — подготовка к загрузке сохранения поверх текущей игры.
+     *
+     * <p>Снос идёт через {@link #remove}, а не «обнулить массив»: только так ленты честно
+     * выходят из своих транспортных линий, и {@link BeltNetwork} остаётся пуст и
+     * непротиворечив. Счётчик тиков НЕ сбрасываем: он монотонный, и продолжение отсчёта с
+     * большого числа безопаснее обнуления (старые «штампы» на клетках не совпадут с новым
+     * тиком и не притворятся свежими).
+     */
+    public void clear() {
+        List<Cell> occupied = new ArrayList<>();
+        forEachBuilding((x, y, building) -> occupied.add(new Cell(x, y)));
+        for (Cell cell : occupied) {
+            remove(cell.x(), cell.y());
+        }
+    }
+
+    /**
+     * Вернуть на ленту предмет из сохранения (B2). Зовётся ПОСЛЕ того, как все ленты
+     * расставлены и линии собраны, иначе клетке не на что ссылаться.
+     *
+     * @param withinSlot позиция внутри клетки (0..{@link Config#SLOTS_PER_TILE}-1)
+     */
+    public void restoreBeltItem(int x, int y, int withinSlot, Item item) {
+        if (!inBounds(x, y)) {
+            return;
+        }
+        if (!(tile(x, y).building() instanceof Belt belt)) {
+            throw new IllegalStateException("нет ленты под предмет на (" + x + "," + y + ")");
+        }
+        BeltSegment segment = belt.segment();
+        if (segment == null) {
+            throw new IllegalStateException("лента на (" + x + "," + y + ") не в линии");
+        }
+        segment.insert(item, belt.indexInSegment() * Config.SLOTS_PER_TILE + withinSlot);
     }
 
     /** Начать новый тик: все прошлые «застолблённые» клетки автоматически освобождаются. */

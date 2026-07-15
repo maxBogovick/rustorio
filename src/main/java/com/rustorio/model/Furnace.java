@@ -5,6 +5,8 @@ import com.rustorio.core.Item;
 import com.rustorio.core.TickContext;
 import com.rustorio.core.Tool;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -17,10 +19,17 @@ import java.util.Optional;
 public final class Furnace implements Building {
 
     private final Direction dir;
-    private final ProcessKernel kernel = new ProcessKernel(Tool.FURNACE);
+    private final ProcessKernel kernel;
 
     public Furnace(Direction dir) {
         this.dir = dir;
+        this.kernel = new ProcessKernel(Tool.FURNACE);
+    }
+
+    /** Восстановить печь с буфером сырья и очередью готового — для загрузки сохранения (B2). */
+    public Furnace(Direction dir, Map<Item, Integer> stock, List<Item> ready) {
+        this.dir = dir;
+        this.kernel = new ProcessKernel(Tool.FURNACE, stock, ready);
     }
 
     @Override
@@ -51,6 +60,15 @@ public final class Furnace implements Building {
     @Override
     public Optional<Direction> direction() {
         return Optional.of(dir);
+    }
+
+    // ── Снимок для сохранения (B2) ────────────────────────────────────
+    public Map<Item, Integer> stockSnapshot() {
+        return kernel.snapshotStock();
+    }
+
+    public List<Item> readySnapshot() {
+        return kernel.snapshotReady();
     }
 
     // ── Геттеры для отрисовки ────────────────────────────────────────

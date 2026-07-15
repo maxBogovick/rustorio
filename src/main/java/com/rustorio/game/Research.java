@@ -7,6 +7,7 @@ import com.rustorio.model.Lab;
 import com.rustorio.model.Technology;
 import com.rustorio.model.World;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -41,6 +42,21 @@ public final class Research {
                 points += lab.drainPoints();
             }
         });
+    }
+
+    /**
+     * Восстановить прогресс из сохранения: очки и набор открытых технологий.
+     *
+     * <p><b>Важно: эффекты технологий здесь НЕ применяются повторно.</b> Баланс
+     * восстанавливается отдельно, из своего снимка. Если бы мы тут прогнали {@code
+     * effect.applyTo(balance)} за каждую открытую технологию, а баланс при этом уже был
+     * загружен, апгрейды применились бы ДВАЖДЫ — лента поехала бы вчетверо быстрее вместо
+     * вдвое. Снимок хранит РЕЗУЛЬТАТ, а не переигрывает историю.
+     */
+    public void restore(int points, Collection<Tech> unlockedTechs) {
+        this.points = points;
+        unlocked.clear();
+        unlocked.addAll(unlockedTechs);
     }
 
     public int points() {

@@ -5,6 +5,8 @@ import com.rustorio.core.Item;
 import com.rustorio.core.TickContext;
 import com.rustorio.core.Tool;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -30,10 +32,30 @@ import java.util.Optional;
  */
 public final class Lab implements Building {
 
-    private final ProcessKernel kernel = new ProcessKernel(Tool.LAB);
+    private final ProcessKernel kernel;
 
     /** Накопленные очки исследований. Их считывает {@code Research} (задача C4). */
     private int points;
+
+    public Lab() {
+        this.kernel = new ProcessKernel(Tool.LAB);
+    }
+
+    /**
+     * Восстановить лабораторию с накопленными, но ещё не забранными очками — для загрузки
+     * сохранения. На практике {@code Research} забирает очки каждый тик, поэтому в норме
+     * тут ноль; конструктор существует ради полноты снимка.
+     */
+    public Lab(int points) {
+        this();
+        this.points = points;
+    }
+
+    /** Полный конструктор загрузки (B2): очки + буфер изучаемого сырья + очередь готового. */
+    public Lab(int points, Map<Item, Integer> stock, List<Item> ready) {
+        this.kernel = new ProcessKernel(Tool.LAB, stock, ready);
+        this.points = points;
+    }
 
     @Override
     public void update(TickContext ctx) {
@@ -72,6 +94,15 @@ public final class Lab implements Building {
     /** Сколько очков исследований накоплено. */
     public int points() {
         return points;
+    }
+
+    // ── Снимок для сохранения (B2) ────────────────────────────────────
+    public Map<Item, Integer> stockSnapshot() {
+        return kernel.snapshotStock();
+    }
+
+    public List<Item> readySnapshot() {
+        return kernel.snapshotReady();
     }
 
     /** Забрать накопленные очки в общий счёт игры (задача C4). */

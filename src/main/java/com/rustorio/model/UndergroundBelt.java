@@ -49,6 +49,27 @@ public final class UndergroundBelt implements Building {
         this.dir = dir;
     }
 
+    /**
+     * Восстановить подземку с предметами, которые были в пути, — для загрузки сохранения (B2).
+     *
+     * <p>Точную позицию каждого предмета в трубе снимок не хранит (это аналоговый таймер);
+     * восстановленные предметы кладутся на ВЫХОД, готовыми к передаче. Предметы сохраняются
+     * все до одного — «прыгает» лишь их положение внутри трубы, и то на доли секунды.
+     */
+    public UndergroundBelt(Direction dir, List<Item> carried) {
+        this.dir = dir;
+        this.arrived.addAll(carried);
+    }
+
+    /** Все предметы под землёй (доехавшие + ещё в пути) — для снимка. */
+    public List<Item> carriedItems() {
+        List<Item> all = new ArrayList<>(arrived);
+        for (Transit t : transit) {
+            all.add(t.item);
+        }
+        return all;
+    }
+
     @Override
     public void update(TickContext ctx) {
         // Движение под землёй ведёт фаза подземок в симуляции: только она знает про пару.

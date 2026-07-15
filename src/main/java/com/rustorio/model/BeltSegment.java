@@ -7,6 +7,7 @@ import com.rustorio.core.Item;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -210,5 +211,21 @@ public final class BeltSegment implements BeltView {
     // ── Внутреннее: доступ к предметам для перестройки сети ────────────
     List<BeltItem> rawItems() {
         return items;
+    }
+
+    /**
+     * Предметы линии как пары «глобальный слот → предмет» — для сохранения (B2).
+     *
+     * <p>Отдаём глобальный слот (от хвоста всей линии), а не координату клетки: клетку и
+     * позицию внутри неё сохранение выведет само (слот / {@link Config#SLOTS_PER_TILE} —
+     * номер клетки, остаток — позиция в ней). {@code Map.entry} — готовая неизменяемая пара,
+     * не заводим ради этого отдельный публичный тип.
+     */
+    public List<Map.Entry<Integer, Item>> itemSlots() {
+        List<Map.Entry<Integer, Item>> out = new ArrayList<>(items.size());
+        for (BeltItem it : items) {
+            out.add(Map.entry(it.slot, it.item));
+        }
+        return out;
     }
 }

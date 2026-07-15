@@ -26,6 +26,7 @@ ext {
     junitVersion = '5.11.3'
     jspecifyVersion = '1.0.0'
     archunitVersion = '1.4.2'
+    jacksonVersion = '2.18.2' // сериализация сохранений в JSON (слой persist)
 }
 
 // libGDX 1.14.2 по умолчанию подтягивает LWJGL 3.3.3, который старше Java 25 и на
@@ -52,6 +53,10 @@ dependencies {
     // Проверяются IDE и статическими анализаторами — контракт «может быть null»
     // становится машинно-проверяемым, а не «на словах».
     implementation "org.jspecify:jspecify:$jspecifyVersion"
+
+    // Jackson: снимок игры (сохранение/загрузка) в человекочитаемый JSON. Живёт ТОЛЬКО
+    // в слое persist; домен (core/model/sim/game) про JSON не знает — граница DTO.
+    implementation "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
 
     testImplementation platform("org.junit:junit-bom:$junitVersion")
     testImplementation 'org.junit.jupiter:junit-jupiter'

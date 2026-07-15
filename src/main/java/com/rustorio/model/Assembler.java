@@ -5,6 +5,8 @@ import com.rustorio.core.Item;
 import com.rustorio.core.TickContext;
 import com.rustorio.core.Tool;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -18,10 +20,17 @@ import java.util.Optional;
 public final class Assembler implements Building {
 
     private final Direction dir;
-    private final ProcessKernel kernel = new ProcessKernel(Tool.ASSEMBLER);
+    private final ProcessKernel kernel;
 
     public Assembler(Direction dir) {
         this.dir = dir;
+        this.kernel = new ProcessKernel(Tool.ASSEMBLER);
+    }
+
+    /** Восстановить сборщик с буфером сырья и очередью готового — для загрузки сохранения (B2). */
+    public Assembler(Direction dir, Map<Item, Integer> stock, List<Item> ready) {
+        this.dir = dir;
+        this.kernel = new ProcessKernel(Tool.ASSEMBLER, stock, ready);
     }
 
     @Override
@@ -52,6 +61,15 @@ public final class Assembler implements Building {
     @Override
     public Optional<Direction> direction() {
         return Optional.of(dir);
+    }
+
+    // ── Снимок для сохранения (B2) ────────────────────────────────────
+    public Map<Item, Integer> stockSnapshot() {
+        return kernel.snapshotStock();
+    }
+
+    public List<Item> readySnapshot() {
+        return kernel.snapshotReady();
     }
 
     // ── Геттеры для отрисовки ────────────────────────────────────────

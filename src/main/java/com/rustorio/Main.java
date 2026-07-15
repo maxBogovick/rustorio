@@ -8,8 +8,8 @@ import com.rustorio.core.Config;
  * Точка входа для десктопа (бэкенд LWJGL3).
  *
  * <p>Это «лаунчер»: единственное место, зависящее от конкретной платформы. Он
- * настраивает окно (размер вычисляется из сетки, как в Rust-версии) и запускает
- * платформо-независимую {@link RustorioGame}.
+ * настраивает окно (размер фиксированный: мир смотрят через камеру, а не через
+ * «окно по размеру поля») и запускает платформо-независимую {@link RustorioGame}.
  */
 public final class Main {
 
@@ -19,8 +19,8 @@ public final class Main {
     public static void main(String[] args) {
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
         config.setTitle("Rustorio");
-        config.setWindowedMode(Config.windowWidth(), Config.windowHeight());
-        config.setResizable(false);
+        config.setWindowedMode(Config.WINDOW_W, Config.WINDOW_H);
+        config.setResizable(true); // камера умеет пересчитываться под новый размер
         config.useVsync(true);
         config.setForegroundFPS(60);
         new Lwjgl3Application(new RustorioGame(), config);

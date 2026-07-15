@@ -44,6 +44,16 @@ public final class Balance {
         speed.put(machine, speed.get(machine) * factor);
     }
 
+    /**
+     * Задать множитель напрямую — используется загрузкой сохранения.
+     *
+     * <p>Обычная игра множитель только УМНОЖАЕТ (апгрейды); прямая установка нужна лишь
+     * снимку, который восстанавливает баланс как есть, не переигрывая историю апгрейдов.
+     */
+    public void setSpeed(Tool machine, float value) {
+        speed.put(machine, value);
+    }
+
     /** Сколько слотов предмет проезжает по ленте за тик. */
     public int beltSlotsPerTick() {
         return beltSlotsPerTick;

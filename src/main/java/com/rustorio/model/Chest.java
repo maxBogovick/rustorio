@@ -14,6 +14,18 @@ public final class Chest implements Building {
 
     private int items;
 
+    public Chest() {
+    }
+
+    /**
+     * Восстановить ящик с накопленным счётчиком — используется загрузкой сохранения.
+     * Отдельный конструктор, а не сеттер: восстановленный объект сразу целостен, и «забыть
+     * задать счётчик» невозможно.
+     */
+    public Chest(int items) {
+        this.items = items;
+    }
+
     @Override
     public void update(TickContext ctx) {
         // Ящик пассивен: за тик ничего не делает.

@@ -6,8 +6,10 @@ import com.rustorio.core.Tool;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -62,6 +64,30 @@ final class ProcessKernel {
 
     ProcessKernel(Tool machine) {
         this.machine = machine;
+    }
+
+    /**
+     * Восстановить ядро с буфером сырья и очередью готового — для загрузки сохранения (B2).
+     *
+     * <p>Активный рецепт и прогресс НЕ восстанавливаются намеренно: это аналоговый таймер,
+     * а сырьё для него всё равно лежит в {@code stock} (ингредиенты списываются лишь в конце
+     * цикла). Поэтому предметы сохраняются полностью, а недоделанный цикл просто начнётся
+     * заново — «сохраняем дискретное, не аналоговое».
+     */
+    ProcessKernel(Tool machine, Map<Item, Integer> stock, List<Item> ready) {
+        this.machine = machine;
+        this.stock.putAll(stock);
+        this.ready.addAll(ready);
+    }
+
+    /** Копия буфера сырья для снимка (пустых нулей в нём не бывает). */
+    Map<Item, Integer> snapshotStock() {
+        return new EnumMap<>(stock);
+    }
+
+    /** Копия очереди готовой продукции для снимка (порядок — от головы). */
+    List<Item> snapshotReady() {
+        return new ArrayList<>(ready);
     }
 
     void update(TickContext ctx) {

@@ -17,16 +17,28 @@ public final class Config {
     }
 
     // ── Размер поля (в клетках) ──────────────────────────────────────
-    public static final int GRID_W = 34;
-    public static final int GRID_H = 20;
+    // Поле больше окна во много раз — с появлением камеры (скролл + зум)
+    // окно и мир стали независимыми величинами.
+    public static final int GRID_W = 96;
+    public static final int GRID_H = 64;
 
     // ── Геометрия экрана (в пикселях) ────────────────────────────────
-    /** Сторона одной клетки. */
+    /** Сторона одной клетки при зуме 1.0. */
     public static final float TILE = 34f;
-    /** Отступ поля слева. */
-    public static final float OFFSET_X = 20f;
-    /** Отступ поля сверху (под верхней панелью HUD). */
-    public static final float OFFSET_Y = 70f;
+    /** Ширина окна. Больше НЕ вычисляется из сетки: мир смотрят через камеру. */
+    public static final int WINDOW_W = 1280;
+    /** Высота окна. */
+    public static final int WINDOW_H = 800;
+
+    // ── Камера ────────────────────────────────────────────────────────
+    /** Скорость панорамирования клавишами, ЭКРАННЫХ пикселей в секунду. */
+    public static final float CAMERA_PAN_SPEED = 700f;
+    /** Ближний предел зума (меньше = крупнее клетки). */
+    public static final float CAMERA_ZOOM_MIN = 0.4f;
+    /** Дальний предел зума (больше = видно больше мира). */
+    public static final float CAMERA_ZOOM_MAX = 3.5f;
+    /** Во сколько раз меняется зум на один «щелчок» колеса. */
+    public static final float CAMERA_ZOOM_STEP = 1.15f;
 
     // ── Ленты (транспортные линии) ────────────────────────────────────
     /**
@@ -70,15 +82,4 @@ public final class Config {
     /** Секунд на один цикл исследования в лаборатории. */
     public static final float RESEARCH_TIME = 2.0f;
 
-    // ── Производные размеры окна ──────────────────────────────────────
-    // Размер окна НЕ храним как отдельные «магические» числа: он вычисляется
-    // из сетки, иначе окно и поле — две независимые величины, которые легко
-    // рассогласовать (увеличишь GRID_W — поле уедет за край окна).
-    public static int windowWidth() {
-        return (int) (GRID_W * TILE + 2 * OFFSET_X);
-    }
-
-    public static int windowHeight() {
-        return (int) (GRID_H * TILE + OFFSET_Y + OFFSET_X);
-    }
 }

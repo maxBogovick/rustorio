@@ -39,6 +39,23 @@ public final class Splitter implements Building {
         this.dir = dir;
     }
 
+    /** Восстановить развилку с удерживаемым предметом и позицией круга — для загрузки (B2). */
+    public Splitter(Direction dir, @Nullable Item item, int nextOutput) {
+        this.dir = dir;
+        this.item = item;
+        this.nextOutput = nextOutput;
+    }
+
+    /** Удерживаемый предмет для снимка ({@code null}, если пусто). */
+    public @Nullable Item heldItem() {
+        return item;
+    }
+
+    /** С какого выхода начнём в следующий раз — для снимка. */
+    public int nextOutput() {
+        return nextOutput;
+    }
+
     @Override
     public void update(TickContext ctx) {
         // Сплиттер сам ничего не делает: его предмет двигает фаза сплиттеров в симуляции.
