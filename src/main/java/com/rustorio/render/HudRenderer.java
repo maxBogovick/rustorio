@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.rustorio.core.Tool;
 import com.rustorio.game.GameState;
 
 /**
@@ -31,7 +32,9 @@ final class HudRenderer {
         String cell = game.hover()
                 .map(c -> "(" + c.x() + ", " + c.y() + ")")
                 .orElse("—");
-        String status = "Rustorio   Cell: " + cell
+        String status = "Tool: " + game.tool().displayName()
+                + "   Dir: " + game.direction().shortName()
+                + "   Cell: " + cell
                 + (game.isPaused() ? "   [PAUSED]" : "");
         font.setColor(Color.WHITE);
         font.getData().setScale(1.15f);
@@ -39,7 +42,14 @@ final class HudRenderer {
 
         font.setColor(Palette.HINT);
         font.getData().setScale(0.9f);
-        font.draw(batch, "WASD/arrows/MMB pan   wheel zoom   Space pause", 20, top - 46);
+        // Панель собирается из СПИСКА инструментов: добавили здание — подсказка
+        // обновилась сама. Захардкоженная строка врала бы уже через две лекции.
+        StringBuilder hints = new StringBuilder();
+        for (Tool t : Tool.values()) {
+            hints.append(t.hotkeySlot()).append(' ').append(t.displayName()).append("  ");
+        }
+        hints.append("   |    R rotate   Space pause   WASD/MMB pan   wheel zoom");
+        font.draw(batch, hints.toString(), 20, top - 46);
         font.getData().setScale(1f);
 
         batch.end();

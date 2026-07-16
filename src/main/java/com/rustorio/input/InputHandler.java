@@ -3,7 +3,9 @@ package com.rustorio.input;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.rustorio.core.Config;
+import com.rustorio.core.Tool;
 import com.rustorio.game.GameState;
+import com.rustorio.model.Building;
 import com.rustorio.render.GameCamera;
 
 /**
@@ -45,8 +47,29 @@ public final class InputHandler {
             game.togglePause();
         }
 
-        // По ходу курса здесь появятся: выбор инструмента, постройка и снос мышью,
-        // поворот зданий, отмена/повтор, сохранение/загрузка.
+        // Выбор инструмента: идём по СПИСКУ инструментов, а не по руками написанной
+        // лесенке. Номер слота объявлен в самом Tool, и забыть его нельзя.
+        for (Tool tool : Tool.values()) {
+            if (Gdx.input.isKeyJustPressed(keyForSlot(tool.hotkeySlot()))) {
+                game.selectTool(tool);
+            }
+        }
+
+        // Поворот направления постройки.
+        if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+            game.rotateDirection();
+        }
+
+        // Строительство и снос. Кнопки ОПРАШИВАЮТСЯ каждый кадр (isButtonPressed):
+        // ведёшь зажатую мышь — рисуешь линию. От пересоздания на месте защищает
+        // правило sameKind в World.place — ввод может позволить себе быть простым.
+        if (Gdx.input.isButtonPressed(Input.Buttons.LEFT)) {
+            game.hover().ifPresent(cell -> game.world().place(cell.x(), cell.y(),
+                    Building.create(game.tool(), game.direction())));
+        }
+        if (Gdx.input.isButtonPressed(Input.Buttons.RIGHT)) {
+            game.hover().ifPresent(cell -> game.world().remove(cell.x(), cell.y()));
+        }
     }
 
     /**
@@ -88,5 +111,15 @@ public final class InputHandler {
         } else {
             dragging = false;
         }
+    }
+
+    /**
+     * Номер слота (1..9) → код клавиши libGDX.
+     *
+     * <p>Перевод живёт ЗДЕСЬ, а не в {@code Tool}: {@code Tool} лежит в {@code core},
+     * которому запрещено знать про движок. Слой ввода про движок знать обязан.
+     */
+    private static int keyForSlot(int slot) {
+        return Input.Keys.NUM_0 + slot;
     }
 }

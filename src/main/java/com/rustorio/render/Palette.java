@@ -13,6 +13,9 @@ final class Palette {
     static final Color ORE = rgb(51, 71, 115);
     static final Color GRID = new Color(0, 0, 0, 64 / 255f);
     static final Color HINT = rgb(179, 179, 199);
+    static final Color WORKING = Color.GREEN;   // здание работает — зелёная стрелка
+    static final Color IDLE = Color.RED;        // простаивает / не на руде — красный
+    static final Color BAR = rgb(230, 190, 60);  // полоска прогресса переработки
 
     private Palette() {
     }
