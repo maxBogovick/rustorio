@@ -21,6 +21,7 @@
 симуляции. Всё это — ваша работа в курсе.
 
 > 🎓 **Начинать отсюда:** [Лекция 0 — экскурсия по каркасу](docs/lectures/L00-workbook.md).
+> Полная карта курса — в [docs/lectures/COURSE.md](docs/lectures/COURSE.md).
 
 ## Запуск
 
