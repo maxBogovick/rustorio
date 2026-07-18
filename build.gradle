@@ -68,7 +68,7 @@ dependencies {
 }
 
 application {
-    mainClass = 'com.rustorio.Main'
+    mainClass = 'com.graphics.Main'
 }
 
 // Ассеты (спрайты) лежат в resources/. Запускаем из корня проекта, чтобы

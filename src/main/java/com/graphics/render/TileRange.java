@@ -1,4 +1,4 @@
-package com.rustorio.render;
+package com.graphics.render;
 
 /**
  * Прямоугольник клеток, видимых камерой (границы включительно).

@@ -1,4 +1,4 @@
-package com.rustorio.render;
+package com.graphics.render;
 
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Matrix4;

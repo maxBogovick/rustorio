@@ -1,4 +1,4 @@
-package com.rustorio.render;
+package com.graphics.render;
 
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.rustorio.core.Config;

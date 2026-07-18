@@ -1,15 +1,15 @@
-package com.rustorio.screen;
+package com.graphics.screen;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.ScreenAdapter;
 import com.rustorio.core.Config;
 import com.rustorio.game.GameState;
-import com.rustorio.input.InputHandler;
+import com.graphics.input.InputHandler;
 import com.rustorio.model.World;
-import com.rustorio.render.GameCamera;
-import com.rustorio.render.Renderer;
-import com.rustorio.render.Textures;
+import com.graphics.render.GameCamera;
+import com.graphics.render.Renderer;
+import com.graphics.render.Textures;
 
 /**
  * Экран самой игры — здесь «крутится» игровой цикл.

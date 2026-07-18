@@ -1,4 +1,4 @@
-package com.rustorio.input;
+package com.graphics.input;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -14,7 +14,7 @@ import com.rustorio.model.Building;
 import com.rustorio.model.Cell;
 import com.rustorio.persist.LoadService;
 import com.rustorio.persist.SaveService;
-import com.rustorio.render.GameCamera;
+import com.graphics.render.GameCamera;
 
 import java.io.IOException;
 import java.nio.file.Path;
