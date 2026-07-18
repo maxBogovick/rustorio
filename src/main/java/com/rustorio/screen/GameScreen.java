@@ -54,6 +54,7 @@ public final class GameScreen extends ScreenAdapter {
     public void render(float delta) {
         input.handle(game, delta);    // 1. ввод  → намерения игрока меняют мир и камеру
         game.update(delta);           // 2. апдейт → системы двигают мир по тикам
+        game.prepareFrame(delta);     // 2.5. собрать слой поверх мира (панели, подсветки, тосты)
         renderer.render(game, delta); // 3. рендер → только читаем мир и рисуем
     }
 

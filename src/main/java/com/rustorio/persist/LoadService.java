@@ -6,14 +6,17 @@ import com.rustorio.core.Direction;
 import com.rustorio.core.Tool;
 import com.rustorio.game.GameState;
 import com.rustorio.model.Assembler;
+import com.rustorio.model.Buffer;
 import com.rustorio.model.Building;
 import com.rustorio.model.Chest;
 import com.rustorio.model.Furnace;
 import com.rustorio.model.Lab;
 import com.rustorio.model.Miner;
+import com.rustorio.model.Sorter;
 import com.rustorio.model.Splitter;
 import com.rustorio.model.UndergroundBelt;
 import com.rustorio.model.World;
+import com.rustorio.model.routing.BySortPolicy;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -121,6 +124,9 @@ public final class LoadService {
             case LAB -> dto.machine() != null
                     ? new Lab(dto.amount(), dto.machine().stock(), dto.machine().ready())
                     : new Lab(dto.amount());
+            case BUFFER -> new Buffer(dir,
+                    dto.buffer() != null ? dto.buffer() : List.of());
+            case SORTER -> new Sorter(dir, new BySortPolicy());
         };
     }
 }

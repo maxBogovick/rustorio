@@ -9,12 +9,14 @@ import com.rustorio.game.GameState;
 import com.rustorio.model.Assembler;
 import com.rustorio.model.Belt;
 import com.rustorio.model.BeltSegment;
+import com.rustorio.model.Buffer;
 import com.rustorio.model.Building;
 import com.rustorio.model.Cell;
 import com.rustorio.model.Chest;
 import com.rustorio.model.Furnace;
 import com.rustorio.model.Lab;
 import com.rustorio.model.Miner;
+import com.rustorio.model.Sorter;
 import com.rustorio.model.Splitter;
 import com.rustorio.model.UndergroundBelt;
 import com.rustorio.model.World;
@@ -97,21 +99,28 @@ public final class SaveService {
     private static BuildingDto toDto(int x, int y, Building building) {
         return switch (building) {
             case Miner m -> new BuildingDto(Tool.MINER, x, y, m.dir(),
-                    0, null, null, null, m.outputItem().orElse(null));
+                    0, null, null, null, m.outputItem().orElse(null), null);
             case Belt b -> new BuildingDto(Tool.BELT, x, y, b.dir(),
-                    0, null, null, null, null); // груз ленты — в общем списке beltItems
+                    0, null, null, null, null, null); // груз ленты — в общем списке beltItems
             case Furnace f -> new BuildingDto(Tool.FURNACE, x, y, f.dir(),
-                    0, new MachineDto(f.stockSnapshot(), f.readySnapshot()), null, null, null);
+                    0, new MachineDto(f.stockSnapshot(), f.readySnapshot()), null, null, null, null);
             case Chest c -> new BuildingDto(Tool.CHEST, x, y, null,
-                    c.items(), null, null, null, null);
+                    c.items(), null, null, null, null, null);
             case Assembler a -> new BuildingDto(Tool.ASSEMBLER, x, y, a.dir(),
-                    0, new MachineDto(a.stockSnapshot(), a.readySnapshot()), null, null, null);
+                    0, new MachineDto(a.stockSnapshot(), a.readySnapshot()), null, null, null, null);
             case Splitter s -> new BuildingDto(Tool.SPLITTER, x, y, s.dir(),
-                    0, null, new SplitterDto(s.heldItem(), s.nextOutput()), null, null);
+                    0, null, new SplitterDto(s.heldItem(), s.nextOutput()), null, null, null);
             case UndergroundBelt u -> new BuildingDto(Tool.UNDERGROUND, x, y, u.dir(),
-                    0, null, null, u.carriedItems(), null);
+                    0, null, null, u.carriedItems(), null, null);
             case Lab l -> new BuildingDto(Tool.LAB, x, y, null,
-                    l.points(), new MachineDto(l.stockSnapshot(), l.readySnapshot()), null, null, null);
+                    l.points(), new MachineDto(l.stockSnapshot(), l.readySnapshot()), null, null, null, null);
+            case Buffer b -> new BuildingDto(Tool.BUFFER, x, y, b.dir(),
+                    0, null, null, null, null, b.contents());
+            // Сортировщик: политика восстанавливается по типу здания, поэтому в снимке хранится
+            // только направление. Удерживаемый предмет здесь НЕ сохраняется — это осознанное
+            // упрощение урока про Strategy; как сохранить его, показано в задаче A8.
+            case Sorter s -> new BuildingDto(Tool.SORTER, x, y, s.dir(),
+                    0, null, null, null, null, null);
         };
     }
 

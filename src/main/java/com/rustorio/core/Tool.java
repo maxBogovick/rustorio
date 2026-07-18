@@ -23,7 +23,9 @@ public enum Tool {
     ASSEMBLER("Assembler", 5),
     SPLITTER("Splitter", 6),
     UNDERGROUND("Underground", 7),
-    LAB("Lab", 8);
+    LAB("Lab", 8),
+    BUFFER("Buffer", 9),
+    SORTER("Sorter", 0);
 
     private final String displayName;
     private final int hotkeySlot;
@@ -38,7 +40,7 @@ public enum Tool {
         return displayName;
     }
 
-    /** Номер слота панели (1..9). Слой ввода сам сопоставит его клавише. */
+    /** Номер слота панели (0..9). Слой ввода сам сопоставит его клавише. */
     public int hotkeySlot() {
         return hotkeySlot;
     }

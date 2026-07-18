@@ -1,8 +1,10 @@
 package com.rustorio.model;
 
+import com.rustorio.core.Appearance;
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
 import com.rustorio.core.TickContext;
+import com.rustorio.core.Tool;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -85,6 +87,17 @@ public final class Splitter implements Building {
     @Override
     public Optional<Direction> direction() {
         return Optional.of(dir);
+    }
+
+    @Override
+    public Tool tool() {
+        return Tool.SPLITTER;
+    }
+
+    @Override
+    public Appearance appearance() {
+        // Накладок нет: направление читается по повороту спрайта, а не по стрелке.
+        return Appearance.of("Splitter");
     }
 
     // ── Для фазы сплиттеров в симуляции ───────────────────────────────

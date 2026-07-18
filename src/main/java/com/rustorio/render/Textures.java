@@ -45,6 +45,13 @@ public final class Textures implements Disposable {
     final TextureRegion underground;
     /** Плашка-заглушка: нарисованного спрайта лаборатории в resources/ ещё нет. */
     final TextureRegion lab;
+    /**
+     * Белый квадрат 1×1. Им {@link BuildingRenderer} рисует ПОДПИСАННУЮ ПЛАШКУ для здания,
+     * у которого ещё нет своего спрайта: белый регион растягивается на клетку и красится
+     * в цвет через {@code batch.setColor}. Так новое здание видно на поле, а графику для
+     * него никто не открывал.
+     */
+    final TextureRegion white;
     private final TextureRegion ironOre;
     private final TextureRegion ironPlate;
     private final TextureRegion gear;
@@ -69,6 +76,7 @@ public final class Textures implements Disposable {
         packFile(packer, "splitter", "resources/branch_1.png");
         packFile(packer, "underground", "resources/underground_in.png");
         packLabPlaceholder(packer);
+        packWhite(packer);
         packFile(packer, "iron_ore", "resources/iron_ore.png");
         packFile(packer, "iron_plate", "resources/iron_plate.png");
         packFile(packer, "gear", "resources/iron_gear.png");
@@ -92,6 +100,7 @@ public final class Textures implements Disposable {
         splitter = region("splitter");
         underground = region("underground");
         lab = region("lab");
+        white = region("white");
         ironOre = region("iron_ore");
         ironPlate = region("iron_plate");
         gear = region("gear");
@@ -126,6 +135,15 @@ public final class Textures implements Disposable {
         pixmap.setColor(0.45f, 0.30f, 0.65f, 1f);
         pixmap.fill();
         packer.pack("lab", pixmap);
+        pixmap.dispose();
+    }
+
+    /** Белый квадрат 1×1 для крашеных плашек (см. поле {@link #white}). */
+    private static void packWhite(PixmapPacker packer) {
+        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pixmap.setColor(1f, 1f, 1f, 1f);
+        pixmap.fill();
+        packer.pack("white", pixmap);
         pixmap.dispose();
     }
 

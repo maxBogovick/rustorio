@@ -104,7 +104,12 @@ final class ProcessKernel {
         cycleTime = active.time() / ctx.balance().speed(machine);
         progress += ctx.dt();
         if (progress >= cycleTime) {
-            complete(active);
+            Recipe finished = active;
+            complete(finished);
+            // Сообщаем о произведённом наружу, не зная, кто слушает (шаблон Observer).
+            // Рецепты лаборатории выходов не имеют — она не «производит» предмет, и событий
+            // отсюда не шлёт.
+            finished.outputs().forEach(ctx.events()::publish);
             active = null;
             progress = 0f;
         }

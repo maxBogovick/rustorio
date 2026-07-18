@@ -1,5 +1,6 @@
 package com.rustorio.model;
 
+import com.rustorio.core.Appearance;
 import com.rustorio.core.Config;
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
@@ -58,6 +59,9 @@ public final class Miner implements Building {
         if (cooldown <= 0f) {
             output = Item.IRON_ORE;
             cooldown = cycleTime;
+            // Бур — тоже издатель: добытая руда это произведённый предмет. Он и печь шлют в
+            // одну шину, не зная друг о друге, — в этом и смысл Observer.
+            ctx.events().publish(Item.IRON_ORE, 1);
         }
     }
 
@@ -84,6 +88,21 @@ public final class Miner implements Building {
     @Override
     public Optional<Direction> direction() {
         return Optional.of(dir);
+    }
+
+    @Override
+    public Tool tool() {
+        return Tool.MINER;
+    }
+
+    @Override
+    public Appearance appearance() {
+        // Стрелка зелёная, пока буру есть что копать и выход свободен; красная — иначе.
+        // Тревожная рамка — когда бур стоит не на руде. Иконка — готовая руда на выходе.
+        return Appearance.of("Miner")
+                .arrow(dir, output == null && onOre)
+                .alert(!onOre)
+                .icon(output);
     }
 
     // ── Чтение состояния для отрисовки ────────────────────────────────

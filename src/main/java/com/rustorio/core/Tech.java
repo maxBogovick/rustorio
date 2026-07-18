@@ -8,10 +8,11 @@ package com.rustorio.core;
  * одну строку данных. Ни одного нового {@code switch}.
  */
 public enum Tech {
-    FAST_BELT("Быстрая лента"),
-    FAST_FURNACE("Быстрая печь"),
-    FAST_MINER("Быстрый бур"),
-    LONG_UNDERGROUND("Длинная подземка");
+    // Имена на экране — латиницей: встроенный шрифт движка кириллицу не рисует.
+    FAST_BELT("Fast belt"),
+    FAST_FURNACE("Fast furnace"),
+    FAST_MINER("Fast miner"),
+    LONG_UNDERGROUND("Long underground");
 
     private final String displayName;
 

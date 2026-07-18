@@ -26,6 +26,10 @@ import java.util.List;
  * {@link BuildingDto}). <b>По-прежнему НЕ хранятся</b> аналоговые таймеры прогресса — они
  * начинаются заново, а сырьё для них лежит в буферах, так что ни один предмет не теряется.
  *
+ * <p><b>Схема v3</b> добавила поле {@link BuildingDto#buffer()} для содержимого здания
+ * «буфер». Снова аддитивно: v2-сейв (без этого поля) читается кодом v3 — поле становится
+ * {@code null}, то есть «буфер пуст». Ровно тот же приём совместимости, что и v1→v2.
+ *
  * @param beltItems груз транспортных линий; восстанавливается после расстановки лент
  */
 public record GameSnapshot(
@@ -38,7 +42,7 @@ public record GameSnapshot(
         @Nullable List<BeltItemDto> beltItems) {
 
     /** Текущая версия формата. Растёт при каждом изменении снимка. */
-    public static final int SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION = 3;
 
     public GameSnapshot {
         buildings = List.copyOf(buildings);

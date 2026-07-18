@@ -1,8 +1,10 @@
 package com.rustorio.render;
 
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.rustorio.core.Appearance;
 import com.rustorio.core.Config;
 import com.rustorio.core.Direction;
 import com.rustorio.game.GameState;
@@ -14,7 +16,6 @@ import com.rustorio.model.Furnace;
 import com.rustorio.model.Lab;
 import com.rustorio.model.Miner;
 import com.rustorio.model.Splitter;
-import com.rustorio.model.Tile;
 import com.rustorio.model.UndergroundBelt;
 import com.rustorio.model.World;
 
@@ -22,6 +23,13 @@ import com.rustorio.model.World;
  * Слой «здания»: спрайты, накладки (стрелки, полоски прогресса, «призрак» под
  * курсором) и рамки-подсказки. Три отдельных прохода, потому что {@link SpriteBatch}
  * и {@link ShapeRenderer} нельзя рисовать вперемешку без переоткрытия.
+ *
+ * <p><b>Графика больше не знает типы зданий — кроме спрайтов.</b> Накладки и рамки
+ * рисуются по {@link Appearance}, который здание рассказывает о себе само. Поэтому новое
+ * здание сюда не заглядывает: пока у него нет спрайта, {@link #renderSprites} рисует его
+ * подписанной плашкой (ветка {@code default}), а стрелку и полоску возьмёт из его
+ * {@code appearance()}. Спрайты восьми встроенных зданий оставлены как есть — это «арт»,
+ * его место здесь; добавить свой спрайт новому зданию — отдельная необязательная задача.
  */
 final class BuildingRenderer {
 
@@ -32,12 +40,15 @@ final class BuildingRenderer {
     private final SpriteBatch batch;
     private final ShapeRenderer shapes;
     private final Textures textures;
+    private final BitmapFont font;
     private final Grid grid;
 
-    BuildingRenderer(SpriteBatch batch, ShapeRenderer shapes, Textures textures, Grid grid) {
+    BuildingRenderer(SpriteBatch batch, ShapeRenderer shapes, Textures textures,
+            BitmapFont font, Grid grid) {
         this.batch = batch;
         this.shapes = shapes;
         this.textures = textures;
+        this.font = font;
         this.grid = grid;
     }
 
@@ -52,8 +63,9 @@ final class BuildingRenderer {
                 }
                 float px = grid.x(x);
                 float py = grid.yBottom(y);
-                // Исчерпывающий switch по sealed-типу: без `default`. Добавишь
-                // новое здание — компилятор ПОТРЕБУЕТ здесь новую ветку.
+                // Спрайты — «арт» встроенных зданий. Ветка default ловит любое здание БЕЗ
+                // спрайта (в том числе новое, добавленное студентом) и рисует его подписанной
+                // плашкой. Поэтому новое здание не требует правки этого switch.
                 switch (b) {
                     case Miner m -> {
                         int frame = (int) (clamp(m.progressFraction(), 0f, 0.999f) * 3);
@@ -75,6 +87,7 @@ final class BuildingRenderer {
                     case UndergroundBelt u -> batch.draw(textures.underground, px, py,
                             TILE / 2, TILE / 2, TILE, TILE, 1f, 1f, beltRotation(u.dir()));
                     case Lab _ -> batch.draw(textures.lab, px, py, TILE, TILE);
+                    default -> drawPlate(b.appearance().label(), px, py);
                 }
             }
         }
@@ -86,28 +99,19 @@ final class BuildingRenderer {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (int y = range.minY(); y <= range.maxY(); y++) {
             for (int x = range.minX(); x <= range.maxX(); x++) {
-                Tile tile = world.tile(x, y);
-                Building b = tile.building();
+                Building b = world.tile(x, y).building();
                 if (b == null) {
                     continue;
                 }
                 float px = grid.x(x);
                 float py = grid.yBottom(y);
-                switch (b) {
-                    case Miner m ->
-                            drawArrow(px, py, m.dir(), m.outputItem().isEmpty() && tile.hasOre());
-                    case Furnace f -> {
-                        drawArrow(px, py, f.dir(), f.isWorking());
-                        drawProgressBar(px, py, f.progressFraction());
-                    }
-                    case Assembler a -> {
-                        drawArrow(px, py, a.dir(), a.isWorking());
-                        drawProgressBar(px, py, a.progressFraction());
-                    }
-                    case Belt _ -> { /* у ленты стрелки нет */ }
-                    case Chest _ -> { /* у ящика накладок нет */ }
-                    case Lab lab -> drawProgressBar(px, py, lab.progressFraction());
-                    case Splitter _, UndergroundBelt _ -> { /* накладок нет */ }
+                // Никакого switch по типу: здание само сказало, что показать.
+                Appearance look = b.appearance();
+                if (look.arrow() != null) {
+                    drawArrow(px, py, look.arrow(), look.working());
+                }
+                if (look.hasProgress()) {
+                    drawProgressBar(px, py, look.progress());
                 }
             }
         }
@@ -117,13 +121,13 @@ final class BuildingRenderer {
         shapes.end();
     }
 
-    /** Проход 3: рамки — «бур не на руде» и белая рамка под курсором. */
+    /** Проход 3: рамки — «тревога» здания (бур не на руде) и белая рамка под курсором. */
     void renderOutlines(World world, GameState game, TileRange range) {
         shapes.begin(ShapeRenderer.ShapeType.Line);
         for (int y = range.minY(); y <= range.maxY(); y++) {
             for (int x = range.minX(); x <= range.maxX(); x++) {
-                Tile tile = world.tile(x, y);
-                if (tile.building() instanceof Miner && !tile.hasOre()) {
+                Building b = world.tile(x, y).building();
+                if (b != null && b.appearance().alert()) {
                     shapes.setColor(Palette.IDLE);
                     shapes.rect(grid.x(x) + 2, grid.yBottom(y) + 2, TILE - 4, TILE - 4);
                 }
@@ -134,6 +138,26 @@ final class BuildingRenderer {
             shapes.rect(grid.x(cell.x()), grid.yBottom(cell.y()), TILE, TILE);
         });
         shapes.end();
+    }
+
+    /**
+     * Подписанная плашка для здания без своего спрайта: крашеный квадрат + имя.
+     *
+     * <p>Цвет выводится из имени (стабильно: одно здание — всегда один цвет), чтобы разные
+     * виды отличались на глаз. Рисуется белым регионом через {@code batch.setColor}; цвет
+     * обязательно возвращаем в белый, иначе следующий спрайт в этом же проходе покрасился бы.
+     */
+    private void drawPlate(String label, float px, float py) {
+        int h = label.hashCode();
+        float r = 0.30f + 0.55f * ((h & 0xFF) / 255f);
+        float g = 0.30f + 0.55f * (((h >> 8) & 0xFF) / 255f);
+        float b = 0.30f + 0.55f * (((h >> 16) & 0xFF) / 255f);
+        batch.setColor(r, g, b, 1f);
+        batch.draw(textures.white, px + 2, py + 2, TILE - 4, TILE - 4);
+        batch.setColor(Color.WHITE);
+        font.getData().setScale(0.7f);
+        font.draw(batch, label, px + 4, py + TILE - 5);
+        font.getData().setScale(1f);
     }
 
     /** Полоска прогресса у нижнего края клетки. */

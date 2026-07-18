@@ -79,8 +79,9 @@ public final class InputHandler {
         // Открыть технологию: F1..F4 по списку Tech — снова НЕ лесенка из if'ов, а цикл
         // по данным. Добавится пятая технология — клавиша появится сама.
         for (Tech tech : Tech.values()) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.F1 + tech.ordinal())) {
-                game.research().research(tech); // сам проверит, можно ли: очки, предпосылки
+            if (Gdx.input.isKeyJustPressed(Input.Keys.F1 + tech.ordinal())
+                    && game.research().research(tech)) { // сам проверит: очки, предпосылки
+                game.overlay().toast("Researched: " + tech.displayName());
             }
         }
 
@@ -90,6 +91,17 @@ public final class InputHandler {
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
             game.togglePause();
+        }
+
+        // Чертёж (урок D3): C — отметить угол / снять область, V — штамповать, X — сбросить.
+        if (Gdx.input.isKeyJustPressed(Input.Keys.C)) {
+            game.blueprintKey();
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.V)) {
+            game.stampBlueprint();
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.X)) {
+            game.clearBlueprint();
         }
 
         // Отмена/повтор. Ctrl+Z / Ctrl+Y — стандарт, к которому привыкла рука.

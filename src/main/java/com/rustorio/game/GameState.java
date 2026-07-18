@@ -3,14 +3,24 @@ package com.rustorio.game;
 import com.rustorio.core.Balance;
 import com.rustorio.core.Config;
 import com.rustorio.core.Direction;
+import com.rustorio.core.Item;
+import com.rustorio.core.ProductionBus;
 import com.rustorio.core.TickContext;
+import com.rustorio.core.Tint;
 import com.rustorio.core.Tool;
 import com.rustorio.game.action.PlayerAction;
+import com.rustorio.game.view.Corner;
+import com.rustorio.game.view.HudPanel;
+import com.rustorio.game.view.Overlay;
+import com.rustorio.game.view.PanelRow;
 import com.rustorio.model.Cell;
 import com.rustorio.model.World;
 import com.rustorio.sim.Simulation;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -38,11 +48,21 @@ public final class GameState {
     private final Balance balance = new Balance();
     /** Прогресс исследований: очки из лабораторий и открытые технологии. */
     private final Research research = new Research(balance);
+    /** Шина событий производства (шаблон Observer): машины публикуют, наблюдатели слушают. */
+    private final ProductionBus production = new ProductionBus();
+    /** Один из наблюдателей: суммарное производство по предметам. */
+    private final ProductionStats stats = new ProductionStats();
+    /** Слой поверх мира (панели, подсветки, уведомления). Наполняет игра, рисует render. */
+    private final Overlay overlay = new Overlay();
     /** История отмен строительных действий (паттерн Command). */
     private final ActionHistory history = new ActionHistory();
     private Tool tool = Tool.MINER;
     private Direction direction = Direction.EAST;
     private boolean paused = false;
+    /** Первый угол выделяемой области чертежа (второй — клетка под курсором). */
+    private @Nullable Cell blueprintCorner = null;
+    /** Снятый чертёж «в руке», готовый к штамповке. */
+    private @Nullable Blueprint heldBlueprint = null;
     /** Клетка под курсором в этом кадре (её ставит ввод, читает отрисовка). */
     private @Nullable Cell hover = null;
     /** Накопленное реальное время, ещё не «проигранное» в тиках. */
@@ -51,6 +71,9 @@ public final class GameState {
     public GameState(World world) {
         this.world = world;
         this.simulation = new Simulation(world);
+        // Подписываем наблюдателей ОДИН раз. Машины про них не знают — публикуют в шину.
+        production.subscribe(stats);
+        production.subscribe(new ProductionLog());
     }
 
     /**
@@ -70,7 +93,7 @@ public final class GameState {
         accumulator = Math.min(accumulator + deltaTime, Config.MAX_FRAME_TIME);
         // Контекст создаётся ОДИН раз за тик, а не на каждое здание: все его поля
         // одинаковы для всех зданий в пределах шага.
-        TickContext ctx = new TickContext(Config.TICK, balance);
+        TickContext ctx = new TickContext(Config.TICK, balance, production);
         while (accumulator >= Config.TICK) {
             accumulator -= Config.TICK;
             simulation.step(ctx);
@@ -92,6 +115,64 @@ public final class GameState {
     /** Прогресс исследований (его читает интерфейс, в нём же открывают технологии). */
     public Research research() {
         return research;
+    }
+
+    /** Суммарное производство по предметам (читает интерфейс/отладка). */
+    public ProductionStats stats() {
+        return stats;
+    }
+
+    /** Слой поверх мира — его читает render, наполняет {@link #prepareFrame}. */
+    public Overlay overlay() {
+        return overlay;
+    }
+
+    /**
+     * Собрать слой поверх мира на этот кадр: состарить уведомления и заново наполнить панели и
+     * подсветки. Зовётся экраном КАЖДЫЙ кадр, между вводом и отрисовкой.
+     *
+     * <p>Это и есть точка, куда будущий урок добавит свою визуализацию: заполнить {@link
+     * #overlay} — и оно появится на экране без единой правки в {@code render}. Сейчас здесь два
+     * живых примера каналов: панель производства (данные из наблюдателя D2) и подсветка клетки,
+     * куда уйдёт продукт выбранного здания.
+     */
+    public void prepareFrame(float delta) {
+        overlay.age(delta);
+        overlay.clearFrame();
+
+        // Канал «панель» с иконками: сводка производства (данные наблюдателя D2).
+        List<PanelRow> rows = new ArrayList<>();
+        for (Map.Entry<Item, Long> entry : stats.snapshot().entrySet()) {
+            rows.add(PanelRow.of(entry.getKey(), String.valueOf(entry.getValue())));
+        }
+        if (rows.isEmpty()) {
+            rows.add(PanelRow.text("none"));
+        }
+        // Текст UI — латиницей: встроенный шрифт движка кириллицу не рисует (см. Renderer).
+        overlay.panel(new HudPanel("Production", rows, Corner.TOP_RIGHT));
+
+        // Превью чертежа подсветкой (канал overlay): выделяемая область или будущий оттиск.
+        hover().ifPresent(cell -> {
+            if (blueprintCorner != null) {
+                highlightRect(blueprintCorner, cell, Tint.RANGE);   // что попадёт в чертёж
+            } else if (heldBlueprint != null) {
+                for (Cell c : heldBlueprint.cells(cell)) {
+                    overlay.highlight(c.x(), c.y(), Tint.GHOST);    // куда ляжет оттиск
+                }
+            }
+        });
+    }
+
+    private void highlightRect(Cell a, Cell b, Tint tint) {
+        int minX = Math.min(a.x(), b.x());
+        int minY = Math.min(a.y(), b.y());
+        int maxX = Math.max(a.x(), b.x());
+        int maxY = Math.max(a.y(), b.y());
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                overlay.highlight(x, y, tint);
+            }
+        }
     }
 
     public Tool tool() {
@@ -164,6 +245,37 @@ public final class GameState {
     /** Повторить последнее отменённое действие. */
     public void redo() {
         history.redo(world);
+    }
+
+    // ── Чертёж (расширение Command, урок D3) ──────────────────────────
+
+    /**
+     * Клавиша чертежа: первое нажатие отмечает угол области, второе — снимает чертёж с
+     * прямоугольника «угол → клетка под курсором».
+     */
+    public void blueprintKey() {
+        hover().ifPresent(cell -> {
+            if (blueprintCorner == null) {
+                blueprintCorner = cell;
+            } else {
+                heldBlueprint = Blueprint.capture(world, blueprintCorner, cell);
+                blueprintCorner = null;
+            }
+        });
+    }
+
+    /** Штамповать снятый чертёж от клетки под курсором — одной отменяемой командой. */
+    public void stampBlueprint() {
+        if (heldBlueprint == null || heldBlueprint.isEmpty()) {
+            return;
+        }
+        hover().ifPresent(origin -> perform(heldBlueprint.stampAt(origin)));
+    }
+
+    /** Сбросить незавершённое выделение и чертёж «в руке». */
+    public void clearBlueprint() {
+        blueprintCorner = null;
+        heldBlueprint = null;
     }
 
     // ── Состояние: изменение (этим пользуется слой ввода) ─────────────

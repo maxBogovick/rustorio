@@ -33,6 +33,7 @@ public final class Renderer implements Disposable {
     private final WorldRenderer worldRenderer;
     private final BuildingRenderer buildingRenderer;
     private final ItemRenderer itemRenderer;
+    private final OverlayRenderer overlayRenderer;
     private final HudRenderer hudRenderer;
 
     /** Настенные часы для анимации ленты (тикают даже на паузе, как в Rust). */
@@ -46,8 +47,9 @@ public final class Renderer implements Disposable {
 
         Grid grid = new Grid(world.height());
         this.worldRenderer = new WorldRenderer(shapes, grid);
-        this.buildingRenderer = new BuildingRenderer(batch, shapes, textures, grid);
+        this.buildingRenderer = new BuildingRenderer(batch, shapes, textures, font, grid);
         this.itemRenderer = new ItemRenderer(batch, font, textures, grid);
+        this.overlayRenderer = new OverlayRenderer(batch, shapes, font, textures, grid);
         this.hudRenderer = new HudRenderer(batch, font);
     }
 
@@ -73,11 +75,13 @@ public final class Renderer implements Disposable {
         buildingRenderer.renderSprites(world, visible, elapsed);    // 2. спрайты зданий
         buildingRenderer.renderOverlays(world, game, visible);      // 3. стрелки, прогресс
         buildingRenderer.renderOutlines(world, game, visible);      // 4. рамки
-        itemRenderer.render(world, game, visible);                  // 5. предметы
+        overlayRenderer.renderWorld(game.overlay());                // 5. подсветки клеток
+        itemRenderer.render(world, game, visible);                  // 6. предметы
 
         // HUD — поверх всего, в координатах окна.
         batch.setProjectionMatrix(camera.hudMatrix());
-        hudRenderer.render(game);                                   // 6. текст HUD
+        hudRenderer.render(game);                                   // 7. текст HUD
+        overlayRenderer.renderHud(game.overlay());                  // 8. панели, уведомления
     }
 
     @Override

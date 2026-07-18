@@ -44,7 +44,7 @@ final class HudRenderer {
             hints.append(t.hotkeySlot()).append(' ').append(t.displayName()).append("  ");
         }
         hints.append("   |    LMB place   RMB remove   R rotate   Ctrl+Z/Y undo/redo"
-                + "   F5 save   F9 load   Space pause   WASD/MMB pan   wheel zoom");
+                + "   C/V blueprint   F5 save   F9 load   Space pause   WASD/MMB pan   wheel zoom");
         font.draw(batch, hints.toString(), 20, top - 46);
 
         // Строка исследований: очки и состояние каждой технологии. Собирается из ДАННЫХ

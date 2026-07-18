@@ -1,9 +1,11 @@
 package com.rustorio.model;
 
+import com.rustorio.core.Appearance;
 import com.rustorio.core.Config;
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
 import com.rustorio.core.TickContext;
+import com.rustorio.core.Tool;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Optional;
@@ -96,6 +98,17 @@ public final class Belt implements Building {
     @Override
     public Optional<Direction> direction() {
         return Optional.of(dir);
+    }
+
+    @Override
+    public Tool tool() {
+        return Tool.BELT;
+    }
+
+    @Override
+    public Appearance appearance() {
+        // У ленты нет накладок: ни стрелки, ни полоски. Груз рисуется отдельно, вдоль линии.
+        return Appearance.of("Belt");
     }
 
     /** Предмет попадает на ленту в ПЕРВЫЙ слот своей клетки — «с заднего края». */

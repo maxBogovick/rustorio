@@ -1,8 +1,10 @@
 package com.rustorio.model;
 
+import com.rustorio.core.Appearance;
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
 import com.rustorio.core.TickContext;
+import com.rustorio.core.Tool;
 
 import java.util.Optional;
 
@@ -54,6 +56,16 @@ public final class Chest implements Building {
     @Override
     public Optional<Direction> direction() {
         return Optional.empty(); // у ящика нет направления
+    }
+
+    @Override
+    public Tool tool() {
+        return Tool.CHEST;
+    }
+
+    @Override
+    public Appearance appearance() {
+        return Appearance.of("Chest").counter(items);
     }
 
     /** Сколько предметов накоплено (для отрисовки счётчика). */

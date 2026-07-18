@@ -3,25 +3,23 @@ package com.rustorio.render;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.rustorio.core.Appearance;
 import com.rustorio.core.Config;
 import com.rustorio.core.Item;
 import com.rustorio.game.GameState;
-import com.rustorio.model.Assembler;
-import com.rustorio.model.Belt;
 import com.rustorio.model.BeltItemPos;
 import com.rustorio.model.BeltSegment;
 import com.rustorio.model.Building;
-import com.rustorio.model.Chest;
-import com.rustorio.model.Furnace;
-import com.rustorio.model.Lab;
-import com.rustorio.model.Miner;
-import com.rustorio.model.Splitter;
-import com.rustorio.model.UndergroundBelt;
 import com.rustorio.model.World;
 
 /**
  * Слой «предметы»: иконки на машинах, счётчики ящиков/лабораторий и груз,
  * едущий по транспортным линиям.
+ *
+ * <p>Как и накладки зданий, иконки и счётчики берутся из {@link Appearance}, который здание
+ * рассказывает о себе само, — поэтому графика не знает типов зданий, и новое здание сюда не
+ * заглядывает. Груз ЛЕНТ рисуется отдельно ({@link #drawBeltItems}): он принадлежит линии, а
+ * не клетке, и ему нужна плавность между тиками.
  */
 final class ItemRenderer {
 
@@ -49,16 +47,13 @@ final class ItemRenderer {
                 }
                 float px = grid.x(x);
                 float py = grid.yBottom(y);
-                switch (b) {
-                    case Miner m -> m.outputItem().ifPresent(it -> drawItemIcon(px, py, it));
-                    // Предметы на лентах рисуются НЕ здесь: они больше не принадлежат
-                    // клетке, а едут внутри линии — см. drawBeltItems().
-                    case Belt _ -> { }
-                    case Furnace f -> f.displayItem().ifPresent(it -> drawItemIcon(px, py, it));
-                    case Assembler a -> a.displayItem().ifPresent(it -> drawItemIcon(px, py, it));
-                    case Chest c -> drawCounter(px, py, c.items());
-                    case Lab lab -> drawCounter(px, py, lab.points());
-                    case Splitter _, UndergroundBelt _ -> { /* предметов на них нет */ }
+                Appearance look = b.appearance();
+                // Предметы на лентах — НЕ здесь: они едут внутри линии (см. drawBeltItems).
+                if (look.icon() != null) {
+                    drawItemIcon(px, py, look.icon());
+                }
+                if (look.hasCounter()) {
+                    drawCounter(px, py, look.counter());
                 }
             }
         }

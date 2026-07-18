@@ -1,9 +1,11 @@
 package com.rustorio.model;
 
+import com.rustorio.core.Appearance;
 import com.rustorio.core.Config;
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
 import com.rustorio.core.TickContext;
+import com.rustorio.core.Tool;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -100,6 +102,17 @@ public final class UndergroundBelt implements Building {
     @Override
     public Optional<Direction> direction() {
         return Optional.of(dir);
+    }
+
+    @Override
+    public Tool tool() {
+        return Tool.UNDERGROUND;
+    }
+
+    @Override
+    public Appearance appearance() {
+        // Накладок нет: направление читается по повороту спрайта.
+        return Appearance.of("Underground");
     }
 
     // ── Для фазы подземок в симуляции ─────────────────────────────────

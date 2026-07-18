@@ -27,6 +27,7 @@ import java.util.List;
  * @param splitter     состояние развилки (v2); {@code null} у прочих
  * @param underground  предметы в трубе подземки (v2); {@code null} у прочих
  * @param minerOutput  готовая руда на выходе бура (v2); {@code null}, если выход пуст
+ * @param buffer       содержимое буфера (v3); {@code null} у прочих
  */
 public record BuildingDto(
         Tool type,
@@ -37,5 +38,6 @@ public record BuildingDto(
         @Nullable MachineDto machine,
         @Nullable SplitterDto splitter,
         @Nullable List<Item> underground,
-        @Nullable Item minerOutput) {
+        @Nullable Item minerOutput,
+        @Nullable List<Item> buffer) {
 }

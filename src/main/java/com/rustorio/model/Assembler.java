@@ -1,5 +1,6 @@
 package com.rustorio.model;
 
+import com.rustorio.core.Appearance;
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
 import com.rustorio.core.TickContext;
@@ -61,6 +62,19 @@ public final class Assembler implements Building {
     @Override
     public Optional<Direction> direction() {
         return Optional.of(dir);
+    }
+
+    @Override
+    public Tool tool() {
+        return Tool.ASSEMBLER;
+    }
+
+    @Override
+    public Appearance appearance() {
+        return Appearance.of("Assembler")
+                .arrow(dir, isWorking())
+                .progress(progressFraction())
+                .icon(displayItem().orElse(null));
     }
 
     // ── Снимок для сохранения (B2) ────────────────────────────────────

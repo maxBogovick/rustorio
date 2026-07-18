@@ -14,6 +14,18 @@ package com.rustorio.core;
  * сюда попал {@code hasOre} (свой у каждого бура), пришлось бы создавать объект на
  * каждое здание на каждом тике — мусор на ровном месте. Вместо этого бур узнаёт про
  * руду ОДИН раз, при постройке.
+ *
+ * <p><b>{@link #events()}.</b> Шина, в которую машины сообщают о произведённых предметах
+ * (шаблон Observer). Добавление поля сюда — ровно та причина, ради которой контекст сделан
+ * «коробкой»: сигнатура {@code update} у зданий не изменилась.
  */
-public record TickContext(float dt, Balance balance) {
+public record TickContext(float dt, Balance balance, ProductionBus events) {
+
+    /**
+     * Контекст без подписчиков на производство — для тестов и бенчмарка, которым события не
+     * нужны. {@link #publish} по такой шине никого не зовёт, поэтому это дёшево и безопасно.
+     */
+    public TickContext(float dt, Balance balance) {
+        this(dt, balance, new ProductionBus());
+    }
 }

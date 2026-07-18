@@ -1,5 +1,6 @@
 package com.rustorio.model;
 
+import com.rustorio.core.Appearance;
 import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
 import com.rustorio.core.TickContext;
@@ -87,6 +88,19 @@ public final class Lab implements Building {
     @Override
     public Optional<Direction> direction() {
         return Optional.empty(); // у лаборатории нет направления
+    }
+
+    @Override
+    public Tool tool() {
+        return Tool.LAB;
+    }
+
+    @Override
+    public Appearance appearance() {
+        // Нет направления — нет стрелки. Показываем прогресс исследования и счётчик очков.
+        return Appearance.of("Lab")
+                .progress(progressFraction())
+                .counter(points());
     }
 
     // ── Чтение для отрисовки и прогрессии ─────────────────────────────
