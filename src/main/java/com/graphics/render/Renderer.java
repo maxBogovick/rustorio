@@ -6,22 +6,16 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Disposable;
-import com.rustorio.game.GameState;
-import com.rustorio.model.World;
+import com.graphics.GfxConfig;
+import com.rustorio.BuildingType;
+import com.rustorio.World;
 
 /**
- * Дирижёр отрисовки. ЗОЛОТОЕ ПРАВИЛО (перенесено из Rust-версии): рендер только
- * ЧИТАЕТ {@link GameState} и рисует, НИКОГДА не меняя мир.
+ * Дирижёр отрисовки: владеет общими ресурсами и вызывает слои по порядку — земля, здания,
+ * предметы, HUD. Рендер только ЧИТАЕТ мир и рисует, НИКОГДА его не меняя.
  *
- * <p>Сам он не рисует ни одной фигуры — только владеет общими ресурсами
- * ({@link SpriteBatch}, {@link ShapeRenderer}, шрифт) и вызывает слои по порядку:
- * земля → здания → предметы → HUD. Каждый слой — маленький класс со своей зоной
- * ответственности; правишь внешний вид зданий — открываешь {@link BuildingRenderer},
- * остальные файлы не трогаешь.
- *
- * <p>Мировые слои рисуются через матрицу камеры (скролл/зум), HUD — через её же
- * {@code hudMatrix()}, прибитую к окну. Обход клеток везде идёт по
- * {@link GameCamera#visibleTiles}: что за кадром — не рисуется вовсе.
+ * <p>Живые слои сейчас — земля (карта с рудой) и здания (буры). Предметы и наложения ещё
+ * пустые каркасы; наполнятся, когда в игре появятся ленты и статистика.
  */
 public final class Renderer implements Disposable {
 
@@ -36,16 +30,13 @@ public final class Renderer implements Disposable {
     private final OverlayRenderer overlayRenderer;
     private final HudRenderer hudRenderer;
 
-    /** Настенные часы для анимации ленты (тикают даже на паузе, как в Rust). */
-    private float elapsed = 0f;
-
-    public Renderer(Textures textures, GameCamera camera, World world) {
+    public Renderer(Textures textures, GameCamera camera) {
         this.camera = camera;
         this.batch = new SpriteBatch();
         this.shapes = new ShapeRenderer();
         this.font = new BitmapFont(); // встроенный 15px Arial — хватает для HUD
 
-        Grid grid = new Grid(world.height());
+        Grid grid = new Grid(GfxConfig.GRID_H);
         this.worldRenderer = new WorldRenderer(shapes, grid);
         this.buildingRenderer = new BuildingRenderer(batch, shapes, textures, font, grid);
         this.itemRenderer = new ItemRenderer(batch, font, textures, grid);
@@ -53,35 +44,27 @@ public final class Renderer implements Disposable {
         this.hudRenderer = new HudRenderer(batch, font);
     }
 
-    /** Нарисовать весь кадр по текущему состоянию игры. */
-    public void render(GameState game, float delta) {
-        elapsed += delta;
-        World world = game.world();
-
+    /** Нарисовать кадр по текущему состоянию мира и выбранному в панели зданию. */
+    public void render(World world, BuildingType selected, float delta) {
         Gdx.gl.glClearColor(Palette.BG.r, Palette.BG.g, Palette.BG.b, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        // Для полупрозрачных сетки и «призрака». Функцию смешивания задаём явно:
-        // проход сетки идёт до первого SpriteBatch.begin(), который иначе
-        // выставил бы её за нас, — без этого alpha не смешивалась бы.
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
         // Мировые слои — глазами камеры.
         batch.setProjectionMatrix(camera.combined());
         shapes.setProjectionMatrix(camera.combined());
-        TileRange visible = camera.visibleTiles(world.width());
+        TileRange visible = camera.visibleTiles(GfxConfig.GRID_W);
 
-        worldRenderer.render(world, visible);                       // 1. фон + сетка
-        buildingRenderer.renderSprites(world, visible, elapsed);    // 2. спрайты зданий
-        buildingRenderer.renderOverlays(world, game, visible);      // 3. стрелки, прогресс
-        buildingRenderer.renderOutlines(world, game, visible);      // 4. рамки
-        overlayRenderer.renderWorld(game.overlay());                // 5. подсветки клеток
-        itemRenderer.render(world, game, visible);                  // 6. предметы
+        worldRenderer.render(visible);   // 1. земля + рудные области
+        buildingRenderer.render(world);  // 2. буры на карте
+        itemRenderer.render();           // 3. пусто (предметы — позже)
+        overlayRenderer.renderWorld();   // 4. пусто
 
-        // HUD — поверх всего, в координатах окна.
+        // HUD — в координатах окна.
         batch.setProjectionMatrix(camera.hudMatrix());
-        hudRenderer.render(game);                                   // 7. текст HUD
-        overlayRenderer.renderHud(game.overlay());                  // 8. панели, уведомления
+        hudRenderer.render(selected, world.stats()); // 5. заголовок + панель + статистика + подсказки
+        overlayRenderer.renderHud();     // 6. пусто
     }
 
     @Override

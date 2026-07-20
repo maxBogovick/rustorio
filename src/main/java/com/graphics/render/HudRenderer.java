@@ -4,14 +4,19 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.rustorio.core.Tech;
-import com.rustorio.core.Tool;
-import com.rustorio.game.GameState;
-import com.rustorio.model.Technology;
+import com.rustorio.BuildingType;
+import com.rustorio.Item;
+import com.rustorio.ProductionStats;
 
 /**
- * HUD — текст, прибитый к «стеклу» окна. Рисуется отдельной матрицей
- * ({@link GameCamera#hudMatrix()}), поэтому зум и скролл камеры его не двигают.
+ * HUD — текст, прибитый к «стеклу» окна (рисуется в оконных координатах, зум/скролл его не
+ * трогают): заголовок, панель постройки, статистика производства и подсказки управления.
+ *
+ * <p>Панель постройки и строка статистики — оба элемента интерфейса, которые ОТРАЖАЮТ состояние
+ * игры, а не просто висят. Панель читает, что выбрал игрок ({@link BuildingType}); строка
+ * статистики — сколько всего произведено ({@link ProductionStats}). Обе строятся из
+ * {@code values()} своего enum — добавится новый сорт здания или предмета, он появится сам, без
+ * правок здесь.
  */
 final class HudRenderer {
 
@@ -23,51 +28,52 @@ final class HudRenderer {
         this.font = font;
     }
 
-    void render(GameState game) {
+    void render(BuildingType selected, ProductionStats stats) {
         float top = Gdx.graphics.getHeight();
         batch.begin();
 
-        String status = "Tool: " + game.tool().displayName()
-                + "   Dir: " + game.direction().shortName()
-                + "   Undo: " + game.undoDepth()
-                + (game.isPaused() ? "   [PAUSED]" : "");
         font.setColor(Color.WHITE);
-        font.getData().setScale(1.15f);
-        font.draw(batch, status, 20, top - 16);
+        font.getData().setScale(1.2f);
+        font.draw(batch, "Rustorio", 20, top - 16);
+
+        // Панель постройки: выбранный пункт — в скобках [ ].
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        font.draw(batch, hotbar(selected), 20, top - 44);
+
+        // Статистика производства: сколько всего добыто/выплавлено с начала игры.
+        font.draw(batch, produced(stats), 20, top - 66);
 
         font.setColor(Palette.HINT);
         font.getData().setScale(0.9f);
-        // Панель собирается из СПИСКА инструментов: добавили здание — подсказка
-        // обновилась сама. Раньше эта строка была захардкожена и врала бы.
-        StringBuilder hints = new StringBuilder();
-        for (Tool t : Tool.values()) {
-            hints.append(t.hotkeySlot()).append(' ').append(t.displayName()).append("  ");
-        }
-        hints.append("   |    LMB place   RMB remove   R rotate   Ctrl+Z/Y undo/redo"
-                + "   C/V blueprint   F5 save   F9 load   Space pause   WASD/MMB pan   wheel zoom");
-        font.draw(batch, hints.toString(), 20, top - 46);
+        font.draw(batch, "1-5 select   LMB build   RMB remove   F5 save   F9 load   WASD pan   wheel zoom",
+                20, top - 88);
 
-        // Строка исследований: очки и состояние каждой технологии. Собирается из ДАННЫХ
-        // (Tech.values() + таблица Technology), поэтому новая технология появится тут сама.
-        var research = game.research();
-        StringBuilder techs = new StringBuilder("Science: " + research.points() + "    ");
-        for (Tech tech : Tech.values()) {
-            Technology technology = Technology.of(tech);
-            String state;
-            if (research.isUnlocked(tech)) {
-                state = "OK";
-            } else if (research.canResearch(tech)) {
-                state = "ready";
-            } else {
-                state = String.valueOf(technology.cost());
-            }
-            techs.append('F').append(tech.ordinal() + 1).append(' ')
-                    .append(tech.displayName()).append(" [").append(state).append("]   ");
-        }
-        font.setColor(Palette.HINT);
-        font.draw(batch, techs.toString(), 20, top - 66);
         font.getData().setScale(1f);
-
+        font.setColor(Color.WHITE);
         batch.end();
+    }
+
+    /** Строка панели: «Build: [ 1 Miner ] 2 Chest 3 Furnace» — выбранное в скобках. */
+    private static String hotbar(BuildingType selected) {
+        StringBuilder sb = new StringBuilder("Build:   ");
+        for (BuildingType type : BuildingType.values()) {
+            int number = type.ordinal() + 1;
+            if (type == selected) {
+                sb.append("[ ").append(number).append(' ').append(type.label()).append(" ]    ");
+            } else {
+                sb.append("  ").append(number).append(' ').append(type.label()).append("     ");
+            }
+        }
+        return sb.toString();
+    }
+
+    /** Строка статистики: «Produced:   IRON_ORE 12    IRON_PLATE 4». */
+    private static String produced(ProductionStats stats) {
+        StringBuilder sb = new StringBuilder("Produced:   ");
+        for (Item item : Item.values()) {
+            sb.append(item.name()).append(' ').append(stats.total(item)).append("    ");
+        }
+        return sb.toString();
     }
 }

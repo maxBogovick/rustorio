@@ -1,12 +1,15 @@
 package com.graphics.render;
 
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.rustorio.core.Config;
-import com.rustorio.model.World;
+import com.graphics.GfxConfig;
+import com.rustorio.OreMap;
 
 /**
- * Слой «земля»: фон клеток (руда/грунт) и линии сетки.
- * Обходит только клетки из {@link TileRange} — что за кадром, не рисуется вовсе.
+ * Слой «земля»: грунт, рудные области и линии сетки. Обходит только видимые клетки из
+ * {@link TileRange}.
+ *
+ * <p>Где лежит руда, знает {@link OreMap} (функция от координат — та же карта, что была).
+ * Здания сюда вернутся вместе с остальной логикой; пока рисуется карта и по ней ездит камера.
  */
 final class WorldRenderer {
 
@@ -18,12 +21,14 @@ final class WorldRenderer {
         this.grid = grid;
     }
 
-    void render(World world, TileRange range) {
-        float tile = Config.TILE;
+    void render(TileRange range) {
+        float tile = GfxConfig.TILE;
+
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (int y = range.minY(); y <= range.maxY(); y++) {
             for (int x = range.minX(); x <= range.maxX(); x++) {
-                shapes.setColor(world.tile(x, y).hasOre() ? Palette.ORE : Palette.GROUND);
+                // Руда — синим, обычный грунт — серым: те же рудные области, что были в игре.
+                shapes.setColor(OreMap.hasOre(x, y) ? Palette.ORE : Palette.GROUND);
                 shapes.rect(grid.x(x), grid.yBottom(y), tile, tile);
             }
         }

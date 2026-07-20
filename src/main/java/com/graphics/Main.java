@@ -2,7 +2,6 @@ package com.graphics;
 
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
-import com.rustorio.core.Config;
 
 /**
  * Точка входа для десктопа (бэкенд LWJGL3).
@@ -19,7 +18,7 @@ public final class Main {
     public static void main(String[] args) {
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
         config.setTitle("Rustorio");
-        config.setWindowedMode(Config.WINDOW_W, Config.WINDOW_H);
+        config.setWindowedMode(GfxConfig.WINDOW_W, GfxConfig.WINDOW_H);
         config.setResizable(true); // камера умеет пересчитываться под новый размер
         config.useVsync(true);
         config.setForegroundFPS(60);

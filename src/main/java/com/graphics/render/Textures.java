@@ -7,7 +7,6 @@ import com.badlogic.gdx.graphics.g2d.PixmapPacker;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Disposable;
-import com.rustorio.core.Item;
 
 /**
  * Все спрайты игры, загруженные ОДИН раз при старте и склеенные в ЕДИНЫЙ атлас.
@@ -147,15 +146,9 @@ public final class Textures implements Disposable {
         pixmap.dispose();
     }
 
-    /** Спрайт предмета по его типу. Новый предмет — одна ветка здесь. */
-    TextureRegion itemTexture(Item item) {
-        return switch (item) {
-            case IRON_ORE -> ironOre;
-            case IRON_PLATE -> ironPlate;
-            case GEAR -> gear;
-            case MECHANISM -> mechanism;
-        };
-    }
+    // Метод itemTexture(Item) убран вместе с доменом: он переводил com.rustorio.core.Item в
+    // спрайт. Спрайты предметов (ironOre/ironPlate/gear/mechanism) загружены и ждут — метод-
+    // переводчик вернётся, когда в логике снова появятся предметы.
 
     @Override
     public void dispose() {

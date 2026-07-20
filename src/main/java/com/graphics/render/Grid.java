@@ -1,6 +1,6 @@
 package com.graphics.render;
 
-import com.rustorio.core.Config;
+import com.graphics.GfxConfig;
 
 /**
  * Перевод «клетка сетки → мировые пиксели» — единственное место Y-flip.
@@ -19,21 +19,21 @@ final class Grid {
 
     /** X левого края клетки-столбца {@code gx}. */
     float x(int gx) {
-        return gx * Config.TILE;
+        return gx * GfxConfig.TILE;
     }
 
     /** Y НИЖНЕГО края клетки-строки {@code gy}. */
     float yBottom(int gy) {
-        return (height - 1 - gy) * Config.TILE;
+        return (height - 1 - gy) * GfxConfig.TILE;
     }
 
     /** X центра клетки; {@code gx} может быть дробным (предмет между клетками). */
     float centerX(float gx) {
-        return (gx + 0.5f) * Config.TILE;
+        return (gx + 0.5f) * GfxConfig.TILE;
     }
 
     /** Y центра клетки; {@code gy} может быть дробным. */
     float centerY(float gy) {
-        return (height - gy - 0.5f) * Config.TILE;
+        return (height - gy - 0.5f) * GfxConfig.TILE;
     }
 }

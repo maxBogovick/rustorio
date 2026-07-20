@@ -1,15 +1,14 @@
 package com.graphics.render;
 
 import com.badlogic.gdx.graphics.Color;
-import com.rustorio.core.Tint;
 
 /** Все цвета отрисовки в одном месте (перенесены из render.rs Rust-версии). */
 final class Palette {
 
     static final Color BG = rgb(26, 26, 31);
-    static final Color GROUND = rgb(38, 41, 46);
-    static final Color ORE = rgb(51, 71, 115);
-    static final Color GRID = new Color(0, 0, 0, 64 / 255f);
+    static final Color GROUND = rgb(42, 46, 54);
+    static final Color ORE = rgb(51, 71, 115);   // рудные области — заметный синий
+    static final Color GRID = rgb(90, 96, 110);
     static final Color HINT = rgb(179, 179, 199);
     static final Color WORKING = Color.GREEN;
     static final Color IDLE = Color.RED;
@@ -28,31 +27,9 @@ final class Palette {
     // Насыщенные цвета для линий и текста (заливки полупрозрачны, а тут нужна читаемость).
     static final Color TS_RANGE = new Color(0.40f, 0.70f, 1.00f, 1f);
 
-    /** Смысловой цвет подсветки → полупрозрачная заливка клетки. */
-    static Color tint(Tint tint) {
-        return switch (tint) {
-            case NEUTRAL -> T_NEUTRAL;
-            case GOOD -> T_GOOD;
-            case WARN -> T_WARN;
-            case BAD -> T_BAD;
-            case SELECT -> T_SELECT;
-            case RANGE -> T_RANGE;
-            case GHOST -> T_GHOST;
-        };
-    }
-
-    /** Тот же смысл, но насыщенным цветом — для линий и текста. */
-    static Color tintStrong(Tint tint) {
-        return switch (tint) {
-            case NEUTRAL -> HINT;
-            case GOOD -> WORKING;
-            case WARN -> BAR;
-            case BAD -> IDLE;
-            case SELECT -> Color.WHITE;
-            case RANGE -> TS_RANGE;
-            case GHOST -> GHOST;
-        };
-    }
+    // Методы tint()/tintStrong() (смысловой цвет подсветки → заливка) убраны вместе с доменом:
+    // они переводили com.rustorio.core.Tint. Вернутся, когда вернутся наложения (OverlayRenderer).
+    // Сами цвета оставлены — пригодятся.
 
     private Palette() {
     }
