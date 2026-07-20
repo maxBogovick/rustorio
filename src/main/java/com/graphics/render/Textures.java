@@ -9,30 +9,18 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Disposable;
 
 /**
- * Все спрайты игры, загруженные ОДИН раз при старте и склеенные в ЕДИНЫЙ атлас.
+ * Спрайты игры, загруженные ОДИН раз при старте и склеенные в атлас (задача A2).
  *
- * <p><b>Зачем атлас (задача A2).</b> Видеокарта рисует «пачками» и обязана прервать
- * пачку при каждой смене текстуры. Пока у каждого спрайта своя {@link Texture}, на
- * соседних клетках стоят бур/лента/печь — смена почти на каждой клетке, и пачка
- * рвётся десятки тысяч раз за кадр. Склеив все спрайты в одну большую картинку
- * (одну {@link Texture}), мы убираем смены вовсе: вся сцена рисуется одной пачкой.
- *
- * <p><b>Как склеиваем.</b> {@link PixmapPacker} упаковывает исходные картинки в одну
- * страницу в памяти при старте — без внешнего инструмента и без правки {@code
- * build.gradle}. Наружу каждый спрайт отдаётся как {@link TextureRegion} — «окно» в
- * общий атлас; все окна смотрят в одну и ту же {@link Texture}.
- *
- * <p>Спрайты лежат в {@code resources/} (оставлены от Rust-версии), фильтр
- * {@link Texture.TextureFilter#Nearest} — иначе пиксель-арт размажется при
- * растягивании до размера клетки. {@link Disposable} обязывает освободить атлас в
- * {@link #dispose()}: libGDX не собирает нативную память GPU сборщиком мусора.
+ * <p>Пока в игре только бур — атлас несёт только его 3 кадра. Остальные ресурсы из
+ * {@code resources/} по-прежнему лежат на диске и вернутся в атлас вместе со зданиями, которым
+ * они принадлежат.
  */
 public final class Textures implements Disposable {
 
     /** Единственная текстура-атлас, куда смотрят все регионы ниже. */
     private final TextureAtlas atlas;
 
-    // Бур: 3 кадра прогресса добычи.
+    /** Бур: 3 кадра прогресса добычи (сейчас рисуется только нулевой). */
     final TextureRegion[] miner = new TextureRegion[3];
     // Лента: 2 кадра «бегущей дорожки», рисуются с поворотом под направление.
     final TextureRegion[] belt = new TextureRegion[2];
@@ -57,12 +45,7 @@ public final class Textures implements Disposable {
     private final TextureRegion mechanism;
 
     public Textures() {
-        // padding=2 + duplicateBorder: соседние спрайты не «протекают» друг в друга
-        // при повороте/растяжении, а край каждого спрайта продлён в отступ.
         PixmapPacker packer = new PixmapPacker(1024, 1024, Pixmap.Format.RGBA8888, 2, true);
-        // Имена БЕЗ завершающих цифр: generateTextureAtlas() разбирает хвостовые
-        // цифры имени в «индекс региона» ("miner_1" → name="miner", index=1), и
-        // тогда findRegion("miner_1") ничего не находит. Суффиксы-буквы этого избегают.
         packFile(packer, "miner_a", "resources/miner_1.png");
         packFile(packer, "miner_b", "resources/miner_2.png");
         packFile(packer, "miner_c", "resources/miner_3.png");
@@ -152,6 +135,6 @@ public final class Textures implements Disposable {
 
     @Override
     public void dispose() {
-        atlas.dispose(); // одна текстура-атлас — одно освобождение
+        atlas.dispose();
     }
 }

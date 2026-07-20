@@ -7,7 +7,6 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Disposable;
 import com.graphics.GfxConfig;
-import com.rustorio.BuildingType;
 import com.rustorio.World;
 
 /**
@@ -15,7 +14,7 @@ import com.rustorio.World;
  * предметы, HUD. Рендер только ЧИТАЕТ мир и рисует, НИКОГДА его не меняя.
  *
  * <p>Живые слои сейчас — земля (карта с рудой) и здания (буры). Предметы и наложения ещё
- * пустые каркасы; наполнятся, когда в игре появятся ленты и статистика.
+ * пустые каркасы.
  */
 public final class Renderer implements Disposable {
 
@@ -38,14 +37,14 @@ public final class Renderer implements Disposable {
 
         Grid grid = new Grid(GfxConfig.GRID_H);
         this.worldRenderer = new WorldRenderer(shapes, grid);
-        this.buildingRenderer = new BuildingRenderer(batch, shapes, textures, font, grid);
+        this.buildingRenderer = new BuildingRenderer(batch, textures, grid);
         this.itemRenderer = new ItemRenderer(batch, font, textures, grid);
         this.overlayRenderer = new OverlayRenderer(batch, shapes, font, textures, grid);
         this.hudRenderer = new HudRenderer(batch, font);
     }
 
-    /** Нарисовать кадр по текущему состоянию мира и выбранному в панели зданию. */
-    public void render(World world, BuildingType selected, float delta) {
+    /** Нарисовать кадр по текущему состоянию мира. */
+    public void render(World world, float delta) {
         Gdx.gl.glClearColor(Palette.BG.r, Palette.BG.g, Palette.BG.b, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -63,7 +62,7 @@ public final class Renderer implements Disposable {
 
         // HUD — в координатах окна.
         batch.setProjectionMatrix(camera.hudMatrix());
-        hudRenderer.render(selected, world.stats()); // 5. заголовок + панель + статистика + подсказки
+        hudRenderer.render();                        // 5. заголовок + подсказки
         overlayRenderer.renderHud();     // 6. пусто
     }
 

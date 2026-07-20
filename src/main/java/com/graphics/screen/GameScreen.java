@@ -42,9 +42,9 @@ public final class GameScreen extends ScreenAdapter {
 
     @Override
     public void render(float delta) {
-        input.handle(world, delta);                        // 1. ввод: камера + выбор/постройка
-        world.tick();                                      // 2. тик: здания делают свою работу
-        renderer.render(world, input.selected(), delta);   // 3. рендер: карта + здания + панель
+        input.handle(world, delta);      // 1. ввод: камера + постройка бура кликом
+        world.tick();                    // 2. тик: буры делают свою работу
+        renderer.render(world, delta);   // 3. рендер: карта + буры
     }
 
     @Override
