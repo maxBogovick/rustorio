@@ -8,6 +8,7 @@ import com.graphics.input.InputHandler;
 import com.graphics.render.GameCamera;
 import com.graphics.render.Renderer;
 import com.graphics.render.Textures;
+import com.rustorio.ProductionLog;
 import com.rustorio.World;
 
 /**
@@ -23,9 +24,12 @@ public final class GameScreen extends ScreenAdapter {
     private final InputHandler input;
     private final Renderer renderer;
     private final Textures textures;
+    /** Независимый от статистики слушатель того же события — экран его создал, экран его читает. */
+    private final ProductionLog productionLog = new ProductionLog();
 
     public GameScreen() {
         this.world = new World(GfxConfig.GRID_W, GfxConfig.GRID_H);
+        world.addProductionListener(productionLog);
         this.camera = new GameCamera(GfxConfig.GRID_W, GfxConfig.GRID_H);
         this.input = new InputHandler(camera);
         this.textures = new Textures();
@@ -42,9 +46,9 @@ public final class GameScreen extends ScreenAdapter {
 
     @Override
     public void render(float delta) {
-        input.handle(world, delta);                        // 1. ввод: камера + выбор/постройка
-        world.tick();                                      // 2. тик: здания делают свою работу
-        renderer.render(world, input.selected(), delta);   // 3. рендер: карта + здания + панель
+        input.handle(world, delta);                                      // 1. ввод: камера + выбор/постройка
+        world.tick();                                                    // 2. тик: здания делают свою работу
+        renderer.render(world, input.selected(), input.facing(), productionLog, delta); // 3. рендер: карта + HUD
     }
 
     @Override

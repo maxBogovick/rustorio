@@ -1,86 +1,100 @@
 package com.rustorio;
 
 /**
- * Печь: принимает руду от соседа, переплавляет её в железную пластину и отдаёт пластину дальше.
+ * Печь: принимает предмет от соседа, перерабатывает его по своему {@link Recipe} и отдаёт
+ * результат дальше.
  *
  * <p>Третье здание — и первое, что стоит В СЕРЕДИНЕ цепочки: у него есть и вход, и выход.
- * Бур кладёт в печь руду, печь копит её в маленьком буфере, раз в несколько тиков превращает
- * одну руду в пластину и предлагает пластину соседу (обычно ящику). Получается конвейер
- * бур → печь → ящик.
+ * Раньше «беру только руду» и «делаю пластину» были зашиты в код класса. Теперь это РЕЦЕПТ —
+ * значение, которое печи дают при постройке (см. {@link World#placeFurnace}), а сам класс не
+ * знает и знать не должен, руда это или что-то ещё (урок 16).
  *
  * <p>Как и бур, печь — активное здание: переопределяет {@link #tick}. В отличие от ящика, она
- * принимает НЕ что угодно — только руду и только пока в буфере есть место.
+ * принимает НЕ что угодно — только вход своего рецепта и только пока в буфере есть место.
  */
 public final class Furnace implements Building {
 
-    /** За сколько тиков переплавляется одна руда. */
-    private static final int SMELT_TIME = 5;
-    /** Сколько руды печь готова держать в очереди на переплавку. */
+    /** Сколько предметов печь готова держать в очереди на переработку. */
     private static final int BUFFER_MAX = 5;
 
-    /** Сколько руды сейчас ждёт переплавки. */
-    private int oreBuffer;
-    /** Сколько тиков осталось до готовности текущей пластины. */
-    private int cooldown = SMELT_TIME;
+    private final Recipe recipe;
+
+    /** Сколько предметов сейчас ждёт переработки. */
+    private int buffer;
+    /** Сколько тиков осталось до готовности текущей порции. */
+    private int cooldown;
+
+    public Furnace(Recipe recipe) {
+        this.recipe = recipe;
+        this.cooldown = recipe.time();
+    }
 
     /**
-     * Принять предмет от соседа. В отличие от ящика, печь разборчива — берёт только руду и только
-     * пока в буфере есть место.
+     * Принять предмет от соседа. В отличие от ящика, печь разборчива — берёт только вход СВОЕГО
+     * рецепта и только пока в буфере есть место.
      *
-     * @return {@code true}, если приняли; {@code false}, если это не руда или буфер уже полон
-     *         (тогда сосед оставит предмет себе / отдаст другому)
+     * @return {@code true}, если приняли; {@code false}, если это не тот предмет или буфер уже
+     *         полон (тогда сосед оставит предмет себе / отдаст другому)
      */
     @Override
     public boolean accept(Item item) {
-        if (item != Item.IRON_ORE || oreBuffer >= BUFFER_MAX) {
+        if (item != recipe.input() || buffer >= BUFFER_MAX) {
             return false;
         }
-        oreBuffer++;
+        buffer++;
         return true;
     }
 
     @Override
     public void tick(World world, int x, int y) {
-        if (oreBuffer == 0) {
-            return;                 // плавить нечего
+        if (buffer == 0) {
+            return;                     // перерабатывать нечего
         }
         if (--cooldown > 0) {
-            return;                 // ещё плавим
+            return;                     // ещё работаем
         }
-        cooldown = SMELT_TIME;      // завод на следующую пластину
-        oreBuffer--;                // одна руда израсходована
-        world.offerToNeighbor(x, y, Item.IRON_PLATE); // готовую пластину — соседу
+        cooldown = recipe.time();       // завод на следующую порцию — тем же временем рецепта
+        buffer--;                       // один вход израсходован
+        world.offerToNeighbor(x, y, recipe.output()); // готовый выход — соседу
     }
 
-    /** Сколько руды в буфере. */
+    /** Сколько предметов в буфере. */
     public int oreBuffer() {
-        return oreBuffer;
+        return buffer;
     }
 
     @Override
     public Appearance appearance() {
-        // Печь решает сама: есть руда в буфере — горячий спрайт с числом; пусто — холодный, без числа.
-        return oreBuffer > 0
-                ? Appearance.of(Sprite.FURNACE_HOT, oreBuffer)
+        // Печь решает сама: есть что-то в буфере — горячий спрайт с числом; пусто — холодный.
+        // Рецепт на спрайт не влияет — печь и пресс сейчас выглядят одинаково (см. урок 16).
+        return buffer > 0
+                ? Appearance.of(Sprite.FURNACE_HOT, buffer)
                 : Appearance.of(Sprite.FURNACE_COLD);
     }
 
     @Override
     public BuildingType type() {
-        return BuildingType.FURNACE;
+        // Печь и пресс — один класс с разными рецептами; какой пункт меню я такое, знает рецепт.
+        return recipe.type();
     }
 
-    /** Состояние для сохранения: буфер и таймер — два числа через пробел, печь сама решает формат. */
+    /** Состояние для сохранения: буфер и таймер. Сам рецепт не хранится — см. {@link #load}. */
     @Override
     public String save() {
-        return oreBuffer + " " + cooldown;
+        return buffer + " " + cooldown;
     }
 
-    /** Воссоздать печь из сохранённого состояния (обратный разбор строки из {@link #save()}). */
-    static Furnace load(String data) {
+    /**
+     * Воссоздать печь из сохранённого состояния с заданным рецептом.
+     *
+     * <p>Рецепт передаётся СНАРУЖИ, а не хранится в файле: его уже знает вызывающий — по тегу
+     * здания ({@code FURNACE} или {@code PRESS}, см. {@link SaveGame}). Дублировать эту
+     * информацию внутри сохранения незачем.
+     */
+    static Furnace load(String data, Recipe recipe) {
         String[] fields = data.split(" ");
-        Furnace furnace = new Furnace();
-        furnace.oreBuffer = Integer.parseInt(fields[0]);
+        Furnace furnace = new Furnace(recipe);
+        furnace.buffer = Integer.parseInt(fields[0]);
         furnace.cooldown = Integer.parseInt(fields[1]);
         return furnace;
     }

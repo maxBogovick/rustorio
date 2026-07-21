@@ -17,7 +17,8 @@ public enum BuildingType {
     CHEST("Chest"),
     FURNACE("Furnace"),
     BELT("Belt"),
-    SPLITTER("Splitter");
+    SPLITTER("Splitter"),
+    PRESS("Press");
 
     private final String label;
 

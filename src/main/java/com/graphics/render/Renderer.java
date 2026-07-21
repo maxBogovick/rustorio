@@ -8,6 +8,8 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Disposable;
 import com.graphics.GfxConfig;
 import com.rustorio.BuildingType;
+import com.rustorio.Direction;
+import com.rustorio.ProductionLog;
 import com.rustorio.World;
 
 /**
@@ -44,8 +46,8 @@ public final class Renderer implements Disposable {
         this.hudRenderer = new HudRenderer(batch, font);
     }
 
-    /** Нарисовать кадр по текущему состоянию мира и выбранному в панели зданию. */
-    public void render(World world, BuildingType selected, float delta) {
+    /** Нарисовать кадр по текущему состоянию мира, выбранному зданию и логу событий. */
+    public void render(World world, BuildingType selected, Direction facing, ProductionLog log, float delta) {
         Gdx.gl.glClearColor(Palette.BG.r, Palette.BG.g, Palette.BG.b, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -63,7 +65,7 @@ public final class Renderer implements Disposable {
 
         // HUD — в координатах окна.
         batch.setProjectionMatrix(camera.hudMatrix());
-        hudRenderer.render(selected, world.stats()); // 5. заголовок + панель + статистика + подсказки
+        hudRenderer.render(selected, facing, world.stats(), log); // 5. заголовок + панель + статистика + лог + подсказки
         overlayRenderer.renderHud();     // 6. пусто
     }
 

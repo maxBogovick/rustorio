@@ -5,8 +5,13 @@ import com.badlogic.gdx.Input;
 import com.graphics.GfxConfig;
 import com.graphics.render.GameCamera;
 import com.graphics.render.TilePos;
+import com.rustorio.ActionHistory;
 import com.rustorio.BuildingType;
+import com.rustorio.Direction;
+import com.rustorio.PlaceAction;
+import com.rustorio.RemoveAction;
 import com.rustorio.SaveGame;
+import com.rustorio.UpgradeSpeedAction;
 import com.rustorio.World;
 
 /**
@@ -16,17 +21,23 @@ import com.rustorio.World;
  * СНАЧАЛА ВЫБИРАЕТ здание клавишами 1/2/3, а строит всегда одинаково: ЛКМ ставит выбранное, ПКМ
  * сносит. Один жест постройки на любое число зданий.
  *
- * <p>Ввод НЕ решает, где можно строить, — он лишь сообщает миру «игрок ткнул сюда выбранным
- * зданием». Ставить или нет (клетка на руде? свободна?) решает мир ({@link World#place}): правило
- * места — про мир, а не про кнопку. Зум колесом ловит экран ({@code InputProcessor}) и отдаёт
- * камере: колесо в libGDX — событие, а не состояние.
+ * <p>ЛКМ/ПКМ больше не зовут мир напрямую — они заворачивают намерение в {@link PlaceAction}/
+ * {@link RemoveAction} и отдают {@link ActionHistory} (урок 15): так у отмены (Ctrl+Z) и повтора
+ * (Ctrl+Y) есть что откатывать. Ввод НЕ решает, где можно строить, — он лишь сообщает миру
+ * «игрок ткнул сюда выбранным зданием». Ставить или нет (клетка на руде? свободна?) решает мир
+ * ({@link World#place}): правило места — про мир, а не про кнопку. Зум колесом ловит экран
+ * ({@code InputProcessor}) и отдаёт камере: колесо в libGDX — событие, а не состояние.
  */
 public final class InputHandler {
 
     private final GameCamera camera;
+    private final ActionHistory history = new ActionHistory();
 
     /** Что игрок сейчас строит. ЛКМ ставит именно это; меняется клавишами 1/2/3. */
     private BuildingType selected = BuildingType.MINER;
+
+    /** Куда повёрнута следующая постройка — важно только ленте (урок 19). Меняется клавишей R. */
+    private Direction facing = Direction.RIGHT;
 
     /** Прошлая точка драга средней кнопкой (валидна, только пока {@link #dragging}). */
     private float lastDragX;
@@ -42,19 +53,47 @@ public final class InputHandler {
         return selected;
     }
 
+    /** Куда повёрнута следующая постройка — HUD показывает это игроку. */
+    public Direction facing() {
+        return facing;
+    }
+
     public void handle(World world, float delta) {
         handleCamera(delta);
         handleBuildSelection();
 
-        // Один жест постройки: ЛКМ — поставить выбранное здание, ПКМ — снести.
+        // Один жест постройки: ЛКМ — поставить выбранное здание, ПКМ — снести. Оба заворачиваются
+        // в действие и идут через историю — так их можно отменить.
         // Момент нажатия, не «зажато»: один клик — одно действие.
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             TilePos tile = camera.pickTile(Gdx.input.getX(), Gdx.input.getY());
-            world.place(selected, tile.x(), tile.y());
+            history.perform(world, new PlaceAction(selected, tile.x(), tile.y(), facing));
         }
         if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
             TilePos tile = camera.pickTile(Gdx.input.getX(), Gdx.input.getY());
-            world.removeBuilding(tile.x(), tile.y());
+            history.perform(world, new RemoveAction(tile.x(), tile.y()));
+        }
+
+        // Поворот следующей постройки (урок 19): R крутит направление ленты по кругу.
+        if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+            facing = facing.rotate();
+        }
+
+        // Модуль скорости (урок 18): U под курсором ускоряет здание вдвое. Тоже через историю —
+        // отмена снимает обёртку, как и было задумано в UpgradeSpeedAction.
+        if (Gdx.input.isKeyJustPressed(Input.Keys.U)) {
+            TilePos tile = camera.pickTile(Gdx.input.getX(), Gdx.input.getY());
+            history.perform(world, new UpgradeSpeedAction(tile.x(), tile.y()));
+        }
+
+        // Отмена/повтор (урок 15): Ctrl+Z откатывает последнее действие, Ctrl+Y повторяет откаченное.
+        boolean ctrl = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
+                || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
+        if (ctrl && Gdx.input.isKeyJustPressed(Input.Keys.Z)) {
+            history.undo(world);
+        }
+        if (ctrl && Gdx.input.isKeyJustPressed(Input.Keys.Y)) {
+            history.redo(world);
         }
 
         // Сохранение/загрузка (урок 10): F5 — записать мир на диск, F9 — прочитать обратно.

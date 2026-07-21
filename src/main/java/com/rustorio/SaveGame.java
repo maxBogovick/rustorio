@@ -98,9 +98,10 @@ public final class SaveGame {
         Building building = switch (type) {
             case MINER -> Miner.load(data);
             case CHEST -> Chest.load(data);
-            case FURNACE -> Furnace.load(data);
+            case FURNACE -> Furnace.load(data, Recipe.IRON);
             case BELT -> Belt.load(data);
             case SPLITTER -> Splitter.load(data);
+            case PRESS -> Furnace.load(data, Recipe.GEAR);
         };
         world.restore(x, y, building);
     }

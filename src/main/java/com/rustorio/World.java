@@ -1,5 +1,7 @@
 package com.rustorio;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
@@ -33,9 +35,28 @@ public final class World {
     /** Сколько всего произведено предметов с начала игры — переживает снос отдельных зданий. */
     private final ProductionStats stats = new ProductionStats();
 
+    /**
+     * Кто хочет узнавать о каждом произведённом предмете. Статистика подписана всегда — но список
+     * не завязан на неё по имени: другой слушатель встанет рядом без единой правки этого класса
+     * (урок 14).
+     */
+    private final List<ProductionListener> productionListeners = new ArrayList<>();
+
     public World(int width, int height) {
         this.width = width;
         this.height = height;
+        // Ссылка на метод — тот же приём, что SortRule.ORE_FORWARD в уроке 12: подписка без
+        // отдельного класса-обёртки. ProductionStats ничего не знает про то, что она «слушатель».
+        productionListeners.add(stats::record);
+    }
+
+    /**
+     * Подписать независимого слушателя на событие «предмет произведён» — в дополнение к
+     * статистике, без замены её. Мир не запоминает, ЧТО это за слушатель: только то, что у него
+     * есть {@link ProductionListener#onProduced}.
+     */
+    public void addProductionListener(ProductionListener listener) {
+        productionListeners.add(listener);
     }
 
     public int width() {
@@ -65,34 +86,49 @@ public final class World {
      *
      * <p>Правило «только на руде» живёт ЗДЕСЬ, а не в вводе: где можно строить — это про мир,
      * а не про то, какой кнопкой кликнули. Тихо ничего не делаем, если поставить нельзя.
+     *
+     * @return {@code true}, если бур реально поставлен (урок 15: команда должна знать, было ли
+     *         что запоминать для отмены)
      */
-    public void placeMiner(int x, int y) {
+    public boolean placeMiner(int x, int y) {
         if (inBounds(x, y) && hasOre(x, y) && isFree(x, y)) {
             buildings.put(key(x, y), new Miner());
+            return true;
         }
+        return false;
     }
 
     /**
      * Поставить ящик, если клетка в поле и свободна. Руда ящику не нужна — он стоит где угодно
      * (обычно рядом с буром, чтобы тот складывал добычу именно в него).
      */
-    public void placeChest(int x, int y) {
-        placeIfFree(x, y, Chest::new);
+    public boolean placeChest(int x, int y) {
+        return placeIfFree(x, y, Chest::new);
     }
 
     /**
      * Поставить печь на свободную клетку. Руда ей под ногами не нужна — сырьё приходит от
      * соседа-бура; ставят печь обычно между буром и ящиком.
      */
-    public void placeFurnace(int x, int y) {
-        placeIfFree(x, y, Furnace::new);
+    public boolean placeFurnace(int x, int y) {
+        return placeIfFree(x, y, () -> new Furnace(Recipe.IRON));
     }
 
     /**
-     * Поставить ленту на свободную клетку. Как ящику и печи, руда ей не нужна — везёт, что дадут.
+     * Поставить пресс на свободную клетку — та же {@link Furnace}, что и печь, только с другим
+     * рецептом ({@link Recipe#GEAR}: пластина → шестерёнка). Ни новый класс, ни правки {@code
+     * Furnace.java} для этого не понадобились (урок 16) — только вот эта строка.
      */
-    public void placeBelt(int x, int y) {
-        placeIfFree(x, y, Belt::new);
+    public boolean placePress(int x, int y) {
+        return placeIfFree(x, y, () -> new Furnace(Recipe.GEAR));
+    }
+
+    /**
+     * Поставить ленту, повёрнутую в {@code direction}, на свободную клетку. Как ящику и печи,
+     * руда ей не нужна — везёт, что дадут, только теперь ещё и КУДА игрок скажет (урок 19).
+     */
+    public boolean placeBelt(int x, int y, Direction direction) {
+        return placeIfFree(x, y, () -> new Belt(direction));
     }
 
     /**
@@ -100,38 +136,59 @@ public final class World {
      * {@link SortRule#ORE_FORWARD}. Захочешь другое поведение для сортировщиков — меняй правило
      * ЗДЕСЬ, в одной строке; класс {@link Splitter} трогать не придётся (см. урок 12).
      */
-    public void placeSplitter(int x, int y) {
-        placeIfFree(x, y, () -> new Splitter(SortRule.ORE_FORWARD));
+    public boolean placeSplitter(int x, int y) {
+        return placeIfFree(x, y, () -> new Splitter(SortRule.ORE_FORWARD));
     }
 
     /**
      * Общее тело почти всех {@code place*}: если клетка в поле и свободна — построить то, что
      * даст {@code factory}. Четыре из пяти зданий (все, кроме бура) этим и ограничиваются —
      * различаются только тем, ЧТО именно строить (урок 13).
+     *
+     * @return {@code true}, если здание реально поставлено
      */
-    private void placeIfFree(int x, int y, Supplier<Building> factory) {
+    private boolean placeIfFree(int x, int y, Supplier<Building> factory) {
         if (inBounds(x, y) && isFree(x, y)) {
             buildings.put(key(x, y), factory.get());
+            return true;
         }
+        return false;
     }
 
     /**
-     * Поставить здание ВЫБРАННОГО сорта — одна дверь на все постройки для ввода. Каждый сорт
-     * ведёт к своему правилу (у бура — «на руде»), а игрок лишь говорит, что именно строит.
+     * Поставить здание ВЫБРАННОГО сорта лицом в {@code direction} — одна дверь на все постройки
+     * для ввода. Каждый сорт ведёт к своему правилу (у бура — «на руде»), а игрок лишь говорит,
+     * что именно строит; направление важно только ленте, остальные его игнорируют.
+     *
+     * @return {@code true}, если здание реально поставлено (клавиатура/мышь этого не проверяют —
+     *         это забота мира)
      */
-    public void place(BuildingType type, int x, int y) {
-        switch (type) {
+    public boolean place(BuildingType type, int x, int y, Direction direction) {
+        return switch (type) {
             case MINER -> placeMiner(x, y);
             case CHEST -> placeChest(x, y);
             case FURNACE -> placeFurnace(x, y);
-            case BELT -> placeBelt(x, y);
+            case BELT -> placeBelt(x, y, direction);
             case SPLITTER -> placeSplitter(x, y);
-        }
+            case PRESS -> placePress(x, y);
+        };
     }
 
-    /** Снести здание в клетке (если оно там есть). Позволяет игроку исправлять ошибки. */
-    public void removeBuilding(int x, int y) {
-        buildings.remove(key(x, y));
+    /** То же самое с направлением по умолчанию — удобно для зданий, которым оно безразлично. */
+    public boolean place(BuildingType type, int x, int y) {
+        return place(type, x, y, Direction.RIGHT);
+    }
+
+    /**
+     * Снести здание в клетке и вернуть его — или {@code null}, если клетка была пуста.
+     *
+     * <p>Раньше метод ничего не возвращал: снёс и снёс. Теперь возвращает ИМЕННО СНЕСЁННОЕ
+     * здание — не новое такое же, а тот же объект, с тем же внутренним состоянием (сколько было
+     * руды в печи, что лежало в ящике). Это и нужно отмене (урок 15, {@link RemoveAction}):
+     * вернуть на место можно только то, что реально стояло, а не его копию с нуля.
+     */
+    public Building removeBuilding(int x, int y) {
+        return buildings.remove(key(x, y));
     }
 
     /**
@@ -155,36 +212,56 @@ public final class World {
     /**
      * Один шаг мира: каждое здание проживает свой тик, зная, где оно стоит.
      *
-     * <p>Обходим с КОНЦА — от больших {@code x} к меньшим ({@link NavigableMap#descendingMap()});
-     * ключ упакован так, что старшие биты — это {@code x} (см. {@link #key}), поэтому порядок по
-     * ключу — это порядок по {@code x}. Лента толкает предмет ВПРАВО ({@link Belt#tick}); если
-     * тикать слева направо, то к моменту, когда очередь дойдёт до ленты слева, лента справа от неё
-     * ещё не «ходила» в этом кадре — и предмет может проскочить сразу через несколько лент за один
-     * тик. Тикая справа налево, мы всегда обрабатываем соседа СПРАВА раньше, чем до него дотянется
-     * толчок слева: он либо уже освободился, либо ещё занят, но точно не сдвинется дважды за кадр.
+     * <p>Раньше (урок 11) всё тикало «с конца» — от больших координат к меньшим — ради ленты,
+     * которая толкает предмет только ВПРАВО: так сосед справа всегда успевал сходить раньше, чем
+     * до него дотягивался толчок слева, и предмет не проскакивал сразу через несколько лент за
+     * один тик. Урок 19 дал ленте направление НА ВЫБОР — и внезапно оказалось, что для ленты
+     * ВЛЕВО или ВВЕРХ тот же самый порядок стал НЕПРАВИЛЬНЫМ: он защищает соседа, толкающего к
+     * бОльшим координатам, а не к меньшим (проверено — цепочка лент влево телепортировала предмет
+     * через всю себя за один тик, а не по клетке за раз).
+     *
+     * <p>Единого порядка на все случаи не существует: два прохода. Сначала — все, кому подходит
+     * обход «с конца» ({@link Building#prefersDescendingTick()} вернул {@code true}: и здания без
+     * направления, и лента вправо/вниз). Потом — оставшиеся, в ОБРАТНОМ порядке (лента влево/
+     * вверх). Каждое здание само говорит, какой обход ему нужен, — мир не разбирает, лента это
+     * или нет (никакого {@code instanceof}, та же дисциплина, что и в уроке 6).
      */
     public void tick() {
         for (Map.Entry<Long, Building> entry : buildings.descendingMap().entrySet()) {
-            long k = entry.getKey();
-            // Ключ карты — упакованные координаты; распаковываем обратно в (x, y) для здания.
-            entry.getValue().tick(this, keyX(k), keyY(k));
+            if (entry.getValue().prefersDescendingTick()) {
+                tickEntry(entry);
+            }
         }
+        for (Map.Entry<Long, Building> entry : buildings.entrySet()) {
+            if (!entry.getValue().prefersDescendingTick()) {
+                tickEntry(entry);
+            }
+        }
+    }
+
+    private void tickEntry(Map.Entry<Long, Building> entry) {
+        long k = entry.getKey();
+        // Ключ карты — упакованные координаты; распаковываем обратно в (x, y) для здания.
+        entry.getValue().tick(this, keyX(k), keyY(k));
     }
 
     /**
      * Отдать предмет первому соседу (сверху/снизу/слева/справа), который его примет.
      *
      * <p>Это единственное место, через которое проходит КАЖДЫЙ произведённый предмет — и бур,
-     * и печь зовут именно этот метод, отдавая добычу. Поэтому здесь же, в одной точке, считаем
-     * статистику: раз предмет добрался до {@code offerToNeighbor}, значит здание его произвело,
-     * независимо от того, найдётся ли сосед, готовый принять. Ни {@link Miner}, ни {@link Furnace}
-     * для этого трогать не пришлось.
+     * и печь зовут именно этот метод, отдавая добычу. Поэтому здесь же, в одной точке, оповещаем
+     * ВСЕХ подписанных {@link ProductionListener}: раз предмет добрался до {@code
+     * offerToNeighbor}, значит здание его произвело, независимо от того, найдётся ли сосед,
+     * готовый принять. Ни {@link Miner}, ни {@link Furnace} для этого трогать не пришлось — и
+     * этот метод не пришлось трогать ради урока 14: слушателей стало два, а строчка та же.
      *
      * @return {@code true}, если сосед принял; {@code false} — принять было некому (предмет
      *         пропадает: буру всё ещё некуда деть руду)
      */
     public boolean offerToNeighbor(int x, int y, Item item) {
-        stats.record(item);
+        for (ProductionListener listener : productionListeners) {
+            listener.onProduced(item);
+        }
         return offer(x + 1, y, item)
                 || offer(x - 1, y, item)
                 || offer(x, y + 1, item)
