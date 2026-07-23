@@ -2,11 +2,9 @@ package com.graphics.render;
 
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
 import com.rustorio.Appearance;
-import com.rustorio.Sprite;
 import com.rustorio.World;
 
 /**
@@ -17,9 +15,9 @@ import com.rustorio.World;
  * а слой лишь исполняет описание: взять спрайт по имени, нарисовать, при наличии — подписать
  * число. Про сорта зданий отрисовка больше НЕ знает; добавится новое — этот файл не тронут.
  *
- * <p>Единственное, что осталось от «знания картинок», — перевод логического имени {@link Sprite}
- * в конкретную текстуру ({@link #sprite}). Это про АССЕТЫ (какие пиксели), а не про поведение
- * зданий, и switch там — по enum-именам, проверяемый компилятором на полноту.
+ * <p>Перевод логического имени спрайта в текстуру атласа теперь в {@link Textures#forSprite} —
+ * им же пользуется {@link HudRenderer} для иконок в панели построек, чтобы здание на карте и
+ * его иконка в меню были гарантированно ОДНОЙ и той же картинкой.
  */
 final class BuildingRenderer {
 
@@ -45,25 +43,12 @@ final class BuildingRenderer {
             Appearance look = building.appearance();
             float px = grid.x(x);
             float py = grid.yBottom(y);
-            batch.draw(sprite(look.sprite()), px, py, tile, tile);
+            batch.draw(textures.forSprite(look.sprite()), px, py, tile, tile);
             if (look.hasBadge()) {
                 // Число — в правый-верхний угол клетки (загрузка ящика / буфер печи).
                 font.draw(batch, Integer.toString(look.badge()), px + 3, py + tile - 3);
             }
         });
         batch.end();
-    }
-
-    /** Перевод логического имени спрайта в текстуру атласа. Про ассеты, не про сорта зданий. */
-    private TextureRegion sprite(Sprite sprite) {
-        return switch (sprite) {
-            case MINER -> textures.miner[0];
-            case CHEST -> textures.chest;
-            case FURNACE_HOT -> textures.furnaceOn;
-            case FURNACE_COLD -> textures.furnaceOff;
-            case BELT_EMPTY -> textures.belt[0];
-            case BELT_FULL -> textures.belt[1];
-            case SPLITTER -> textures.splitter;
-        };
     }
 }

@@ -21,6 +21,18 @@ public final class GfxConfig {
     public static final int WINDOW_W = 1280;
     public static final int WINDOW_H = 800;
 
+    /**
+     * Высота полос HUD сверху и снизу окна — И для отрисовки панелей ({@code HudRenderer}), И
+     * для того, чтобы камера НЕ показывала мир под ними ({@code GameCamera}). Раньше камера
+     * занимала окно целиком, а панели просто рисовались ПОВЕРХ карты — верхние клетки поля
+     * оказывались навсегда закрыты подложкой панели, хоть построить там технически было можно
+     * (клик всё равно проходил в мир, просто игрок не видел, куда кликает). Теперь у мира
+     * меньше окно (см. {@link com.graphics.render.GameCamera#resize}), а панели рисуются в
+     * освободившихся полосах — карта нигде не спрятана за интерфейсом.
+     */
+    public static final float HUD_TOP_HEIGHT = 112f;
+    public static final float HUD_BOTTOM_HEIGHT = 106f;
+
     /** Скорость скролла камеры (пикселей окна в секунду). */
     public static final float CAMERA_PAN_SPEED = 700f;
 

@@ -17,7 +17,7 @@ public final class Chest implements Building {
 
     /** Принять один предмет от соседа. Ящик берёт что угодно, поэтому всегда {@code true}. */
     @Override
-    public boolean accept(Item item) {
+    public boolean accept(World world, Item item) {
         count++;
         return true;
     }

@@ -19,7 +19,7 @@ public final class Splitter implements Building {
     }
 
     @Override
-    public boolean accept(Item item) {
+    public boolean accept(World world, Item item) {
         if (held != null) {
             return false;               // уже что-то везём
         }
@@ -38,6 +38,12 @@ public final class Splitter implements Building {
         if (world.offerForward(tx, ty, held)) {
             held = null;
         }
+    }
+
+    /** Груз, который сортировщик сейчас держит, — рисуется поверх тайла до раздачи дальше. */
+    @Override
+    public Item heldItem() {
+        return held;
     }
 
     @Override

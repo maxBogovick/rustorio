@@ -46,9 +46,16 @@ public final class GameScreen extends ScreenAdapter {
 
     @Override
     public void render(float delta) {
-        input.handle(world, delta);                                      // 1. ввод: камера + выбор/постройка
-        world.tick();                                                    // 2. тик: здания делают свою работу
-        renderer.render(world, input.selected(), input.facing(), productionLog, delta); // 3. рендер: карта + HUD
+        input.handle(world, delta);           // 1. ввод: камера + выбор/постройка + пауза/скорость
+        // 2. тик: на паузе — ни разу; иначе — сколько раз попросила скорость (1×/2×/4×).
+        if (!input.isPaused()) {
+            for (int i = 0; i < input.speed(); i++) {
+                world.tick();
+            }
+        }
+        // 3. рендер: карта + HUD
+        renderer.render(world, input.selected(), input.facing(), productionLog,
+                input.isPaused(), input.speed(), delta);
     }
 
     @Override

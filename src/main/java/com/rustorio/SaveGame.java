@@ -15,14 +15,20 @@ import java.util.List;
  * # rustorio save v1
  * STATS IRON_ORE 42
  * STATS IRON_PLATE 7
- * MINER 3 5 2
- * CHEST 4 5 12
- * FURNACE 5 5 3 1
+ * RESEARCH 12 FAST_MINING
+ * MINER 3 5 0 2 -
+ * CHEST 4 5 0 12
+ * FURNACE 5 5 1 RIGHT 3 1 IRON_ORE -
  * </pre>
  *
- * <p>Строка здания — {@code <сорт> <x> <y> <состояние>}: сорт и координаты общие для всех, а
- * что после них — решает само здание ({@link Building#save()}). Строка статистики — отдельный
- * тег {@code STATS}, потому что это не здание на карте, а число, живущее в мире целиком.
+ * <p>Строка здания — {@code <сорт> <x> <y> <слоёв SpeedModule> <состояние>}: сорт, координаты и
+ * глубина апгрейда общие для всех, а что после них — решает само здание ({@link
+ * Building#save()}). Глубина — отдельное поле, а не часть состояния: {@code type()}/{@code
+ * save()} у обёрнутого здания прозрачно делегируют к тому, что внутри (см. {@link SpeedModule}),
+ * так что здание понятия не имеет, обёрнуто ли оно, — а файл должен это помнить (см. {@link
+ * Building#speedLevel()}). Строки {@code STATS} и {@code RESEARCH} — отдельные теги, потому что
+ * это не здания на карте, а числа, живущие в мире целиком ({@link ProductionStats}, {@link
+ * Research}).
  */
 public final class SaveGame {
 
@@ -41,8 +47,10 @@ public final class SaveGame {
         for (Item item : Item.values()) {
             lines.add("STATS " + item.name() + " " + world.stats().total(item));
         }
-        world.forEachBuilding((x, y, building) ->
-                lines.add(building.type().name() + " " + x + " " + y + " " + building.save()));
+        lines.add("RESEARCH " + world.research().save());
+        world.forEachBuilding((x, y, building) -> lines.add(
+                building.type().name() + " " + x + " " + y + " " + building.speedLevel()
+                        + " " + building.save()));
 
         try {
             Files.write(Path.of(path), lines);
@@ -80,6 +88,8 @@ public final class SaveGame {
             if (line.startsWith("STATS ")) {
                 String[] parts = line.split(" ", 3);
                 world.stats().set(Item.valueOf(parts[1]), Long.parseLong(parts[2]));
+            } else if (line.startsWith("RESEARCH ")) {
+                world.restoreResearch(line.substring("RESEARCH ".length()));
             } else {
                 loadBuilding(world, line);
             }
@@ -89,20 +99,30 @@ public final class SaveGame {
 
     /** Разобрать строку одного здания и поставить его в мир напрямую, минуя правила постройки. */
     private static void loadBuilding(World world, String line) {
-        String[] parts = line.split(" ", 4);
+        String[] parts = line.split(" ", 5);
         BuildingType type = BuildingType.valueOf(parts[0]);
         int x = Integer.parseInt(parts[1]);
         int y = Integer.parseInt(parts[2]);
-        String data = parts[3];
+        int speedLevel = Integer.parseInt(parts[3]);
+        String data = parts[4];
 
         Building building = switch (type) {
             case MINER -> Miner.load(data);
             case CHEST -> Chest.load(data);
-            case FURNACE -> Furnace.load(data, Recipe.IRON);
+            case FURNACE -> Furnace.load(data, BuildingType.FURNACE);
             case BELT -> Belt.load(data);
             case SPLITTER -> Splitter.load(data);
-            case PRESS -> Furnace.load(data, Recipe.GEAR);
+            case PRESS -> Furnace.load(data, BuildingType.PRESS);
+            case UNDERGROUND_IN -> UndergroundBelt.load(data, UndergroundBelt.Kind.IN);
+            case UNDERGROUND_OUT -> UndergroundBelt.load(data, UndergroundBelt.Kind.OUT);
+            case LAB -> Lab.load(data);
         };
+        // Обёртка(и) SpeedModule не хранят своё состояние в data — их снимали и разбирали при
+        // сохранении (building.save() уже смотрел «сквозь» них); здесь навешиваем ровно столько
+        // же слоёв обратно, читая глубину из отдельного поля (см. Building#speedLevel).
+        for (int i = 0; i < speedLevel; i++) {
+            building = new SpeedModule(building);
+        }
         world.restore(x, y, building);
     }
 }

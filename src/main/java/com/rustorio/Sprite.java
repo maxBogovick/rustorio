@@ -14,5 +14,8 @@ public enum Sprite {
     FURNACE_COLD,
     BELT_EMPTY,
     BELT_FULL,
-    SPLITTER
+    SPLITTER,
+    UNDERGROUND_IN,
+    UNDERGROUND_OUT,
+    LAB
 }

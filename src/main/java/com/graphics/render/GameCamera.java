@@ -38,10 +38,20 @@ public final class GameCamera {
         clampAndUpdate();
     }
 
-    /** Подстроиться под новый размер окна (вид не «расплющивается», HUD не съезжает). */
+    /**
+     * Подстроиться под новый размер окна (вид не «расплющивается», HUD не съезжает).
+     *
+     * <p>Вьюпорт КАМЕРЫ (то, что видит игрок как «мир») уже полного окна на высоту HUD сверху и
+     * снизу ({@link GfxConfig#HUD_TOP_HEIGHT}/{@link GfxConfig#HUD_BOTTOM_HEIGHT}) — раньше
+     * камера занимала окно целиком, а панели HUD просто рисовались ПОВЕРХ карты: верхние клетки
+     * поля были навсегда закрыты подложкой панели, хоть построить там технически было можно
+     * (клик проходил в мир вслепую). {@link com.graphics.render.Renderer} рисует мир в этот
+     * узкий вьюпорт через {@code glViewport}, а HUD — по-прежнему в полный {@link #hudMatrix},
+     * который insets не касаются.
+     */
     public void resize(int width, int height) {
         cam.viewportWidth = width;
-        cam.viewportHeight = height;
+        cam.viewportHeight = height - GfxConfig.HUD_TOP_HEIGHT - GfxConfig.HUD_BOTTOM_HEIGHT;
         hudMatrix.setToOrtho2D(0, 0, width, height);
         clampAndUpdate();
     }
@@ -121,10 +131,16 @@ public final class GameCamera {
      *
      * <p>Считаем сами, а не через {@code cam.unproject}: тот лезет в глобальный
      * {@code Gdx.graphics} за высотой окна. Для ортокамеры перевод — две строки арифметики.
+     *
+     * <p>{@code screenY} приходит «сырым» — от {@code Gdx.input}, считая от ВЕРХА ВСЕГО окна.
+     * Вьюпорт камеры начинается не с самого верха окна, а с отступом в {@link
+     * GfxConfig#HUD_TOP_HEIGHT} (там рисуется верхняя панель) — вычитаем его, чтобы 0 в формуле
+     * ниже означал «верх вьюпорта камеры», а не «верх окна».
      */
     private void unproject(float screenX, float screenY) {
+        float viewportY = screenY - GfxConfig.HUD_TOP_HEIGHT;
         tmp.set(cam.position.x + (screenX - cam.viewportWidth / 2f) * cam.zoom,
-                cam.position.y + (cam.viewportHeight / 2f - screenY) * cam.zoom, 0);
+                cam.position.y + (cam.viewportHeight / 2f - viewportY) * cam.zoom, 0);
     }
 
     /** Не дать укатить камеру в пустоту: центр держится в пределах карты. */

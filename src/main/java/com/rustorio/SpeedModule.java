@@ -27,13 +27,24 @@ public final class SpeedModule implements Building {
     }
 
     @Override
-    public boolean accept(Item item) {
-        return inner.accept(item);
+    public boolean accept(World world, Item item) {
+        return inner.accept(world, item);
     }
 
     @Override
     public Appearance appearance() {
         return inner.appearance();
+    }
+
+    @Override
+    public Item heldItem() {
+        return inner.heldItem();
+    }
+
+    /** Один слой этой обёртки плюс всё, что уже было обёрнуто внутри — см. {@link Building#speedLevel}. */
+    @Override
+    public int speedLevel() {
+        return 1 + inner.speedLevel();
     }
 
     @Override

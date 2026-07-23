@@ -35,6 +35,9 @@ public final class World {
     /** Сколько всего произведено предметов с начала игры — переживает снос отдельных зданий. */
     private final ProductionStats stats = new ProductionStats();
 
+    /** Очки исследований и открытые технологии — переживает снос отдельных зданий, как и стата. */
+    private final Research research = new Research();
+
     /**
      * Кто хочет узнавать о каждом произведённом предмете. Статистика подписана всегда — но список
      * не завязан на неё по имени: другой слушатель встанет рядом без единой правки этого класса
@@ -107,20 +110,22 @@ public final class World {
     }
 
     /**
-     * Поставить печь на свободную клетку. Руда ей под ногами не нужна — сырьё приходит от
-     * соседа-бура; ставят печь обычно между буром и ящиком.
+     * Поставить печь, отдающую готовое в {@code direction}, на свободную клетку. Руда ей под
+     * ногами не нужна — сырьё приходит от соседа-бура; ставят печь обычно между буром и ящиком.
+     * Принимает сырьё с ЛЮБОЙ стороны, а вот отдаёт — только в эту, чтобы не столкнуть готовый
+     * продукт назад на собственный вход (см. {@link Furnace}).
      */
-    public boolean placeFurnace(int x, int y) {
-        return placeIfFree(x, y, () -> new Furnace(Recipe.IRON));
+    public boolean placeFurnace(int x, int y, Direction direction) {
+        return placeIfFree(x, y, () -> new Furnace(BuildingType.FURNACE, direction));
     }
 
     /**
-     * Поставить пресс на свободную клетку — та же {@link Furnace}, что и печь, только с другим
-     * рецептом ({@link Recipe#GEAR}: пластина → шестерёнка). Ни новый класс, ни правки {@code
-     * Furnace.java} для этого не понадобились (урок 16) — только вот эта строка.
+     * Поставить пресс на свободную клетку — та же {@link Furnace}, что и печь, только другой
+     * роли ({@link BuildingType#PRESS}). Какой именно рецепт (железный или бронзовый) она возьмёт
+     * — решится позже, по первому предмету, который ей принесут (см. {@link Furnace#accept}).
      */
-    public boolean placePress(int x, int y) {
-        return placeIfFree(x, y, () -> new Furnace(Recipe.GEAR));
+    public boolean placePress(int x, int y, Direction direction) {
+        return placeIfFree(x, y, () -> new Furnace(BuildingType.PRESS, direction));
     }
 
     /**
@@ -132,12 +137,30 @@ public final class World {
     }
 
     /**
+     * Поставить вход подземной ленты, повёрнутый в {@code direction}, — берёт предмет от соседа
+     * позади и ищет свою пару (выход) впереди по направлению (см. {@link UndergroundBelt}).
+     */
+    public boolean placeUndergroundIn(int x, int y, Direction direction) {
+        return placeIfFree(x, y, () -> new UndergroundBelt(UndergroundBelt.Kind.IN, direction));
+    }
+
+    /** Поставить выход подземной ленты — принимает предмет только от своей пары-входа. */
+    public boolean placeUndergroundOut(int x, int y, Direction direction) {
+        return placeIfFree(x, y, () -> new UndergroundBelt(UndergroundBelt.Kind.OUT, direction));
+    }
+
+    /**
      * Поставить сортировщик на свободную клетку — всегда с одним и тем же правилом
      * {@link SortRule#ORE_FORWARD}. Захочешь другое поведение для сортировщиков — меняй правило
      * ЗДЕСЬ, в одной строке; класс {@link Splitter} трогать не придётся (см. урок 12).
      */
     public boolean placeSplitter(int x, int y) {
         return placeIfFree(x, y, () -> new Splitter(SortRule.ORE_FORWARD));
+    }
+
+    /** Поставить лабораторию на свободную клетку — кормит {@link #research()} готовыми деталями. */
+    public boolean placeLab(int x, int y) {
+        return placeIfFree(x, y, Lab::new);
     }
 
     /**
@@ -167,10 +190,13 @@ public final class World {
         return switch (type) {
             case MINER -> placeMiner(x, y);
             case CHEST -> placeChest(x, y);
-            case FURNACE -> placeFurnace(x, y);
+            case FURNACE -> placeFurnace(x, y, direction);
             case BELT -> placeBelt(x, y, direction);
             case SPLITTER -> placeSplitter(x, y);
-            case PRESS -> placePress(x, y);
+            case PRESS -> placePress(x, y, direction);
+            case UNDERGROUND_IN -> placeUndergroundIn(x, y, direction);
+            case UNDERGROUND_OUT -> placeUndergroundOut(x, y, direction);
+            case LAB -> placeLab(x, y);
         };
     }
 
@@ -203,10 +229,16 @@ public final class World {
         buildings.put(key(x, y), building);
     }
 
-    /** Снести все здания и обнулить статистику — мир готов принять загруженное сохранение. */
+    /** Снести все здания и обнулить статистику/исследования — мир готов принять сохранение. */
     void clear() {
         buildings.clear();
         stats.clear();
+        research.clear();
+    }
+
+    /** Восстановить состояние исследований из сохранённой строки — см. {@link Research#restore}. */
+    void restoreResearch(String data) {
+        research.restore(data);
     }
 
     /**
@@ -245,23 +277,25 @@ public final class World {
         entry.getValue().tick(this, keyX(k), keyY(k));
     }
 
-    /**
-     * Отдать предмет первому соседу (сверху/снизу/слева/справа), который его примет.
-     *
-     * <p>Это единственное место, через которое проходит КАЖДЫЙ произведённый предмет — и бур,
-     * и печь зовут именно этот метод, отдавая добычу. Поэтому здесь же, в одной точке, оповещаем
-     * ВСЕХ подписанных {@link ProductionListener}: раз предмет добрался до {@code
-     * offerToNeighbor}, значит здание его произвело, независимо от того, найдётся ли сосед,
-     * готовый принять. Ни {@link Miner}, ни {@link Furnace} для этого трогать не пришлось — и
-     * этот метод не пришлось трогать ради урока 14: слушателей стало два, а строчка та же.
-     *
-     * @return {@code true}, если сосед принял; {@code false} — принять было некому (предмет
-     *         пропадает: буру всё ещё некуда деть руду)
-     */
-    public boolean offerToNeighbor(int x, int y, Item item) {
+    /** Сообщить всем {@link ProductionListener}, что предмет произведён, — один раз на одну порцию. */
+    public void notifyProduced(Item item) {
         for (ProductionListener listener : productionListeners) {
             listener.onProduced(item);
         }
+    }
+
+    /**
+     * Попытаться отдать предмет соседу (сверху/снизу/слева/справа) — БЕЗ уведомления слушателей.
+     *
+     * <p>И {@link Miner}, и {@link Furnace} держат готовый предмет у себя, пока сосед не
+     * освободится (как лента держит груз), и пробуют отдать его КАЖДЫЙ тик, пока не получится.
+     * Поэтому «произведено» ({@link #notifyProduced}, один раз — в момент готовности) и
+     * «доставлено» (этот метод, сколько угодно повторных попыток) — два РАЗНЫХ события. Если бы
+     * каждая попытка доставки считалась в {@link ProductionStats} заново, статистика приписывала
+     * бы заводу продукцию, которой не было, — та же ловушка с двойным счётом, что уже решали для
+     * {@link #offerForward} (урок 11).
+     */
+    public boolean tryDeliverToNeighbor(int x, int y, Item item) {
         return offer(x + 1, y, item)
                 || offer(x - 1, y, item)
                 || offer(x, y + 1, item)
@@ -278,15 +312,15 @@ public final class World {
      */
     private boolean offer(int x, int y, Item item) {
         Building building = buildings.get(key(x, y));
-        return building != null && building.accept(item);
+        return building != null && building.accept(this, item);
     }
 
     /**
      * Отдать предмет ОДНОМУ конкретному соседу — адресно, не всем четырём подряд, как
-     * {@link #offerToNeighbor}. Лента ({@link Belt}) везёт предмет В ОДНОМ направлении, а не
+     * {@link #tryDeliverToNeighbor}. Лента ({@link Belt}) везёт предмет В ОДНОМ направлении, а не
      * «куда получится», поэтому ей нужен прицельный, а не разбросанный `offer`.
      *
-     * <p>И, в отличие от {@code offerToNeighbor}, этот метод НЕ пишет в {@link #stats}: лента
+     * <p>Как и {@code tryDeliverToNeighbor}, этот метод НЕ пишет в {@link #stats}: лента
      * ничего не производит — она переносит то, что уже произвели и посчитали раньше (бур или
      * печь). Считать один и тот же предмет заново на каждом шаге по ленте приписало бы заводу
      * добычу, которой не было.
@@ -295,9 +329,24 @@ public final class World {
         return offer(x, y, item);
     }
 
+    /**
+     * Заглянуть в клетку, НЕ предлагая ей ничего и ничего не потребляя, — в отличие от
+     * {@link #offer}. Нужно {@link UndergroundBelt}: вход ищет свою пару впереди по направлению
+     * и должен ОПОЗНАТЬ её (сорт, направление, свободна ли), прежде чем решить, перекладывать
+     * груз или нет, — а не просто спросить «примешь?», как это делает обычная передача соседу.
+     */
+    Building peek(int x, int y) {
+        return buildings.get(key(x, y));
+    }
+
     /** Статистика производства — сколько всего добыто/выплавлено с начала игры (HUD её читает). */
     public ProductionStats stats() {
         return stats;
+    }
+
+    /** Дерево исследований — очки и открытые технологии (HUD их читает, {@link Lab} пополняет). */
+    public Research research() {
+        return research;
     }
 
     /** Обойти все здания с их координатами — нужно отрисовке. */

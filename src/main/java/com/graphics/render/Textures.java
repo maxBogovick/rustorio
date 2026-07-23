@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.PixmapPacker;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Disposable;
+import com.rustorio.Sprite;
 
 /**
  * Все спрайты игры, загруженные ОДИН раз при старте и склеенные в ЕДИНЫЙ атлас.
@@ -41,20 +42,10 @@ public final class Textures implements Disposable {
     final TextureRegion furnaceOff;
     final TextureRegion assembler;
     final TextureRegion splitter;
-    final TextureRegion underground;
+    final TextureRegion undergroundIn;
+    final TextureRegion undergroundOut;
     /** Плашка-заглушка: нарисованного спрайта лаборатории в resources/ ещё нет. */
     final TextureRegion lab;
-    /**
-     * Белый квадрат 1×1. Им {@link BuildingRenderer} рисует ПОДПИСАННУЮ ПЛАШКУ для здания,
-     * у которого ещё нет своего спрайта: белый регион растягивается на клетку и красится
-     * в цвет через {@code batch.setColor}. Так новое здание видно на поле, а графику для
-     * него никто не открывал.
-     */
-    final TextureRegion white;
-    private final TextureRegion ironOre;
-    private final TextureRegion ironPlate;
-    private final TextureRegion gear;
-    private final TextureRegion mechanism;
 
     public Textures() {
         // padding=2 + duplicateBorder: соседние спрайты не «протекают» друг в друга
@@ -73,13 +64,12 @@ public final class Textures implements Disposable {
         packFile(packer, "furnace_off", "resources/furnace_off.png");
         packFile(packer, "assembler", "resources/assembler.png");
         packFile(packer, "splitter", "resources/branch_1.png");
-        packFile(packer, "underground", "resources/underground_in.png");
+        packFile(packer, "underground_a", "resources/underground_in.png");
+        packFile(packer, "underground_b", "resources/underground_out.png");
         packLabPlaceholder(packer);
-        packWhite(packer);
-        packFile(packer, "iron_ore", "resources/iron_ore.png");
-        packFile(packer, "iron_plate", "resources/iron_plate.png");
-        packFile(packer, "gear", "resources/iron_gear.png");
-        packFile(packer, "mechanism", "resources/bronse_gear.png");
+        // Спрайты предметов (iron_ore.png и т.п.) сознательно НЕ упакованы: это заготовки
+        // 3×4/4×4 пикселя, неотличимые друг от друга на глаз — груз рисует {@link ItemRenderer}
+        // кружком через ShapeRenderer, настоящая художка для предметов не нужна.
 
         // Пока всё уместилось в одну страницу 1024×1024, атлас — это ровно ОДНА
         // текстура: все регионы делят её, и SpriteBatch не сбрасывает пачку.
@@ -97,14 +87,31 @@ public final class Textures implements Disposable {
         furnaceOff = region("furnace_off");
         assembler = region("assembler");
         splitter = region("splitter");
-        underground = region("underground");
+        undergroundIn = region("underground_a");
+        undergroundOut = region("underground_b");
         lab = region("lab");
-        white = region("white");
-        ironOre = region("iron_ore");
-        ironPlate = region("iron_plate");
-        gear = region("gear");
-        // Новый предмет — компилятор ПОТРЕБУЕТ ветку в itemTexture(): «карта задач» в деле.
-        mechanism = region("mechanism");
+    }
+
+    /**
+     * Перевод логического имени спрайта в текстуру атласа. Про АССЕТЫ (какие пиксели), а не про
+     * поведение зданий — здание лишь называет своё имя ({@link Sprite}), а какая именно картинка
+     * за ним стоит, знает только этот класс. Нужен и {@link BuildingRenderer} (здание на карте),
+     * и {@link HudRenderer} (та же иконка — в панели построек): собран в одном месте, чтобы два
+     * разных слоя рисовали ОДНУ и ту же картинку одного и того же здания, а не рассинхронизировались.
+     */
+    TextureRegion forSprite(Sprite sprite) {
+        return switch (sprite) {
+            case MINER -> miner[0];
+            case CHEST -> chest;
+            case FURNACE_HOT -> furnaceOn;
+            case FURNACE_COLD -> furnaceOff;
+            case BELT_EMPTY -> belt[0];
+            case BELT_FULL -> belt[1];
+            case SPLITTER -> splitter;
+            case UNDERGROUND_IN -> undergroundIn;
+            case UNDERGROUND_OUT -> undergroundOut;
+            case LAB -> lab;
+        };
     }
 
     /** Регион атласа по имени; отсутствие — ошибка сборки атласа, а не тихий null. */
@@ -136,19 +143,6 @@ public final class Textures implements Disposable {
         packer.pack("lab", pixmap);
         pixmap.dispose();
     }
-
-    /** Белый квадрат 1×1 для крашеных плашек (см. поле {@link #white}). */
-    private static void packWhite(PixmapPacker packer) {
-        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-        pixmap.setColor(1f, 1f, 1f, 1f);
-        pixmap.fill();
-        packer.pack("white", pixmap);
-        pixmap.dispose();
-    }
-
-    // Метод itemTexture(Item) убран вместе с доменом: он переводил com.rustorio.core.Item в
-    // спрайт. Спрайты предметов (ironOre/ironPlate/gear/mechanism) загружены и ждут — метод-
-    // переводчик вернётся, когда в логике снова появятся предметы.
 
     @Override
     public void dispose() {

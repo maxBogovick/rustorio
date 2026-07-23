@@ -18,7 +18,10 @@ public enum BuildingType {
     FURNACE("Furnace"),
     BELT("Belt"),
     SPLITTER("Splitter"),
-    PRESS("Press");
+    PRESS("Press"),
+    UNDERGROUND_IN("Tunnel in"),
+    UNDERGROUND_OUT("Tunnel out"),
+    LAB("Lab");
 
     private final String label;
 

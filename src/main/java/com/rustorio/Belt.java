@@ -21,7 +21,7 @@ public final class Belt implements Building {
     }
 
     @Override
-    public boolean accept(Item item) {
+    public boolean accept(World world, Item item) {
         if (held != null) {
             return false;              // уже что-то везём — вторая порция пока не помещается
         }
@@ -38,6 +38,12 @@ public final class Belt implements Building {
             held = null;                       // сосед впереди принял — освободились
         }
         // сосед занят или его нет — предмет остаётся ждать на месте до следующего тика
+    }
+
+    /** Груз, который лента сейчас везёт, — рисуется поверх тайла, пока сосед впереди не заберёт. */
+    @Override
+    public Item heldItem() {
+        return held;
     }
 
     @Override

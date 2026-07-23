@@ -16,5 +16,5 @@ public interface SortRule {
     boolean forward(Item item);
 
     /** Правило по умолчанию: руда едет вперёд, всё остальное (пластины) — вниз. */
-    SortRule ORE_FORWARD = item -> item == Item.IRON_ORE;
+    SortRule ORE_FORWARD = item -> item == Item.IRON_ORE || item == Item.BRONZE_ORE;
 }
