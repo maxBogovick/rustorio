@@ -8,6 +8,12 @@ package com.rustorio;
  * в самой ленте, как когда-то предмет-груз или буфер печи. Чтобы предмет проехал дальше одной
  * клетки, ставь ленты подряд ПО НАПРАВЛЕНИЮ движения: каждая подхватывает то, что выронила
  * соседняя позади, и передаёт дальше соседней впереди.
+ *
+ * <p><b>Тайл — не сам себе хозяин движения.</b> Прямая цепочка одинаково направленных лент —
+ * это {@link BeltSegment}: он решает, в каком порядке грузу можно продвинуться, и владеет ОДНИМ
+ * общим проходом на весь свой тик, вместо N независимых. Сам тайл по-прежнему хранит СВОЙ груз
+ * ({@link #held}) — сегмент лишь переставляет его между тайлами; {@link #accept} и
+ * {@link #heldItem} поэтому не изменились ни строкой.
  */
 public final class Belt implements Building {
 
@@ -16,8 +22,42 @@ public final class Belt implements Building {
     /** Предмет, который лента сейчас везёт, или {@code null}, если пусто. */
     private Item held;
 
+    /** Сегмент, которому принадлежит этот тайл — назначается {@link World} при постройке. */
+    private BeltSegment segment;
+
     public Belt(Direction direction) {
         this.direction = direction;
+    }
+
+    Direction direction() {
+        return direction;
+    }
+
+    @Override
+    public Direction outputDirection() {
+        return direction;
+    }
+
+    /** Вступить в сегмент (или покинуть его — {@code null} при сносе); зовёт только {@link World}. */
+    void joinSegment(BeltSegment segment) {
+        this.segment = segment;
+    }
+
+    BeltSegment segment() {
+        return segment;
+    }
+
+    /** Свой груз для {@link BeltSegment} — то же, что {@link #heldItem}, но виднее внутри пакета. */
+    Item held() {
+        return held;
+    }
+
+    void setHeld(Item item) {
+        held = item;
+    }
+
+    void clearHeld() {
+        held = null;
     }
 
     @Override
@@ -31,13 +71,12 @@ public final class Belt implements Building {
 
     @Override
     public void tick(World world, int x, int y) {
-        if (held == null) {
-            return;                            // везти нечего
+        if (!segment.isTail(this)) {
+            return; // не хвост — сегмент этого тика уже продвинут своим хвостом-«водителем»
         }
-        if (world.offerForward(x + direction.dx(), y + direction.dy(), held)) {
-            held = null;                       // сосед впереди принял — освободились
-        }
-        // сосед занят или его нет — предмет остаётся ждать на месте до следующего тика
+        int exitX = x + direction.dx() * segment.size();
+        int exitY = y + direction.dy() * segment.size();
+        segment.tick(item -> world.offerForward(exitX, exitY, item));
     }
 
     /** Груз, который лента сейчас везёт, — рисуется поверх тайла, пока сосед впереди не заберёт. */

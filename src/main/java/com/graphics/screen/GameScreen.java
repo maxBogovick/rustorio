@@ -55,7 +55,7 @@ public final class GameScreen extends ScreenAdapter {
         }
         // 3. рендер: карта + HUD
         renderer.render(world, input.selected(), input.facing(), productionLog,
-                input.isPaused(), input.speed(), delta);
+                input.isPaused(), input.speed(), input.showRecipeBook(), delta);
     }
 
     @Override

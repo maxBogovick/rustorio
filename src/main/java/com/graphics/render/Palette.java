@@ -1,6 +1,7 @@
 package com.graphics.render;
 
 import com.badlogic.gdx.graphics.Color;
+import com.rustorio.Item;
 
 /** Все цвета отрисовки в одном месте (перенесены из render.rs Rust-версии). */
 final class Palette {
@@ -27,6 +28,9 @@ final class Palette {
     static final Color ITEM_BRONZE_PLATE = rgb(214, 122, 44);
     static final Color ITEM_MECHANISM = rgb(163, 68, 40);
     static final Color ITEM_ENGINE = rgb(90, 170, 90);
+    static final Color ITEM_CHASSIS = rgb(60, 90, 150);
+    static final Color ITEM_ALLOY_PLATE = rgb(150, 140, 130); // между серым железом и рыжей бронзой
+    static final Color ITEM_ALLOY_GEAR = rgb(190, 170, 90); // темнее ITEM_GEAR — материал дороже
     static final Color HINT = rgb(179, 179, 199);
     static final Color WORKING = Color.GREEN;
     static final Color IDLE = Color.RED;
@@ -52,11 +56,36 @@ final class Palette {
     static final Color SLOT_BORDER = new Color(1f, 1f, 1f, 0.25f);
     static final Color SLOT_SELECTED = rgb(255, 200, 60);
 
+    // Стрелка направления поверх здания (см. OverlayRenderer) — яркая и нейтральная, чтобы
+    // читаться на любом спрайте под ней, а не сливаться с конкретным цветом конкретного здания.
+    static final Color DIRECTION_ARROW = new Color(1f, 1f, 1f, 0.85f);
+
     // Методы tint()/tintStrong() (смысловой цвет подсветки → заливка) убраны вместе с доменом:
     // они переводили com.rustorio.core.Tint. Вернутся, когда вернутся наложения (OverlayRenderer).
     // Сами цвета оставлены — пригодятся.
 
     private Palette() {
+    }
+
+    /**
+     * Цвет кружка для предмета — новый сорт получит цвет здесь, одной строкой. Раньше жил только
+     * внутри {@link ItemRenderer} (груз на ленте); теперь используется ещё и {@link
+     * RecipeBookRenderer} (иконка рецепта) — единственное место с этим {@code switch}, а не два
+     * места, которые рано или поздно разойдутся при добавлении предмета.
+     */
+    static Color itemColor(Item item) {
+        return switch (item) {
+            case IRON_ORE -> ITEM_IRON_ORE;
+            case IRON_PLATE -> ITEM_IRON_PLATE;
+            case GEAR -> ITEM_GEAR;
+            case BRONZE_ORE -> ITEM_BRONZE_ORE;
+            case BRONZE_PLATE -> ITEM_BRONZE_PLATE;
+            case MECHANISM -> ITEM_MECHANISM;
+            case ENGINE -> ITEM_ENGINE;
+            case CHASSIS -> ITEM_CHASSIS;
+            case ALLOY_PLATE -> ITEM_ALLOY_PLATE;
+            case ALLOY_GEAR -> ITEM_ALLOY_GEAR;
+        };
     }
 
     private static Color rgb(int r, int g, int b) {

@@ -101,14 +101,15 @@ tasks.named('run', JavaExec) {
     }
 }
 
-// Бенчмарк симуляции временно отключён: класс жил в старой реализации (parked/).
-// Вернём, когда симуляция будет отстроена заново.
-// tasks.register('benchmark', JavaExec) {
-//     group = 'verification'
-//     description = 'Замер: сколько миллисекунд занимает один шаг симуляции'
-//     classpath = sourceSets.main.runtimeClasspath
-//     mainClass = 'com.rustorio.bench.SimulationBenchmark'
-// }
+// `./gradlew benchmark` — headless-замер мс/тик на большой сцене, без окна графики (см.
+// com.rustorio.Benchmark). В том же пакете, что и World/Belt, — бенчмарку нужен доступ к их
+// package-private методам (peek, restore), которые не часть публичного API игры.
+tasks.register('benchmark', JavaExec) {
+    group = 'verification'
+    description = 'Headless-замер: сколько мс занимает один World.tick() на большой сцене'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.rustorio.Benchmark'
+}
 
 tasks.named('test') {
     useJUnitPlatform()

@@ -33,6 +33,27 @@ public final class Research {
         return unlocked.contains(tech);
     }
 
+    /**
+     * {@code baseTime}, вдвое меньше, если {@code tech} открыта, — иначе как есть.
+     *
+     * <p>Раньше это выражение (тернарник + {@code Math.max(1, …)}) было прибито к каждому зданию
+     * отдельно ({@link Furnace#effectiveTime}, {@link Lab}): у обоих ровно одна и та же формула
+     * «вдвое быстрее», только разная технология и число на входе. Здесь — одно место, где видно
+     * ВСЕ технологии, ускоряющие что-либо, вместо того чтобы искать их по зданиям.
+     */
+    public int fasterIfUnlocked(Tech tech, int baseTime) {
+        return isUnlocked(tech) ? Math.max(1, baseTime / 2) : baseTime;
+    }
+
+    /**
+     * {@code baseCapacity}, вдвое больше, если {@code tech} открыта, — иначе как есть. Тот же
+     * приём, что {@link #fasterIfUnlocked}, но для ёмкости буфера ({@link Tech#BIG_BUFFER}), а не
+     * времени.
+     */
+    public int biggerIfUnlocked(Tech tech, int baseCapacity) {
+        return isUnlocked(tech) ? baseCapacity * 2 : baseCapacity;
+    }
+
     /** Добавить очки (лаборатория зовёт это раз в готовую порцию) и разблокировать, что доступно. */
     public void addPoints(int amount) {
         points += amount;

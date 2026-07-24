@@ -85,7 +85,7 @@ final class HudRenderer {
 
         font.setColor(Palette.HINT);
         font.getData().setScale(0.8f);
-        font.draw(batch, "R rotate   U upgrade   Ctrl+Z undo   Ctrl+Y redo   F5 save   F9 load",
+        font.draw(batch, "R rotate   U upgrade   Ctrl+Z undo   Ctrl+Y redo   F5 save   F9 load   TAB recipes",
                 16, top - 92);
         font.draw(batch, "WASD pan   wheel zoom   Space pause   [ ] speed   click or 1-9 to build",
                 16, top - 108);

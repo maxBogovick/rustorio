@@ -62,6 +62,13 @@ public final class InputHandler {
     private int speedIndex;
 
     /**
+     * Открыта ли книга рецептов ({@link com.graphics.render.Renderer} рисует панель поверх экрана,
+     * если {@code true}) — TAB переключает. Мир при этом продолжает тикать: книга — справочник,
+     * а не пауза; кто хочет разглядывать рецепты без спешки, ставит паузу отдельно (SPACE).
+     */
+    private boolean showRecipeBook;
+
+    /**
      * Тайлы, задетые протяжкой ЛКМ с момента нажатия, — без повторов подряд идущей той же
      * клетки. На отпускание кнопки собираются в ОДНО {@link CompositeAction}: тянешь линию
      * лент через полкарты — отменяется одним Ctrl+Z, а не по клетке.
@@ -99,6 +106,11 @@ public final class InputHandler {
         return SPEEDS[speedIndex];
     }
 
+    /** Открыта ли книга рецептов — {@code Renderer} читает это, чтобы решить, рисовать ли панель. */
+    public boolean showRecipeBook() {
+        return showRecipeBook;
+    }
+
     public void handle(World world, float delta) {
         handleCamera(delta);
         handleBuildSelection();
@@ -134,6 +146,11 @@ public final class InputHandler {
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.F9)) {
             SaveGame.load(world, SaveGame.DEFAULT_PATH);
+        }
+
+        // Книга рецептов (TAB): чистый переключатель показа, мира не касается вовсе.
+        if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
+            showRecipeBook = !showRecipeBook;
         }
 
         // Пауза и скорость: не трогают ни камеру, ни постройку — только то, сколько раз (и вообще,

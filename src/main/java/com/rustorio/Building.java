@@ -132,4 +132,49 @@ public sealed interface Building
     default boolean prefersDescendingTick() {
         return true;
     }
+
+    /**
+     * Куда это здание толкает ОСНОВНОЙ (или единственный) выход, если у него вообще есть
+     * выделенное направление, — или {@code null}, если направления нет: принимает/держит
+     * одинаково со всех сторон (ящик, лаборатория) или решает динамически (бур — {@link
+     * Miner#tick} перебирает всех четырёх соседей подряд).
+     *
+     * <p>Нужен ИСКЛЮЧИТЕЛЬНО отрисовке (стрелка направления поверх тайла, см. {@code
+     * OverlayRenderer}) — ни тик, ни {@code accept} этот метод не читают. Тот же приём «здание
+     * само рассказывает о себе», что и {@link #appearance()}: рендер не разбирает, лента это или
+     * печь, — просто спрашивает.
+     */
+    default Direction outputDirection() {
+        return null;
+    }
+
+    /**
+     * Второй выход, если у здания их два, — или {@code null}, если один (или ни одного). Сейчас
+     * это только {@link Splitter}: {@link #outputDirection()} — его «вперёд» (направление, в
+     * которое здание повёрнуто), этот метод — повёрнутая по часовой альтернатива ({@link
+     * Direction#rotate()}), куда уходит всё, что не подошло под {@link SortRule}.
+     *
+     * <p>Отдельный метод, а не список направлений: как {@link Recipe#input()}/{@link
+     * Recipe#input2()} — ровно два, а не «коллекция», потому что зданий с тремя и более выходами
+     * в игре нет и не планируется (см. GDD, столп «просто и предсказуемо»).
+     */
+    default Direction secondaryOutputDirection() {
+        return null;
+    }
+
+    /**
+     * Снять слои {@link SpeedModule} и вернуть настоящее здание внутри — само себя, если слоёв нет.
+     *
+     * <p>Нужен {@link World}, чтобы узнавать соседей-{@link Belt} для сборки {@link BeltSegment}:
+     * апгрейженная лента (клавиша {@code F5}, см. {@link UpgradeSpeedAction}) лежит в карте как
+     * {@code SpeedModule}, а не как {@code Belt} — без разворачивания она перестала бы опознаваться
+     * соседями как часть цепочки, и сегмент молча разорвался бы на апгрейде.
+     */
+    static Building unwrap(Building building) {
+        Building current = building;
+        while (current instanceof SpeedModule module) {
+            current = module.inner();
+        }
+        return current;
+    }
 }

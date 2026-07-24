@@ -70,6 +70,11 @@ public final class UndergroundBelt implements Building {
      * com.graphics.render.OverlayRenderer} зовёт его же (без груза в руках), чтобы подсветить
      * вход, у которого пары вообще НЕТ: иначе сломанный туннель выглядит НА ГЛАЗ точно так же,
      * как рабочий, — игрок не может отличить «дальность превышена» от «просто нечего везти».
+     *
+     * <p>{@link Building#unwrap} обязателен: апгрейженный выход лежит в карте как
+     * {@link SpeedModule}, а не {@code UndergroundBelt} — без разворачивания вход бы решил, что
+     * пары нет вовсе, и НАВСЕГДА перестал бы передавать груз апгрейженному выходу (не только
+     * подсветка соврала бы — сломался бы сам туннель).
      */
     public UndergroundBelt findPartner(World world, int x, int y) {
         if (kind != Kind.IN) {
@@ -79,7 +84,7 @@ public final class UndergroundBelt implements Building {
         int dy = direction.dy();
         for (int step = 1; step <= effectiveRange(world); step++) {
             Building candidate = world.peek(x + dx * step, y + dy * step);
-            if (candidate instanceof UndergroundBelt other
+            if (Building.unwrap(candidate) instanceof UndergroundBelt other
                     && other.kind == Kind.OUT
                     && other.direction == direction) {
                 return other;
@@ -112,6 +117,12 @@ public final class UndergroundBelt implements Building {
     @Override
     public Appearance appearance() {
         return Appearance.of(kind == Kind.IN ? Sprite.UNDERGROUND_IN : Sprite.UNDERGROUND_OUT);
+    }
+
+    /** Обе половинки показывают одно и то же направление — куда идёт туннель, вход или выход. */
+    @Override
+    public Direction outputDirection() {
+        return direction;
     }
 
     @Override

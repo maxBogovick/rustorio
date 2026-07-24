@@ -131,9 +131,61 @@ public final class World {
     /**
      * Поставить ленту, повёрнутую в {@code direction}, на свободную клетку. Как ящику и печи,
      * руда ей не нужна — везёт, что дадут, только теперь ещё и КУДА игрок скажет (урок 19).
+     *
+     * <p>В отличие от прочих {@code place*}, не сводится к {@link #placeIfFree}: новый тайл нужно
+     * ещё пристроить к {@link BeltSegment} соседей той же {@link Direction} — приставить головой/
+     * хвостом к существующему участку, склеить два участка, если новый тайл встал МЕЖДУ ними, или
+     * завести собственный сегмент из одной клетки, если соседей-лент нет вовсе (см.
+     * {@link #attachToSegment}).
      */
     public boolean placeBelt(int x, int y, Direction direction) {
-        return placeIfFree(x, y, () -> new Belt(direction));
+        if (!inBounds(x, y) || !isFree(x, y)) {
+            return false;
+        }
+        Belt belt = new Belt(direction);
+        buildings.put(key(x, y), belt);
+        attachToSegment(belt, x, y, direction);
+        return true;
+    }
+
+    /**
+     * Найти сегменты-соседей нового ленточного тайла (позади и впереди по {@code direction}) и
+     * пристроить его к ним — см. {@link #placeBelt} и {@link #restore}.
+     *
+     * <p>Порядок вызовов НЕ важен (в частности, для {@link SaveGame#load}, который восстанавливает
+     * тайлы в произвольном порядке ключа карты): какой бы тайл ни появился вторым, именно ЕГО
+     * вызов и обнаружит уже стоящего соседа и сольёт сегменты — результат одинаков независимо от
+     * того, кто из двух восстановился первым.
+     */
+    private void attachToSegment(Belt belt, int x, int y, Direction direction) {
+        Belt behind = beltNeighbor(x - direction.dx(), y - direction.dy(), direction);
+        Belt ahead = beltNeighbor(x + direction.dx(), y + direction.dy(), direction);
+
+        if (behind != null) {
+            behind.segment().addHead(belt);
+            if (ahead != null && ahead.segment() != behind.segment()) {
+                behind.segment().mergeHead(ahead.segment()); // новый тайл встал МЕЖДУ двух сегментов
+            }
+        } else if (ahead != null) {
+            ahead.segment().addTail(belt);
+        } else {
+            new BeltSegment(direction).addHead(belt); // соседей-лент нет — сегмент из одной клетки
+        }
+    }
+
+    /**
+     * Сосед в клетке {@code (x, y)}, если это лента ТОГО ЖЕ направления, — иначе {@code null}.
+     * {@link Building#unwrap} обязателен: апгрейженная лента лежит в карте как {@link SpeedModule},
+     * а не {@link Belt} (см. его javadoc).
+     */
+    private Belt beltNeighbor(int x, int y, Direction direction) {
+        Building neighbor = buildings.get(key(x, y));
+        if (neighbor == null) {
+            return null;
+        }
+        return (Building.unwrap(neighbor) instanceof Belt belt && belt.direction() == direction)
+                ? belt
+                : null;
     }
 
     /**
@@ -150,12 +202,13 @@ public final class World {
     }
 
     /**
-     * Поставить сортировщик на свободную клетку — всегда с одним и тем же правилом
-     * {@link SortRule#ORE_FORWARD}. Захочешь другое поведение для сортировщиков — меняй правило
-     * ЗДЕСЬ, в одной строке; класс {@link Splitter} трогать не придётся (см. урок 12).
+     * Поставить сортировщик, повёрнутый в {@code direction}, на свободную клетку — всегда с одним
+     * и тем же правилом {@link SortRule#ORE_FORWARD}. Захочешь другое поведение для сортировщиков
+     * — меняй правило ЗДЕСЬ, в одной строке; класс {@link Splitter} трогать не придётся (см. урок
+     * 12). Направление, в отличие от правила, СЛУШАЕТ игрока — как у ленты, печи и туннеля.
      */
-    public boolean placeSplitter(int x, int y) {
-        return placeIfFree(x, y, () -> new Splitter(SortRule.ORE_FORWARD));
+    public boolean placeSplitter(int x, int y, Direction direction) {
+        return placeIfFree(x, y, () -> new Splitter(SortRule.ORE_FORWARD, direction));
     }
 
     /** Поставить лабораторию на свободную клетку — кормит {@link #research()} готовыми деталями. */
@@ -181,7 +234,8 @@ public final class World {
     /**
      * Поставить здание ВЫБРАННОГО сорта лицом в {@code direction} — одна дверь на все постройки
      * для ввода. Каждый сорт ведёт к своему правилу (у бура — «на руде»), а игрок лишь говорит,
-     * что именно строит; направление важно только ленте, остальные его игнорируют.
+     * что именно строит; направление важно ленте, печи/прессу, туннелю и сортировщику — бур,
+     * ящик и лаборатория его игнорируют (принимают/отдают одинаково со всех сторон).
      *
      * @return {@code true}, если здание реально поставлено (клавиатура/мышь этого не проверяют —
      *         это забота мира)
@@ -192,7 +246,7 @@ public final class World {
             case CHEST -> placeChest(x, y);
             case FURNACE -> placeFurnace(x, y, direction);
             case BELT -> placeBelt(x, y, direction);
-            case SPLITTER -> placeSplitter(x, y);
+            case SPLITTER -> placeSplitter(x, y, direction);
             case PRESS -> placePress(x, y, direction);
             case UNDERGROUND_IN -> placeUndergroundIn(x, y, direction);
             case UNDERGROUND_OUT -> placeUndergroundOut(x, y, direction);
@@ -214,7 +268,11 @@ public final class World {
      * вернуть на место можно только то, что реально стояло, а не его копию с нуля.
      */
     public Building removeBuilding(int x, int y) {
-        return buildings.remove(key(x, y));
+        Building removed = buildings.remove(key(x, y));
+        if (removed != null && Building.unwrap(removed) instanceof Belt belt) {
+            belt.segment().remove(belt); // сжимает/режет BeltSegment соседей вокруг дыры
+        }
+        return removed;
     }
 
     /**
@@ -227,6 +285,9 @@ public final class World {
      */
     void restore(int x, int y, Building building) {
         buildings.put(key(x, y), building);
+        if (Building.unwrap(building) instanceof Belt belt) {
+            attachToSegment(belt, x, y, belt.direction());
+        }
     }
 
     /** Снести все здания и обнулить статистику/исследования — мир готов принять сохранение. */

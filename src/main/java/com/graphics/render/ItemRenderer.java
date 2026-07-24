@@ -50,7 +50,7 @@ final class ItemRenderer {
             if (held == null) {
                 return;
             }
-            shapes.setColor(itemColor(held));
+            shapes.setColor(Palette.itemColor(held));
             shapes.circle(grid.x(x) + half, grid.yBottom(y) + half, radius, 20);
         });
         shapes.end();
@@ -66,18 +66,5 @@ final class ItemRenderer {
             shapes.circle(grid.x(x) + half, grid.yBottom(y) + half, radius, 20);
         });
         shapes.end();
-    }
-
-    /** Цвет кружка для предмета — новый сорт получит цвет здесь, одной строкой (см. Palette). */
-    private static Color itemColor(Item item) {
-        return switch (item) {
-            case IRON_ORE -> Palette.ITEM_IRON_ORE;
-            case IRON_PLATE -> Palette.ITEM_IRON_PLATE;
-            case GEAR -> Palette.ITEM_GEAR;
-            case BRONZE_ORE -> Palette.ITEM_BRONZE_ORE;
-            case BRONZE_PLATE -> Palette.ITEM_BRONZE_PLATE;
-            case MECHANISM -> Palette.ITEM_MECHANISM;
-            case ENGINE -> Palette.ITEM_ENGINE;
-        };
     }
 }

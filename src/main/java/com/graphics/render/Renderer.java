@@ -46,6 +46,7 @@ public final class Renderer implements Disposable {
     private final ItemRenderer itemRenderer;
     private final OverlayRenderer overlayRenderer;
     private final HudRenderer hudRenderer;
+    private final RecipeBookRenderer recipeBookRenderer;
 
     public Renderer(Textures textures, GameCamera camera) {
         this.camera = camera;
@@ -59,11 +60,15 @@ public final class Renderer implements Disposable {
         this.itemRenderer = new ItemRenderer(shapes, grid);
         this.overlayRenderer = new OverlayRenderer(batch, shapes, font, textures, grid);
         this.hudRenderer = new HudRenderer(batch, shapes, font, textures);
+        this.recipeBookRenderer = new RecipeBookRenderer(batch, shapes, font);
     }
 
-    /** Нарисовать кадр по текущему состоянию мира, выбранному зданию, логу событий и паузе/скорости. */
+    /**
+     * Нарисовать кадр по текущему состоянию мира, выбранному зданию, логу событий, паузе/скорости
+     * и тому, открыта ли книга рецептов (клавиша TAB, см. {@code InputHandler#showRecipeBook}).
+     */
     public void render(World world, BuildingType selected, Direction facing, ProductionLog log,
-            boolean paused, int speed, float delta) {
+            boolean paused, int speed, boolean showRecipeBook, float delta) {
         Gdx.gl.glClearColor(Palette.BG.r, Palette.BG.g, Palette.BG.b, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -99,6 +104,10 @@ public final class Renderer implements Disposable {
         // 5. заголовок + панель + статистика + исследования + лог + пауза/скорость + подсказки
         hudRenderer.render(selected, facing, world.stats(), world.research(), log, paused, speed);
         overlayRenderer.renderHud();     // 6. пусто
+        // 7. книга рецептов — поверх всего остального, только если игрок её открыл (TAB).
+        if (showRecipeBook) {
+            recipeBookRenderer.render();
+        }
     }
 
     @Override

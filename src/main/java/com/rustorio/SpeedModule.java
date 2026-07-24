@@ -20,6 +20,11 @@ public final class SpeedModule implements Building {
         this.inner = inner;
     }
 
+    /** Что обёрнуто — нужно {@link Building#unwrap}, чтобы найти настоящее здание под слоями. */
+    Building inner() {
+        return inner;
+    }
+
     @Override
     public void tick(World world, int x, int y) {
         inner.tick(world, x, y);
@@ -64,5 +69,20 @@ public final class SpeedModule implements Building {
         // снова начнёт телепортировать предмет через всю цепочку за один тик, потому что обёртка
         // молча вернула бы true вместо настоящего ответа ленты внутри.
         return inner.prefersDescendingTick();
+    }
+
+    @Override
+    public Direction outputDirection() {
+        // Тот же класс забывчивости, что и у prefersDescendingTick выше: у outputDirection тоже
+        // есть default (null), и без этой строки апгрейженная лента/печь/туннель молча теряла бы
+        // стрелку направления на экране — здание работало бы верно, а рисовалось бы как «без
+        // направления».
+        return inner.outputDirection();
+    }
+
+    @Override
+    public Direction secondaryOutputDirection() {
+        // Тот же приём, что и у outputDirection выше, — на этот раз ради апгрейженного сплиттера.
+        return inner.secondaryOutputDirection();
     }
 }

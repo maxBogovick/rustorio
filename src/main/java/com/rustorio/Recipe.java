@@ -50,8 +50,41 @@ public record Recipe(Item input, Item input2, Item output, int time, BuildingTyp
     public static final Recipe ENGINE =
             new Recipe(Item.GEAR, Item.MECHANISM, Item.ENGINE, 12, BuildingType.PRESS);
 
+    /**
+     * Шасси: мотор И ещё одна шестерёнка → шасси, 15 тиков — новый верхний предмет цепочки.
+     * {@code ENGINE} — ПЕРВЫЙ вход не случайно: {@link #find} подбирает рецепт по ПЕРВОМУ
+     * пришедшему предмету, а {@link Item#GEAR} уже занят рецептом {@link #ENGINE} тем же приёмом
+     * (первый пришедший — не однозначный, если начать с шестерёнки). Начать сборку шасси нужно
+     * с мотора — он ни для какого другого рецепта прессa входом не служит, поэтому однозначен.
+     */
+    public static final Recipe CHASSIS =
+            new Recipe(Item.ENGINE, Item.GEAR, Item.CHASSIS, 15, BuildingType.PRESS);
+
+    /**
+     * Сплав: железная пластина И бронзовая пластина → сплав, 10 тиков — {@code FURNACE}, а не
+     * {@code PRESS}: первый рецепт ПЕЧИ с двумя входами (до сих пор двумя входами пользовался
+     * только пресс — {@link #ENGINE}, {@link #CHASSIS}). Однозначен без всяких уловок с порядком
+     * подачи: {@code Recipe#find} фильтрует ещё и по {@code type()}, а среди {@code FURNACE}-
+     * рецептов ни {@link #IRON}, ни {@link #BRONZE} не берут пластину на вход (только руду) — то
+     * есть {@link Item#IRON_PLATE} и {@link Item#BRONZE_PLATE} в печи узнаваемы только этим
+     * рецептом, с любого из двух входов первым.
+     */
+    public static final Recipe ALLOY =
+            new Recipe(Item.IRON_PLATE, Item.BRONZE_PLATE, Item.ALLOY_PLATE, 10, BuildingType.FURNACE);
+
+    /**
+     * Потребитель сплава: сплав → шестерня из сплава, 10 тиков, ОДИН вход — тот же приём, что
+     * {@link #GEAR}/{@link #MECHANISM}, только сырьё дороже (сплав уже стоил двух пластин и своих
+     * 10 тиков). Однозначен без всяких оговорок: {@link Item#ALLOY_PLATE} до сих пор нигде не был
+     * входом — только выходом {@link #ALLOY}, — так что это первый и единственный рецепт пресса,
+     * который вообще на него откликается.
+     */
+    public static final Recipe ALLOY_GEAR =
+            new Recipe(Item.ALLOY_PLATE, Item.ALLOY_GEAR, 10, BuildingType.PRESS);
+
     /** Все рецепты игры — по нему печь/пресс ищут себе подходящий (см. {@link #find}). */
-    public static final List<Recipe> ALL = List.of(IRON, GEAR, BRONZE, MECHANISM, ENGINE);
+    public static final List<Recipe> ALL =
+            List.of(IRON, GEAR, BRONZE, MECHANISM, ENGINE, CHASSIS, ALLOY, ALLOY_GEAR);
 
     /**
      * Найти рецепт для здания сорта {@code kind} ({@code FURNACE} или {@code PRESS}), который
