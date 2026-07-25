@@ -1,0 +1,156 @@
+package com.rustorio.domain.building;
+
+import com.rustorio.domain.Appearance;
+import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.Direction;
+import com.rustorio.domain.Item;
+import com.rustorio.domain.Sprite;
+import com.rustorio.domain.world.World;
+import java.util.Objects;
+import java.util.Optional;
+import org.jspecify.annotations.Nullable;
+
+/**
+ * Holds one item and, once per tick, nudges it toward its neighbor in {@link #direction}.
+ *
+ * <p>A straight run of same-direction belts is owned by a shared {@link BeltSegment}, which
+ * decides in what order cargo may advance and runs the whole run's tick as one pass instead of N
+ * independent ones. Each tile still holds its own cargo ({@link #held}) — the segment only
+ * reorders it between tiles.
+ */
+public final class Belt implements Building {
+
+    private final Direction direction;
+    private @Nullable Item held;
+    /**
+     * Set right after construction, by {@code World.attachToSegment} calling {@link
+     * #joinSegment} — never left unset while this tile is placed in the world; only null in the
+     * brief window before that call, and again after {@link #leaveSegment} on demolition. {@code
+     * NullAway.Init} below trusts that placement protocol instead of forcing every read site
+     * (segment().isTail(), segment().tick(), …) to null-check a field that's a genuine bug to see
+     * null while ticking.
+     */
+    private @Nullable BeltSegment segment;
+
+    public Belt(Direction direction) {
+        this.direction = direction;
+    }
+
+    /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
+    Belt(Direction direction, @Nullable Item held) {
+        this.direction = direction;
+        this.held = held;
+    }
+
+    public Direction direction() {
+        return direction;
+    }
+
+    @Override
+    public Optional<Direction> outputDirection() {
+        return Optional.of(direction);
+    }
+
+    /** Join (or leave, on removal, with {@code null}) a segment — called only by {@link World}. */
+    void joinSegment(@Nullable BeltSegment segment) {
+        this.segment = segment;
+    }
+
+    /** The segment this tile currently belongs to — never null while the tile is placed (see field javadoc). */
+    BeltSegment segment() {
+        return Objects.requireNonNull(segment);
+    }
+
+    /**
+     * Join this tile to whichever segment(s) its same-direction neighbors belong to — called by
+     * {@code World} right after placing a new belt tile, with the neighbor behind and ahead (if
+     * any). Keeps all {@link BeltSegment} manipulation inside the belt package instead of leaking
+     * it into {@code World}, which shouldn't need to know segments exist at all.
+     *
+     * <p>Call order doesn't matter (in particular for save-game loading, which restores tiles in
+     * arbitrary map-key order): whichever tile appears second is the one whose call discovers the
+     * already-standing neighbor and merges segments — the result is the same regardless of which
+     * of the two tiles was restored first.
+     */
+    public void attachToNeighbors(@Nullable Belt behind, @Nullable Belt ahead) {
+        if (behind != null) {
+            behind.segment().addHead(this);
+            if (ahead != null && ahead.segment() != behind.segment()) {
+                behind.segment().mergeHead(ahead.segment()); // new tile landed BETWEEN two segments
+            }
+        } else if (ahead != null) {
+            ahead.segment().addTail(this);
+        } else {
+            new BeltSegment(direction).addHead(this); // no belt neighbors — a fresh one-tile segment
+        }
+    }
+
+    /** Leave this tile's segment — called by {@code World} when the belt is demolished. */
+    public void leaveSegment() {
+        if (segment != null) {
+            segment.remove(this);
+        }
+    }
+
+    @Nullable Item held() {
+        return held;
+    }
+
+    void setHeld(Item item) {
+        held = item;
+    }
+
+    void clearHeld() {
+        held = null;
+    }
+
+    @Override
+    public boolean accept(World world, Item item) {
+        if (held != null) {
+            return false;
+        }
+        held = item;
+        return true;
+    }
+
+    @Override
+    public void tick(World world, int x, int y) {
+        BeltSegment mySegment = segment();
+        if (!mySegment.isTail(this)) {
+            return;
+        }
+        int exitX = x + direction.dx() * mySegment.size();
+        int exitY = y + direction.dy() * mySegment.size();
+        mySegment.tick(item -> world.offerForward(exitX, exitY, item));
+    }
+
+    @Override
+    public Optional<Item> heldItem() {
+        return Optional.ofNullable(held);
+    }
+
+    @Override
+    public Appearance appearance() {
+        return held == null ? Appearance.of(Sprite.BELT_EMPTY) : Appearance.of(Sprite.BELT_FULL);
+    }
+
+    @Override
+    public BuildingType type() {
+        return BuildingType.BELT;
+    }
+
+    /**
+     * A rightward/downward belt fits the world's default traversal (high coordinates first); a
+     * leftward/upward one needs the reverse, or it would push a neighbor that hasn't ticked yet
+     * this frame and cargo would skip the whole chain in one tick instead of one tile.
+     */
+    @Override
+    public boolean prefersDescendingTick() {
+        return direction == Direction.RIGHT || direction == Direction.DOWN;
+    }
+
+    @Override
+    public BuildingMemento memento() {
+        return new BuildingMemento.BeltState(direction, held);
+    }
+}

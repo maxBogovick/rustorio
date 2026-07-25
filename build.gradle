@@ -1,6 +1,10 @@
 plugins {
     id 'application'
     id 'jacoco' // покрытие тестами (встроенный плагин Gradle)
+    // Error Prone + NullAway: @NullMarked/@Nullable (JSpecify) были задекларированы во всех
+    // package-info.java, но до этого их никто не проверял — IDE могла подсветить нарушение,
+    // а ./gradlew build проходил всё равно. Этот плагин делает null-контракт частью компиляции.
+    id 'net.ltgt.errorprone' version '4.1.0'
 }
 
 group = 'com.rustorio'
@@ -33,6 +37,8 @@ ext {
     jspecifyVersion = '1.0.0'
     archunitVersion = '1.4.2'
     jacksonVersion = '2.18.2' // сериализация сохранений в JSON (слой persist)
+    errorproneVersion = '2.36.0'
+    nullawayVersion = '0.12.3'
 }
 
 // libGDX 1.14.2 по умолчанию подтягивает LWJGL 3.3.3, который старше Java 25 и на
@@ -71,6 +77,24 @@ dependencies {
     // ArchUnit: архитектурные инварианты как обычные тесты — ацикличность,
     // изоляция домена и направление зависимостей проверяются на каждой сборке.
     testImplementation "com.tngtech.archunit:archunit-junit5:$archunitVersion"
+
+    errorprone "com.google.errorprone:error_prone_core:$errorproneVersion"
+    errorprone "com.uber.nullaway:nullaway:$nullawayVersion"
+}
+
+// NullAway включён только на compileJava (основной код, весь размечен @NullMarked) — тестовый
+// код (compileTestJava) сознательно не проверяется: JUnit-ассерты и тестовые фикстуры не несут
+// того же контракта, а гонять NullAway на них — не то, о чём просил этот проект.
+tasks.named('compileJava', JavaCompile).configure {
+    options.errorprone {
+        disableAllChecks = true // весь остальной каталог проверок Error Prone — шум, не наша цель
+        error('NullAway')
+        option('NullAway:AnnotatedPackages', 'com.rustorio,com.graphics')
+    }
+}
+
+tasks.named('compileTestJava', JavaCompile).configure {
+    options.errorprone.enabled = false
 }
 
 application {

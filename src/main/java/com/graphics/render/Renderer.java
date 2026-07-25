@@ -7,10 +7,11 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Disposable;
 import com.graphics.GfxConfig;
-import com.rustorio.BuildingType;
-import com.rustorio.Direction;
-import com.rustorio.ProductionLog;
-import com.rustorio.World;
+import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.Direction;
+import com.rustorio.domain.OreLayout;
+import com.rustorio.domain.world.ProductionLog;
+import com.rustorio.domain.world.World;
 
 /**
  * Дирижёр отрисовки: владеет общими ресурсами и вызывает слои по порядку — земля, здания,
@@ -48,14 +49,14 @@ public final class Renderer implements Disposable {
     private final HudRenderer hudRenderer;
     private final RecipeBookRenderer recipeBookRenderer;
 
-    public Renderer(Textures textures, GameCamera camera) {
+    public Renderer(Textures textures, GameCamera camera, OreLayout oreLayout) {
         this.camera = camera;
         this.batch = new SpriteBatch();
         this.shapes = new ShapeRenderer();
-        this.font = new BitmapFont(); // встроенный 15px Arial — хватает для HUD
+        this.font = new BitmapFont(); // built-in 15px Arial — enough for the HUD
 
         Grid grid = new Grid(GfxConfig.GRID_H);
-        this.worldRenderer = new WorldRenderer(shapes, grid);
+        this.worldRenderer = new WorldRenderer(shapes, grid, oreLayout);
         this.buildingRenderer = new BuildingRenderer(batch, shapes, textures, font, grid);
         this.itemRenderer = new ItemRenderer(shapes, grid);
         this.overlayRenderer = new OverlayRenderer(batch, shapes, font, textures, grid);
@@ -106,7 +107,7 @@ public final class Renderer implements Disposable {
         overlayRenderer.renderHud();     // 6. пусто
         // 7. книга рецептов — поверх всего остального, только если игрок её открыл (TAB).
         if (showRecipeBook) {
-            recipeBookRenderer.render();
+            recipeBookRenderer.render(world.buildingFactory().recipeBook());
         }
     }
 

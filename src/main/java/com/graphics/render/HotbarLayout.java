@@ -1,6 +1,6 @@
 package com.graphics.render;
 
-import com.rustorio.BuildingType;
+import com.rustorio.domain.BuildingType;
 
 /**
  * Геометрия панели построек: где на экране каждый слот, — И для отрисовки ({@link HudRenderer}),

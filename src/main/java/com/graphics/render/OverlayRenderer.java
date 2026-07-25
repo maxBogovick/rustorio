@@ -4,11 +4,11 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
-import com.rustorio.Building;
-import com.rustorio.BuildingType;
-import com.rustorio.Direction;
-import com.rustorio.UndergroundBelt;
-import com.rustorio.World;
+import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.Direction;
+import com.rustorio.domain.building.Building;
+import com.rustorio.domain.building.UndergroundBelt;
+import com.rustorio.domain.world.World;
 
 /**
  * Слой «поверх мира» (подсветки, линии, HUD-панели, тосты). HUD-проход пока пуст — ждёт своей
@@ -61,25 +61,20 @@ final class OverlayRenderer {
             // appearance()/heldItem().
             float cx = grid.x(x) + tile / 2f;
             float cy = grid.yBottom(y) + tile / 2f;
-            Direction direction = building.outputDirection();
-            if (direction != null) {
-                drawArrow(cx, cy, direction, tile);
-            }
-            Direction secondary = building.secondaryOutputDirection();
-            if (secondary != null) {
-                drawArrow(cx, cy, secondary, tile);
-            }
+            building.outputDirection().ifPresent(direction -> drawArrow(cx, cy, direction, tile));
+            building.secondaryOutputDirection().ifPresent(direction -> drawArrow(cx, cy, direction, tile));
         });
         shapes.end();
 
         shapes.begin(ShapeRenderer.ShapeType.Line);
         shapes.setColor(Palette.T_BAD);
         world.forEachBuilding((x, y, building) -> {
-            // Building.unwrap: апгрейженный вход лежит в карте как SpeedModule — без разворачивания
-            // подсветка молча переставала бы работать на нём (см. javadoc UndergroundBelt#findPartner).
+            // Building.unwrap: an upgraded entrance sits in the map as a SpeedModule — without
+            // unwrapping, this highlight would silently stop working on it (see the javadoc on
+            // UndergroundBelt#findPartner).
             if (Building.unwrap(building) instanceof UndergroundBelt in
                     && in.type() == BuildingType.UNDERGROUND_IN
-                    && in.findPartner(world, x, y) == null) {
+                    && in.findPartner(world, x, y).isEmpty()) {
                 shapes.rect(grid.x(x), grid.yBottom(y), tile, tile);
             }
         });

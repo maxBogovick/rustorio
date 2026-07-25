@@ -6,16 +6,17 @@ import com.graphics.GfxConfig;
 import com.graphics.render.GameCamera;
 import com.graphics.render.HotbarLayout;
 import com.graphics.render.TilePos;
-import com.rustorio.ActionHistory;
-import com.rustorio.BuildingType;
-import com.rustorio.CompositeAction;
-import com.rustorio.Direction;
-import com.rustorio.PlaceAction;
-import com.rustorio.PlayerAction;
-import com.rustorio.RemoveAction;
-import com.rustorio.SaveGame;
-import com.rustorio.UpgradeSpeedAction;
-import com.rustorio.World;
+import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.Direction;
+import com.rustorio.domain.action.ActionHistory;
+import com.rustorio.domain.action.CompositeAction;
+import com.rustorio.domain.action.PlaceAction;
+import com.rustorio.domain.action.PlayerAction;
+import com.rustorio.domain.action.RemoveAction;
+import com.rustorio.domain.action.UpgradeSpeedAction;
+import com.rustorio.domain.world.World;
+import com.rustorio.persistence.SaveRepository;
+import com.rustorio.persistence.SaveResult;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,11 +40,19 @@ import java.util.List;
  */
 public final class InputHandler {
 
+    /**
+     * {@code java.lang.System.Logger} — встроенный в JDK9+ фасад логирования, без новой
+     * зависимости: единственный реальный путь ошибки в оконной игре (F5/F9) заслуживает
+     * уровня/фильтруемости, а не голого {@code System.err.println}.
+     */
+    private static final System.Logger LOGGER = System.getLogger(InputHandler.class.getName());
+
     /** Скорости симуляции по кругу — клавиши {@code [}/{@code ]} двигают индекс в этом массиве. */
     private static final int[] SPEEDS = {1, 2, 4};
 
     private final GameCamera camera;
     private final ActionHistory history = new ActionHistory();
+    private final SaveRepository saveRepository;
 
     /** Что игрок сейчас строит. ЛКМ ставит именно это; меняется клавишами 1/2/3. */
     private BuildingType selected = BuildingType.MINER;
@@ -69,21 +78,18 @@ public final class InputHandler {
     private boolean showRecipeBook;
 
     /**
-     * Тайлы, задетые протяжкой ЛКМ с момента нажатия, — без повторов подряд идущей той же
-     * клетки. На отпускание кнопки собираются в ОДНО {@link CompositeAction}: тянешь линию
-     * лент через полкарты — отменяется одним Ctrl+Z, а не по клетке.
+     * Тайлы, задетые протяжкой ЛКМ с момента нажатия, собираются в ОДНО {@link CompositeAction}
+     * на отпускание кнопки: тянешь линию лент через полкарты — отменяется одним Ctrl+Z, а не по
+     * клетке. {@link DragCollector} — общая логика для этого и для протяжки ПКМ ({@link
+     * #removeDrag}), которая раньше была продублирована в двух почти одинаковых методах.
      */
-    private final List<TilePos> buildDrag = new ArrayList<>();
-    private boolean buildDragging;
-    /** true, если ТЕКУЩЕЕ нажатие ЛКМ началось на панели построек — не строить в мире вместо клика. */
-    private boolean buildDragBlockedByHotbar;
+    private final DragCollector buildDrag = new DragCollector(Input.Buttons.LEFT);
     /** То же самое для ПКМ — протяжкой можно снести полосу построек одним действием. */
-    private final List<TilePos> removeDrag = new ArrayList<>();
-    private boolean removeDragging;
-    private boolean removeDragBlockedByHotbar;
+    private final DragCollector removeDrag = new DragCollector(Input.Buttons.RIGHT);
 
-    public InputHandler(GameCamera camera) {
+    public InputHandler(GameCamera camera, SaveRepository saveRepository) {
         this.camera = camera;
+        this.saveRepository = saveRepository;
     }
 
     /** Что выбрано в панели постройки — HUD показывает это игроку. */
@@ -142,10 +148,14 @@ public final class InputHandler {
 
         // Сохранение/загрузка (урок 10): F5 — записать мир на диск, F9 — прочитать обратно.
         if (Gdx.input.isKeyJustPressed(Input.Keys.F5)) {
-            SaveGame.save(world, SaveGame.DEFAULT_PATH);
+            if (saveRepository.save(world) instanceof SaveResult.Failure failure) {
+                LOGGER.log(System.Logger.Level.WARNING, "Save failed: {0}", failure.reason());
+            }
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.F9)) {
-            SaveGame.load(world, SaveGame.DEFAULT_PATH);
+            if (saveRepository.load(world) instanceof SaveResult.Failure failure) {
+                LOGGER.log(System.Logger.Level.WARNING, "Load failed: {0}", failure.reason());
+            }
         }
 
         // Книга рецептов (TAB): чистый переключатель показа, мира не касается вовсе.
@@ -169,8 +179,8 @@ public final class InputHandler {
     /**
      * ЛКМ по панели построек снизу выбирает здание — тот же результат, что клавиша с тем же
      * номером, только мышью и с иконкой перед глазами, а не по памяти. Срабатывает на МОМЕНТ
-     * нажатия (не «зажато»): протяжка от клика по панели дальше, в мир, — уже не постройка (см.
-     * {@link #buildDragBlockedByHotbar}).
+     * нажатия (не «зажато»): протяжка от клика по панели дальше, в мир, — уже не постройка (та же
+     * защита, что и в {@link DragCollector}, только для одиночного клика, а не для протяжки).
      */
     private void handleHotbarClick() {
         if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
@@ -183,84 +193,35 @@ public final class InputHandler {
         }
     }
 
-    /** Курсор сейчас над панелью построек — не важно, какая кнопка мыши (или никакая) нажата. */
-    private boolean isOverHotbar() {
-        return HotbarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(),
-                Gdx.graphics.getWidth(), Gdx.graphics.getHeight()) >= 0;
-    }
-
     /**
-     * ЛКМ зажата — копить тайлы под курсором в {@link #buildDrag}; отпущена (а до этого копили)
-     * — собрать их в одно {@link PlaceAction} на клетку и одно {@link CompositeAction} на всё
-     * разом, отдать в историю. Одиночный клик без протяжки даёт список из одного тайла — то же
-     * поведение, что было до протяжки, без регрессии.
-     *
-     * <p>Клик, НАЧАВШИЙСЯ на панели построек, вообще не должен превращаться в постройку в мире
-     * позади неё (панель занимает нижнюю полосу экрана поверх тайлов карты) — {@link
-     * #buildDragBlockedByHotbar} фиксируется РОВНО в момент нажатия и живёт, пока кнопка не
-     * отпущена, даже если курсор потом уедет с панели в мир.
+     * ЛКМ зажата — {@link #buildDrag} копит тайлы под курсором; отпущена — собрать их в одно
+     * {@link PlaceAction} на клетку и одно {@link CompositeAction} на всё разом, отдать в
+     * историю. Одиночный клик без протяжки даёт список из одного тайла — то же поведение, что
+     * было до протяжки, без регрессии.
      */
     private void handleBuildDrag(World world) {
-        boolean pressed = Gdx.input.isButtonPressed(Input.Buttons.LEFT);
-        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
-            buildDragBlockedByHotbar = isOverHotbar();
-        }
-        if (pressed && buildDragBlockedByHotbar) {
-            return;                             // весь этот клик — по панели, не по карте
-        }
-        if (pressed) {
-            TilePos tile = camera.pickTile(Gdx.input.getX(), Gdx.input.getY());
-            if (!buildDragging) {
-                buildDragging = true;
-                buildDrag.clear();
-                buildDrag.add(tile);
-            } else if (!tile.equals(buildDrag.get(buildDrag.size() - 1))) {
-                buildDrag.add(tile);
-            }
+        List<TilePos> tiles = buildDrag.poll(camera);
+        if (tiles == null) {
             return;
         }
-        if (!buildDragging) {
-            return;                             // кнопка не зажата и не была — нечего собирать
-        }
-        buildDragging = false;
         List<PlayerAction> actions = new ArrayList<>();
-        for (TilePos tile : buildDrag) {
+        for (TilePos tile : tiles) {
             actions.add(new PlaceAction(selected, tile.x(), tile.y(), facing));
         }
         history.perform(world, new CompositeAction(actions));
-        buildDrag.clear();
     }
 
     /** Симметрично {@link #handleBuildDrag}, только ПКМ и {@link RemoveAction}. */
     private void handleRemoveDrag(World world) {
-        boolean pressed = Gdx.input.isButtonPressed(Input.Buttons.RIGHT);
-        if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
-            removeDragBlockedByHotbar = isOverHotbar();
-        }
-        if (pressed && removeDragBlockedByHotbar) {
+        List<TilePos> tiles = removeDrag.poll(camera);
+        if (tiles == null) {
             return;
         }
-        if (pressed) {
-            TilePos tile = camera.pickTile(Gdx.input.getX(), Gdx.input.getY());
-            if (!removeDragging) {
-                removeDragging = true;
-                removeDrag.clear();
-                removeDrag.add(tile);
-            } else if (!tile.equals(removeDrag.get(removeDrag.size() - 1))) {
-                removeDrag.add(tile);
-            }
-            return;
-        }
-        if (!removeDragging) {
-            return;
-        }
-        removeDragging = false;
         List<PlayerAction> actions = new ArrayList<>();
-        for (TilePos tile : removeDrag) {
+        for (TilePos tile : tiles) {
             actions.add(new RemoveAction(tile.x(), tile.y()));
         }
         history.perform(world, new CompositeAction(actions));
-        removeDrag.clear();
     }
 
     /**

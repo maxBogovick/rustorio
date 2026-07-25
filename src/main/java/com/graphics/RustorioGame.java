@@ -2,6 +2,7 @@ package com.graphics;
 
 import com.badlogic.gdx.Game;
 import com.graphics.screen.GameScreen;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Корневой класс игры для libGDX.
@@ -12,8 +13,15 @@ import com.graphics.screen.GameScreen;
  */
 public final class RustorioGame extends Game {
 
+    /** Зерно карты руды из {@code --seed=}, или {@code null} — тогда карта фиксированная. */
+    private final @Nullable Long oreSeed;
+
+    public RustorioGame(@Nullable Long oreSeed) {
+        this.oreSeed = oreSeed;
+    }
+
     @Override
     public void create() {
-        setScreen(new GameScreen());
+        setScreen(oreSeed == null ? new GameScreen() : new GameScreen(oreSeed));
     }
 }

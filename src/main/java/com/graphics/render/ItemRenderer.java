@@ -3,27 +3,18 @@ package com.graphics.render;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
-import com.rustorio.Item;
-import com.rustorio.World;
+import com.rustorio.domain.world.World;
 
 /**
- * Слой «предметы»: груз, который здание держит «в пути» ({@link
- * com.rustorio.Building#heldItem()}) — на ленте, в буре, в сортировщике, в подземке.
+ * Item layer: the cargo a building is holding "in transit" ({@code Building.heldItem()}) — on a
+ * belt, in a miner's hands, in a splitter, underground. A small colored circle is drawn above the
+ * building's own sprite every tick, directly reflecting {@code heldItem()}: the moment cargo
+ * leaves a miner's hands, the circle disappears in the same tick.
  *
- * <p>Раньше этот слой был пустым каркасом: логика двигала предметы между клетками, а на экране
- * это было НИКАК не видно — только тайл ленты сам переключался между «пустым» и «полным»
- * спрайтом. Игрок не мог глазами проверить, что груз вообще куда-то едет (см. принцип GDD
- * эталона «всегда виден результат»). Теперь каждый тик здесь рисуется маленький кружок предмета
- * НАД спрайтом здания — не своя отдельная сущность, а прямое отражение {@code heldItem()}:
- * пропал груз из руки бура — тем же тиком пропал и кружок.
- *
- * <p><b>Почему кружок с обводкой, а не {@code textures.itemTexture}.</b> Настоящие спрайты
- * предметов в {@code resources/} — заготовки 3×4/4×4 пикселя, где все три ступени одной цепочки
- * (руда/пластина/шестерня) перекрашены практически в один и тот же серый или оранжевый: на глаз
- * неотличимы при любом масштабе. Пока нет настоящей художки — цвет свой на каждый сорт (см.
- * {@link #itemColor}), а форма — КРУЖОК, а не квадрат: плоский цветной квадрат читается как
- * техническая заглушка («тут должна быть картинка»), кружок с тёмной обводкой — уже узнаваемо
- * как окатыш руды или деталь, а не как недорисованный плейсхолдер.
+ * <p>A circle with a dark outline rather than a real item texture: the placeholder art in {@code
+ * resources/} is 3x4/4x4-pixel and indistinguishable at any scale between a chain's ore, plate and
+ * gear. Until real art exists, a solid color per item (see {@link Palette#itemColor}) reads as an
+ * intentional token; a flat colored square would read as an unfinished placeholder instead.
  */
 final class ItemRenderer {
 
@@ -45,26 +36,18 @@ final class ItemRenderer {
         float half = GfxConfig.TILE / 2f;
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        world.forEachBuilding((x, y, building) -> {
-            Item held = building.heldItem();
-            if (held == null) {
-                return;
-            }
+        world.forEachBuilding((x, y, building) -> building.heldItem().ifPresent(held -> {
             shapes.setColor(Palette.itemColor(held));
             shapes.circle(grid.x(x) + half, grid.yBottom(y) + half, radius, 20);
-        });
+        }));
         shapes.end();
 
-        // Обводка — вторым проходом: ShapeRenderer рисует один ShapeType за begin/end, заливку и
-        // линию нельзя намешать в одном вызове.
+        // Outline as a second pass: ShapeRenderer draws one ShapeType per begin/end — fill and
+        // line can't be mixed into a single call.
         shapes.begin(ShapeRenderer.ShapeType.Line);
         shapes.setColor(OUTLINE);
-        world.forEachBuilding((x, y, building) -> {
-            if (building.heldItem() == null) {
-                return;
-            }
-            shapes.circle(grid.x(x) + half, grid.yBottom(y) + half, radius, 20);
-        });
+        world.forEachBuilding((x, y, building) -> building.heldItem().ifPresent(held ->
+                shapes.circle(grid.x(x) + half, grid.yBottom(y) + half, radius, 20)));
         shapes.end();
     }
 }

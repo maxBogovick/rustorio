@@ -7,14 +7,16 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
-import com.rustorio.BuildingType;
-import com.rustorio.Direction;
-import com.rustorio.Item;
-import com.rustorio.ProductionLog;
-import com.rustorio.ProductionStats;
-import com.rustorio.Research;
-import com.rustorio.Sprite;
-import com.rustorio.Tech;
+import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.Direction;
+import com.rustorio.domain.Item;
+import com.rustorio.domain.ResearchView;
+import com.rustorio.domain.Sprite;
+import com.rustorio.domain.Tech;
+import com.rustorio.domain.world.ProductionLog;
+import com.rustorio.domain.world.ProductionStats;
+import com.rustorio.domain.world.ProductionStatsView;
+import org.jspecify.annotations.Nullable;
 
 /**
  * HUD — информационная панель сверху (заголовок, статистика, исследования, лог, подсказки) и
@@ -45,7 +47,7 @@ final class HudRenderer {
         this.textures = textures;
     }
 
-    void render(BuildingType selected, Direction facing, ProductionStats stats, Research research,
+    void render(BuildingType selected, Direction facing, ProductionStatsView stats, ResearchView research,
             ProductionLog log, boolean paused, int speed) {
         renderInfoPanel(stats, research, log, paused, speed);
         renderHotbar(selected, facing);
@@ -58,7 +60,7 @@ final class HudRenderer {
      * сузила свой вьюпорт ({@link GameCamera#resize}): подложка и «дыра» в мире, которую она
      * закрывает, всегда совпадают по построению, не по совпадению двух чисел в разных файлах.
      */
-    private void renderInfoPanel(ProductionStats stats, Research research, ProductionLog log,
+    private void renderInfoPanel(ProductionStatsView stats, ResearchView research, ProductionLog log,
             boolean paused, int speed) {
         int screenW = Gdx.graphics.getWidth();
         float top = Gdx.graphics.getHeight();
@@ -161,7 +163,7 @@ final class HudRenderer {
     /**
      * Внешность здания «в покое» для иконки в меню — независима от состояния конкретной
      * постройки (буфер, груз): в меню нет живого здания, только сорт, который можно выбрать.
-     * Печь и пресс делят один и тот же спрайт (см. {@link com.rustorio.Furnace}, урок 16).
+     * Печь и пресс делят один и тот же спрайт (см. {@link com.rustorio.domain.building.Furnace}).
      */
     private static Sprite menuSprite(BuildingType type) {
         return switch (type) {
@@ -177,7 +179,7 @@ final class HudRenderer {
     }
 
     /** Строка статистики: «Produced:   IRON_ORE 12    IRON_PLATE 4». */
-    private static String produced(ProductionStats stats) {
+    private static String produced(ProductionStatsView stats) {
         StringBuilder sb = new StringBuilder("Produced:   ");
         for (Item item : Item.values()) {
             sb.append(item.name()).append(' ').append(stats.total(item)).append("    ");
@@ -186,7 +188,7 @@ final class HudRenderer {
     }
 
     /** Строка исследований: «Research: 12 pts   Next: Fast smelting (20)   Unlocked: Fast mining». */
-    private static String research(Research research) {
+    private static String research(ResearchView research) {
         StringBuilder sb = new StringBuilder("Research: ").append(research.points()).append(" pts   ");
         Tech next = nextLocked(research);
         if (next != null) {
@@ -206,7 +208,7 @@ final class HudRenderer {
     }
 
     /** Первая по порядку ещё не открытая технология — null, если открыты уже все. */
-    private static Tech nextLocked(Research research) {
+    private static @Nullable Tech nextLocked(ResearchView research) {
         for (Tech tech : Tech.values()) {
             if (!research.isUnlocked(tech)) {
                 return tech;

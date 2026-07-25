@@ -1,7 +1,7 @@
 package com.graphics.render;
 
 import com.badlogic.gdx.graphics.Color;
-import com.rustorio.Item;
+import com.rustorio.domain.Item;
 
 /** Все цвета отрисовки в одном месте (перенесены из render.rs Rust-версии). */
 final class Palette {

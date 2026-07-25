@@ -4,8 +4,8 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
-import com.rustorio.Appearance;
-import com.rustorio.World;
+import com.rustorio.domain.Appearance;
+import com.rustorio.domain.world.World;
 
 /**
  * Слой «здания»: рисует все здания одинаково, не зная их сортов.
@@ -45,7 +45,7 @@ final class BuildingRenderer {
             float py = grid.yBottom(y);
             batch.draw(textures.forSprite(look.sprite()), px, py, tile, tile);
             if (look.hasBadge()) {
-                // Число — в правый-верхний угол клетки (загрузка ящика / буфер печи).
+                // Number goes in the cell's top-right corner (a chest's count / a furnace's buffer).
                 font.draw(batch, Integer.toString(look.badge()), px + 3, py + tile - 3);
             }
         });
