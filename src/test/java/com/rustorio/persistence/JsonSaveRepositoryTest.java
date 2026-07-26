@@ -3,12 +3,16 @@ package com.rustorio.persistence;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
+import com.rustorio.domain.RandomOreLayout;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.Tech;
 import com.rustorio.domain.building.Building;
+import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.building.SpeedModule;
 import com.rustorio.domain.world.World;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -120,6 +124,61 @@ class JsonSaveRepositoryTest {
 
         assertTrue(reloaded.research().isUnlocked(Tech.FAST_MINING));
         assertEquals(Tech.FAST_MINING.cost(), reloaded.research().points());
+    }
+
+    @Test
+    void semanticallyBrokenSaveMustNotDestroyTheCurrentWorld(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("save.json");
+        SaveRepository repository = new JsonSaveRepository(file);
+
+        World scratch = new World(4, 4);
+        scratch.placePress(0, 0, Direction.RIGHT);
+        // Commits the press to the GEAR recipe (IRON_PLATE -> GEAR) so the saved FurnaceState
+        // carries a non-null recipeOutput to corrupt below.
+        scratch.peek(0, 0).orElseThrow().accept(scratch, Item.IRON_PLATE);
+        assertTrue(repository.save(scratch).succeeded());
+
+        // Schema-valid, semantically impossible: no PRESS recipe outputs IRON_PLATE. The
+        // Furnace restore constructor throws IllegalStateException for this.
+        String corrupted = Files.readString(file).replace("\"GEAR\"", "\"IRON_PLATE\"");
+        Files.writeString(file, corrupted);
+
+        World world = new World(4, 4);
+        world.placeChest(1, 1);
+
+        assertFalse(repository.load(world).succeeded());
+        assertTrue(world.peek(1, 1).isPresent(), "a semantically broken save must not wipe the current world");
+    }
+
+    @Test
+    void saveFromASeededMapIsNotSilentlyLoadedIntoTheStandardMap(@TempDir Path dir) {
+        SaveRepository repository = new JsonSaveRepository(dir.resolve("save.json"));
+        World seeded = new World(20, 20,
+                new BuildingFactory(new RandomOreLayout(42, 20, 20), RecipeBook.standard()));
+        assertTrue(repository.save(seeded).succeeded());
+
+        World standard = new World(20, 20); // BuildingFactory.standard() -> PatchOreLayout, a different map
+        standard.placeChest(0, 0);
+
+        assertFalse(repository.load(standard).succeeded());
+        assertTrue(standard.peek(0, 0).isPresent(), "a map mismatch must not touch the current world");
+    }
+
+    @Test
+    void aSaveWithoutAnOreLayoutFieldIsTreatedAsAnUnknownMapAndStillLoads(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("save.json");
+        SaveRepository repository = new JsonSaveRepository(file);
+        World world = new World(4, 4);
+        world.placeChest(0, 0);
+        assertTrue(repository.save(world).succeeded());
+
+        // Simulate a save written before P2-01 introduced the field: drop it entirely.
+        String withoutOreLayout = Files.readString(file).replaceAll(",?\\s*\"oreLayout\"\\s*:\\s*\\{[^}]*}", "");
+        Files.writeString(file, withoutOreLayout);
+
+        World reloaded = new World(4, 4);
+        assertTrue(repository.load(reloaded).succeeded());
+        assertTrue(reloaded.peek(0, 0).isPresent());
     }
 
     private static BuildingType typeAt(World world, int x, int y) {

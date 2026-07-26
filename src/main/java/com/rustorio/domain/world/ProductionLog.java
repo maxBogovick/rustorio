@@ -1,7 +1,8 @@
 package com.rustorio.domain.world;
 
 import com.rustorio.domain.Item;
-import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 
 /**
@@ -10,20 +11,26 @@ import java.util.List;
  * learn of an event at the same time and separately decide what to do with it. {@link World}
  * doesn't know this class exists either — it only knows about {@link World#addProductionListener}.
  */
-public final class ProductionLog implements ProductionListener {
+public final class ProductionLog implements ProductionListener, ProductionLogView {
 
     private static final int CAPACITY = 5;
 
-    private final List<Item> recent = new ArrayList<>();
+    /**
+     * {@link ArrayDeque}, not {@code ArrayList} (P4-05, BUG_FIX_PROGRESS.md): the access pattern
+     * is exactly "push to the front, trim from the back," which {@code ArrayList} can only do via
+     * {@code add(0, …)} — an O(n) shift on every single production event.
+     */
+    private final Deque<Item> recent = new ArrayDeque<>();
 
     @Override
     public void onProduced(Item item) {
-        recent.add(0, item);
+        recent.addFirst(item);
         if (recent.size() > CAPACITY) {
-            recent.remove(recent.size() - 1);
+            recent.removeLast();
         }
     }
 
+    @Override
     public List<Item> recent() {
         return List.copyOf(recent);
     }

@@ -33,19 +33,17 @@ public final class Textures implements Disposable {
     /** Единственная текстура-атлас, куда смотрят все регионы ниже. */
     private final TextureAtlas atlas;
 
-    // Бур: 3 кадра прогресса добычи.
-    final TextureRegion[] miner = new TextureRegion[3];
+    private final TextureRegion miner;
     // Лента: 2 кадра «бегущей дорожки», рисуются с поворотом под направление.
-    final TextureRegion[] belt = new TextureRegion[2];
-    final TextureRegion chest;
-    final TextureRegion furnaceOn;
-    final TextureRegion furnaceOff;
-    final TextureRegion assembler;
-    final TextureRegion splitter;
-    final TextureRegion undergroundIn;
-    final TextureRegion undergroundOut;
+    private final TextureRegion[] belt = new TextureRegion[2];
+    private final TextureRegion chest;
+    private final TextureRegion furnaceOn;
+    private final TextureRegion furnaceOff;
+    private final TextureRegion splitter;
+    private final TextureRegion undergroundIn;
+    private final TextureRegion undergroundOut;
     /** Плашка-заглушка: нарисованного спрайта лаборатории в resources/ ещё нет. */
-    final TextureRegion lab;
+    private final TextureRegion lab;
 
     public Textures() {
         // padding=2 + duplicateBorder: соседние спрайты не «протекают» друг в друга
@@ -54,15 +52,14 @@ public final class Textures implements Disposable {
         // Имена БЕЗ завершающих цифр: generateTextureAtlas() разбирает хвостовые
         // цифры имени в «индекс региона» ("miner_1" → name="miner", index=1), и
         // тогда findRegion("miner_1") ничего не находит. Суффиксы-буквы этого избегают.
+        // Только первый кадр бура упакован — {@link #forSprite} не анимирует его (см. P4-01,
+        // BUG_FIX_PROGRESS.md); остальные кадры и resources/assembler.png сейчас нигде не читаются.
         packFile(packer, "miner_a", "resources/miner_1.png");
-        packFile(packer, "miner_b", "resources/miner_2.png");
-        packFile(packer, "miner_c", "resources/miner_3.png");
         packFile(packer, "belt_a", "resources/belt_1.png");
         packFile(packer, "belt_b", "resources/belt_2.png");
         packFile(packer, "chest", "resources/chest.png");
         packFile(packer, "furnace_on", "resources/furnace_on.png");
         packFile(packer, "furnace_off", "resources/furnace_off.png");
-        packFile(packer, "assembler", "resources/assembler.png");
         packFile(packer, "splitter", "resources/branch_1.png");
         packFile(packer, "underground_a", "resources/underground_in.png");
         packFile(packer, "underground_b", "resources/underground_out.png");
@@ -77,15 +74,12 @@ public final class Textures implements Disposable {
                 Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest, false);
         packer.dispose(); // страницы скопированы в текстуры атласа — упаковщик больше не нужен
 
-        miner[0] = region("miner_a");
-        miner[1] = region("miner_b");
-        miner[2] = region("miner_c");
+        miner = region("miner_a");
         belt[0] = region("belt_a");
         belt[1] = region("belt_b");
         chest = region("chest");
         furnaceOn = region("furnace_on");
         furnaceOff = region("furnace_off");
-        assembler = region("assembler");
         splitter = region("splitter");
         undergroundIn = region("underground_a");
         undergroundOut = region("underground_b");
@@ -101,7 +95,7 @@ public final class Textures implements Disposable {
      */
     TextureRegion forSprite(Sprite sprite) {
         return switch (sprite) {
-            case MINER -> miner[0];
+            case MINER -> miner;
             case CHEST -> chest;
             case FURNACE_HOT -> furnaceOn;
             case FURNACE_COLD -> furnaceOff;

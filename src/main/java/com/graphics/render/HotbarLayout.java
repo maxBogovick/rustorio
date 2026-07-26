@@ -17,17 +17,26 @@ public final class HotbarLayout {
     /** Отступ панели от нижнего края экрана. */
     public static final float MARGIN_BOTTOM = 14f;
 
+    /**
+     * Число слотов, посчитанное один раз, не на каждый вызов {@link #count()} (P4-02,
+     * BUG_FIX_PROGRESS.md) — {@code BuildingType.values()} клонирует внутренний массив энума,
+     * а {@link #slotX} (через {@link #totalWidth}) зовёт {@code count()} дважды и сама
+     * вызывается до 27 раз за кадр из {@code HudRenderer} — 54 лишних клона на пустом месте.
+     */
+    private static final int COUNT = BuildingType.values().length;
+    private static final float TOTAL_WIDTH = COUNT * SLOT_SIZE + (COUNT - 1) * SLOT_GAP;
+
     private HotbarLayout() {
     }
 
     /** Сколько слотов — по числу сортов построек. */
     public static int count() {
-        return BuildingType.values().length;
+        return COUNT;
     }
 
     /** Суммарная ширина всей панели (слоты + зазоры между ними, без зазора по краям). */
     public static float totalWidth() {
-        return count() * SLOT_SIZE + (count() - 1) * SLOT_GAP;
+        return TOTAL_WIDTH;
     }
 
     /** X левого края слота {@code index} — панель отцентрована по ширине окна. */

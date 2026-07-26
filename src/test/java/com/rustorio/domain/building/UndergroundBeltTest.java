@@ -71,4 +71,74 @@ class UndergroundBeltTest {
         }
         assertEquals(1, chest.count(), "апгрейженный выход туннеля всё ещё находится и работает");
     }
+
+    /**
+     * Found during a post-Phase-4 architecture review, not part of any original P-numbered task:
+     * a side effect of P2-06 (making {@code prefersDescendingTick} depend only on {@code
+     * direction}, not {@code kind}). A LEFT-facing entrance now ticks in the ASCENDING pass, so a
+     * RIGHT-facing feeder belt (DESCENDING pass) that delivers straight into it does so in an
+     * EARLIER phase of the same frame — the entrance's own tick, later that same frame, used to
+     * see cargo that "just arrived" and relay it to the exit immediately, skipping the one-tick
+     * settle that {@link Belt#arrivedThisTick} already enforces for plain belts. Fixed the same
+     * way: {@code UndergroundBelt} now tracks its own arrival mark.
+     */
+    @Test
+    void tunnelDoesNotRelayCargoReceivedFromACrossPhaseFeederInTheSameTick() {
+        World world = new World(10, 10);
+        world.placeBelt(5, 0, Direction.RIGHT); // descending pass — exits into (6,0)
+        world.placeUndergroundIn(6, 0, Direction.LEFT); // ascending pass — searches toward x=2
+        world.placeUndergroundOut(2, 0, Direction.LEFT); // step 4 — within MAX_RANGE
+        Chest chest = new Chest();
+        world.restoreBuilding(1, 0, chest); // OUT (LEFT) exits into (1,0)
+
+        Belt feed = (Belt) world.peek(5, 0).orElseThrow();
+        assertTrue(feed.accept(world, Item.IRON_ORE));
+
+        world.tick(); // feeder (phase 1) delivers into IN; IN's own tick (phase 2) follows same frame
+        world.tick(); // IN relays to OUT here at the earliest — not before
+
+        assertEquals(0, chest.count(),
+                "cargo fed cross-phase into a tunnel entrance must not reach the exit's neighbor in 2 ticks");
+    }
+
+    @Test
+    void tunnelTakesTheSameNumberOfTicksInEveryDirection() {
+        assertEquals(ticksToDeliverThroughTunnel(Direction.RIGHT), ticksToDeliverThroughTunnel(Direction.LEFT));
+    }
+
+    /**
+     * Builds belt → tunnel-in → tunnel-out → belt → chest, all facing {@code direction}, feeds one
+     * item at the start, and counts ticks until it lands in the chest — see P2-06.
+     */
+    private static int ticksToDeliverThroughTunnel(Direction direction) {
+        World world = new World(10, 10);
+        int dx = direction.dx();
+        int startX = direction == Direction.RIGHT ? 0 : 9;
+
+        int beltX = startX;
+        int inX = startX + dx;
+        int outX = startX + dx * 4; // in + MAX_RANGE
+        int outBeltX = startX + dx * 5;
+        int chestX = startX + dx * 6;
+
+        world.placeBelt(beltX, 0, direction);
+        world.placeUndergroundIn(inX, 0, direction);
+        world.placeUndergroundOut(outX, 0, direction);
+        world.placeBelt(outBeltX, 0, direction);
+        Chest chest = new Chest();
+        world.restoreBuilding(chestX, 0, chest);
+
+        Belt feed = (Belt) world.peek(beltX, 0).orElseThrow();
+        assertTrue(feed.accept(world, Item.IRON_ORE));
+
+        int ticks = 0;
+        while (chest.count() == 0) {
+            world.tick();
+            ticks++;
+            if (ticks > 20) {
+                throw new IllegalStateException("cargo never arrived within a sane number of ticks");
+            }
+        }
+        return ticks;
+    }
 }

@@ -36,19 +36,20 @@ final class BuildingRenderer {
         this.grid = grid;
     }
 
-    void render(World world) {
+    void render(World world, TileRange visible) {
         float tile = GfxConfig.TILE;
         batch.begin();
-        world.forEachBuilding((x, y, building) -> {
-            Appearance look = building.appearance();
-            float px = grid.x(x);
-            float py = grid.yBottom(y);
-            batch.draw(textures.forSprite(look.sprite()), px, py, tile, tile);
-            if (look.hasBadge()) {
-                // Number goes in the cell's top-right corner (a chest's count / a furnace's buffer).
-                font.draw(batch, Integer.toString(look.badge()), px + 3, py + tile - 3);
-            }
-        });
+        world.forEachBuildingIn(visible.minX(), visible.minY(), visible.maxX(), visible.maxY(),
+                (x, y, building) -> {
+                    Appearance look = building.appearance();
+                    float px = grid.x(x);
+                    float py = grid.yBottom(y);
+                    batch.draw(textures.forSprite(look.sprite()), px, py, tile, tile);
+                    if (look.hasBadge()) {
+                        // Top-right corner of the cell (a chest's count / a furnace's buffer).
+                        font.draw(batch, Integer.toString(look.badge()), px + 3, py + tile - 3);
+                    }
+                });
         batch.end();
     }
 }

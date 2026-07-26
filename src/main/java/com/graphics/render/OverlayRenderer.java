@@ -1,7 +1,5 @@
 package com.graphics.render;
 
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
 import com.rustorio.domain.BuildingType;
@@ -11,9 +9,9 @@ import com.rustorio.domain.building.UndergroundBelt;
 import com.rustorio.domain.world.World;
 
 /**
- * Слой «поверх мира» (подсветки, линии, HUD-панели, тосты). HUD-проход пока пуст — ждёт своей
- * задачи. Мировой проход красит две вещи: стрелку направления над каждым зданием, у которого оно
- * вообще есть, и красную рамку вокруг входа подземной ленты без пары в пределах дальности.
+ * Слой «поверх мира» (подсветки, линии, тосты). Красит две вещи: стрелку направления над каждым
+ * зданием, у которого оно вообще есть, и красную рамку вокруг входа подземной ленты без пары в
+ * пределах дальности.
  *
  * <p><b>Зачем стрелка.</b> Ни один спрайт в игре не поворачивается под направление (заготовки
  * ассетов этого не умеют — см. {@link Textures}), а лента/печь/туннель держат направление молча
@@ -33,28 +31,25 @@ import com.rustorio.domain.world.World;
  */
 final class OverlayRenderer {
 
-    private final SpriteBatch batch;
     private final ShapeRenderer shapes;
-    private final BitmapFont font;
-    private final Textures textures;
     private final Grid grid;
 
-    OverlayRenderer(SpriteBatch batch, ShapeRenderer shapes, BitmapFont font, Textures textures,
-            Grid grid) {
-        this.batch = batch;
+    OverlayRenderer(ShapeRenderer shapes, Grid grid) {
         this.shapes = shapes;
-        this.font = font;
-        this.textures = textures;
         this.grid = grid;
     }
 
     /** Стрелка (или две, у сплиттера) над каждым зданием с направлением; красная рамка — вход-сирота. */
-    void renderWorld(World world) {
+    void renderWorld(World world, TileRange visible) {
         float tile = GfxConfig.TILE;
+        int minX = visible.minX();
+        int minY = visible.minY();
+        int maxX = visible.maxX();
+        int maxY = visible.maxY();
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(Palette.DIRECTION_ARROW);
-        world.forEachBuilding((x, y, building) -> {
+        world.forEachBuildingIn(minX, minY, maxX, maxY, (x, y, building) -> {
             // building.outputDirection(), не Building.unwrap(building).outputDirection(): метод
             // интерфейсный, а SpeedModule обязан (и делегирует, см. его javadoc) отвечать за
             // обёрнутое здание сам — разворачивать здесь незачем, как не разворачиваем ради
@@ -68,7 +63,7 @@ final class OverlayRenderer {
 
         shapes.begin(ShapeRenderer.ShapeType.Line);
         shapes.setColor(Palette.T_BAD);
-        world.forEachBuilding((x, y, building) -> {
+        world.forEachBuildingIn(minX, minY, maxX, maxY, (x, y, building) -> {
             // Building.unwrap: an upgraded entrance sits in the map as a SpeedModule — without
             // unwrapping, this highlight would silently stop working on it (see the javadoc on
             // UndergroundBelt#findPartner).
@@ -104,9 +99,5 @@ final class OverlayRenderer {
                 tipX, tipY,
                 baseX + perpX * halfWidth, baseY + perpY * halfWidth,
                 baseX - perpX * halfWidth, baseY - perpY * halfWidth);
-    }
-
-    /** HUD-проход — пока пуст. */
-    void renderHud() {
     }
 }

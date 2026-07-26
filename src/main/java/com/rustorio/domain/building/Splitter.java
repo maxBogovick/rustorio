@@ -6,7 +6,6 @@ import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
 import com.rustorio.domain.SortRule;
 import com.rustorio.domain.Sprite;
-import com.rustorio.domain.world.World;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -15,10 +14,9 @@ import org.jspecify.annotations.Nullable;
  * one clockwise turn from it — decided entirely by the injected {@link SortRule} (Strategy
  * pattern): this class only knows "ask the rule, then push that way," never "ore goes forward."
  *
- * <p><b>Known compromise:</b> {@link #rule} does not survive save/load. {@link #memento()} has
- * nowhere to put it — {@link BuildingMemento.SplitterState} only carries {@link #facing} and
- * {@link #held} — so {@link BuildingFactory#restore} always rebuilds a reloaded splitter with
- * {@link SortRule#ORE_FORWARD}, silently discarding whatever rule was actually in play.
+ * <p>{@link #rule} survives save/load by its {@link SortRule#id()} (P4-10, BUG_FIX_PROGRESS.md —
+ * owner decision A) — {@link #memento()} carries it, {@link BuildingFactory#restore} looks it back
+ * up via {@link SortRule#byId}.
  */
 public final class Splitter implements Building {
 
@@ -38,7 +36,7 @@ public final class Splitter implements Building {
     }
 
     @Override
-    public boolean accept(World world, Item item) {
+    public boolean accept(TickContext world, Item item) {
         if (held != null) {
             return false;
         }
@@ -47,7 +45,7 @@ public final class Splitter implements Building {
     }
 
     @Override
-    public void tick(World world, int x, int y) {
+    public void tick(TickContext world, int x, int y) {
         if (held == null) {
             return;
         }
@@ -84,6 +82,6 @@ public final class Splitter implements Building {
 
     @Override
     public BuildingMemento memento() {
-        return new BuildingMemento.SplitterState(facing, held);
+        return new BuildingMemento.SplitterState(facing, held, rule.id());
     }
 }

@@ -4,7 +4,6 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
-import com.rustorio.domain.world.World;
 import java.util.Optional;
 
 /**
@@ -33,7 +32,7 @@ public sealed interface Building
      * <p>Default is a no-op: most buildings (a chest) simply sit there; whoever is active (a
      * miner) overrides it.
      */
-    default void tick(World world, int x, int y) {
+    default void tick(TickContext world, int x, int y) {
     }
 
     /**
@@ -45,7 +44,7 @@ public sealed interface Building
      *
      * @return {@code true} if the item was taken; {@code false} if this building doesn't want it
      */
-    default boolean accept(World world, Item item) {
+    default boolean accept(TickContext world, Item item) {
         return false;
     }
 
@@ -71,7 +70,7 @@ public sealed interface Building
     /**
      * Whether this building doesn't care what order it's ticked in relative to its neighbors this
      * step. True for almost everything; a belt pushing left or up is the one exception — see
-     * {@link World#tick()} for why the traversal order matters to it.
+     * {@code World.tick()} for why the traversal order matters to it.
      */
     default boolean prefersDescendingTick() {
         return true;

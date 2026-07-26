@@ -29,12 +29,18 @@ public final class RemoveAction implements PlayerAction {
         return removed != null;
     }
 
+    /**
+     * If the cell is occupied by something built after the demolition, undo becomes a no-op — the
+     * newer building takes priority over restoring the older one, and {@link #removed} is simply
+     * left un-restored (not lost: it just stays undone, same as any other failed undo). See P1-07
+     * in BUG_FIX_PROGRESS.md.
+     */
     @Override
     public void undo(World world) {
         // world.restoreBuilding, not world.place: the placement rules were already satisfied the
         // first time this building was built — re-checking them now serves no purpose (the same
         // reasoning the save/load path uses).
-        if (removed != null) {
+        if (removed != null && world.isFree(x, y)) {
             world.restoreBuilding(x, y, removed);
         }
     }

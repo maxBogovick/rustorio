@@ -42,7 +42,12 @@ public sealed interface BuildingMemento {
     record BeltState(Direction direction, @Nullable Item held) implements BuildingMemento {
     }
 
-    record SplitterState(Direction facing, @Nullable Item held) implements BuildingMemento {
+    /**
+     * {@code rule} is the persisted {@code SortRule}'s id (P4-10, BUG_FIX_PROGRESS.md — owner
+     * decision A) — {@code @Nullable} so a save written before this field existed still loads;
+     * {@code null} means "unknown, assume the default" (see {@code BuildingFactory#restore}).
+     */
+    record SplitterState(Direction facing, @Nullable Item held, @Nullable String rule) implements BuildingMemento {
     }
 
     record LabState(int buffer, int cooldown) implements BuildingMemento {

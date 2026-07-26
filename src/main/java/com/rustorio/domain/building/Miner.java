@@ -6,7 +6,6 @@ import com.rustorio.domain.Item;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.Sprite;
 import com.rustorio.domain.Tech;
-import com.rustorio.domain.world.World;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -44,7 +43,7 @@ public final class Miner implements Building {
     }
 
     @Override
-    public void tick(World world, int x, int y) {
+    public void tick(TickContext world, int x, int y) {
         if (held == null) {
             if (--cooldown > 0) {
                 return;
@@ -62,7 +61,7 @@ public final class Miner implements Building {
         }
     }
 
-    private static int effectiveTime(World world) {
+    private static int effectiveTime(TickContext world) {
         return world.research().isUnlocked(Tech.FAST_MINING) ? Math.max(1, MINE_TIME / 2) : MINE_TIME;
     }
 

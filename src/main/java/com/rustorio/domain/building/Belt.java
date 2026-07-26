@@ -5,7 +5,6 @@ import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
 import com.rustorio.domain.Sprite;
-import com.rustorio.domain.world.World;
 import java.util.Objects;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -31,6 +30,17 @@ public final class Belt implements Building {
      * null while ticking.
      */
     private @Nullable BeltSegment segment;
+    /**
+     * True for the rest of the CURRENT world tick if this tile received cargo via {@link #accept}
+     * earlier in the same tick (a cross-segment or cross-building delivery — never set by the
+     * intra-segment cascade in {@link BeltSegment#tick}, which moves cargo by direct field access,
+     * not through {@code accept}). {@link BeltSegment#tick} treats a marked tile as ineligible to
+     * move further this frame; {@code TickScheduler} clears every belt's mark once, before either
+     * traversal pass runs. Without this, a descending-phase segment (say, DOWN) handing cargo to
+     * an ascending-phase segment (say, LEFT) let the receiving segment — ticking later in the very
+     * same frame — move that same item a second tile. See P2-07/P3-03, BUG_FIX_PROGRESS.md.
+     */
+    private boolean arrivedThisTick;
 
     public Belt(Direction direction) {
         this.direction = direction;
@@ -62,17 +72,19 @@ public final class Belt implements Building {
     }
 
     /**
-     * Join this tile to whichever segment(s) its same-direction neighbors belong to — called by
-     * {@code World} right after placing a new belt tile, with the neighbor behind and ahead (if
-     * any). Keeps all {@link BeltSegment} manipulation inside the belt package instead of leaking
-     * it into {@code World}, which shouldn't need to know segments exist at all.
+     * Join this tile to whichever segment(s) its same-direction neighbors belong to — package-
+     * private, reached from {@code World} only through {@link BuildingFactory#attachBelt} (P3-02,
+     * BUG_FIX_PROGRESS.md): {@code World} finds the neighbor behind/ahead (it owns the cell map),
+     * hands them to that narrow public door, and everything past it — {@link BeltSegment}
+     * manipulation — stays inside this package. {@code World} shouldn't need to know segments
+     * exist at all.
      *
      * <p>Call order doesn't matter (in particular for save-game loading, which restores tiles in
      * arbitrary map-key order): whichever tile appears second is the one whose call discovers the
      * already-standing neighbor and merges segments — the result is the same regardless of which
      * of the two tiles was restored first.
      */
-    public void attachToNeighbors(@Nullable Belt behind, @Nullable Belt ahead) {
+    void attachToNeighbors(@Nullable Belt behind, @Nullable Belt ahead) {
         if (behind != null) {
             behind.segment().addHead(this);
             if (ahead != null && ahead.segment() != behind.segment()) {
@@ -85,8 +97,12 @@ public final class Belt implements Building {
         }
     }
 
-    /** Leave this tile's segment — called by {@code World} when the belt is demolished. */
-    public void leaveSegment() {
+    /**
+     * Leave this tile's segment — package-private, reached from {@code World} only through {@link
+     * BuildingFactory#detachBelt} (P3-02, BUG_FIX_PROGRESS.md), when the belt is demolished or
+     * about to be re-attached idempotently.
+     */
+    void leaveSegment() {
         if (segment != null) {
             segment.remove(this);
         }
@@ -104,17 +120,28 @@ public final class Belt implements Building {
         held = null;
     }
 
+    /** Whether {@link BeltSegment#tick} must refuse to move this tile further THIS frame. */
+    boolean arrivedThisTick() {
+        return arrivedThisTick;
+    }
+
+    /** Called once per world tick, before any building ticks — see {@code TickScheduler}. */
+    void clearArrivalMark() {
+        arrivedThisTick = false;
+    }
+
     @Override
-    public boolean accept(World world, Item item) {
+    public boolean accept(TickContext world, Item item) {
         if (held != null) {
             return false;
         }
         held = item;
+        arrivedThisTick = true;
         return true;
     }
 
     @Override
-    public void tick(World world, int x, int y) {
+    public void tick(TickContext world, int x, int y) {
         BeltSegment mySegment = segment();
         if (!mySegment.isTail(this)) {
             return;

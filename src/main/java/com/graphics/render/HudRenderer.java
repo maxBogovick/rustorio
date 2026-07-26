@@ -13,9 +13,10 @@ import com.rustorio.domain.Item;
 import com.rustorio.domain.ResearchView;
 import com.rustorio.domain.Sprite;
 import com.rustorio.domain.Tech;
-import com.rustorio.domain.world.ProductionLog;
+import com.rustorio.domain.world.ProductionLogView;
 import com.rustorio.domain.world.ProductionStats;
 import com.rustorio.domain.world.ProductionStatsView;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -30,8 +31,10 @@ import org.jspecify.annotations.Nullable;
  * ({@link Palette#SLOT_SELECTED}).
  *
  * <p>Строка статистики и строка лога читают РАЗНЫХ, ничего не знающих друг о друге слушателей
- * одного и того же события «предмет произведён» ({@link ProductionStats}, {@link ProductionLog}
- * — урок 14). HUD дальше про них ничего не знает: просто читает и показывает.
+ * одного и того же события «предмет произведён» ({@link ProductionStats}, {@code ProductionLog}
+ * — урок 14). HUD дальше про них ничего не знает: просто читает и показывает через {@link
+ * ProductionLogView} (P3-08, BUG_FIX_PROGRESS.md) — ту же дисциплину read-only вида, что уже
+ * применена к {@link ProductionStatsView} и {@link ResearchView}.
  */
 final class HudRenderer {
 
@@ -40,6 +43,20 @@ final class HudRenderer {
     private final BitmapFont font;
     private final Textures textures;
 
+    /**
+     * Cached HUD text and the cheap signature it was built from (P4-05, BUG_FIX_PROGRESS.md):
+     * {@link #produced}/{@link #research}/{@link #recent} rebuilt a {@code StringBuilder} every
+     * single frame regardless of whether production, research or the log had actually changed
+     * since the last one. {@code -1} never matches a real total/points value, so the first call
+     * always (correctly) rebuilds.
+     */
+    private long producedSignature = -1;
+    private String producedCache = "";
+    private int researchSignature = -1;
+    private String researchCache = "";
+    private List<Item> recentSignature = List.of();
+    private String recentCache = "";
+
     HudRenderer(SpriteBatch batch, ShapeRenderer shapes, BitmapFont font, Textures textures) {
         this.batch = batch;
         this.shapes = shapes;
@@ -47,10 +64,9 @@ final class HudRenderer {
         this.textures = textures;
     }
 
-    void render(BuildingType selected, Direction facing, ProductionStatsView stats, ResearchView research,
-            ProductionLog log, boolean paused, int speed) {
-        renderInfoPanel(stats, research, log, paused, speed);
-        renderHotbar(selected, facing);
+    void render(HudState hud, ProductionStatsView stats, ResearchView research, ProductionLogView log) {
+        renderInfoPanel(stats, research, log, hud.paused(), hud.speed());
+        renderHotbar(hud.selected(), hud.facing());
     }
 
     /**
@@ -60,7 +76,7 @@ final class HudRenderer {
      * сузила свой вьюпорт ({@link GameCamera#resize}): подложка и «дыра» в мире, которую она
      * закрывает, всегда совпадают по построению, не по совпадению двух чисел в разных файлах.
      */
-    private void renderInfoPanel(ProductionStatsView stats, ResearchView research, ProductionLog log,
+    private void renderInfoPanel(ProductionStatsView stats, ResearchView research, ProductionLogView log,
             boolean paused, int speed) {
         int screenW = Gdx.graphics.getWidth();
         float top = Gdx.graphics.getHeight();
@@ -178,18 +194,41 @@ final class HudRenderer {
         };
     }
 
-    /** Строка статистики: «Produced:   IRON_ORE 12    IRON_PLATE 4». */
-    private static String produced(ProductionStatsView stats) {
+    /**
+     * Строка статистики: «Produced:   IRON_ORE 12    IRON_PLATE 4». Пересобирается, только если
+     * сумма всех счётчиков изменилась (P4-05, BUG_FIX_PROGRESS.md) — суммарный счётчик как
+     * дешёвый признак: тоталы только растут за время жизни {@code ProductionStats} (не считая
+     * {@code restore}), так что совпадающая сумма надёжно значит «ничего не произошло».
+     */
+    private String produced(ProductionStatsView stats) {
+        long signature = 0;
+        for (Item item : Item.values()) {
+            signature += stats.total(item);
+        }
+        if (signature == producedSignature) {
+            return producedCache;
+        }
+        producedSignature = signature;
         StringBuilder sb = new StringBuilder("Produced:   ");
         for (Item item : Item.values()) {
             sb.append(item.name()).append(' ').append(stats.total(item)).append("    ");
         }
-        return sb.toString();
+        return producedCache = sb.toString();
     }
 
-    /** Строка исследований: «Research: 12 pts   Next: Fast smelting (20)   Unlocked: Fast mining». */
-    private static String research(ResearchView research) {
-        StringBuilder sb = new StringBuilder("Research: ").append(research.points()).append(" pts   ");
+    /**
+     * Строка исследований: «Research: 12 pts   Next: Fast smelting (20)   Unlocked: Fast mining».
+     * {@code points} — точный дешёвый признак смены (P4-05): какие технологии открыты, целиком
+     * определяется набранными очками ({@code Research.addPoints}), так что при неизменных очках
+     * набор открытого тоже не менялся.
+     */
+    private String research(ResearchView research) {
+        int signature = research.points();
+        if (signature == researchSignature) {
+            return researchCache;
+        }
+        researchSignature = signature;
+        StringBuilder sb = new StringBuilder("Research: ").append(signature).append(" pts   ");
         Tech next = nextLocked(research);
         if (next != null) {
             sb.append("Next: ").append(next.label()).append(" (").append(next.cost()).append(")   ");
@@ -204,7 +243,7 @@ final class HudRenderer {
                 }
             }
         }
-        return sb.toString();
+        return researchCache = sb.toString();
     }
 
     /** Первая по порядку ещё не открытая технология — null, если открыты уже все. */
@@ -217,15 +256,25 @@ final class HudRenderer {
         return null;
     }
 
-    /** Строка лога: «Recent:   IRON_ORE  IRON_PLATE  IRON_ORE» — самый свежий слева. */
-    private static String recent(ProductionLog log) {
-        StringBuilder sb = new StringBuilder("Recent:   ");
-        if (log.recent().isEmpty()) {
-            return sb.append('-').toString();
+    /**
+     * Строка лога: «Recent:   IRON_ORE  IRON_PLATE  IRON_ORE» — самый свежий слева. {@code
+     * ProductionLogView} не отдаёт ничего дешевле самого списка (P4-05), так что {@code
+     * log.recent()} всё равно копируется каждый кадр — кеш здесь экономит только пересборку
+     * строки, не саму копию.
+     */
+    private String recent(ProductionLogView log) {
+        List<Item> current = log.recent();
+        if (current.equals(recentSignature)) {
+            return recentCache;
         }
-        for (Item item : log.recent()) {
+        recentSignature = current;
+        StringBuilder sb = new StringBuilder("Recent:   ");
+        if (current.isEmpty()) {
+            return recentCache = sb.append('-').toString();
+        }
+        for (Item item : current) {
             sb.append(item.name()).append("  ");
         }
-        return sb.toString();
+        return recentCache = sb.toString();
     }
 }

@@ -2,6 +2,7 @@ package com.graphics.screen;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputAdapter;
+import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.ScreenAdapter;
 import com.graphics.GfxConfig;
 import com.graphics.input.InputHandler;
@@ -23,6 +24,16 @@ import com.rustorio.persistence.JsonSaveRepository;
  */
 public final class GameScreen extends ScreenAdapter {
 
+    /** Один тик симуляции = 1/60 реальной секунды, независимо от частоты кадров (P4-06). */
+    private static final float TICK_SECONDS = 1f / 60f;
+    /**
+     * Потолок «догоняющих» тиков за ОДИН кадр (P4-06, BUG_FIX_PROGRESS.md): без него долгая
+     * заминка (просевший кадр, разворачивание окна) оставляет в {@link #accumulator} огромный
+     * долг, и следующий кадр пытается его весь разом отработать — «спираль смерти» (каждый
+     * досчитанный тик стоит времени, кадр только удлиняется, долг не уменьшается).
+     */
+    private static final int MAX_CATCHUP_TICKS = 5;
+
     private final World world;
     private final GameCamera camera;
     private final InputHandler input;
@@ -30,6 +41,15 @@ public final class GameScreen extends ScreenAdapter {
     private final Textures textures;
     /** Независимый от статистики слушатель того же события — экран его создал, экран его читает. */
     private final ProductionLog productionLog = new ProductionLog();
+    /** Сколько реального времени накопилось сверх последнего отработанного тика. */
+    private float accumulator;
+    /**
+     * Обработчик колеса мыши, сохранённый ради {@link #dispose}/{@link #hide} (P4-07,
+     * BUG_FIX_PROGRESS.md): раньше конструктор ставил его в {@code Gdx.input} и никогда не снимал
+     * — при появлении второго экрана этот, привязанный к уже мёртвой {@link #camera}, продолжил
+     * бы получать события.
+     */
+    private final InputProcessor inputProcessor;
 
     /** Фиксированная карта руды ({@link com.rustorio.domain.PatchOreLayout#standard()}). */
     public GameScreen() {
@@ -48,29 +68,37 @@ public final class GameScreen extends ScreenAdapter {
         this.camera = new GameCamera(GfxConfig.GRID_W, GfxConfig.GRID_H);
         this.input = new InputHandler(camera, new JsonSaveRepository());
         this.textures = new Textures();
-        this.renderer = new Renderer(textures, camera, world.buildingFactory().oreLayout());
+        this.renderer = new Renderer(textures, camera, world.buildingFactory().oreLayout(), world.width(), world.height());
         // Колесо мыши в libGDX — событие, опросом его не поймать: подписываемся.
-        Gdx.input.setInputProcessor(new InputAdapter() {
+        this.inputProcessor = new InputAdapter() {
             @Override
             public boolean scrolled(float amountX, float amountY) {
                 camera.zoomAt(Gdx.input.getX(), Gdx.input.getY(), amountY);
                 return true;
             }
-        });
+        };
+        Gdx.input.setInputProcessor(inputProcessor);
     }
 
     @Override
     public void render(float delta) {
         input.handle(world, delta);           // 1. ввод: камера + выбор/постройка + пауза/скорость
-        // 2. тик: на паузе — ни разу; иначе — сколько раз попросила скорость (1×/2×/4×).
+        // 2. тик: фиксированным шагом (P4-06) — на паузе аккумулятор не растёт и тиков не будет;
+        // иначе на каждый накопленный TICK_SECONDS мир тикает столько раз, сколько просит скорость
+        // (1×/2×/4×), но не больше MAX_CATCHUP_TICKS раз за этот кадр.
         if (!input.isPaused()) {
-            for (int i = 0; i < input.speed(); i++) {
-                world.tick();
+            accumulator += delta;
+            int caughtUp = 0;
+            while (accumulator >= TICK_SECONDS && caughtUp < MAX_CATCHUP_TICKS) {
+                accumulator -= TICK_SECONDS;
+                for (int i = 0; i < input.speed(); i++) {
+                    world.tick();
+                }
+                caughtUp++;
             }
         }
         // 3. рендер: карта + HUD
-        renderer.render(world, input.selected(), input.facing(), productionLog,
-                input.isPaused(), input.speed(), input.showRecipeBook(), delta);
+        renderer.render(world, input.hudState(), productionLog);
     }
 
     @Override
@@ -81,8 +109,21 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     @Override
+    public void hide() {
+        clearInputProcessorIfOurs();
+    }
+
+    @Override
     public void dispose() {
+        clearInputProcessorIfOurs();
         renderer.dispose();
         textures.dispose();
+    }
+
+    /** Снять {@link #inputProcessor}, только если он всё ещё текущий — не затереть чужой (P4-07). */
+    private void clearInputProcessorIfOurs() {
+        if (Gdx.input.getInputProcessor() == inputProcessor) {
+            Gdx.input.setInputProcessor(null);
+        }
     }
 }

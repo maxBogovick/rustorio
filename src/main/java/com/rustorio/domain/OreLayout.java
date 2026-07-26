@@ -8,7 +8,6 @@ import java.util.Optional;
  * instead of the real map, and a future "random seed" world generator is a second implementation,
  * not a change to {@code World} or {@code Miner}.
  */
-@FunctionalInterface
 public interface OreLayout {
 
     /** Which ore (if any) lies under cell {@code (x, y)}. Must be deterministic. */
@@ -17,4 +16,7 @@ public interface OreLayout {
     default boolean hasOre(int x, int y) {
         return oreAt(x, y).isPresent();
     }
+
+    /** Which map this is — see {@link OreLayoutId} for why a save needs to know. */
+    OreLayoutId id();
 }

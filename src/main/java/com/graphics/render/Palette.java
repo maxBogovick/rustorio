@@ -34,20 +34,9 @@ final class Palette {
     static final Color HINT = rgb(179, 179, 199);
     static final Color WORKING = Color.GREEN;
     static final Color IDLE = Color.RED;
-    static final Color BAR = Color.YELLOW;
-    static final Color GHOST = new Color(1, 1, 1, 0.6f);
 
-    // Полупрозрачные заливки для подсветок клеток (см. Tint и OverlayRenderer).
-    static final Color T_NEUTRAL = new Color(0.70f, 0.70f, 0.78f, 0.30f);
-    static final Color T_GOOD = new Color(0.30f, 0.90f, 0.40f, 0.35f);
-    static final Color T_WARN = new Color(1.00f, 0.80f, 0.20f, 0.35f);
+    // Подсветка непарного входа подземки (см. OverlayRenderer).
     static final Color T_BAD = new Color(1.00f, 0.30f, 0.30f, 0.35f);
-    static final Color T_SELECT = new Color(1.00f, 1.00f, 1.00f, 0.30f);
-    static final Color T_RANGE = new Color(0.30f, 0.60f, 1.00f, 0.25f);
-    static final Color T_GHOST = new Color(1.00f, 1.00f, 1.00f, 0.20f);
-
-    // Насыщенные цвета для линий и текста (заливки полупрозрачны, а тут нужна читаемость).
-    static final Color TS_RANGE = new Color(0.40f, 0.70f, 1.00f, 1f);
 
     // Панели HUD (см. HudRenderer): тёмная полупрозрачная подложка под текстом/иконками, чтобы
     // они читались поверх ЛЮБОГО фона мира, а не сливались с ним, как голый текст без подложки.
@@ -59,10 +48,6 @@ final class Palette {
     // Стрелка направления поверх здания (см. OverlayRenderer) — яркая и нейтральная, чтобы
     // читаться на любом спрайте под ней, а не сливаться с конкретным цветом конкретного здания.
     static final Color DIRECTION_ARROW = new Color(1f, 1f, 1f, 0.85f);
-
-    // Методы tint()/tintStrong() (смысловой цвет подсветки → заливка) убраны вместе с доменом:
-    // они переводили com.rustorio.core.Tint. Вернутся, когда вернутся наложения (OverlayRenderer).
-    // Сами цвета оставлены — пригодятся.
 
     private Palette() {
     }

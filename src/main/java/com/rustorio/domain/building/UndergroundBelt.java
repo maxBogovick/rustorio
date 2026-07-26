@@ -6,7 +6,6 @@ import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
 import com.rustorio.domain.Sprite;
 import com.rustorio.domain.Tech;
-import com.rustorio.domain.world.World;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -28,6 +27,17 @@ public final class UndergroundBelt implements Building {
     private final Kind kind;
     private final Direction direction;
     private @Nullable Item held;
+    /**
+     * True for the rest of the CURRENT world tick if this {@code IN} tile received cargo via
+     * {@link #accept} earlier in the same tick — the tunnel analogue of {@link Belt#arrivedThisTick}
+     * (found in a post-Phase-4 review, not an original P-numbered task). {@link #direction} alone
+     * decides which pass an entrance ticks in (P2-06), so a feeder belt of the OTHER pass can
+     * deliver into this entrance in an earlier phase of the same frame; without this mark, {@link
+     * #tickIn} would relay that cargo to the exit immediately, skipping the one-tick settle every
+     * other cross-boundary hand-off already gets. {@code TickScheduler} clears the mark once, before
+     * either pass runs, same as it does for every {@link Belt}.
+     */
+    private boolean arrivedThisTick;
 
     public UndergroundBelt(Kind kind, Direction direction) {
         this.kind = kind;
@@ -41,16 +51,27 @@ public final class UndergroundBelt implements Building {
     }
 
     @Override
-    public boolean accept(World world, Item item) {
+    public boolean accept(TickContext world, Item item) {
         if (kind != Kind.IN || held != null) {
             return false;
         }
         held = item;
+        arrivedThisTick = true;
         return true;
     }
 
+    /** Whether {@link #tickIn} must refuse to relay this tile's cargo further THIS frame. */
+    boolean arrivedThisTick() {
+        return arrivedThisTick;
+    }
+
+    /** Called once per world tick, before any building ticks — see {@code TickScheduler}. */
+    void clearArrivalMark() {
+        arrivedThisTick = false;
+    }
+
     @Override
-    public void tick(World world, int x, int y) {
+    public void tick(TickContext world, int x, int y) {
         if (held == null) {
             return;
         }
@@ -61,7 +82,10 @@ public final class UndergroundBelt implements Building {
         }
     }
 
-    private void tickIn(World world, int x, int y) {
+    private void tickIn(TickContext world, int x, int y) {
+        if (arrivedThisTick) {
+            return; // received this same tick from a cross-phase feeder — relay waits for the next one
+        }
         findPartner(world, x, y).ifPresent(partner -> {
             if (partner.held == null) {
                 partner.held = held;
@@ -76,7 +100,7 @@ public final class UndergroundBelt implements Building {
      * entrance" overlay can highlight an entrance with no reachable partner without pretending to
      * deliver anything.
      */
-    public Optional<UndergroundBelt> findPartner(World world, int x, int y) {
+    public Optional<UndergroundBelt> findPartner(TickContext world, int x, int y) {
         if (kind != Kind.IN) {
             return Optional.empty();
         }
@@ -94,11 +118,11 @@ public final class UndergroundBelt implements Building {
         return Optional.empty();
     }
 
-    private static int effectiveRange(World world) {
+    private static int effectiveRange(TickContext world) {
         return world.research().isUnlocked(Tech.LONG_TUNNEL) ? MAX_RANGE * 2 : MAX_RANGE;
     }
 
-    private void tickOut(World world, int x, int y) {
+    private void tickOut(TickContext world, int x, int y) {
         Item cargo = held;
         if (cargo == null) {
             return;
@@ -128,9 +152,19 @@ public final class UndergroundBelt implements Building {
         return kind == Kind.IN ? BuildingType.UNDERGROUND_IN : BuildingType.UNDERGROUND_OUT;
     }
 
+    /**
+     * Direction alone decides the pass, exactly like {@link Belt} — {@code kind} must NOT factor
+     * in. It used to (see P2-06, BUG_FIX_PROGRESS.md): {@code IN} always preferred the descending
+     * pass regardless of direction, which for {@code LEFT} put the entrance in the descending pass
+     * and the exit in the ascending pass of the SAME frame — cargo crossed the whole tunnel in one
+     * tick instead of travelling like a belt. Tying both halves to direction alone keeps them in
+     * the same pass, so {@code IN} still hands off to {@code OUT} one tick early — {@code OUT} is
+     * "ahead" along {@code direction}, so it's visited first in whichever pass that direction
+     * prefers, and finds nothing to move until {@code IN} sets {@link #held} the tick before.
+     */
     @Override
     public boolean prefersDescendingTick() {
-        return kind == Kind.IN || direction == Direction.RIGHT || direction == Direction.DOWN;
+        return direction == Direction.RIGHT || direction == Direction.DOWN;
     }
 
     @Override

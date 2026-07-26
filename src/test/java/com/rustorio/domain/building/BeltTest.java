@@ -1,7 +1,10 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
+import com.rustorio.domain.action.ActionHistory;
+import com.rustorio.domain.action.UpgradeSpeedAction;
 import com.rustorio.domain.world.World;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -111,5 +114,69 @@ class BeltTest {
         Belt neighbor = beltAt(world, 1, 0);
         assertSame(original.segment(), neighbor.segment());
         assertEquals(2, original.segment().size());
+    }
+
+    /**
+     * Originally exercised via {@code UpgradeSpeedAction} (a real trigger for {@code
+     * World.restoreBuilding} re-attaching an already-attached belt — see P1-02). P2-03 later
+     * forbade {@code SpeedModule} on belts outright, which closes off that specific trigger — see
+     * {@link #upgradingABeltTileIsAlwaysRefusedRegardlessOfItsPositionInTheSegment}. The
+     * idempotency {@code World.restoreBuilding} itself relies on is still worth guarding directly,
+     * so this test now drives it without going through an action that no longer applies to belts.
+     */
+    @Test
+    void restoringABeltAlreadyInASegmentDoesNotDuplicateIt() {
+        World world = new World(10, 10);
+        world.placeBelt(0, 0, Direction.RIGHT);
+        world.placeBelt(1, 0, Direction.RIGHT);
+        world.placeBelt(2, 0, Direction.RIGHT);
+        Belt tail = beltAt(world, 0, 0);
+        Belt middle = beltAt(world, 1, 0);
+        assertEquals(3, tail.segment().size());
+
+        world.restoreBuilding(1, 0, middle); // already attached — must not be attached a second time
+
+        assertEquals(3, tail.segment().size(), "re-restoring an already-attached belt must not duplicate it");
+    }
+
+    @Test
+    void upgradingABeltTileIsAlwaysRefusedRegardlessOfItsPositionInTheSegment() {
+        World world = new World(10, 10);
+        world.placeBelt(0, 0, Direction.RIGHT); // tail
+        world.placeBelt(1, 0, Direction.RIGHT); // non-tail (head)
+
+        ActionHistory history = new ActionHistory();
+        history.perform(world, new UpgradeSpeedAction(0, 0)); // the tail — where the module WOULD do something
+        history.perform(world, new UpgradeSpeedAction(1, 0)); // a non-tail tile — where it would be a no-op
+
+        // P2-03 (owner decision A): refused everywhere, consistently — not just where it would be
+        // a silent no-op. A player can't tell tail from non-tail, so "sometimes doubles the whole
+        // segment, sometimes does nothing" isn't a real feature to leave half-supported.
+        assertEquals(0, beltAt(world, 0, 0).speedLevel());
+        assertEquals(0, beltAt(world, 1, 0).speedLevel());
+        assertEquals(BuildingType.BELT, world.peek(0, 0).orElseThrow().type());
+    }
+
+    /**
+     * Fixed in P3-03, BUG_FIX_PROGRESS.md: a DOWN segment ticks (and hands cargo off) in the
+     * world's descending pass; the LEFT segment it hands off to no longer gets to move that same
+     * item again in the ascending pass of the very same frame — {@code Belt.arrivedThisTick} marks
+     * it, and {@code BeltSegment.tick} refuses to move a marked tile until the mark clears at the
+     * start of the NEXT world tick.
+     */
+    @Test
+    void cargoCrossingASegmentBoundaryMovesAtMostOneTilePerTick() {
+        World world = new World(4, 4);
+        world.placeBelt(1, 0, Direction.DOWN);
+        world.placeBelt(1, 1, Direction.LEFT);
+        Chest chest = new Chest();
+        world.restoreBuilding(0, 1, chest);
+
+        Belt entry = beltAt(world, 1, 0);
+        assertTrue(entry.accept(world, Item.IRON_ORE));
+
+        world.tick();
+
+        assertEquals(0, chest.count(), "cargo must move at most one tile per world.tick()");
     }
 }

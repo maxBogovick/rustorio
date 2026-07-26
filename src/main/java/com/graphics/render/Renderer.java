@@ -7,10 +7,8 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Disposable;
 import com.graphics.GfxConfig;
-import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.Direction;
 import com.rustorio.domain.OreLayout;
-import com.rustorio.domain.world.ProductionLog;
+import com.rustorio.domain.world.ProductionLogView;
 import com.rustorio.domain.world.World;
 
 /**
@@ -18,7 +16,7 @@ import com.rustorio.domain.world.World;
  * предметы, HUD. Рендер только ЧИТАЕТ мир и рисует, НИКОГДА его не меняя.
  *
  * <p>Живые слои — земля (карта с рудой), здания, груз, который они держат в пути, и подсветка
- * непарных входов подземки ({@code OverlayRenderer}). HUD-проход наложений всё ещё пуст.
+ * непарных входов подземки ({@code OverlayRenderer}).
  *
  * <p>Мир и HUD рисуются в РАЗНЫЕ пиксельные области окна ({@code glViewport}): мир — в узкую
  * полосу между верхней и нижней панелями ({@link GameCamera#resize}), HUD — во всё окно целиком.
@@ -41,6 +39,7 @@ public final class Renderer implements Disposable {
     private final SpriteBatch batch;
     private final ShapeRenderer shapes;
     private final BitmapFont font;
+    private final int gridW;
 
     private final WorldRenderer worldRenderer;
     private final BuildingRenderer buildingRenderer;
@@ -49,27 +48,35 @@ public final class Renderer implements Disposable {
     private final HudRenderer hudRenderer;
     private final RecipeBookRenderer recipeBookRenderer;
 
-    public Renderer(Textures textures, GameCamera camera, OreLayout oreLayout) {
+    /**
+     * {@code gridW}/{@code gridH} come from whoever built the {@link World} this renderer will be
+     * asked to draw ({@code GameScreen}) — not read from {@link GfxConfig} here. Before P3-06,
+     * BUG_FIX_PROGRESS.md, this class and {@code World} each got the map size independently from
+     * the same constants; they happened to agree, but nothing enforced it — a world built with a
+     * different size would render silently wrong. One source of truth now: whoever constructs the
+     * world hands its size to the renderer explicitly.
+     */
+    public Renderer(Textures textures, GameCamera camera, OreLayout oreLayout, int gridW, int gridH) {
         this.camera = camera;
         this.batch = new SpriteBatch();
         this.shapes = new ShapeRenderer();
         this.font = new BitmapFont(); // built-in 15px Arial — enough for the HUD
+        this.gridW = gridW;
 
-        Grid grid = new Grid(GfxConfig.GRID_H);
+        Grid grid = new Grid(gridH);
         this.worldRenderer = new WorldRenderer(shapes, grid, oreLayout);
         this.buildingRenderer = new BuildingRenderer(batch, shapes, textures, font, grid);
         this.itemRenderer = new ItemRenderer(shapes, grid);
-        this.overlayRenderer = new OverlayRenderer(batch, shapes, font, textures, grid);
+        this.overlayRenderer = new OverlayRenderer(shapes, grid);
         this.hudRenderer = new HudRenderer(batch, shapes, font, textures);
         this.recipeBookRenderer = new RecipeBookRenderer(batch, shapes, font);
     }
 
     /**
-     * Нарисовать кадр по текущему состоянию мира, выбранному зданию, логу событий, паузе/скорости
-     * и тому, открыта ли книга рецептов (клавиша TAB, см. {@code InputHandler#showRecipeBook}).
+     * Нарисовать кадр по текущему состоянию мира, HUD (что выбрано, пауза/скорость, открыта ли
+     * книга рецептов — см. {@link HudState}) и логу событий.
      */
-    public void render(World world, BuildingType selected, Direction facing, ProductionLog log,
-            boolean paused, int speed, boolean showRecipeBook, float delta) {
+    public void render(World world, HudState hud, ProductionLogView log) {
         Gdx.gl.glClearColor(Palette.BG.r, Palette.BG.g, Palette.BG.b, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -90,12 +97,12 @@ public final class Renderer implements Disposable {
         Gdx.gl.glViewport(0, bottomInsetPx, bbW, bbH - topInsetPx - bottomInsetPx);
         batch.setProjectionMatrix(camera.combined());
         shapes.setProjectionMatrix(camera.combined());
-        TileRange visible = camera.visibleTiles(GfxConfig.GRID_W);
+        TileRange visible = camera.visibleTiles(gridW);
 
-        worldRenderer.render(visible);   // 1. земля + рудные области
-        buildingRenderer.render(world);  // 2. здания на карте
-        itemRenderer.render(world);      // 3. груз поверх зданий (лента/бур/сортировщик/подземка)
-        overlayRenderer.renderWorld(world); // 4. подсветка непарных входов подземки
+        worldRenderer.render(visible);              // 1. земля + рудные области
+        buildingRenderer.render(world, visible);     // 2. здания на карте
+        itemRenderer.render(world, visible);         // 3. груз поверх зданий (лента/бур/сортировщик/подземка)
+        overlayRenderer.renderWorld(world, visible); // 4. подсветка непарных входов подземки
 
         // HUD — снова во ВСЁ окно (панели должны дотягиваться до самых краёв), в координатах
         // окна: и batch (текст/иконки), и shapes (подложки панелей).
@@ -103,10 +110,9 @@ public final class Renderer implements Disposable {
         batch.setProjectionMatrix(camera.hudMatrix());
         shapes.setProjectionMatrix(camera.hudMatrix());
         // 5. заголовок + панель + статистика + исследования + лог + пауза/скорость + подсказки
-        hudRenderer.render(selected, facing, world.stats(), world.research(), log, paused, speed);
-        overlayRenderer.renderHud();     // 6. пусто
-        // 7. книга рецептов — поверх всего остального, только если игрок её открыл (TAB).
-        if (showRecipeBook) {
+        hudRenderer.render(hud, world.stats(), world.research(), log);
+        // 6. книга рецептов — поверх всего остального, только если игрок её открыл (TAB).
+        if (hud.showRecipeBook()) {
             recipeBookRenderer.render(world.buildingFactory().recipeBook());
         }
     }

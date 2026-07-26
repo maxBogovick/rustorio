@@ -92,4 +92,70 @@ class ActionHistoryTest {
         assertFalse(world.peek(1, 0).isPresent());
         assertFalse(world.peek(2, 0).isPresent());
     }
+
+    @Test
+    void undoOfADragMustNotRemoveBuildingsItNeverPlaced() {
+        World world = new World(4, 4);
+        ActionHistory history = new ActionHistory();
+        world.placeChest(1, 0);
+
+        history.perform(world, new CompositeAction(List.of(
+                new PlaceAction(BuildingType.BELT, 0, 0, Direction.RIGHT),
+                new PlaceAction(BuildingType.BELT, 1, 0, Direction.RIGHT), // cell occupied — fails
+                new PlaceAction(BuildingType.BELT, 2, 0, Direction.RIGHT))));
+
+        history.undo(world);
+
+        assertFalse(world.peek(0, 0).isPresent());
+        assertFalse(world.peek(2, 0).isPresent());
+        assertTrue(world.peek(1, 0)
+                .map(b -> b.type() == BuildingType.CHEST)
+                .orElse(false));
+    }
+
+    @Test
+    void historyDoesNotGrowBeyondItsDepthLimit() {
+        int maxDepth = 200; // must match ActionHistory.MAX_DEPTH
+        int placements = maxDepth + 10;
+        World world = new World(placements, 1);
+        ActionHistory history = new ActionHistory();
+
+        for (int x = 0; x < placements; x++) {
+            history.perform(world, new PlaceAction(BuildingType.CHEST, x, 0));
+        }
+
+        for (int i = 0; i < placements; i++) {
+            history.undo(world);
+        }
+
+        // The earliest placements fell out of the (capped) history — their undo was discarded, so
+        // they must still be standing.
+        for (int x = 0; x < placements - maxDepth; x++) {
+            assertTrue(world.peek(x, 0).isPresent(),
+                    "chest at " + x + " should have survived — its undo entry was evicted");
+        }
+        // The most recent MAX_DEPTH placements are still within the cap and must have been undone.
+        for (int x = placements - maxDepth; x < placements; x++) {
+            assertFalse(world.peek(x, 0).isPresent(), "chest at " + x + " should have been undone");
+        }
+    }
+
+    @Test
+    void undoOfARemoveMustNotOverwriteWhateverWasBuiltThere() {
+        World world = new World(4, 4);
+        ActionHistory history = new ActionHistory();
+        world.placeChest(1, 1);
+
+        history.perform(world, new RemoveAction(1, 1));
+        assertFalse(world.peek(1, 1).isPresent());
+
+        // Built directly, outside the undo history — a player action taken after the demolition.
+        world.placeBelt(1, 1, Direction.RIGHT);
+
+        history.undo(world); // undoes the RemoveAction; the cell is occupied by the new belt
+
+        assertTrue(world.peek(1, 1)
+                .map(b -> b.type() == BuildingType.BELT)
+                .orElse(false), "the newer belt must not be overwritten by the restored chest");
+    }
 }

@@ -20,6 +20,17 @@ import com.graphics.GfxConfig;
  */
 public final class GameCamera {
 
+    /**
+     * Пол для вьюпорта камеры (в точках). {@code height - HUD_TOP_HEIGHT - HUD_BOTTOM_HEIGHT}
+     * уходит в минус, как только окно (оно {@code setResizable(true)}, без
+     * {@code setWindowSizeLimits}) становится ниже суммы высот HUD-панелей — тогда
+     * {@link com.graphics.render.Renderer} передаёт отрицательную высоту в {@code glViewport}
+     * (тот отвечает {@code GL_INVALID_VALUE} и не рисует мир), а {@link #axisClamp} с
+     * отрицательным {@code halfView} расширяет допустимый диапазон камеры вместо того, чтобы его
+     * ограничивать.
+     */
+    private static final float MIN_VIEWPORT_HEIGHT = 64f;
+
     private final OrthographicCamera cam = new OrthographicCamera();
     private final Matrix4 hudMatrix = new Matrix4();
     /** Размер поля в пикселях. */
@@ -50,8 +61,9 @@ public final class GameCamera {
      * который insets не касаются.
      */
     public void resize(int width, int height) {
-        cam.viewportWidth = width;
-        cam.viewportHeight = height - GfxConfig.HUD_TOP_HEIGHT - GfxConfig.HUD_BOTTOM_HEIGHT;
+        cam.viewportWidth = Math.max(1f, width);
+        cam.viewportHeight = Math.max(MIN_VIEWPORT_HEIGHT,
+                height - GfxConfig.HUD_TOP_HEIGHT - GfxConfig.HUD_BOTTOM_HEIGHT);
         hudMatrix.setToOrtho2D(0, 0, width, height);
         clampAndUpdate();
     }

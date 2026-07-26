@@ -23,6 +23,20 @@ repositories {
     mavenCentral()
 }
 
+// P4-11 (BUG_FIX_PROGRESS.md): `com.rustorio.Main` (headless console demo) and `com.rustorio.Benchmark`
+// (dev-only perf measurement) don't belong in the production jar `application`/`run` ships — they
+// used to live in `src/main` only because that's where `World`'s package-private members were
+// reachable from, a justification that stopped being true once `Benchmark` moved to calling
+// `World`'s public API. This source set keeps them out of `src/main` while still compiling against
+// it (domain classes, and whatever those domain classes themselves depend on).
+sourceSets {
+    tools {
+        java.srcDirs = ['src/tools/java']
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
 // Исходники в UTF-8 (комментарии/строки на кириллице). Без явной кодировки javac берёт
 // платформенную — на части машин это не UTF-8, и кириллица валит сборку «illegal character».
 tasks.withType(JavaCompile).configureEach {
@@ -97,17 +111,24 @@ tasks.named('compileTestJava', JavaCompile).configure {
     options.errorprone.enabled = false
 }
 
+// src/tools (P4-11, BUG_FIX_PROGRESS.md) isn't covered by AnnotatedPackages above either — same
+// reasoning as compileTestJava: NullAway is a contract for the shipped code, not for dev tooling.
+tasks.named('compileToolsJava', JavaCompile).configure {
+    options.errorprone.enabled = false
+}
+
 application {
     // `./gradlew run` открывает окно графики (движок libGDX).
     mainClass = 'com.graphics.Main'
 }
 
 // `./gradlew game` запускает безголовую логику игры в консоли (та, что строим с нуля в уроках).
-// Отдельная задача, чтобы не смешивать с оконным `run`.
+// Отдельная задача, чтобы не смешивать с оконным `run`. `com.rustorio.Main` живёт в src/tools
+// (см. sourceSets.tools выше) — это dev-демонстрация, не часть игры, что ставится игроку.
 tasks.register('game', JavaExec) {
     group = 'application'
     description = 'Run the headless game logic in the console'
-    classpath = sourceSets.main.runtimeClasspath
+    classpath = sourceSets.tools.runtimeClasspath
     mainClass = 'com.rustorio.Main'
 }
 
@@ -125,13 +146,14 @@ tasks.named('run', JavaExec) {
     }
 }
 
-// `./gradlew benchmark` — headless-замер мс/тик на большой сцене, без окна графики (см.
-// com.rustorio.Benchmark). В том же пакете, что и World/Belt, — бенчмарку нужен доступ к их
-// package-private методам (peek, restore), которые не часть публичного API игры.
+// `./gradlew benchmark` — headless-замер мс/тик на большой сцене, без окна графики. `com.rustorio.Benchmark`
+// живёт в src/tools (см. sourceSets.tools выше) — это dev-инструмент измерения, а не часть игры;
+// он давно уже вызывает только публичный API `World` (peek, tick, place*), в package-private
+// доступе не нуждается — правь его как обычный внешний код, не как часть домена.
 tasks.register('benchmark', JavaExec) {
     group = 'verification'
     description = 'Headless-замер: сколько мс занимает один World.tick() на большой сцене'
-    classpath = sourceSets.main.runtimeClasspath
+    classpath = sourceSets.tools.runtimeClasspath
     mainClass = 'com.rustorio.Benchmark'
 }
 

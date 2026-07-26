@@ -16,10 +16,6 @@ public final class ProductionStats implements ProductionListener, ProductionStat
 
     @Override
     public void onProduced(Item item) {
-        record(item);
-    }
-
-    void record(Item item) {
         totals.merge(item, 1L, Long::sum);
     }
 

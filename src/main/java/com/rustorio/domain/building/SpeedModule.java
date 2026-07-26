@@ -4,7 +4,6 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
-import com.rustorio.domain.world.World;
 import java.util.Optional;
 
 /**
@@ -15,6 +14,13 @@ import java.util.Optional;
  * <p>{@code SpeedModule} doesn't know or care what's inside — furnace, press, anything — it just
  * calls {@code inner.tick} twice per real world tick. The wrapped building has no idea it's been
  * hurried along.
+ *
+ * <p><b>Owner decision (P2-03, BUG_FIX_PROGRESS.md):</b> option (A) — {@link Belt}s never get
+ * wrapped in the first place; {@code UpgradeSpeedAction.apply} refuses them. Calling {@code
+ * inner.tick} twice only does what it says for buildings whose {@code tick} is self-contained
+ * (a furnace, a miner). A belt tile's {@code tick} only moves cargo when it happens to be its
+ * segment's tail — doubling that call is a no-op on every other tile and doubles the throughput
+ * of the WHOLE segment on the tail, neither of which is "this one tile got faster."
  */
 public final class SpeedModule implements Building {
 
@@ -30,13 +36,13 @@ public final class SpeedModule implements Building {
     }
 
     @Override
-    public void tick(World world, int x, int y) {
+    public void tick(TickContext world, int x, int y) {
         inner.tick(world, x, y);
         inner.tick(world, x, y);
     }
 
     @Override
-    public boolean accept(World world, Item item) {
+    public boolean accept(TickContext world, Item item) {
         return inner.accept(world, item);
     }
 

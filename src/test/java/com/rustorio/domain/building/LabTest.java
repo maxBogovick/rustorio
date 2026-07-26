@@ -6,6 +6,7 @@ import com.rustorio.domain.world.World;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Лаборатория + {@link ProcessTimer}: очко исследований в срок и тех-модификация FAST_LAB. */
@@ -28,28 +29,23 @@ class LabTest {
     }
 
     @Test
-    void fastLabHalvesResearchTimeStartingFromTheSecondBatch() {
+    void fastLabHalvesResearchTimeStartingFromTheFirstBatch() {
         World world = new World(4, 4);
+        // Открываем FAST_LAB ДО того, как лаборатория впервые подстроится под срок — именно этот
+        // момент раньше терял тех-эффект (см. javadoc Lab про ProcessTimer, P2-05).
         world.addResearchPoints(Tech.FAST_LAB.cost());
         Lab lab = new Lab();
 
-        // Первая порция варится ПОЛНЫЙ RESEARCH_TIME, даже если технология уже открыта: таймер
-        // лаборатории создаётся полем при постройке, а не лениво при первом accept, как у Furnace.
         assertTrue(lab.accept(world, Item.GEAR));
-        for (int i = 0; i < RESEARCH_TIME - 1; i++) {
-            lab.tick(world, 0, 0);
-        }
-        lab.tick(world, 0, 0);
-        assertEquals(Tech.FAST_LAB.cost() + 1, world.research().points());
 
-        // Вторая порция — таймер уже пересобран effectiveTime(world) в момент готовности первой.
-        assertTrue(lab.accept(world, Item.MECHANISM));
         int halvedTime = Math.max(1, RESEARCH_TIME / 2);
         for (int i = 0; i < halvedTime - 1; i++) {
             lab.tick(world, 0, 0);
+            assertEquals(Tech.FAST_LAB.cost(), world.research().points());
         }
         lab.tick(world, 0, 0);
-        assertEquals(Tech.FAST_LAB.cost() + 2, world.research().points());
+        assertEquals(Tech.FAST_LAB.cost() + 1, world.research().points(),
+                "первая же порция обязана учитывать уже открытую технологию");
     }
 
     @Test
@@ -76,5 +72,16 @@ class LabTest {
         }
         lab.tick(world, 0, 0);
         assertEquals(1, world.research().points());
+    }
+
+    @Test
+    void labRejectsRawMaterials() {
+        World world = new World(4, 4);
+        Lab lab = new Lab();
+
+        assertFalse(lab.accept(world, Item.IRON_ORE));
+        assertFalse(lab.accept(world, Item.IRON_PLATE));
+        assertFalse(lab.accept(world, Item.BRONZE_ORE));
+        assertFalse(lab.accept(world, Item.ALLOY_PLATE));
     }
 }

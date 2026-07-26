@@ -1,5 +1,6 @@
 package com.rustorio.domain;
 
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -18,10 +19,17 @@ public final class Research implements ResearchView {
         return points;
     }
 
-    /** Currently unlocked technologies — defensively copied. */
+    /**
+     * Currently unlocked technologies — an unmodifiable view, not a copy (P4-05,
+     * BUG_FIX_PROGRESS.md): {@code HudRenderer} calls this once a frame, and {@code
+     * EnumSet.copyOf} allocated a fresh set every single time for no reason nobody ever mutates
+     * through the returned reference (callers only read). {@link #snapshot()} still makes a REAL,
+     * independent copy — {@code Snapshot}'s compact constructor does that regardless of what's
+     * passed in, so wrapping instead of copying here doesn't weaken that guarantee.
+     */
     @Override
     public Set<Tech> unlocked() {
-        return EnumSet.copyOf(unlocked);
+        return Collections.unmodifiableSet(unlocked);
     }
 
     @Override
@@ -60,7 +68,11 @@ public final class Research implements ResearchView {
     /** Immutable point-in-time snapshot for persistence (Memento pattern) — see {@code JsonSaveRepository}. */
     public record Snapshot(int points, Set<Tech> unlocked) {
         public Snapshot {
-            unlocked = EnumSet.copyOf(unlocked.isEmpty() ? EnumSet.noneOf(Tech.class) : unlocked);
+            // EnumSet.copyOf refuses an empty non-EnumSet Set (it can't infer the element type
+            // from zero elements) — build an empty EnumSet directly instead of copying in that case.
+            var copy = EnumSet.noneOf(Tech.class);
+            copy.addAll(unlocked);
+            unlocked = copy;
         }
     }
 

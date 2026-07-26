@@ -3,7 +3,10 @@ package com.graphics.render;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
+import com.rustorio.domain.Item;
 import com.rustorio.domain.world.World;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Item layer: the cargo a building is holding "in transit" ({@code Building.heldItem()}) — on a
@@ -23,6 +26,10 @@ final class ItemRenderer {
     /** Тёмная обводка — то, что превращает плоское пятно в узнаваемый «предмет» с краем. */
     private static final Color OUTLINE = new Color(0f, 0f, 0f, 0.55f);
 
+    /** One piece of visible cargo, already in screen coordinates — collected once, drawn twice. */
+    private record Cargo(float x, float y, Item item) {
+    }
+
     private final ShapeRenderer shapes;
     private final Grid grid;
 
@@ -31,23 +38,37 @@ final class ItemRenderer {
         this.grid = grid;
     }
 
-    void render(World world) {
+    /**
+     * Only visits buildings within {@code visible} (P4-04, BUG_FIX_PROGRESS.md) instead of the
+     * whole map, and collects their cargo into {@link #cargoIn} ONCE — the fill pass and the
+     * outline pass (separate {@code ShapeRenderer.ShapeType}s, can't be mixed into one {@code
+     * begin}/{@code end}) read the same list instead of each re-walking the world.
+     */
+    void render(World world, TileRange visible) {
         float radius = GfxConfig.TILE * DIAMETER_SCALE / 2f;
-        float half = GfxConfig.TILE / 2f;
+        List<Cargo> cargo = cargoIn(world, visible);
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        world.forEachBuilding((x, y, building) -> building.heldItem().ifPresent(held -> {
-            shapes.setColor(Palette.itemColor(held));
-            shapes.circle(grid.x(x) + half, grid.yBottom(y) + half, radius, 20);
-        }));
+        for (Cargo c : cargo) {
+            shapes.setColor(Palette.itemColor(c.item()));
+            shapes.circle(c.x(), c.y(), radius, 20);
+        }
         shapes.end();
 
-        // Outline as a second pass: ShapeRenderer draws one ShapeType per begin/end — fill and
-        // line can't be mixed into a single call.
         shapes.begin(ShapeRenderer.ShapeType.Line);
         shapes.setColor(OUTLINE);
-        world.forEachBuilding((x, y, building) -> building.heldItem().ifPresent(held ->
-                shapes.circle(grid.x(x) + half, grid.yBottom(y) + half, radius, 20)));
+        for (Cargo c : cargo) {
+            shapes.circle(c.x(), c.y(), radius, 20);
+        }
         shapes.end();
+    }
+
+    private List<Cargo> cargoIn(World world, TileRange visible) {
+        float half = GfxConfig.TILE / 2f;
+        List<Cargo> cargo = new ArrayList<>();
+        world.forEachBuildingIn(visible.minX(), visible.minY(), visible.maxX(), visible.maxY(),
+                (x, y, building) -> building.heldItem().ifPresent(held ->
+                        cargo.add(new Cargo(grid.x(x) + half, grid.yBottom(y) + half, held))));
+        return cargo;
     }
 }

@@ -6,6 +6,7 @@ import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.SortRule;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Factory Method: the one place that turns "build a {@link BuildingType} facing this way" or "here
@@ -42,6 +43,15 @@ public final class BuildingFactory {
         return recipeBook;
     }
 
+    /**
+     * Whether {@code type} satisfies its {@link PlacementRule} at {@code (x, y)} — the type-
+     * specific half of {@code World.place}'s check; the free+in-bounds half is {@code World}'s own
+     * business and stays there. See P3-04, BUG_FIX_PROGRESS.md.
+     */
+    public boolean canPlace(BuildingType type, int x, int y) {
+        return PlacementRule.forType(type).test(x, y, oreLayout);
+    }
+
     /** Build a brand-new building of {@code type}, facing {@code direction} where that matters. */
     public Building create(BuildingType type, Direction direction) {
         return switch (type) {
@@ -76,9 +86,12 @@ public final class BuildingFactory {
             case BuildingMemento.ChestState s -> new Chest(s.count());
             case BuildingMemento.FurnaceState s -> new Furnace(s, recipeBook);
             case BuildingMemento.BeltState s -> new Belt(s.direction(), s.held());
-            // Hardcoded, not restored: SplitterState carries no rule — see the "known compromise"
-            // note on Splitter's class javadoc for why this always discards a customized rule.
-            case BuildingMemento.SplitterState s -> new Splitter(SortRule.ORE_FORWARD, s.facing(), s.held());
+            // null rule (P4-10, BUG_FIX_PROGRESS.md): a save written before SplitterState carried
+            // one — treat "unknown" as the default rather than failing a save that was fine
+            // before this field existed.
+            case BuildingMemento.SplitterState s ->
+                    new Splitter(s.rule() == null ? SortRule.ORE_FORWARD : SortRule.byId(s.rule()),
+                            s.facing(), s.held());
             case BuildingMemento.LabState s -> new Lab(s.buffer(), s.cooldown());
             case BuildingMemento.UndergroundBeltState s -> new UndergroundBelt(s.kind(), s.direction(), s.held());
         };
@@ -86,5 +99,41 @@ public final class BuildingFactory {
             building = new SpeedModule(building);
         }
         return building;
+    }
+
+    /**
+     * The narrow public door {@code World} reaches {@link Belt#attachToNeighbors} through (P3-02,
+     * BUG_FIX_PROGRESS.md): {@code World} owns the cell map and finds which neighbors (if any) sit
+     * behind/ahead of a freshly placed or restored belt, but everything past that — actually
+     * wiring tiles into a {@link BeltSegment} — is this package's business, not {@code World}'s.
+     */
+    public static void attachBelt(Belt belt, @Nullable Belt behind, @Nullable Belt ahead) {
+        belt.attachToNeighbors(behind, ahead);
+    }
+
+    /**
+     * The narrow public door {@code World} reaches {@link Belt#leaveSegment} through (P3-02,
+     * BUG_FIX_PROGRESS.md) — on demolition, or to make a re-restore idempotent (see {@code
+     * World.restoreBuilding}).
+     */
+    public static void detachBelt(Belt belt) {
+        belt.leaveSegment();
+    }
+
+    /**
+     * The narrow public door {@code TickScheduler} reaches {@link Belt#clearArrivalMark} through
+     * (P3-03, BUG_FIX_PROGRESS.md) — called once per belt, once per world tick, before either
+     * traversal pass runs.
+     */
+    public static void clearArrivalMark(Belt belt) {
+        belt.clearArrivalMark();
+    }
+
+    /**
+     * Same door, for {@link UndergroundBelt}'s own arrival mark (found in a post-Phase-4 review —
+     * the tunnel analogue of the {@link Belt} case above; see {@link UndergroundBelt#arrivedThisTick}).
+     */
+    public static void clearArrivalMark(UndergroundBelt tunnel) {
+        tunnel.clearArrivalMark();
     }
 }

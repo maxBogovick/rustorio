@@ -6,9 +6,11 @@ import com.rustorio.domain.Item;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.Tech;
 import com.rustorio.domain.world.World;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Печь + {@link ProcessTimer}: срок готовности порции и его тех-модификация FAST_SMELTING. */
@@ -17,6 +19,7 @@ class FurnaceTest {
     private static final RecipeBook RECIPES = RecipeBook.standard();
     private static final int IRON_TIME = RECIPES.find(BuildingType.FURNACE, Item.IRON_ORE).orElseThrow().time();
     private static final int CHASSIS_TIME = RECIPES.find(BuildingType.PRESS, Item.ENGINE).orElseThrow().time();
+    private static final int ENGINE_TIME = RECIPES.find(BuildingType.PRESS, Item.MECHANISM).orElseThrow().time();
     private static final int ALLOY_TIME = RECIPES.find(BuildingType.FURNACE, Item.IRON_PLATE).orElseThrow().time();
     private static final int ALLOY_GEAR_TIME =
             RECIPES.find(BuildingType.PRESS, Item.ALLOY_PLATE).orElseThrow().time();
@@ -111,6 +114,37 @@ class FurnaceTest {
             furnace.tick(world, 0, 0);
         }
         assertEquals(1, chest.count(), "IRON_ORE по-прежнему однозначно ведёт к IRON, а не к сплаву");
+    }
+
+    @Test
+    void pressFedGearFirstDoesNotDeadlockForever() {
+        World world = new World(4, 4);
+        Chest chest = new Chest();
+        world.restoreBuilding(1, 0, chest);
+
+        Furnace press = new Furnace(BuildingType.PRESS, Direction.RIGHT, RECIPES);
+
+        // GEAR is ambiguous on its own: it's ENGINE's first ingredient AND CHASSIS's second.
+        // Guessing (the old behavior) could commit to a recipe whose other ingredient never
+        // arrives — refusing instead means the item just doesn't move, not "gone forever".
+        assertFalse(press.accept(world, Item.GEAR), "an ambiguous item must not be silently guessed at");
+
+        // Player disambiguates: cycle forward to the ENGINE recipe (GEAR + MECHANISM -> ENGINE).
+        Optional<Item> selected = Optional.empty();
+        for (int i = 0; i < 3; i++) {
+            selected = press.cycleRecipe();
+        }
+        assertEquals(Optional.of(Item.ENGINE), selected, "third cycle step must land on ENGINE");
+
+        assertTrue(press.accept(world, Item.GEAR), "now that ENGINE is selected, GEAR is unambiguous");
+        assertTrue(press.accept(world, Item.MECHANISM));
+
+        for (int i = 0; i < ENGINE_TIME - 1; i++) {
+            press.tick(world, 0, 0);
+            assertEquals(0, chest.count());
+        }
+        press.tick(world, 0, 0);
+        assertEquals(1, chest.count());
     }
 
     @Test

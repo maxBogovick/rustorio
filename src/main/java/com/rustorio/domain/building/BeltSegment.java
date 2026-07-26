@@ -45,14 +45,27 @@ final class BeltSegment {
 
     /** Attach {@code belt} as a new head (built directly past the current head). */
     void addHead(Belt belt) {
+        requireNotAlreadyPresent(belt);
         tiles.addLast(belt);
         belt.joinSegment(this);
     }
 
     /** Attach {@code belt} as a new tail (built directly before the current tail). */
     void addTail(Belt belt) {
+        requireNotAlreadyPresent(belt);
         tiles.addFirst(belt);
         belt.joinSegment(this);
+    }
+
+    /**
+     * Callers must leave whatever segment a belt is currently in before re-attaching it — see
+     * {@code World#restoreBuilding}. A tile appearing twice in {@link #tiles} would silently
+     * corrupt {@link #tick} and {@link #size}; fail loudly instead.
+     */
+    private void requireNotAlreadyPresent(Belt belt) {
+        if (tiles.contains(belt)) {
+            throw new IllegalStateException("belt is already in this segment");
+        }
     }
 
     /** Merge {@code other} (immediately past this segment's head, same direction) into this one. */
@@ -87,21 +100,29 @@ final class BeltSegment {
 
     /**
      * Live one tick: the head tries to exit via {@code tryExit}; if it leaves, the next tile
-     * toward the tail advances into its place, and so on down the chain. One head-to-tail pass is
-     * the same "no more than one tile per tick" guarantee the old two-phase world traversal gave —
-     * no longer needed BETWEEN segments here, only within one.
+     * toward the tail advances into its place, and so on down the chain. One head-to-tail pass
+     * gives the "no more than one tile per tick" guarantee WITHIN this one segment.
+     *
+     * <p>A tile whose {@link Belt#arrivedThisTick} is set is skipped as a cargo SOURCE (it can
+     * still be a valid destination — {@code next.held() == null} still checks its actual state):
+     * it only just received that cargo via {@code accept}, earlier in the SAME world tick, from a
+     * different segment or building entirely. Moving it again in this same pass is exactly the
+     * cross-segment double-move P2-07 found; {@code TickScheduler} clears the mark once per frame,
+     * before either traversal pass runs, so a tile is only ever blocked for the remainder of the
+     * tick it arrived in — see P3-03, BUG_FIX_PROGRESS.md.
      */
     void tick(Predicate<Item> tryExit) {
         Belt next = null;
         var it = tiles.reversed().iterator();
         while (it.hasNext()) {
             Belt belt = it.next();
+            boolean eligibleSource = !belt.arrivedThisTick();
             if (next == null) {
                 Item head = belt.held();
-                if (head != null && tryExit.test(head)) {
+                if (eligibleSource && head != null && tryExit.test(head)) {
                     belt.clearHeld();
                 }
-            } else if (belt.held() != null && next.held() == null) {
+            } else if (eligibleSource && belt.held() != null && next.held() == null) {
                 next.setHeld(belt.held());
                 belt.clearHeld();
             }
