@@ -6,8 +6,14 @@ import com.rustorio.domain.OreLayout;
 /**
  * Whether a {@link BuildingType} may be placed at a cell, beyond "the cell is free and in
  * bounds" — {@code World} already checks that universally, the same way, for every kind, so it
- * isn't this rule's job to repeat it. Exactly one kind needs anything more right now: a {@link
- * Miner} needs ore under it. Every other kind's rule is trivially "yes."
+ * isn't this rule's job to repeat it.
+ *
+ * <p><b>Owner decision (X-02, DEV_TASKS.md):</b> {@link Terrain#WATER}/{@link Terrain#ROCK} block
+ * every kind except {@link UndergroundBelt} — the one building whose entire point is going UNDER
+ * an obstacle rather than around it (§4.2 of the design audit: before terrain existed, a tunnel
+ * solved no spatial problem at all, since there was nothing terrain-wise to route around). A
+ * {@link Miner} additionally needs ore, on top of passable ground, since ore only matters if the
+ * miner can physically stand there in the first place.
  *
  * <p>Collapses what used to be nine near-identical {@code World.place*} methods — seven of them
  * literally {@code return placeIfFree(TYPE, x, y, direction);} — down to one rule lookup plus one
@@ -16,17 +22,24 @@ import com.rustorio.domain.OreLayout;
 @FunctionalInterface
 public interface PlacementRule {
 
-    /** Trivially satisfied — the rule for every kind except {@link Miner}. */
+    /** Bypasses terrain entirely — only {@link UndergroundBelt} goes under an obstacle instead of needing it clear. */
     PlacementRule ALWAYS = (x, y, oreLayout) -> true;
 
-    /** A miner needs ore under the cell to do anything; placing it elsewhere would idle forever. */
-    PlacementRule NEEDS_ORE = (x, y, oreLayout) -> oreLayout.hasOre(x, y);
+    /** Every kind except a tunnel or a miner: needs passable ground, nothing more. */
+    PlacementRule NEEDS_PASSABLE_TERRAIN = (x, y, oreLayout) -> oreLayout.isPassable(x, y);
+
+    /** A miner needs passable ground AND ore under it to do anything; placing it elsewhere would idle forever. */
+    PlacementRule NEEDS_ORE = (x, y, oreLayout) -> oreLayout.isPassable(x, y) && oreLayout.hasOre(x, y);
 
     /** Whether {@code (x, y)} satisfies this rule, beyond the free+in-bounds check {@code World} already made. */
     boolean test(int x, int y, OreLayout oreLayout);
 
-    /** The rule for {@code type} — {@link #NEEDS_ORE} for a miner, {@link #ALWAYS} for everything else. */
+    /** The rule for {@code type} — {@link #NEEDS_ORE} for a miner, {@link #ALWAYS} for a tunnel, {@link #NEEDS_PASSABLE_TERRAIN} otherwise. */
     static PlacementRule forType(BuildingType type) {
-        return type == BuildingType.MINER ? NEEDS_ORE : ALWAYS;
+        return switch (type) {
+            case MINER -> NEEDS_ORE;
+            case UNDERGROUND_IN, UNDERGROUND_OUT -> ALWAYS;
+            default -> NEEDS_PASSABLE_TERRAIN;
+        };
     }
 }

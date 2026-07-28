@@ -6,7 +6,7 @@ import java.util.Optional;
 
 /**
  * The narrow port between a building's {@link Building#tick}/{@link Building#accept} and the
- * world it lives in — exactly the six operations a building ever actually calls. Replaces a
+ * world it lives in — exactly the five operations a building ever actually calls. Replaces a
  * direct dependency on the {@code World} class (declared in the sibling package one level up):
  * every building used to import it directly, while {@code World} imports back from this package
  * ({@link Belt}, {@link Building}, {@link BuildingFactory}) — an import cycle between the two
@@ -22,9 +22,6 @@ public interface TickContext {
 
     /** Hand an item to ONE specific neighbor, addressed by direction — a belt's forward push. */
     boolean offerForward(int x, int y, Item item);
-
-    /** Try to hand an item to any of the four neighbors — a miner's "wherever fits." */
-    boolean tryDeliverToNeighbor(int x, int y, Item item);
 
     /** Look at a cell without offering or consuming anything. */
     Optional<Building> peek(int x, int y);

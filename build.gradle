@@ -49,7 +49,6 @@ ext {
     lwjglVersion = '3.3.6'  // libGDX 1.14.2 тянет 3.3.3 (старше Java 25); см. ниже
     junitVersion = '5.11.3'
     jspecifyVersion = '1.0.0'
-    archunitVersion = '1.4.2'
     jacksonVersion = '2.18.2' // сериализация сохранений в JSON (слой persist)
     errorproneVersion = '2.36.0'
     nullawayVersion = '0.12.3'
@@ -87,10 +86,6 @@ dependencies {
     testImplementation platform("org.junit:junit-bom:$junitVersion")
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
-    // ArchUnit: архитектурные инварианты как обычные тесты — ацикличность,
-    // изоляция домена и направление зависимостей проверяются на каждой сборке.
-    testImplementation "com.tngtech.archunit:archunit-junit5:$archunitVersion"
 
     errorprone "com.google.errorprone:error_prone_core:$errorproneVersion"
     errorprone "com.uber.nullaway:nullaway:$nullawayVersion"
@@ -141,6 +136,23 @@ tasks.named('run', JavaExec) {
     // этого флага вызовы начнут блокироваться).
     jvmArgs('--enable-native-access=ALL-UNNAMED')
     // На macOS бэкенд LWJGL3/GLFW обязан работать на главном потоке.
+    if (System.getProperty('os.name').toLowerCase().contains('mac')) {
+        jvmArgs('-XstartOnFirstThread')
+    }
+}
+
+// `./gradlew devRun` — то же окно, что и `run`, но с уже построенным dev-стендом
+// (com.graphics.screen.DevScene): по одному живому примеру каждого здания плюс одно намеренно
+// сломанное, чтобы не пересобирать один и тот же тестовый стенд руками при каждой проверке
+// механики. Отдельная задача, а не аргумент к `run`, чтобы не забывать флаг каждый раз.
+tasks.register('devRun', JavaExec) {
+    group = 'application'
+    description = 'Launch the game with the dev-mode showcase factory already built (--dev)'
+    workingDir = rootProject.projectDir
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.graphics.Main'
+    args('--dev')
+    jvmArgs('--enable-native-access=ALL-UNNAMED')
     if (System.getProperty('os.name').toLowerCase().contains('mac')) {
         jvmArgs('-XstartOnFirstThread')
     }

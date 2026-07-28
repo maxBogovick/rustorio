@@ -91,4 +91,34 @@ public final class SpeedModule implements Building {
     public Optional<Direction> secondaryOutputDirection() {
         return inner.secondaryOutputDirection();
     }
+
+    /**
+     * Same forgetfulness risk as {@link #outputDirection} above (X-03, DEV_TASKS.md): both
+     * default to {@code 1}, so skipping this delegation would silently shrink an upgraded
+     * multi-cell building's footprint back to a single cell the instant {@code UpgradeSpeedAction}
+     * wraps it — {@code World} would then free/reserve the wrong set of cells on its next
+     * demolition or restore.
+     */
+    @Override
+    public int footprintWidth() {
+        return inner.footprintWidth();
+    }
+
+    @Override
+    public int footprintHeight() {
+        return inner.footprintHeight();
+    }
+
+    /**
+     * Same forgetfulness risk as {@link #outputDirection} above: without this override, {@code
+     * rotatedClockwise} would default to empty and an upgraded building could never be rotated in
+     * place again. Rotating the INNER building and re-wrapping it (rather than rotating this
+     * wrapper somehow) preserves however many {@code SpeedModule} layers deep this call started —
+     * a doubly-upgraded building rotates through both layers via the recursive call and comes back
+     * wrapped twice, same as it went in.
+     */
+    @Override
+    public Optional<Building> rotatedClockwise() {
+        return inner.rotatedClockwise().map(SpeedModule::new);
+    }
 }

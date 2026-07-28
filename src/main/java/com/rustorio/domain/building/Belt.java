@@ -61,6 +61,19 @@ public final class Belt implements Building {
         return Optional.of(direction);
     }
 
+    /**
+     * A fresh {@link Belt} facing the rotated direction, carrying the same cargo — segment
+     * membership is NOT copied over: {@code com.rustorio.domain.action.RotateAction} reaches this
+     * tile through {@code World.removeBuilding}/{@code restoreBuilding}, the same detach/reattach
+     * path a demolish or a {@link SpeedModule} upgrade already uses, which is what lets this tile
+     * leave its old segment (splitting it if this was a middle tile — see {@code
+     * BeltSegment#remove}) and join whatever matches its new direction.
+     */
+    @Override
+    public Optional<Building> rotatedClockwise() {
+        return Optional.of(new Belt(direction.rotate(), held));
+    }
+
     /** Join (or leave, on removal, with {@code null}) a segment — called only by {@link World}. */
     void joinSegment(@Nullable BeltSegment segment) {
         this.segment = segment;

@@ -61,6 +61,16 @@ final class DragCollector {
         return collected;
     }
 
+    /**
+     * The tiles touched so far by a drag still IN PROGRESS — empty if not currently dragging (or
+     * blocked by having started on the hotbar). Unlike {@link #poll}, this doesn't consume or
+     * clear anything: it's read every frame by the build ghost (F-02, DEV_TASKS.md) to show the
+     * whole planned line before release, not just the single cell under the cursor.
+     */
+    List<TilePos> inProgressTiles() {
+        return dragging && !blockedByHotbar ? List.copyOf(tiles) : List.of();
+    }
+
     private static boolean isOverHotbar() {
         return HotbarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(),
                 Gdx.graphics.getWidth(), Gdx.graphics.getHeight()) >= 0;

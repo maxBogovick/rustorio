@@ -3,8 +3,12 @@ package com.graphics.input;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.graphics.render.HudState;
+import com.graphics.render.TilePos;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
+import com.rustorio.domain.Item;
+import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Пауза, скорость симуляции и переключатель книги рецептов — view-state, которое читают {@code
@@ -29,6 +33,21 @@ final class SimulationControls {
      */
     private boolean showRecipeBook;
 
+    /**
+     * Открыто ли дерево техов (P-02, DEV_TASKS.md) — {@code T} переключает. Пока открыто, {@link
+     * InputHandler} перенаправляет цифровые клавиши 1-9 на выбор теха для разблокировки вместо
+     * выбора здания в хотбаре — тот же приём, что уже применён к книге рецептов: показ не трогает
+     * мир и не ставит игру на паузу сам по себе.
+     */
+    private boolean showTechTree;
+
+    /**
+     * Открыт ли экран статистики (P-03, DEV_TASKS.md) — {@code V} переключает. Тот же чистый
+     * показ-без-побочных-эффектов, что у книги рецептов/дерева техов; пока открыт, {@link
+     * InputHandler} перенаправляет {@code N} на переключение графикуемого предмета.
+     */
+    private boolean showStats;
+
     void handle() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
             paused = !paused;
@@ -42,6 +61,14 @@ final class SimulationControls {
         // Книга рецептов (TAB): чистый переключатель показа, мира не касается вовсе.
         if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
             showRecipeBook = !showRecipeBook;
+        }
+        // Дерево техов (T): тот же чистый переключатель показа.
+        if (Gdx.input.isKeyJustPressed(Input.Keys.T)) {
+            showTechTree = !showTechTree;
+        }
+        // Экран статистики (V, P-03, DEV_TASKS.md): тот же чистый переключатель показа.
+        if (Gdx.input.isKeyJustPressed(Input.Keys.V)) {
+            showStats = !showStats;
         }
     }
 
@@ -57,8 +84,21 @@ final class SimulationControls {
         return showRecipeBook;
     }
 
-    /** {@link InputHandler} supplies {@code selected}/{@code facing} — those are its own business, not ours. */
-    HudState hudState(BuildingType selected, Direction facing) {
-        return new HudState(selected, facing, paused, speed(), showRecipeBook);
+    boolean showTechTree() {
+        return showTechTree;
+    }
+
+    boolean showStats() {
+        return showStats;
+    }
+
+    /**
+     * {@link InputHandler} supplies {@code selected}/{@code facing}/{@code dragTiles}/{@code
+     * inspected}/{@code altOverlay}/{@code statsItem} — those are its own business, not ours.
+     */
+    HudState hudState(BuildingType selected, Direction facing, List<TilePos> dragTiles, @Nullable TilePos inspected,
+            boolean altOverlay, Item statsItem) {
+        return new HudState(selected, facing, paused, speed(), showRecipeBook, showTechTree, dragTiles, inspected,
+                altOverlay, showStats, statsItem);
     }
 }

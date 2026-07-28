@@ -13,7 +13,15 @@ public enum BuildingType {
     PRESS("Press"),
     UNDERGROUND_IN("Tunnel in"),
     UNDERGROUND_OUT("Tunnel out"),
-    LAB("Lab");
+    LAB("Lab"),
+    // Appended, not inserted (X-01, DEV_TASKS.md): the first 9 keep keys 1-9 (InputHandler's
+    // `type.ordinal() < 9` limit, P4-08) — these two are mouse-only from the hotbar, same
+    // already-accepted tradeoff a 10th building always was.
+    FILTER("Filter"),
+    INSERTER("Inserter"),
+    // Same mouse-only tradeoff as FILTER/INSERTER above — occupies 2x2 cells (X-03, DEV_TASKS.md,
+    // see Building#footprintWidth), the first building kind for which that's true.
+    ASSEMBLER("Assembler");
 
     private final String label;
 
@@ -24,5 +32,22 @@ public enum BuildingType {
     /** Hotbar caption (ASCII only — the bitmap font has no Cyrillic glyphs). */
     public String label() {
         return label;
+    }
+
+    /**
+     * The footprint {@link com.rustorio.domain.building.BuildingFactory#create} would build for
+     * this kind, without actually constructing one — the single source of truth {@code Building}
+     * instances themselves defer to (see {@code Furnace#footprintWidth}). Lets code that only has
+     * a {@code BuildingType} (no {@code Building} instance yet, e.g. a placement ghost) ask the
+     * same question {@code World.place} answers, without paying for a throwaway allocation on
+     * every frame.
+     */
+    public int footprintWidth() {
+        return this == ASSEMBLER ? 2 : 1;
+    }
+
+    /** The height counterpart to {@link #footprintWidth} — see its javadoc. */
+    public int footprintHeight() {
+        return this == ASSEMBLER ? 2 : 1;
     }
 }

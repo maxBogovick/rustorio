@@ -4,35 +4,50 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
-import com.rustorio.domain.SortRule;
 import com.rustorio.domain.Sprite;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Accepts one item and routes it to one of two directions — forward along {@link #facing}, or
- * one clockwise turn from it — decided entirely by the injected {@link SortRule} (Strategy
- * pattern): this class only knows "ask the rule, then push that way," never "ore goes forward."
+ * Accepts one item and alternates which of two directions it goes to — forward along {@link
+ * #facing}, or one clockwise turn from it — by a strict round-robin, never by item identity (X-01,
+ * DEV_TASKS.md). The OLD {@code Splitter} was really a filter with exactly one hardcoded rule
+ * ({@code SortRule.ORE_FORWARD}, deleted along with the rest of that strategy); this is the
+ * genre's actual "balancer" half of that split — {@link Filter} is the other, item-identity half.
  *
- * <p>{@link #rule} survives save/load by its {@link SortRule#id()} (P4-10, BUG_FIX_PROGRESS.md —
- * owner decision A) — {@link #memento()} carries it, {@link BuildingFactory#restore} looks it back
- * up via {@link SortRule#byId}.
+ * <p><b>Owner decision:</b> if the side {@link #nextIsForward} currently points at is blocked,
+ * this building WAITS rather than opportunistically routing the held item to the other, open side.
+ * The alternative — falling back to whichever side happens to be free — would let one side's own
+ * backpressure silently skew the split away from 50/50, which defeats the entire point of a
+ * balancer: a round-robin's honesty comes from committing to the assigned side even when it costs
+ * a stall, the same "hold until delivered, don't improvise" discipline every other producer here
+ * already follows.
  */
 public final class Splitter implements Building {
 
-    private final SortRule rule;
     private final Direction facing;
     private @Nullable Item held;
+    /** Which side gets the NEXT successfully delivered item — flips only on an actual successful delivery, never on a blocked attempt. */
+    private boolean nextIsForward = true;
+    /**
+     * True for the rest of the CURRENT world tick if this splitter received its cargo via {@link
+     * #accept} earlier in the same tick — the same mark {@link Belt#arrivedThisTick} carries, for the
+     * same reason (N2, NEW_BUGS_PROGRESS.md). Without it, a chain of splitters all ticking in the
+     * same pass relayed one item through every one of them within a single tick: the upstream one
+     * ticks first, {@code accept} fills the downstream one, and the downstream one then ticks in that
+     * very same frame. {@code TickScheduler} clears the mark once, before either pass runs.
+     */
+    private boolean arrivedThisTick;
 
-    public Splitter(SortRule rule, Direction facing) {
-        this.rule = rule;
+    public Splitter(Direction facing) {
         this.facing = facing;
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Splitter(SortRule rule, Direction facing, @Nullable Item held) {
-        this(rule, facing);
+    Splitter(Direction facing, @Nullable Item held, boolean nextIsForward) {
+        this(facing);
         this.held = held;
+        this.nextIsForward = nextIsForward;
     }
 
     @Override
@@ -41,17 +56,24 @@ public final class Splitter implements Building {
             return false;
         }
         held = item;
+        arrivedThisTick = true;
         return true;
+    }
+
+    /** Called once per world tick, before any building ticks — see {@code TickScheduler}. */
+    void clearArrivalMark() {
+        arrivedThisTick = false;
     }
 
     @Override
     public void tick(TickContext world, int x, int y) {
-        if (held == null) {
-            return;
+        if (held == null || arrivedThisTick) {
+            return; // arrived this same tick — the relay waits for the next one, exactly like a belt
         }
-        Direction direction = rule.forward(held) ? facing : facing.rotate();
+        Direction direction = nextIsForward ? facing : facing.rotate();
         if (world.offerForward(x + direction.dx(), y + direction.dy(), held)) {
             held = null;
+            nextIsForward = !nextIsForward;
         }
     }
 
@@ -81,7 +103,12 @@ public final class Splitter implements Building {
     }
 
     @Override
+    public Optional<Building> rotatedClockwise() {
+        return Optional.of(new Splitter(facing.rotate(), held, nextIsForward));
+    }
+
+    @Override
     public BuildingMemento memento() {
-        return new BuildingMemento.SplitterState(facing, held, rule.id());
+        return new BuildingMemento.SplitterState(facing, held, nextIsForward);
     }
 }

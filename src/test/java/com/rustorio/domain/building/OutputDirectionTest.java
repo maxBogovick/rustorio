@@ -2,9 +2,9 @@ package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
+import com.rustorio.domain.Item;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.SortRule;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -55,37 +55,64 @@ class OutputDirectionTest {
 
     @Test
     void splitterReportsItsFacingAsItsForwardOutput() {
-        Splitter splitter = new Splitter(SortRule.ORE_FORWARD, Direction.UP);
+        Splitter splitter = new Splitter(Direction.UP);
         assertEquals(Optional.of(Direction.UP), splitter.outputDirection());
     }
 
     @Test
     void splitterReportsTheClockwiseRotationAsItsSecondaryOutput() {
         // Direction.rotate(): RIGHT->DOWN->LEFT->UP->RIGHT — UP повёрнутый по часовой это RIGHT.
-        Splitter splitter = new Splitter(SortRule.ORE_FORWARD, Direction.UP);
+        Splitter splitter = new Splitter(Direction.UP);
         assertEquals(Optional.of(Direction.RIGHT), splitter.secondaryOutputDirection());
     }
 
+    /** (X-01, DEV_TASKS.md) Filter also has two outputs now — see its own class javadoc. */
     @Test
-    void onlySplitterHasASecondaryOutput() {
+    void filterReportsBothOutputsTooJustLikeSplitter() {
+        Filter filter = new Filter(Direction.UP, Item.IRON_ORE);
+        assertEquals(Optional.of(Direction.UP), filter.outputDirection());
+        assertEquals(Optional.of(Direction.RIGHT), filter.secondaryOutputDirection());
+    }
+
+    @Test
+    void mostBuildingsHaveNoSecondaryOutput() {
         assertEquals(Optional.empty(), new Belt(Direction.RIGHT).secondaryOutputDirection());
         assertEquals(Optional.empty(),
                 new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES).secondaryOutputDirection());
         assertEquals(Optional.empty(),
                 new UndergroundBelt(UndergroundBelt.Kind.OUT, Direction.RIGHT).secondaryOutputDirection());
+        assertEquals(Optional.empty(), new Inserter(Direction.RIGHT).secondaryOutputDirection());
     }
 
     @Test
     void speedModuleDelegatesSecondaryOutputDirectionToo() {
-        Building upgraded = new SpeedModule(new Splitter(SortRule.ORE_FORWARD, Direction.LEFT));
+        Building upgraded = new SpeedModule(new Splitter(Direction.LEFT));
         // rotate(LEFT) = UP
         assertEquals(Optional.of(Direction.UP), upgraded.secondaryOutputDirection());
     }
 
     @Test
+    void inserterReportsItsOwnDirection() {
+        Inserter inserter = new Inserter(Direction.DOWN);
+        assertEquals(Optional.of(Direction.DOWN), inserter.outputDirection());
+    }
+
+    @Test
     void buildingsWithoutADirectionReportEmpty() {
-        assertEquals(Optional.empty(), new Chest().outputDirection());
-        assertEquals(Optional.empty(), new Miner(PatchOreLayout.standard()).outputDirection());
-        assertEquals(Optional.empty(), new Lab().outputDirection());
+        assertEquals(Optional.empty(), new Lab(RECIPES).outputDirection());
+    }
+
+    /** Since D-01 (DEV_TASKS.md): a miner delivers to one addressed neighbor, so it needs a direction too. */
+    @Test
+    void minerReportsItsOwnDirection() {
+        Miner miner = new Miner(PatchOreLayout.standard(), Direction.LEFT);
+        assertEquals(Optional.of(Direction.LEFT), miner.outputDirection());
+    }
+
+    /** Since D-02 (DEV_TASKS.md): a chest pushes its contents out one addressed neighbor, so it needs a direction too. */
+    @Test
+    void chestReportsItsOwnDirection() {
+        Chest chest = new Chest(Direction.DOWN);
+        assertEquals(Optional.of(Direction.DOWN), chest.outputDirection());
     }
 }

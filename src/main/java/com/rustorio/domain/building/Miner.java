@@ -1,7 +1,9 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.Appearance;
+import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.Sprite;
@@ -10,9 +12,9 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Sits on an ore cell and periodically mines a batch, holding it until a neighbor takes it — the
- * same "hold until delivered" discipline as {@link Belt} and {@link Furnace}: mining never
- * outpaces delivery, so nothing is produced and silently discarded.
+ * Sits on an ore cell and periodically mines a batch, holding it until its forward neighbor takes
+ * it — the same "hold until delivered" discipline as {@link Belt} and {@link Furnace}: mining
+ * never outpaces delivery, so nothing is produced and silently discarded.
  *
  * <p>Depends on an injected {@link OreLayout} rather than a static ore table — which ore sits
  * under a given cell doesn't change, so nothing needs to be cached; asking the strategy again
@@ -21,23 +23,35 @@ import org.jspecify.annotations.Nullable;
  * <p>A miner placed on a cell with no ore simply idles forever, retrying every {@link
  * #effectiveTime} ticks — a soft degradation rather than a crash, since placement not lining up
  * with the ore map is a recoverable state, not a programming error.
+ *
+ * <p><b>Owner decision (D-01, DEV_TASKS.md):</b> delivery is addressed to the single cell ahead of
+ * {@link #direction}, via {@link TickContext#offerForward}, not broadcast to all four neighbors.
+ * Before this, a miner built next to ANY building that would accept ore worked regardless of which
+ * way it faced, making belts and layout optional — see §2.1 of the design audit. This is also why
+ * a miner now needs {@link #rotatedClockwise}: once delivery is addressed, a miner built facing the
+ * wrong way is unrecoverable without demolition unless it can be turned in place.
  */
 public final class Miner implements Building {
 
     private static final int MINE_TIME = 3;
 
     private final OreLayout oreLayout;
+    private final Direction direction;
 
     private int cooldown = MINE_TIME;
     private @Nullable Item held;
+    /** Recomputed once per {@link #tick}, not once per render frame — see {@link BuildingStatus}'s own javadoc for why (F-01, DEV_TASKS.md). */
+    private BuildingStatus status = BuildingStatus.WORKING;
 
-    public Miner(OreLayout oreLayout) {
+    public Miner(OreLayout oreLayout, Direction direction) {
         this.oreLayout = oreLayout;
+        this.direction = direction;
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Miner(OreLayout oreLayout, int cooldown, @Nullable Item held) {
+    Miner(OreLayout oreLayout, Direction direction, int cooldown, @Nullable Item held) {
         this.oreLayout = oreLayout;
+        this.direction = direction;
         this.cooldown = cooldown;
         this.held = held;
     }
@@ -49,15 +63,27 @@ public final class Miner implements Building {
                 return;
             }
             cooldown = effectiveTime(world);
-            Optional<Item> ore = oreLayout.oreAt(x, y);
+            Optional<Item> ore = oreLayout.extract(x, y);
             if (ore.isEmpty()) {
-                return; // no ore under this tile — idle rather than crash; the timer above retries later
+                // Two different situations, and (N14, NEW_BUGS_PROGRESS.md — owner decision) they no
+                // longer look the same on screen. No ore under this tile at all is NO_ORE, a
+                // standing problem the player has to move the miner to fix. A cell whose reserve
+                // just didn't yield on this particular call is NOT: a depleted cell still yields on
+                // 1 call in OreDepletion.TAIL_INTERVAL (D-04, DEV_TASKS.md), so reporting NO_ORE
+                // here made a slow-but-working miner flicker between "broken" and "fine" every few
+                // ticks. It IS working, just slowly — which is exactly what WORKING says, so no
+                // third status is needed. hasOre is a pure report and consumes nothing.
+                status = oreLayout.hasOre(x, y) ? BuildingStatus.WORKING : BuildingStatus.NO_ORE;
+                return;
             }
             held = ore.get();
             world.notifyProduced(held);
         }
-        if (world.tryDeliverToNeighbor(x, y, held)) {
+        if (world.offerForward(x + direction.dx(), y + direction.dy(), held)) {
             held = null;
+            status = BuildingStatus.WORKING;
+        } else {
+            status = BuildingStatus.OUTPUT_FULL;
         }
     }
 
@@ -67,12 +93,22 @@ public final class Miner implements Building {
 
     @Override
     public Appearance appearance() {
-        return Appearance.of(Sprite.MINER);
+        return Appearance.of(Sprite.MINER, status);
     }
 
     @Override
     public Optional<Item> heldItem() {
         return Optional.ofNullable(held);
+    }
+
+    @Override
+    public Optional<Direction> outputDirection() {
+        return Optional.of(direction);
+    }
+
+    @Override
+    public Optional<Building> rotatedClockwise() {
+        return Optional.of(new Miner(oreLayout, direction.rotate(), cooldown, held));
     }
 
     @Override
@@ -82,6 +118,6 @@ public final class Miner implements Building {
 
     @Override
     public BuildingMemento memento() {
-        return new BuildingMemento.MinerState(cooldown, held);
+        return new BuildingMemento.MinerState(direction, cooldown, held);
     }
 }

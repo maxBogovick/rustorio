@@ -12,7 +12,10 @@ public enum Sprite {
     BELT_EMPTY,
     BELT_FULL,
     SPLITTER,
+    FILTER,
+    INSERTER,
     UNDERGROUND_IN,
     UNDERGROUND_OUT,
-    LAB
+    LAB,
+    ASSEMBLER
 }

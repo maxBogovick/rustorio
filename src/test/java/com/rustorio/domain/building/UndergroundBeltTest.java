@@ -1,7 +1,10 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
+import com.rustorio.domain.action.ActionHistory;
+import com.rustorio.domain.action.UpgradeSpeedAction;
 import com.rustorio.domain.world.World;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -14,6 +17,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * обычный сегмент дальше.
  */
 class UndergroundBeltTest {
+
+    /**
+     * (N13, NEW_BUGS_PROGRESS.md — owner decision) A {@link SpeedModule} on a tunnel half is
+     * refused, the same way P2-03 already refuses one on a {@link Belt}. Not because it breaks
+     * anything — the external review claimed it desynchronizes the tick phases, and that turned out
+     * to be wrong: the module's second {@code inner.tick} call finds {@code held} already empty and
+     * returns immediately, so nothing moves twice in a tick. It's refused because it therefore does
+     * NOTHING while still charging the player for the upgrade, and "sold a module that can't
+     * possibly help" is the exact honesty argument P2-03 made for belts.
+     */
+    @Test
+    void upgradingATunnelHalfWithASpeedModuleIsRefused() {
+        World world = new World(10, 10);
+        world.placeUndergroundIn(1, 0, Direction.RIGHT);
+        world.placeUndergroundOut(3, 0, Direction.RIGHT);
+
+        ActionHistory history = new ActionHistory();
+        history.perform(world, new UpgradeSpeedAction(1, 0));
+        history.perform(world, new UpgradeSpeedAction(3, 0));
+
+        assertEquals(0, world.peek(1, 0).orElseThrow().speedLevel(), "an entrance must not take the module");
+        assertEquals(0, world.peek(3, 0).orElseThrow().speedLevel(), "and neither must an exit");
+        assertEquals(BuildingType.UNDERGROUND_IN, world.peek(1, 0).orElseThrow().type(),
+                "and the refusal must leave the tunnel itself on the map, untouched");
+    }
 
     @Test
     void beltFeedsTunnelWhichExitsToBeltOnTheOtherSide() {

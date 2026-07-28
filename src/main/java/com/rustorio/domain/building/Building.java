@@ -10,10 +10,10 @@ import java.util.Optional;
  * Anything the world can hold in a cell and step forward one tick at a time.
  *
  * <p><b>Why {@code sealed}.</b> The set of building kinds is closed and known here, in one place
- * — {@link Miner}, {@link Chest}, {@link Furnace}, {@link Belt}, {@link Splitter}, {@link
- * SpeedModule}, {@link Lab} and {@link UndergroundBelt}. A stray class can't quietly become a
- * building outside this file, and the compiler can enforce exhaustiveness anywhere code switches
- * over a building's concrete type (see {@link BuildingFactory#restore}).
+ * — {@link Miner}, {@link Chest}, {@link Furnace}, {@link Belt}, {@link Splitter}, {@link Filter},
+ * {@link Inserter}, {@link SpeedModule}, {@link Lab} and {@link UndergroundBelt}. A stray class
+ * can't quietly become a building outside this file, and the compiler can enforce exhaustiveness
+ * anywhere code switches over a building's concrete type (see {@link BuildingFactory#restore}).
  *
  * <p><b>The tax {@link SpeedModule} pays for that.</b> Decorator wants to wrap any object behind
  * an interface without asking the interface's author for permission; {@code sealed} is the
@@ -22,7 +22,7 @@ import java.util.Optional;
  * {@code Building} from anywhere; that's real friction between the two patterns, not an oversight.
  */
 public sealed interface Building
-        permits Miner, Chest, Furnace, Belt, Splitter, SpeedModule, Lab, UndergroundBelt {
+        permits Miner, Chest, Furnace, Belt, Splitter, Filter, Inserter, SpeedModule, Lab, UndergroundBelt {
 
     /**
      * Live one tick. The world calls this once per building per step, passing the building's own
@@ -58,6 +58,23 @@ public sealed interface Building
         return 0;
     }
 
+    /**
+     * How many cells wide this building physically occupies, anchored at the cell {@code
+     * com.rustorio.domain.world.World} stores it under (its top-left corner) — {@code 1} for
+     * every building except {@link Furnace}'s {@code ASSEMBLER} kind (X-03, DEV_TASKS.md). {@code
+     * World} reserves every cell in {@code [x, x + footprintWidth)} × {@code [y, y +
+     * footprintHeight)} on placement and frees the same rectangle on demolition — see {@code
+     * World.place}/{@code World.removeBuilding}.
+     */
+    default int footprintWidth() {
+        return 1;
+    }
+
+    /** The height counterpart to {@link #footprintWidth} — see its javadoc. */
+    default int footprintHeight() {
+        return 1;
+    }
+
     /** How this building looks right now — sprite plus an optional numeric badge. */
     Appearance appearance();
 
@@ -89,6 +106,20 @@ public sealed interface Building
      * A second output direction, for buildings that have two — currently only {@link Splitter}.
      */
     default Optional<Direction> secondaryOutputDirection() {
+        return Optional.empty();
+    }
+
+    /**
+     * A copy of this building, rotated one clockwise step, preserving everything else about its
+     * state (held item, buffers, timers) — or {@code Optional.empty()} if this building has no
+     * direction to rotate at all (a {@link Chest}, a {@link Lab}). Returns a NEW instance rather
+     * than mutating this one: every directional building's {@code direction} field is set once at
+     * construction and read by other code that assumes it never changes mid-lifetime (e.g. {@link
+     * Belt}'s segment membership) — {@code com.rustorio.domain.action.RotateAction} is the one
+     * caller, and it always goes through {@code World.removeBuilding}/{@code restoreBuilding}
+     * anyway, exactly like {@link SpeedModule} upgrading already does (D-01, DEV_TASKS.md).
+     */
+    default Optional<Building> rotatedClockwise() {
         return Optional.empty();
     }
 

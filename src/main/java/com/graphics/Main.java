@@ -16,6 +16,12 @@ import org.jspecify.annotations.Nullable;
  * {@link com.rustorio.domain.RandomOreLayout}, сгенерированную из зерна (та же
  * стратегия {@link com.rustorio.domain.OreLayout}, реальная точка подмены, а не
  * только тестовая).
+ *
+ * <p>{@code --dev} запускает игру с уже построенным стендом (по одному живому примеру каждого
+ * здания плюс одно намеренно сломанное — {@code com.graphics.screen.DevScene}) вместо пустой
+ * карты — не карточка из DEV_TASKS.md, прямая просьба: чтобы не пересобирать один и тот же
+ * тестовый стенд руками при каждой проверке механики. Игнорирует {@code --seed=}, если оба флага
+ * заданы разом — координаты стенда завязаны на реальные рудные пятна фиксированной карты.
  */
 public final class Main {
 
@@ -29,7 +35,7 @@ public final class Main {
         config.setResizable(true); // камера умеет пересчитываться под новый размер
         config.useVsync(true);
         config.setForegroundFPS(60);
-        new Lwjgl3Application(new RustorioGame(parseSeed(args)), config);
+        new Lwjgl3Application(new RustorioGame(parseSeed(args), hasFlag(args, "--dev")), config);
     }
 
     private static @Nullable Long parseSeed(String[] args) {
@@ -39,5 +45,14 @@ public final class Main {
             }
         }
         return null;
+    }
+
+    private static boolean hasFlag(String[] args, String flag) {
+        for (String arg : args) {
+            if (arg.equals(flag)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

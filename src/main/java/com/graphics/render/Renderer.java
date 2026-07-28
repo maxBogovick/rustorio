@@ -47,6 +47,8 @@ public final class Renderer implements Disposable {
     private final OverlayRenderer overlayRenderer;
     private final HudRenderer hudRenderer;
     private final RecipeBookRenderer recipeBookRenderer;
+    private final TechTreeRenderer techTreeRenderer;
+    private final StatsScreenRenderer statsScreenRenderer;
 
     /**
      * {@code gridW}/{@code gridH} come from whoever built the {@link World} this renderer will be
@@ -64,19 +66,24 @@ public final class Renderer implements Disposable {
         this.gridW = gridW;
 
         Grid grid = new Grid(gridH);
-        this.worldRenderer = new WorldRenderer(shapes, grid, oreLayout);
+        this.worldRenderer = new WorldRenderer(shapes, batch, grid, oreLayout, textures);
         this.buildingRenderer = new BuildingRenderer(batch, shapes, textures, font, grid);
-        this.itemRenderer = new ItemRenderer(shapes, grid);
-        this.overlayRenderer = new OverlayRenderer(shapes, grid);
+        this.itemRenderer = new ItemRenderer(batch, shapes, font, grid);
+        this.overlayRenderer = new OverlayRenderer(batch, shapes, textures, font, camera, grid);
         this.hudRenderer = new HudRenderer(batch, shapes, font, textures);
         this.recipeBookRenderer = new RecipeBookRenderer(batch, shapes, font);
+        this.techTreeRenderer = new TechTreeRenderer(batch, shapes, font);
+        this.statsScreenRenderer = new StatsScreenRenderer(batch, shapes, font);
     }
 
     /**
      * Нарисовать кадр по текущему состоянию мира, HUD (что выбрано, пауза/скорость, открыта ли
      * книга рецептов — см. {@link HudState}) и логу событий.
+     *
+     * @param ups сколько раз {@code World.tick()} реально позвался за последнюю полную секунду
+     *            (S-04, DEV_TASKS.md) — {@code GameScreen}'s own measurement, не то же самое, что FPS
      */
-    public void render(World world, HudState hud, ProductionLogView log) {
+    public void render(World world, HudState hud, ProductionLogView log, int ups) {
         Gdx.gl.glClearColor(Palette.BG.r, Palette.BG.g, Palette.BG.b, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -102,18 +109,27 @@ public final class Renderer implements Disposable {
         worldRenderer.render(visible);              // 1. земля + рудные области
         buildingRenderer.render(world, visible);     // 2. здания на карте
         itemRenderer.render(world, visible);         // 3. груз поверх зданий (лента/бур/сортировщик/подземка)
-        overlayRenderer.renderWorld(world, visible); // 4. подсветка непарных входов подземки
+        overlayRenderer.renderWorld(world, visible, hud); // 4. Alt-слой: стрелки, рамка туннеля, статус, содержимое ящиков (F-04)
+        overlayRenderer.renderBuildGhost(world, hud); // 4b. призрак постройки под курсором/протяжкой (F-02)
 
         // HUD — снова во ВСЁ окно (панели должны дотягиваться до самых краёв), в координатах
         // окна: и batch (текст/иконки), и shapes (подложки панелей).
         Gdx.gl.glViewport(0, 0, bbW, bbH);
         batch.setProjectionMatrix(camera.hudMatrix());
         shapes.setProjectionMatrix(camera.hudMatrix());
-        // 5. заголовок + панель + статистика + исследования + лог + пауза/скорость + подсказки
-        hudRenderer.render(hud, world.stats(), world.research(), log);
+        // 5. заголовок + панель + статистика + исследования + инвентарь + лог + пауза/скорость + подсказки
+        hudRenderer.render(hud, world, visible, world.stats(), world.research(), world.inventory(), log, ups);
         // 6. книга рецептов — поверх всего остального, только если игрок её открыл (TAB).
         if (hud.showRecipeBook()) {
             recipeBookRenderer.render(world.buildingFactory().recipeBook());
+        }
+        // 7. дерево техов (P-02, DEV_TASKS.md) — поверх всего, только если игрок открыл его (T).
+        if (hud.showTechTree()) {
+            techTreeRenderer.render(world.research());
+        }
+        // 8. экран статистики (P-03, DEV_TASKS.md) — поверх всего, только если игрок открыл его (V).
+        if (hud.showStats()) {
+            statsScreenRenderer.render(world.stats(), world.currentTick(), hud.statsItem());
         }
     }
 

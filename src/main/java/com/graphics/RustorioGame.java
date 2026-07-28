@@ -16,12 +16,18 @@ public final class RustorioGame extends Game {
     /** Зерно карты руды из {@code --seed=}, или {@code null} — тогда карта фиксированная. */
     private final @Nullable Long oreSeed;
 
-    public RustorioGame(@Nullable Long oreSeed) {
+    /** {@code --dev} — стенд из {@code GameScreen.DevScene} вместо пустой карты; см. {@link com.graphics.Main}. */
+    private final boolean devMode;
+
+    public RustorioGame(@Nullable Long oreSeed, boolean devMode) {
         this.oreSeed = oreSeed;
+        this.devMode = devMode;
     }
 
     @Override
     public void create() {
-        setScreen(oreSeed == null ? new GameScreen() : new GameScreen(oreSeed));
+        // devMode игнорирует oreSeed: DevScene завязан на координаты РЕАЛЬНЫХ рудных пятен
+        // фиксированной карты (PatchOreLayout.standard()), со случайной картой они бы не совпали.
+        setScreen(devMode ? new GameScreen(true) : oreSeed == null ? new GameScreen() : new GameScreen(oreSeed));
     }
 }

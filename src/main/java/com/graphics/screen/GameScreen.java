@@ -44,6 +44,16 @@ public final class GameScreen extends ScreenAdapter {
     /** Сколько реального времени накопилось сверх последнего отработанного тика. */
     private float accumulator;
     /**
+     * UPS-счётчик (S-04, DEV_TASKS.md): сколько раз {@link World#tick()} реально позвался за
+     * последнюю полную секунду — не то же самое, что FPS ({@link com.badlogic.gdx.Graphics#getFramesPerSecond()},
+     * уже готовый и сглаженный самим libGDX, читается прямо в {@code HudRenderer}). При множителе
+     * скорости (2×/4×) UPS растёт вместе с ним, а FPS — нет; расхождение между ними — само по себе
+     * полезный сигнал (например, «симуляция не поспевает за запрошенным множителем»).
+     */
+    private float upsTimer;
+    private int ticksThisSecond;
+    private int lastUps;
+    /**
      * Обработчик колеса мыши, сохранённый ради {@link #dispose}/{@link #hide} (P4-07,
      * BUG_FIX_PROGRESS.md): раньше конструктор ставил его в {@code Gdx.input} и никогда не снимал
      * — при появлении второго экрана этот, привязанный к уже мёртвой {@link #camera}, продолжил
@@ -53,18 +63,30 @@ public final class GameScreen extends ScreenAdapter {
 
     /** Фиксированная карта руды ({@link com.rustorio.domain.PatchOreLayout#standard()}). */
     public GameScreen() {
-        this(BuildingFactory.standard());
+        this(BuildingFactory.standard(), false);
     }
 
     /** Карта руды сгенерирована из {@code oreSeed} — см. {@link RandomOreLayout}. */
     public GameScreen(long oreSeed) {
         this(new BuildingFactory(
-                new RandomOreLayout(oreSeed, GfxConfig.GRID_W, GfxConfig.GRID_H), RecipeBook.standard()));
+                new RandomOreLayout(oreSeed, GfxConfig.GRID_W, GfxConfig.GRID_H), RecipeBook.standard()), false);
     }
 
-    private GameScreen(BuildingFactory buildingFactory) {
+    /**
+     * Dev-mode showcase ({@code --dev}, {@code com.graphics.Main}) — фиксированная карта, как у
+     * {@link #GameScreen()}: {@link DevScene}'s coordinates assume the standard map's real ore
+     * patches, so this can't be combined with {@link #GameScreen(long)}'s random seed.
+     */
+    public GameScreen(boolean devMode) {
+        this(BuildingFactory.standard(), devMode);
+    }
+
+    private GameScreen(BuildingFactory buildingFactory, boolean devMode) {
         this.world = new World(GfxConfig.GRID_W, GfxConfig.GRID_H, buildingFactory);
         world.addProductionListener(productionLog);
+        if (devMode) {
+            DevScene.build(world);
+        }
         this.camera = new GameCamera(GfxConfig.GRID_W, GfxConfig.GRID_H);
         this.input = new InputHandler(camera, new JsonSaveRepository());
         this.textures = new Textures();
@@ -93,12 +115,19 @@ public final class GameScreen extends ScreenAdapter {
                 accumulator -= TICK_SECONDS;
                 for (int i = 0; i < input.speed(); i++) {
                     world.tick();
+                    ticksThisSecond++;
                 }
                 caughtUp++;
             }
         }
+        upsTimer += delta;
+        if (upsTimer >= 1f) {
+            lastUps = ticksThisSecond;
+            ticksThisSecond = 0;
+            upsTimer -= 1f;
+        }
         // 3. рендер: карта + HUD
-        renderer.render(world, input.hudState(), productionLog);
+        renderer.render(world, input.hudState(), productionLog, lastUps);
     }
 
     @Override

@@ -148,6 +148,11 @@ public final class UndergroundBelt implements Building {
     }
 
     @Override
+    public Optional<Building> rotatedClockwise() {
+        return Optional.of(new UndergroundBelt(kind, direction.rotate(), held));
+    }
+
+    @Override
     public BuildingType type() {
         return kind == Kind.IN ? BuildingType.UNDERGROUND_IN : BuildingType.UNDERGROUND_OUT;
     }

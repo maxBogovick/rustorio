@@ -2,10 +2,10 @@ package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
+import com.rustorio.domain.Item;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.SortRule;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -55,15 +55,31 @@ public final class BuildingFactory {
     /** Build a brand-new building of {@code type}, facing {@code direction} where that matters. */
     public Building create(BuildingType type, Direction direction) {
         return switch (type) {
-            case MINER -> new Miner(oreLayout);
-            case CHEST -> new Chest();
+            case MINER -> new Miner(oreLayout, direction);
+            case CHEST -> new Chest(direction);
             case FURNACE -> new Furnace(BuildingType.FURNACE, direction, recipeBook);
             case PRESS -> new Furnace(BuildingType.PRESS, direction, recipeBook);
             case BELT -> new Belt(direction);
-            case SPLITTER -> new Splitter(SortRule.ORE_FORWARD, direction);
+            case SPLITTER -> new Splitter(direction);
+            // Default filterItem is IRON_ORE — the more common ore, and a reasonable starting
+            // point for a newly-placed FILTER. NOT full parity with the old (deleted)
+            // SortRule.ORE_FORWARD, which forwarded BOTH IRON_ORE and BRONZE_ORE: Filter passes
+            // exactly ONE item identity by design (see Filter's own class javadoc — that's the
+            // whole point of replacing a fixed multi-item rule with player-cyclable data), so no
+            // single default can replicate a two-item rule. A default Filter on a bronze line will
+            // route bronze ore to the side lane until the player cycles it (F) to BRONZE_ORE —
+            // this comment previously overclaimed equivalence with ORE_FORWARD (code review
+            // finding); fixing the mismatch means fixing the CLAIM, since Filter's single-item
+            // design is deliberate, not a bug.
+            case FILTER -> new Filter(direction, Item.IRON_ORE);
+            case INSERTER -> new Inserter(direction);
             case UNDERGROUND_IN -> new UndergroundBelt(UndergroundBelt.Kind.IN, direction);
             case UNDERGROUND_OUT -> new UndergroundBelt(UndergroundBelt.Kind.OUT, direction);
-            case LAB -> new Lab();
+            case LAB -> new Lab(recipeBook);
+            // Reuses Furnace outright (X-03, DEV_TASKS.md) rather than a new Building
+            // implementation: a 2x2 footprint plus a dedicated ASSEMBLER-kind recipe (see
+            // RecipeBook) is the entire difference from PRESS — see Furnace#footprintWidth.
+            case ASSEMBLER -> new Furnace(BuildingType.ASSEMBLER, direction, recipeBook);
         };
     }
 
@@ -82,17 +98,14 @@ public final class BuildingFactory {
      */
     public Building restore(BuildingMemento memento, int speedLevel) {
         Building building = switch (memento) {
-            case BuildingMemento.MinerState s -> new Miner(oreLayout, s.cooldown(), s.held());
-            case BuildingMemento.ChestState s -> new Chest(s.count());
+            case BuildingMemento.MinerState s -> new Miner(oreLayout, s.direction(), s.cooldown(), s.held());
+            case BuildingMemento.ChestState s -> new Chest(s.direction(), s.contents());
             case BuildingMemento.FurnaceState s -> new Furnace(s, recipeBook);
             case BuildingMemento.BeltState s -> new Belt(s.direction(), s.held());
-            // null rule (P4-10, BUG_FIX_PROGRESS.md): a save written before SplitterState carried
-            // one — treat "unknown" as the default rather than failing a save that was fine
-            // before this field existed.
-            case BuildingMemento.SplitterState s ->
-                    new Splitter(s.rule() == null ? SortRule.ORE_FORWARD : SortRule.byId(s.rule()),
-                            s.facing(), s.held());
-            case BuildingMemento.LabState s -> new Lab(s.buffer(), s.cooldown());
+            case BuildingMemento.SplitterState s -> new Splitter(s.facing(), s.held(), s.nextIsForward());
+            case BuildingMemento.FilterState s -> new Filter(s.facing(), s.filterItem(), s.held());
+            case BuildingMemento.InserterState s -> new Inserter(s.direction(), s.held());
+            case BuildingMemento.LabState s -> new Lab(recipeBook, s.buffer(), s.cooldown());
             case BuildingMemento.UndergroundBeltState s -> new UndergroundBelt(s.kind(), s.direction(), s.held());
         };
         for (int i = 0; i < speedLevel; i++) {
@@ -121,19 +134,29 @@ public final class BuildingFactory {
     }
 
     /**
-     * The narrow public door {@code TickScheduler} reaches {@link Belt#clearArrivalMark} through
-     * (P3-03, BUG_FIX_PROGRESS.md) — called once per belt, once per world tick, before either
-     * traversal pass runs.
+     * The narrow public door {@code TickScheduler} reaches every arrival mark through (P3-03,
+     * BUG_FIX_PROGRESS.md) — called once per building, once per world tick, before either traversal
+     * pass runs. Buildings that carry no mark (a chest, a furnace) simply have nothing to clear.
+     *
+     * <p>One method taking any {@link Building} rather than one overload per kind (N2,
+     * NEW_BUGS_PROGRESS.md): the {@code switch} over the sealed hierarchy is what keeps the list
+     * honest — a new relay kind that needs a settle shows up here as a case to consider, in the one
+     * place that knows the whole list, instead of {@code TickScheduler} growing another {@code
+     * instanceof} branch each time. {@link Building#unwrap} first, so a {@link SpeedModule}-wrapped
+     * relay is marked-cleared exactly like a bare one.
      */
-    public static void clearArrivalMark(Belt belt) {
-        belt.clearArrivalMark();
-    }
-
-    /**
-     * Same door, for {@link UndergroundBelt}'s own arrival mark (found in a post-Phase-4 review —
-     * the tunnel analogue of the {@link Belt} case above; see {@link UndergroundBelt#arrivedThisTick}).
-     */
-    public static void clearArrivalMark(UndergroundBelt tunnel) {
-        tunnel.clearArrivalMark();
+    public static void clearArrivalMark(Building building) {
+        switch (Building.unwrap(building)) {
+            case Belt belt -> belt.clearArrivalMark();
+            case UndergroundBelt tunnel -> tunnel.clearArrivalMark();
+            case Splitter splitter -> splitter.clearArrivalMark();
+            case Filter filter -> filter.clearArrivalMark();
+            case Inserter inserter -> inserter.clearArrivalMark();
+            case Miner ignored -> { }
+            case Chest ignored -> { }
+            case Furnace ignored -> { }
+            case Lab ignored -> { }
+            case SpeedModule ignored -> { } // unreachable after unwrap — the compiler still wants it listed
+        }
     }
 }

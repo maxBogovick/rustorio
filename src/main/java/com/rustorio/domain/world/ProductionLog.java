@@ -22,8 +22,9 @@ public final class ProductionLog implements ProductionListener, ProductionLogVie
      */
     private final Deque<Item> recent = new ArrayDeque<>();
 
+    /** {@code tick} isn't used here (D-06, DEV_TASKS.md) — the recent-items log only ever cared about order, not timing. */
     @Override
-    public void onProduced(Item item) {
+    public void onProduced(long tick, Item item) {
         recent.addFirst(item);
         if (recent.size() > CAPACITY) {
             recent.removeLast();

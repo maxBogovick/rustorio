@@ -1,5 +1,8 @@
 package com.rustorio.domain;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -13,22 +16,37 @@ import org.jspecify.annotations.Nullable;
  * BUG_FIX_PROGRESS.md) — not scanned patch-by-patch on every {@link #oreAt} call. {@code
  * WorldRenderer} calls {@code oreAt} for every visible cell, every frame: at maximum zoom-out
  * that's the whole {@value #STANDARD_WIDTH}x{@value #STANDARD_HEIGHT} map, and a linear scan of
- * twelve patches per cell added up to roughly 74,000 {@code contains} checks a frame — the
- * dominant cost of drawing the ground layer.
+ * sixteen patches per cell would add up to roughly 1,048,000 {@code contains} checks a frame if it
+ * weren't precomputed — the dominant cost of drawing the ground layer.
  */
 public final class PatchOreLayout implements OreLayout {
 
     /**
-     * Mirrors {@code GfxConfig.GRID_W}/{@code GRID_H} (the {@code com.graphics} package) without
-     * depending on it — the domain doesn't know the rendering layer's config exists. If the real
-     * map size ever changes, this constant and {@code GfxConfig}'s must be updated together;
-     * nothing enforces that automatically, but the two were never wired together in the first
-     * place either.
+     * The one place the map's size is actually decided (X-04, DEV_TASKS.md) — {@code
+     * GfxConfig.GRID_W}/{@code GRID_H} (the {@code com.graphics} package) reference these directly
+     * rather than repeating the numbers, which is what used to let the two silently disagree
+     * (nothing enforced them matching). Living here, in {@code domain}, and not in {@code
+     * GfxConfig}, respects the one-way dependency direction the rest of the codebase already
+     * requires: {@code graphics} may depend on {@code domain}, never the other way around, so the
+     * source of truth for a domain concept (the size of the world) has to live on this side of
+     * that line for {@code GfxConfig} to be allowed to read it at all.
      */
-    private static final int STANDARD_WIDTH = 96;
+    public static final int STANDARD_WIDTH = 256;
 
-    private static final int STANDARD_HEIGHT = 64;
+    public static final int STANDARD_HEIGHT = 256;
 
+    /**
+     * Owner's known gap from X-04 (DEV_TASKS.md), left alone deliberately: these positions were
+     * chosen for the OLD 96x64 map and still sit inside that same corner of the new, much bigger
+     * {@value #STANDARD_WIDTH}x{@value #STANDARD_HEIGHT} one — most of the enlarged map is
+     * currently ore-free. Rescaling them was considered and rejected for this task: a wide range
+     * of tests ({@code WorldTest}, {@code MinerTest}, {@code PatchOreLayoutTest},
+     * {@code JsonSaveRepositoryTest}, the headless {@code Main}) all hard-code {@code (6, 5)} as
+     * "the center of the standard map's first iron patch" AND build small worlds (some as small as
+     * 4x4-12x8) that the patch has to still fall inside — moving it (or any patch) would break
+     * every one of them at once for a scope this card doesn't ask for. Spreading ore across the
+     * full new map is a real follow-up, just not one this task takes on silently.
+     */
     private static final OrePatch[] PATCHES = {
             new OrePatch(6, 5, 3, Item.IRON_ORE), new OrePatch(9, 14, 3, Item.IRON_ORE),
             new OrePatch(25, 6, 4, Item.IRON_ORE), new OrePatch(28, 15, 3, Item.IRON_ORE),
@@ -36,33 +54,79 @@ public final class PatchOreLayout implements OreLayout {
             new OrePatch(45, 34, 4, Item.IRON_ORE), new OrePatch(14, 44, 3, Item.IRON_ORE),
             new OrePatch(60, 52, 4, Item.BRONZE_ORE), new OrePatch(84, 42, 3, Item.BRONZE_ORE),
             new OrePatch(33, 56, 3, Item.BRONZE_ORE), new OrePatch(88, 8, 3, Item.BRONZE_ORE),
+            // Coal (D-05, DEV_TASKS.md) — smaller deposits than iron/bronze (radius 2, not 3-4),
+            // one placed deliberately near EACH existing iron/bronze cluster (checked by hand for
+            // no overlap): a furnace needs both an ore belt AND a coal belt converging on it now
+            // (§2.3 of the design audit), so coal being reachable near ore, not off on its own,
+            // is what keeps that a solvable planning puzzle instead of a scavenger hunt.
+            new OrePatch(2, 10, 2, Item.COAL), new OrePatch(20, 10, 2, Item.COAL),
+            new OrePatch(65, 15, 2, Item.COAL), new OrePatch(70, 48, 2, Item.COAL),
     };
 
-    private static final PatchOreLayout STANDARD = new PatchOreLayout(STANDARD_WIDTH, STANDARD_HEIGHT);
+    /**
+     * Obstacles (X-02, DEV_TASKS.md), placed well clear of every {@link #PATCHES} entry above
+     * (all of which sit within roughly x&lt;92, y&lt;60 — the old 96x64 map's corner, see that
+     * field's javadoc) so there's no need to resolve an overlap: these coordinates simply don't
+     * reach that region at all. {@link #terrainAt} still lets ore win any accidental overlap
+     * (checked first, in the constructor below) as a second, belt-and-suspenders guarantee.
+     */
+    private static final TerrainPatch[] TERRAIN_PATCHES = {
+            new TerrainPatch(130, 90, 8, Terrain.WATER), new TerrainPatch(200, 60, 7, Terrain.WATER),
+            new TerrainPatch(110, 190, 9, Terrain.WATER),
+            new TerrainPatch(210, 150, 7, Terrain.ROCK), new TerrainPatch(150, 220, 8, Terrain.ROCK),
+            new TerrainPatch(230, 220, 6, Terrain.ROCK),
+    };
 
     private final int width;
     private final int height;
     private final @Nullable Item[] grid;
+    private final Terrain[] terrainGrid;
+    /**
+     * Calls to {@link #extract} per cell so far, parallel to {@link #grid} — see {@link
+     * OreDepletion} (D-04, DEV_TASKS.md). Zeroed at construction: every fresh {@code
+     * PatchOreLayout} starts fully unspoiled, which is exactly why {@link #standard} builds a new
+     * one on every call rather than caching one — see that method's javadoc.
+     */
+    private final int[] extractedCount;
 
     private PatchOreLayout(int width, int height) {
         this.width = width;
         this.height = height;
         this.grid = new Item[width * height];
+        this.extractedCount = new int[width * height];
+        this.terrainGrid = new Terrain[width * height];
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
+                int index = y * width + x;
                 for (OrePatch patch : PATCHES) {
                     if (patch.contains(x, y)) {
-                        grid[y * width + x] = patch.ore();
+                        grid[index] = patch.ore();
                         break;
+                    }
+                }
+                terrainGrid[index] = Terrain.GROUND;
+                if (grid[index] == null) { // ore always wins — never paint terrain over an ore cell
+                    for (TerrainPatch patch : TERRAIN_PATCHES) {
+                        if (patch.contains(x, y)) {
+                            terrainGrid[index] = patch.terrain();
+                            break;
+                        }
                     }
                 }
             }
         }
     }
 
-    /** The game's built-in map — twelve patches, eight iron and four bronze. */
+    /**
+     * The game's built-in map — sixteen patches: eight iron, four bronze, four coal (D-05). Builds
+     * a brand-new instance every call, deliberately NOT a cached singleton (D-04, DEV_TASKS.md):
+     * once ore depletion made this class stateful and mutable, every caller sharing one cached
+     * instance would have shared its depletion too — a test exhausting a cell would leave it thin
+     * for the next unrelated {@code World} built in the same JVM. Rebuilding costs one
+     * O(width×height×16) scan, microseconds, paid once per {@code World} construction, never per tick.
+     */
     public static PatchOreLayout standard() {
-        return STANDARD;
+        return new PatchOreLayout(STANDARD_WIDTH, STANDARD_HEIGHT);
     }
 
     @Override
@@ -73,9 +137,54 @@ public final class PatchOreLayout implements OreLayout {
         return Optional.ofNullable(grid[y * width + x]);
     }
 
-    /** Always the same fixed map — {@code seed}/{@code width}/{@code height} carry no meaning here. */
+    @Override
+    public Optional<Item> extract(int x, int y) {
+        Optional<Item> ore = oreAt(x, y);
+        if (ore.isEmpty()) {
+            return Optional.empty();
+        }
+        int index = y * width + x;
+        boolean yields = OreDepletion.yields(extractedCount[index]++);
+        return yields ? ore : Optional.empty();
+    }
+
+    /**
+     * Always the same fixed map, so {@code seed} carries no meaning here — but the dimensions do
+     * (N11, NEW_BUGS_PROGRESS.md). They used to be reported as {@code 0, 0} while this class was
+     * building a {@value #STANDARD_WIDTH}x{@value #STANDARD_HEIGHT} grid; this identifier is the one
+     * thing {@code JsonSaveRepository.load} compares before accepting a save (P2-01, owner decision
+     * A), so a component of it stating something untrue about the map is exactly the wrong place for
+     * a placeholder.
+     */
     @Override
     public OreLayoutId id() {
-        return new OreLayoutId("patch", 0, 0, 0);
+        return new OreLayoutId("patch", 0, width, height);
+    }
+
+    @Override
+    public Map<Integer, Integer> depletionSnapshot() {
+        Map<Integer, Integer> snapshot = new HashMap<>();
+        for (int index = 0; index < extractedCount.length; index++) {
+            if (extractedCount[index] != 0) {
+                snapshot.put(index, extractedCount[index]);
+            }
+        }
+        return snapshot;
+    }
+
+    @Override
+    public void restoreDepletion(Map<Integer, Integer> snapshot) {
+        Arrays.fill(extractedCount, 0);
+        for (Map.Entry<Integer, Integer> entry : snapshot.entrySet()) {
+            extractedCount[entry.getKey()] = entry.getValue();
+        }
+    }
+
+    @Override
+    public Terrain terrainAt(int x, int y) {
+        if (x < 0 || y < 0 || x >= width || y >= height) {
+            return Terrain.ROCK; // fail closed — off the generated grid entirely, never buildable
+        }
+        return terrainGrid[y * width + x];
     }
 }

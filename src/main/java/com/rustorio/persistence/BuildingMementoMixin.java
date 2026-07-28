@@ -19,6 +19,8 @@ import com.rustorio.domain.building.BuildingMemento;
         @JsonSubTypes.Type(value = BuildingMemento.FurnaceState.class, name = "FURNACE"),
         @JsonSubTypes.Type(value = BuildingMemento.BeltState.class, name = "BELT"),
         @JsonSubTypes.Type(value = BuildingMemento.SplitterState.class, name = "SPLITTER"),
+        @JsonSubTypes.Type(value = BuildingMemento.FilterState.class, name = "FILTER"),
+        @JsonSubTypes.Type(value = BuildingMemento.InserterState.class, name = "INSERTER"),
         @JsonSubTypes.Type(value = BuildingMemento.LabState.class, name = "LAB"),
         @JsonSubTypes.Type(value = BuildingMemento.UndergroundBeltState.class, name = "UNDERGROUND_BELT"),
 })

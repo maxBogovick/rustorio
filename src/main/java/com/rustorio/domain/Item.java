@@ -19,7 +19,9 @@ public enum Item {
     ENGINE(true),
     CHASSIS(true),
     ALLOY_PLATE(false),
-    ALLOY_GEAR(true);
+    ALLOY_GEAR(true),
+    /** Fuel, not a recipe ingredient (D-05, DEV_TASKS.md) — mined like ore, consumed by {@code Furnace} to smelt at all. */
+    COAL(false);
 
     private final boolean researchable;
 

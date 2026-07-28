@@ -7,6 +7,7 @@ import com.rustorio.domain.building.TickContext;
 import com.rustorio.domain.building.UndergroundBelt;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.function.BiConsumer;
 
 /**
  * The two-phase, belt-aware traversal extracted out of {@code World.tick()} (P3-03,
@@ -39,30 +40,37 @@ final class TickScheduler {
     private TickScheduler() {
     }
 
-    static void tick(NavigableMap<World.Coord, Building> buildings, TickContext context) {
+    /**
+     * @param afterTick called once per building, right after that building's own {@link
+     *     Building#tick} — {@code World} uses it to keep its per-status counts current (S1,
+     *     CODE_REVIEW_2026-07-28.md) by reading {@link Building#appearance()}, which a building
+     *     only recomputes as part of its own {@code tick()} anyway (see {@code BuildingStatus}'s
+     *     javadoc) — piggy-backing here costs nothing beyond a map read this traversal wasn't
+     *     already going to do.
+     */
+    static void tick(NavigableMap<World.Coord, Building> buildings, TickContext context,
+            BiConsumer<World.Coord, Building> afterTick) {
         for (Building building : buildings.values()) {
-            Building unwrapped = Building.unwrap(building);
-            if (unwrapped instanceof Belt belt) {
-                BuildingFactory.clearArrivalMark(belt);
-            } else if (unwrapped instanceof UndergroundBelt tunnel) {
-                BuildingFactory.clearArrivalMark(tunnel);
-            }
+            BuildingFactory.clearArrivalMark(building);
         }
 
         for (Map.Entry<World.Coord, Building> entry : buildings.descendingMap().entrySet()) {
             if (entry.getValue().prefersDescendingTick()) {
-                tickEntry(entry, context);
+                tickEntry(entry, context, afterTick);
             }
         }
         for (Map.Entry<World.Coord, Building> entry : buildings.entrySet()) {
             if (!entry.getValue().prefersDescendingTick()) {
-                tickEntry(entry, context);
+                tickEntry(entry, context, afterTick);
             }
         }
     }
 
-    private static void tickEntry(Map.Entry<World.Coord, Building> entry, TickContext context) {
+    private static void tickEntry(Map.Entry<World.Coord, Building> entry, TickContext context,
+            BiConsumer<World.Coord, Building> afterTick) {
         World.Coord coord = entry.getKey();
-        entry.getValue().tick(context, coord.x(), coord.y());
+        Building building = entry.getValue();
+        building.tick(context, coord.x(), coord.y());
+        afterTick.accept(coord, building);
     }
 }

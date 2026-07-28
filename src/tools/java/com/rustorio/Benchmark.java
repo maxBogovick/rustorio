@@ -2,10 +2,17 @@ package com.rustorio;
 
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
+import com.rustorio.domain.OreLayout;
+import com.rustorio.domain.OreLayoutId;
+import com.rustorio.domain.RecipeBook;
+import com.rustorio.domain.Terrain;
 import com.rustorio.domain.building.Belt;
+import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.world.World;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Headless benchmark: how many milliseconds one {@link World#tick()} takes on a scene of a given
@@ -51,8 +58,23 @@ public final class Benchmark {
         System.out.printf("Average step time: %.4f ms/tick%n", msPerTick);
     }
 
+    /**
+     * (X-02, DEV_TASKS.md) Uses {@link FlatOreLayout} — no ore, no terrain, any size — rather than
+     * the default {@code BuildingFactory.standard()}: that default's {@code PatchOreLayout} is a
+     * fixed 256x256 grid (X-04), and this scene's height ({@code lanes * 2}) already exceeds that
+     * at the default 300 lanes; a cell off the end of a layout's own generated grid now reports
+     * impassable (fail closed — see {@code PlacementRule}), where the old terrain-blind {@code
+     * PlacementRule.ALWAYS} silently ignored the mismatch. {@link com.rustorio.domain.RandomOreLayout}
+     * was considered instead and rejected: this scene tiles belts across roughly half of a
+     * 100000+-cell map, and random water/rock patches would collide with some of them often enough
+     * to make the benchmark fail unpredictably depending on lane count — a performance measurement
+     * tool has no reason to depend on terrain generation at all.
+     */
     private static Scene buildScene(int lanes, int laneLength) {
-        World world = new World(laneLength + 2, lanes * 2);
+        int width = laneLength + 2;
+        int height = lanes * 2;
+        BuildingFactory buildingFactory = new BuildingFactory(new FlatOreLayout(), RecipeBook.standard());
+        World world = new World(width, height, buildingFactory);
         List<Belt> tails = new ArrayList<>(lanes);
         for (int lane = 0; lane < lanes; lane++) {
             int y = lane * 2; // every other row — adjacent lanes' belts never touch, segments never merge
@@ -80,6 +102,43 @@ public final class Benchmark {
                 tail.accept(world, Item.IRON_ORE); // tail busy -> rejected, harmlessly
             }
             world.tick();
+        }
+    }
+
+    /**
+     * No ore, no terrain, unbounded — this benchmark measures belt-tick cost, not ore or terrain
+     * mechanics, so the simplest honest {@link OreLayout} is one that never has an opinion about
+     * either (X-02, DEV_TASKS.md).
+     */
+    private static final class FlatOreLayout implements OreLayout {
+        @Override
+        public Optional<Item> oreAt(int x, int y) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<Item> extract(int x, int y) {
+            return Optional.empty();
+        }
+
+        @Override
+        public OreLayoutId id() {
+            return new OreLayoutId("benchmark-flat", 0, 0, 0);
+        }
+
+        @Override
+        public Terrain terrainAt(int x, int y) {
+            return Terrain.GROUND;
+        }
+
+        @Override
+        public Map<Integer, Integer> depletionSnapshot() {
+            return Map.of(); // no ore, nothing ever extracted — see the class javadoc
+        }
+
+        @Override
+        public void restoreDepletion(Map<Integer, Integer> snapshot) {
+            // not exercised — this layout is never saved/loaded, only ticked
         }
     }
 }

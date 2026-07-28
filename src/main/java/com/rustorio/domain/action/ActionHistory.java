@@ -41,13 +41,21 @@ public final class ActionHistory {
         undone.push(action);
     }
 
+    /**
+     * Re-apply the most recently undone action — and, exactly like {@link #perform}, remember it for
+     * undo ONLY if it actually applied (N1, NEW_BUGS_PROGRESS.md). A redo can genuinely fail: the
+     * cell it wants may have been built on in the meantime, or the player may no longer be able to
+     * afford it. Pushing such an action onto {@code done} anyway would let the next {@code undo}
+     * demolish (and refund) a building this action never placed.
+     */
     public void redo(World world) {
         if (undone.isEmpty()) {
             return;
         }
         PlayerAction action = undone.pop();
-        action.apply(world);
-        done.push(action);
+        if (action.apply(world)) {
+            done.push(action);
+        }
     }
 
     /**

@@ -2,7 +2,6 @@ package com.graphics.render;
 
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Matrix4;
-import com.badlogic.gdx.math.Vector3;
 import com.graphics.GfxConfig;
 
 /**
@@ -17,36 +16,26 @@ import com.graphics.GfxConfig;
  *
  * <p>Камера — «через что смотрим», а не «что в мире», поэтому логике игры она не нужна и про
  * неё не знает. Двигает её слой ввода.
+ *
+ * <p><b>Тонкая обёртка над {@link CameraViewport} (A1, CODE_REVIEW_2026-07-28.md).</b> Вся
+ * арифметика (зум/скролл/{@link #pickTile}/{@link #visibleTiles}) живёт в {@link CameraViewport},
+ * классе без единого типа libGDX — сюда вынесена ровно затем, чтобы её можно было гонять в
+ * headless-тесте. Этот класс лишь синхронизирует {@link CameraViewport}'а с реальной {@link
+ * OrthographicCamera} после каждой мутации, чтобы {@link #combined()}/{@link #hudMatrix()}
+ * отдавали актуальные матрицы для отрисовки — то единственное, ради чего здесь вообще нужен
+ * libGDX (и что делает ЭТОТ класс непроверяемым headless: {@code OrthographicCamera.update()}
+ * зовёт нативный {@code Matrix4.prj}, которого нет вне настоящего оконного запуска).
  */
 public final class GameCamera {
 
-    /**
-     * Пол для вьюпорта камеры (в точках). {@code height - HUD_TOP_HEIGHT - HUD_BOTTOM_HEIGHT}
-     * уходит в минус, как только окно (оно {@code setResizable(true)}, без
-     * {@code setWindowSizeLimits}) становится ниже суммы высот HUD-панелей — тогда
-     * {@link com.graphics.render.Renderer} передаёт отрицательную высоту в {@code glViewport}
-     * (тот отвечает {@code GL_INVALID_VALUE} и не рисует мир), а {@link #axisClamp} с
-     * отрицательным {@code halfView} расширяет допустимый диапазон камеры вместо того, чтобы его
-     * ограничивать.
-     */
-    private static final float MIN_VIEWPORT_HEIGHT = 64f;
-
     private final OrthographicCamera cam = new OrthographicCamera();
     private final Matrix4 hudMatrix = new Matrix4();
-    /** Размер поля в пикселях. */
-    private final float worldW;
-    private final float worldH;
-    private final int gridH;
-    private final Vector3 tmp = new Vector3();
+    private final CameraViewport viewport;
 
     public GameCamera(int gridW, int gridH) {
-        this.gridH = gridH;
-        this.worldW = gridW * GfxConfig.TILE;
-        this.worldH = gridH * GfxConfig.TILE;
-        resize(GfxConfig.WINDOW_W, GfxConfig.WINDOW_H);
-        // Стартуем над левым верхним углом карты.
-        cam.position.set(cam.viewportWidth / 2f, worldH - cam.viewportHeight / 2f, 0);
-        clampAndUpdate();
+        this.viewport = new CameraViewport(gridW, gridH);
+        sync();
+        hudMatrix.setToOrtho2D(0, 0, GfxConfig.WINDOW_W, GfxConfig.WINDOW_H);
     }
 
     /**
@@ -61,11 +50,9 @@ public final class GameCamera {
      * который insets не касаются.
      */
     public void resize(int width, int height) {
-        cam.viewportWidth = Math.max(1f, width);
-        cam.viewportHeight = Math.max(MIN_VIEWPORT_HEIGHT,
-                height - GfxConfig.HUD_TOP_HEIGHT - GfxConfig.HUD_BOTTOM_HEIGHT);
+        viewport.resize(width, height);
         hudMatrix.setToOrtho2D(0, 0, width, height);
-        clampAndUpdate();
+        sync();
     }
 
     /**
@@ -73,8 +60,8 @@ public final class GameCamera {
      * Умножение на зум — чтобы драг «прилипал» к миру на любом зуме.
      */
     public void pan(float dx, float dy) {
-        cam.position.add(dx * cam.zoom, dy * cam.zoom, 0);
-        clampAndUpdate();
+        viewport.pan(dx, dy);
+        sync();
     }
 
     /**
@@ -86,15 +73,8 @@ public final class GameCamera {
      * @param steps   положительное — отдалить, отрицательное — приблизить
      */
     public void zoomAt(float screenX, float screenY, float steps) {
-        unproject(screenX, screenY);
-        float anchorX = tmp.x;
-        float anchorY = tmp.y;
-        float factor = (float) Math.pow(GfxConfig.CAMERA_ZOOM_STEP, steps);
-        cam.zoom = clamp(cam.zoom * factor, GfxConfig.CAMERA_ZOOM_MIN, GfxConfig.CAMERA_ZOOM_MAX);
-        cam.update();
-        unproject(screenX, screenY);
-        cam.position.add(anchorX - tmp.x, anchorY - tmp.y, 0);
-        clampAndUpdate();
+        viewport.zoomAt(screenX, screenY, steps);
+        sync();
     }
 
     /**
@@ -102,16 +82,7 @@ public final class GameCamera {
      * Это culling: рендер обходит ТОЛЬКО эти клетки, а не всё поле.
      */
     public TileRange visibleTiles(int gridW) {
-        float halfW = cam.viewportWidth * cam.zoom / 2f;
-        float halfH = cam.viewportHeight * cam.zoom / 2f;
-        int minX = (int) Math.floor((cam.position.x - halfW) / GfxConfig.TILE);
-        int maxX = (int) Math.floor((cam.position.x + halfW) / GfxConfig.TILE);
-        // Верх экрана (большой мировой Y) — это МАЛЫЙ номер строки: строки считаются сверху.
-        int minY = gridH - 1 - (int) Math.floor((cam.position.y + halfH) / GfxConfig.TILE);
-        int maxY = gridH - 1 - (int) Math.floor((cam.position.y - halfH) / GfxConfig.TILE);
-        return new TileRange(
-                Math.max(minX, 0), Math.max(minY, 0),
-                Math.min(maxX, gridW - 1), Math.min(maxY, gridH - 1));
+        return viewport.visibleTiles(gridW);
     }
 
     /**
@@ -122,10 +93,7 @@ public final class GameCamera {
      * @param screenY пиксель мыши от ВЕРХА окна (как отдаёт {@code Gdx.input})
      */
     public TilePos pickTile(float screenX, float screenY) {
-        unproject(screenX, screenY);
-        int gx = (int) Math.floor(tmp.x / GfxConfig.TILE);
-        int gy = gridH - 1 - (int) Math.floor(tmp.y / GfxConfig.TILE);
-        return new TilePos(gx, gy);
+        return viewport.pickTile(screenX, screenY);
     }
 
     /** Матрица «мир → экран» для проходов отрисовки поля. */
@@ -139,39 +107,15 @@ public final class GameCamera {
     }
 
     /**
-     * Пиксель окна → точка мировой плоскости (результат — в {@link #tmp}).
-     *
-     * <p>Считаем сами, а не через {@code cam.unproject}: тот лезет в глобальный
-     * {@code Gdx.graphics} за высотой окна. Для ортокамеры перевод — две строки арифметики.
-     *
-     * <p>{@code screenY} приходит «сырым» — от {@code Gdx.input}, считая от ВЕРХА ВСЕГО окна.
-     * Вьюпорт камеры начинается не с самого верха окна, а с отступом в {@link
-     * GfxConfig#HUD_TOP_HEIGHT} (там рисуется верхняя панель) — вычитаем его, чтобы 0 в формуле
-     * ниже означал «верх вьюпорта камеры», а не «верх окна».
+     * Переносит текущее состояние {@link #viewport} (позиция/зум/размер вьюпорта — вся
+     * арифметика посчитана ТАМ) в реальную {@link OrthographicCamera} и просит её пересчитать
+     * матрицы. Единственное место, где этот класс трогает {@code cam} напрямую.
      */
-    private void unproject(float screenX, float screenY) {
-        float viewportY = screenY - GfxConfig.HUD_TOP_HEIGHT;
-        tmp.set(cam.position.x + (screenX - cam.viewportWidth / 2f) * cam.zoom,
-                cam.position.y + (cam.viewportHeight / 2f - viewportY) * cam.zoom, 0);
-    }
-
-    /** Не дать укатить камеру в пустоту: центр держится в пределах карты. */
-    private void clampAndUpdate() {
-        float halfW = cam.viewportWidth * cam.zoom / 2f;
-        float halfH = cam.viewportHeight * cam.zoom / 2f;
-        cam.position.x = axisClamp(cam.position.x, halfW, worldW);
-        cam.position.y = axisClamp(cam.position.y, halfH, worldH);
+    private void sync() {
+        cam.viewportWidth = viewport.viewportWidth();
+        cam.viewportHeight = viewport.viewportHeight();
+        cam.zoom = viewport.zoom();
+        cam.position.set(viewport.x(), viewport.y(), 0);
         cam.update();
-    }
-
-    private static float axisClamp(float pos, float halfView, float worldSpan) {
-        if (halfView * 2 >= worldSpan) {
-            return worldSpan / 2f; // вид шире мира — центрируем
-        }
-        return clamp(pos, halfView, worldSpan - halfView);
-    }
-
-    private static float clamp(float v, float lo, float hi) {
-        return Math.max(lo, Math.min(hi, v));
     }
 }

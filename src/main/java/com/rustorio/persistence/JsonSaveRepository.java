@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.rustorio.domain.OreLayoutId;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingFactory;
+import com.rustorio.domain.world.PlayerInventory;
 import com.rustorio.domain.world.World;
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -60,8 +61,12 @@ public final class JsonSaveRepository implements SaveRepository {
         List<PlacedBuilding> placed = new ArrayList<>();
         world.forEachBuilding((x, y, building) ->
                 placed.add(new PlacedBuilding(x, y, building.speedLevel(), building.memento())));
-        WorldSnapshot snapshot = new WorldSnapshot(world.stats().snapshot(), world.research().snapshot(), placed,
-                world.buildingFactory().oreLayout().id());
+        WorldSnapshot snapshot = new WorldSnapshot(WorldSnapshot.CURRENT_VERSION,
+                world.stats().snapshot(), world.research().snapshot(), placed,
+                world.buildingFactory().oreLayout().id(),
+                world.inventory().snapshot().amounts(),
+                world.buildingFactory().oreLayout().depletionSnapshot(),
+                world.currentTick());
 
         Path tmp = null;
         try {
@@ -104,6 +109,11 @@ public final class JsonSaveRepository implements SaveRepository {
      * the world being loaded into, fail rather than silently placing miners built for one ore map
      * onto another (see P2-01, owner decision A, in BUG_FIX_PROGRESS.md). A {@code null} {@code
      * oreLayout} — a save written before this field existed — means "unknown, don't check."
+     *
+     * <p>Checked before even that, first of everything (D-07, DEV_TASKS.md): {@link
+     * WorldSnapshot#version()} must match {@link WorldSnapshot#CURRENT_VERSION} — see that
+     * record's own javadoc for why a plain equality check replaces a growing pile of {@code
+     * @Nullable} migration fields.
      */
     @Override
     public SaveResult load(World world) {
@@ -112,6 +122,11 @@ public final class JsonSaveRepository implements SaveRepository {
             snapshot = mapper.readValue(path.toFile(), WorldSnapshot.class);
         } catch (IOException e) {
             return failure(e);
+        }
+
+        if (snapshot.version() != WorldSnapshot.CURRENT_VERSION) {
+            return new SaveResult.Failure("save format version " + snapshot.version()
+                    + " is not supported (expected " + WorldSnapshot.CURRENT_VERSION + ")");
         }
 
         BuildingFactory factory = world.buildingFactory();
@@ -133,6 +148,11 @@ public final class JsonSaveRepository implements SaveRepository {
         world.clear();
         world.restoreStats(snapshot.stats());
         world.restoreResearch(snapshot.research());
+        world.restoreInventory(new PlayerInventory.Snapshot(snapshot.inventory()));
+        // Before restoring the buildings, and in particular before anything ticks: the stats
+        // restored just above are timestamped against this clock (N3, NEW_BUGS_PROGRESS.md).
+        world.restoreTickCount(snapshot.tickCount());
+        factory.oreLayout().restoreDepletion(snapshot.oreDepletion());
         for (Map.Entry<PlacedBuilding, Building> entry : rebuilt) {
             world.restoreBuilding(entry.getKey().x(), entry.getKey().y(), entry.getValue());
         }

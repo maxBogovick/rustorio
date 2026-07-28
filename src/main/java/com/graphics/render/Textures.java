@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.PixmapPacker;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Disposable;
+import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Sprite;
 
 /**
@@ -40,10 +41,16 @@ public final class Textures implements Disposable {
     private final TextureRegion furnaceOn;
     private final TextureRegion furnaceOff;
     private final TextureRegion splitter;
+    private final TextureRegion filter;
+    private final TextureRegion inserter;
     private final TextureRegion undergroundIn;
     private final TextureRegion undergroundOut;
     /** Плашка-заглушка: нарисованного спрайта лаборатории в resources/ ещё нет. */
     private final TextureRegion lab;
+    /** X-03, DEV_TASKS.md: единственное здание на 2×2 клетки — до этой задачи resources/assembler.png нигде не читался. */
+    private final TextureRegion assembler;
+    /** Уголь на земле (D-05, DEV_TASKS.md) — единственный спрайт ПРЕДМЕТА, который реально упакован в атлас, см. {@link WorldRenderer}. */
+    private final TextureRegion coalOre;
 
     public Textures() {
         // padding=2 + duplicateBorder: соседние спрайты не «протекают» друг в друга
@@ -53,7 +60,7 @@ public final class Textures implements Disposable {
         // цифры имени в «индекс региона» ("miner_1" → name="miner", index=1), и
         // тогда findRegion("miner_1") ничего не находит. Суффиксы-буквы этого избегают.
         // Только первый кадр бура упакован — {@link #forSprite} не анимирует его (см. P4-01,
-        // BUG_FIX_PROGRESS.md); остальные кадры и resources/assembler.png сейчас нигде не читаются.
+        // BUG_FIX_PROGRESS.md); остальные кадры бура по-прежнему нигде не читаются.
         packFile(packer, "miner_a", "resources/miner_1.png");
         packFile(packer, "belt_a", "resources/belt_1.png");
         packFile(packer, "belt_b", "resources/belt_2.png");
@@ -61,12 +68,25 @@ public final class Textures implements Disposable {
         packFile(packer, "furnace_on", "resources/furnace_on.png");
         packFile(packer, "furnace_off", "resources/furnace_off.png");
         packFile(packer, "splitter", "resources/branch_1.png");
+        // X-01, DEV_TASKS.md: Splitter split into Splitter (round-robin) + Filter + a new
+        // Inserter — branch_2/branch_3.png were already in resources/, packed but unused, since
+        // the old single combined building only ever needed branch_1.
+        packFile(packer, "filter", "resources/branch_2.png");
+        packFile(packer, "inserter", "resources/branch_3.png");
         packFile(packer, "underground_a", "resources/underground_in.png");
         packFile(packer, "underground_b", "resources/underground_out.png");
         packLabPlaceholder(packer);
+        // X-03, DEV_TASKS.md: the first (and so far only) 2x2 building — see BuildingRenderer's
+        // footprint-aware draw call, which stretches this one region across two tiles' worth of
+        // screen space instead of one.
+        packFile(packer, "assembler", "resources/assembler.png");
         // Спрайты предметов (iron_ore.png и т.п.) сознательно НЕ упакованы: это заготовки
         // 3×4/4×4 пикселя, неотличимые друг от друга на глаз — груз рисует {@link ItemRenderer}
         // кружком через ShapeRenderer, настоящая художка для предметов не нужна.
+        // coal_ore.png — та же 4×4 заготовка, но D-05 (DEV_TASKS.md) прямо требует использовать
+        // именно этот файл в рендере, а не только цвет земли (см. WorldRenderer) — единственное
+        // исключение из правила выше.
+        packFile(packer, "coal_ore", "resources/coal_ore.png");
 
         // Пока всё уместилось в одну страницу 1024×1024, атлас — это ровно ОДНА
         // текстура: все регионы делят её, и SpriteBatch не сбрасывает пачку.
@@ -81,9 +101,13 @@ public final class Textures implements Disposable {
         furnaceOn = region("furnace_on");
         furnaceOff = region("furnace_off");
         splitter = region("splitter");
+        filter = region("filter");
+        inserter = region("inserter");
         undergroundIn = region("underground_a");
         undergroundOut = region("underground_b");
         lab = region("lab");
+        assembler = region("assembler");
+        coalOre = region("coal_ore");
     }
 
     /**
@@ -102,10 +126,42 @@ public final class Textures implements Disposable {
             case BELT_EMPTY -> belt[0];
             case BELT_FULL -> belt[1];
             case SPLITTER -> splitter;
+            case FILTER -> filter;
+            case INSERTER -> inserter;
             case UNDERGROUND_IN -> undergroundIn;
             case UNDERGROUND_OUT -> undergroundOut;
             case LAB -> lab;
+            case ASSEMBLER -> assembler;
         };
+    }
+
+    /**
+     * A building's "at rest" picture, by kind rather than by {@link Sprite} — a live building's
+     * {@link Sprite} can depend on its own state (a furnace's hot/cold, F-01's status), which
+     * neither the hotbar icon ({@link HudRenderer}) nor the build-ghost preview ({@link
+     * OverlayRenderer}, F-02, DEV_TASKS.md) has: there's no live building yet, only a chosen kind.
+     * One switch, not two that could quietly drift apart — the same reason {@link Palette#itemColor}
+     * exists instead of a copy in every renderer that needs an item's color.
+     */
+    TextureRegion forBuildingType(BuildingType type) {
+        return switch (type) {
+            case MINER -> miner;
+            case CHEST -> chest;
+            case FURNACE, PRESS -> furnaceOff;
+            case BELT -> belt[0];
+            case SPLITTER -> splitter;
+            case FILTER -> filter;
+            case INSERTER -> inserter;
+            case UNDERGROUND_IN -> undergroundIn;
+            case UNDERGROUND_OUT -> undergroundOut;
+            case LAB -> lab;
+            case ASSEMBLER -> assembler;
+        };
+    }
+
+    /** Спрайт угля на земле (D-05, DEV_TASKS.md) — читает {@link WorldRenderer}, рисуя его поверх клеток с углём. */
+    TextureRegion coalOre() {
+        return coalOre;
     }
 
     /** Регион атласа по имени; отсутствие — ошибка сборки атласа, а не тихий null. */

@@ -3,6 +3,10 @@ package com.rustorio.domain.building;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -23,12 +27,41 @@ import org.jspecify.annotations.Nullable;
  */
 public sealed interface BuildingMemento {
 
-    record MinerState(int cooldown, @Nullable Item held) implements BuildingMemento {
+    record MinerState(Direction direction, int cooldown, @Nullable Item held) implements BuildingMemento {
     }
 
-    record ChestState(int count) implements BuildingMemento {
+    /**
+     * {@code contents} carries per-kind counts now, not one blind total (D-02, DEV_TASKS.md — §2.5
+     * of the design audit: the old chest threw away item identity on {@code accept}).
+     *
+     * <p>Wrapped in an {@link EnumMap}, not {@code Map.copyOf}: the latter's iteration order is
+     * deliberately randomized per JVM run for maps with more than one entry (see {@code
+     * java.util.ImmutableCollections}'s salt) — the same trap {@code WorldReplayTest} (S-01) had to
+     * route around for {@code ProductionStats.Snapshot}'s totals map. This record's default {@code
+     * toString()} is exactly what feeds that replay test's canonical state string, so a randomized
+     * order here would make the "same input, same hash" guarantee quietly false.
+     */
+    record ChestState(Direction direction, Map<Item, Integer> contents) implements BuildingMemento {
+        public ChestState {
+            // new EnumMap<>(Map) throws ClassCastException when the argument is empty and isn't
+            // itself an EnumMap (it can't infer the key type from zero entries — Jackson hands one
+            // of these for every freshly-placed, still-empty chest it deserializes). Same issue
+            // Research.Snapshot's EnumSet already solved: build an empty EnumMap with an explicit
+            // key type, then copy into it, instead of asking EnumMap to copy blind.
+            Map<Item, Integer> copy = new EnumMap<>(Item.class);
+            copy.putAll(contents);
+            contents = Collections.unmodifiableMap(copy);
+        }
     }
 
+    /**
+     * {@code fuelBuffer} — coal on hand (D-05, DEV_TASKS.md); always 0 for a {@code PRESS}, which
+     * has no fuel concept. {@code selectedRecipeOutput} — the player's STANDING preference among
+     * ambiguous recipes (F-03, DEV_TASKS.md; see {@code Furnace#selectedRecipe}'s own javadoc for
+     * why it's a separate field from {@code recipeOutput}, which is the currently COMMITTED batch)
+     * — {@code @Nullable} both for "no preference" and so a save written before this field existed
+     * still deserializes (Jackson defaults a missing reference-typed field to {@code null}).
+     */
     record FurnaceState(
             BuildingType kind,
             Direction direction,
@@ -36,21 +69,41 @@ public sealed interface BuildingMemento {
             int bufferB,
             int cooldown,
             @Nullable Item recipeOutput,
-            @Nullable Item pendingOutput) implements BuildingMemento {
+            @Nullable Item pendingOutput,
+            int fuelBuffer,
+            @Nullable Item selectedRecipeOutput) implements BuildingMemento {
     }
 
     record BeltState(Direction direction, @Nullable Item held) implements BuildingMemento {
     }
 
     /**
-     * {@code rule} is the persisted {@code SortRule}'s id (P4-10, BUG_FIX_PROGRESS.md — owner
-     * decision A) — {@code @Nullable} so a save written before this field existed still loads;
-     * {@code null} means "unknown, assume the default" (see {@code BuildingFactory#restore}).
+     * {@code nextIsForward} — which side {@link Splitter} sends its NEXT delivered item to (X-01,
+     * DEV_TASKS.md). Replaces the old {@code rule} field (a persisted {@code SortRule} id, P4-10) —
+     * {@link Splitter} no longer has a rule at all, it's a strict round-robin now; the OTHER half
+     * of the old combined building, {@link Filter}'s player-chosen item, has its own {@link
+     * FilterState}.
      */
-    record SplitterState(Direction facing, @Nullable Item held, @Nullable String rule) implements BuildingMemento {
+    record SplitterState(Direction facing, @Nullable Item held, boolean nextIsForward) implements BuildingMemento {
     }
 
-    record LabState(int buffer, int cooldown) implements BuildingMemento {
+    /** {@code filterItem} — the player's choice via {@link Filter#cycleFilterItem} (X-01, DEV_TASKS.md): what passes forward: everything else goes to the rotated side. */
+    record FilterState(Direction facing, @Nullable Item held, Item filterItem) implements BuildingMemento {
+    }
+
+    /** (X-01, DEV_TASKS.md) A single-cell direct-transfer building — see {@link Inserter}'s own javadoc for why it's mechanically a one-tile {@link Belt}. */
+    record InserterState(Direction direction, @Nullable Item held) implements BuildingMemento {
+    }
+
+    /**
+     * {@code buffer} carries each queued item's OWN identity now, not just how many (P-01,
+     * DEV_TASKS.md) — {@link Lab} awards points per finished batch proportional to that specific
+     * item's {@code RecipeBook.depthOf}, which needs to know which item is which, not only a count.
+     */
+    record LabState(List<Item> buffer, int cooldown) implements BuildingMemento {
+        public LabState {
+            buffer = List.copyOf(buffer);
+        }
     }
 
     record UndergroundBeltState(UndergroundBelt.Kind kind, Direction direction, @Nullable Item held)

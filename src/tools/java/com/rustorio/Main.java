@@ -2,6 +2,7 @@ package com.rustorio;
 
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
+import com.rustorio.domain.building.Building;
 import com.rustorio.domain.world.World;
 
 /**
@@ -23,6 +24,7 @@ public final class Main {
         world.placeFurnace(8, 5, Direction.RIGHT);
         world.placeBelt(9, 5, Direction.RIGHT);
         world.placeChest(10, 5);
+        Building furnace = world.peek(8, 5).orElseThrow();
 
         System.out.println("""
                 Rustorio — headless run
@@ -30,6 +32,14 @@ public final class Main {
                 """);
 
         for (int tick = 1; tick <= TICKS; tick++) {
+            // FURNACE needs coal to smelt at all now (D-05, DEV_TASKS.md) — a real coal line
+            // would need this tiny 12x8 demo world enlarged to actually reach one of the standard
+            // map's coal patches (none fall within these bounds) plus a second belt run
+            // converging on the furnace from another side, which is exactly the "ore one side,
+            // coal the other" planning puzzle D-05 is about — real gameplay, not a 20-line
+            // headless demo's job to model. accept() caps at its own fuel limit and returns
+            // false once full, so this is a harmless no-op most ticks.
+            furnace.accept(world, Item.COAL);
             world.tick();
             if (tick % REPORT_EVERY == 0) {
                 System.out.printf("tick %3d: ore mined %2d, plates smelted %2d%n",
