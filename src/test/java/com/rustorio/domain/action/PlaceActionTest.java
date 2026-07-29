@@ -6,6 +6,7 @@ import com.rustorio.domain.Item;
 import com.rustorio.domain.building.BuildingCost;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.world.World;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -95,6 +96,66 @@ class PlaceActionTest {
         assertFalse(world.peek(1, 1).isPresent());
         assertEquals(gearBefore + 2, world.inventory().amount(Item.GEAR), "stored GEAR must come back to the player");
         assertEquals(coalBefore + 1, world.inventory().amount(Item.COAL), "and so must every other kind");
+    }
+
+    /**
+     * (Code review finding) Redo used to always call {@code World.place}, which builds a brand-new,
+     * EMPTY {@link Chest} — after undo credited a chest's contents to inventory (see the test
+     * above), a subsequent redo silently left the chest empty on the map while the credited items
+     * stayed spendable in inventory too, an asymmetric undo/redo pair unlike every other multi-step
+     * action in this package (contrast {@code RemoveAction}/{@code RotateAction}, which restore the
+     * exact same object). This pins the round trip down: redo must claim the saved contents back
+     * out of inventory and put them back in the (new) chest.
+     */
+    @Test
+    void redoOfAPlacedChestRestoresWhatUndoHadDrainedFromIt() {
+        World world = new World(4, 4);
+        ActionHistory history = new ActionHistory();
+        history.perform(world, new PlaceAction(BuildingType.CHEST, 1, 1));
+
+        Chest chest = (Chest) world.peek(1, 1).orElseThrow();
+        assertTrue(chest.accept(world, Item.IRON_ORE));
+        assertTrue(chest.accept(world, Item.IRON_ORE));
+        assertTrue(chest.accept(world, Item.GEAR));
+
+        history.undo(world);
+        assertFalse(world.peek(1, 1).isPresent(), "sanity check — the chest must be gone after undo");
+        int ironOreAfterUndo = world.inventory().amount(Item.IRON_ORE);
+        int gearAfterUndo = world.inventory().amount(Item.GEAR);
+        assertEquals(2, ironOreAfterUndo, "undo must have credited the drained IRON_ORE to inventory");
+
+        history.redo(world);
+
+        Chest restored = (Chest) world.peek(1, 1).orElseThrow();
+        assertEquals(2, restored.amount(Item.IRON_ORE), "redo must restore what undo drained, not a blank chest");
+        assertEquals(1, restored.amount(Item.GEAR));
+        assertEquals(ironOreAfterUndo - 2, world.inventory().amount(Item.IRON_ORE),
+                "the restored contents must be claimed back OUT of inventory, not duplicated");
+        assertEquals(gearAfterUndo - 1, world.inventory().amount(Item.GEAR));
+    }
+
+    /**
+     * If the player already spent what undo credited them, redo can't fully restore the old
+     * state — it must NOT dip below zero or fabricate items; the chest it places just stays empty,
+     * the same "stays applied" compromise {@code RemoveAction#undo}/{@code GrabChestAction#undo}
+     * already make on their own side of the stack.
+     */
+    @Test
+    void redoLeavesTheChestEmptyIfThePlayerAlreadySpentWhatUndoCredited() {
+        World world = new World(4, 4);
+        ActionHistory history = new ActionHistory();
+        history.perform(world, new PlaceAction(BuildingType.CHEST, 1, 1));
+        Chest chest = (Chest) world.peek(1, 1).orElseThrow();
+        assertTrue(chest.accept(world, Item.GEAR));
+
+        history.undo(world);
+        // Spend exactly the one credited GEAR on something else before redoing.
+        assertTrue(world.trySpendItems(Map.of(Item.GEAR, 1)));
+
+        history.redo(world);
+
+        Chest restored = (Chest) world.peek(1, 1).orElseThrow();
+        assertEquals(0, restored.amount(Item.GEAR), "nothing left to restore — the player already spent it");
     }
 
     /**

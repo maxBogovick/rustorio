@@ -113,10 +113,21 @@ public final class Lab implements Building {
      * baseline instead of flatly matching it. {@code Math.round} plus a floor of 1: no
      * research-grade item can ever be worth zero points just because it happens to be shallower
      * than {@code GEAR} (none currently are, but this method doesn't assume that stays true forever).
+     *
+     * <p>{@code gearDepth == 0} is guarded explicitly (code review finding): the standard {@link
+     * RecipeBook} always gives {@code GEAR} a recipe, so this never fires today, but {@code
+     * RecipeBook} is an explicit extension point ("an alternative rule set — a mod, a test fixture
+     * — is a constructor argument, not a change to production code", per its own javadoc) — an
+     * injected book that treats {@code GEAR} as a raw material would otherwise divide by zero,
+     * producing {@code Float.POSITIVE_INFINITY} and, via {@code Math.round}, {@code
+     * Integer.MAX_VALUE} research points for the very first item ever researched.
      */
     private int researchPoints(Item item) {
         int gearDepth = recipeBook.depthOf(Item.GEAR);
         int itemDepth = recipeBook.depthOf(item);
+        if (gearDepth <= 0) {
+            return POINTS_PER_GEAR; // no baseline to scale against — award the flat, pre-P-01 rate
+        }
         return Math.max(1, Math.round(POINTS_PER_GEAR * itemDepth / (float) gearDepth));
     }
 

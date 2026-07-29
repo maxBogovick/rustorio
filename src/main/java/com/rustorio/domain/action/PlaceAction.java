@@ -2,9 +2,12 @@ package com.rustorio.domain.action;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
+import com.rustorio.domain.Item;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.world.World;
+import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Place a building of the chosen kind facing a direction, paying its {@link
@@ -17,6 +20,18 @@ public final class PlaceAction implements PlayerAction {
     private final int x;
     private final int y;
     private final Direction direction;
+
+    /**
+     * A demolished-by-undo {@link Chest}'s contents, saved so a REDO restores the SAME chest
+     * instead of a blank one (code review finding): {@link #apply} always calls {@code
+     * World.place}, which builds a brand-new instance — without this, undo credited a chest's
+     * contents to inventory (see {@link #undo}) but redo built an empty replacement, silently
+     * losing them from the chest while they stayed spendable in inventory. Claimed back out of
+     * inventory in {@link #apply} before being restored — same "stays applied if you already spent
+     * it" discipline {@code RemoveAction#undo}/{@code GrabChestAction#undo} already use, just on
+     * the redo side of the stack instead of the undo side.
+     */
+    private @Nullable Map<Item, Integer> savedChestContents;
 
     public PlaceAction(BuildingType type, int x, int y) {
         this(type, x, y, Direction.RIGHT); // direction only matters to belts, furnaces, tunnels, splitters
@@ -35,6 +50,12 @@ public final class PlaceAction implements PlayerAction {
      * succeeds but placement then fails for an unrelated reason (the cell turned out to be
      * occupied), the charge is refunded immediately: only an ACTUAL building on the map may hold
      * the player's spent resources.
+     *
+     * <p>On a REDO — {@link #savedChestContents} non-{@code null} — also claims those items back
+     * out of inventory and restores them into the freshly placed chest (code review finding): see
+     * that field's own javadoc for why. If the player already spent what undo credited them, the
+     * {@code trySpendItems} below simply fails and the new chest stays empty — the "stays applied"
+     * compromise, not a hard error; the building itself was already paid for and stands regardless.
      */
     @Override
     public boolean apply(World world) {
@@ -44,8 +65,20 @@ public final class PlaceAction implements PlayerAction {
         boolean placed = world.place(type, x, y, direction);
         if (!placed) {
             world.refundBuildingCost(type);
+            return false;
         }
-        return placed;
+        Map<Item, Integer> contents = savedChestContents;
+        if (contents != null) {
+            if (world.trySpendItems(contents)) {
+                world.peek(x, y)
+                        .map(Building::unwrap)
+                        .filter(Chest.class::isInstance)
+                        .map(Chest.class::cast)
+                        .ifPresent(chest -> chest.restore(contents));
+            }
+            savedChestContents = null;
+        }
+        return true;
     }
 
     /**
@@ -59,6 +92,11 @@ public final class PlaceAction implements PlayerAction {
      * <p>Everything a non-chest building accumulated (a furnace's ore buffer, a belt tile's cargo)
      * still goes with it, exactly as before: those buffers are in-flight production, not stored
      * goods the player ever owned, and no other code path returns them either.
+     *
+     * <p>Drained contents are also remembered in {@link #savedChestContents} for {@link #apply}'s
+     * redo path (code review finding) — before this, redo built a brand-new EMPTY chest, silently
+     * losing whatever undo had just credited to inventory, an asymmetric undo/redo pair unlike
+     * every other multi-step action in this package.
      */
     @Override
     public void undo(World world) {
@@ -66,7 +104,13 @@ public final class PlaceAction implements PlayerAction {
                 .map(Building::unwrap)
                 .filter(Chest.class::isInstance)
                 .map(Chest.class::cast)
-                .ifPresent(chest -> chest.drain().forEach(world::creditItem));
+                .ifPresent(chest -> {
+                    Map<Item, Integer> contents = chest.drain();
+                    if (!contents.isEmpty()) {
+                        savedChestContents = contents;
+                        contents.forEach(world::creditItem);
+                    }
+                });
         world.removeBuilding(x, y);
         world.refundBuildingCost(type);
     }

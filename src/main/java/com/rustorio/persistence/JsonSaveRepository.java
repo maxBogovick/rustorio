@@ -110,6 +110,19 @@ public final class JsonSaveRepository implements SaveRepository {
      * onto another (see P2-01, owner decision A, in BUG_FIX_PROGRESS.md). A {@code null} {@code
      * oreLayout} — a save written before this field existed — means "unknown, don't check."
      *
+     * <p>One more phase-1 check, added late (code review finding): every key in {@code
+     * snapshot.oreDepletion()} is validated against the current {@code OreLayout}'s cell count
+     * before phase 2 runs at all. {@link com.rustorio.domain.OreLayout#restoreDepletion} itself
+     * writes straight into a flat array with no bounds check — left unvalidated, a corrupted index
+     * would throw {@code ArrayIndexOutOfBoundsException} AFTER {@code world.clear()}, uncaught,
+     * defeating the entire two-phase discipline this javadoc otherwise describes.
+     *
+     * <p>And one more (same finding): every rebuilt {@link Building}'s footprint, at its saved
+     * position, is checked against {@code world.width()}/{@code height()}. {@code
+     * World#restoreBuilding} trusts its caller and never checks bounds itself — fine for its two
+     * real callers, which only ever hand back an already-validated footprint, but not for a
+     * corrupted save, which could otherwise reserve out-of-range cells with no exception at all.
+     *
      * <p>Checked before even that, first of everything (D-07, DEV_TASKS.md): {@link
      * WorldSnapshot#version()} must match {@link WorldSnapshot#CURRENT_VERSION} — see that
      * record's own javadoc for why a plain equality check replaces a growing pile of {@code
@@ -143,6 +156,42 @@ public final class JsonSaveRepository implements SaveRepository {
             }
         } catch (RuntimeException e) {
             return failure(e);
+        }
+
+        // Still phase 1 (code review finding): OreLayout#restoreDepletion writes straight into a
+        // flat array with no bounds check of its own (see PatchOreLayout#restoreDepletion) — a
+        // corrupted or hand-edited save with an out-of-range index would throw
+        // ArrayIndexOutOfBoundsException. That call used to happen AFTER world.clear() below, and
+        // outside any try/catch, so the exception propagated straight out of load() uncaught —
+        // with the world already destroyed. Validating here, before world.clear() runs, keeps the
+        // class's own documented contract ("a save that parses but doesn't make sense fails
+        // cleanly, with the caller's current world still intact") actually true for this field too.
+        OreLayoutId currentLayout = factory.oreLayout().id();
+        int cellCount = currentLayout.width() * currentLayout.height();
+        for (Integer index : snapshot.oreDepletion().keySet()) {
+            if (index == null || index < 0 || index >= cellCount) {
+                return new SaveResult.Failure("corrupted ore depletion index: " + index);
+            }
+        }
+
+        // Also still phase 1 (code review finding): World#restoreBuilding trusts its caller and
+        // never checks bounds — deliberately, since the two REAL callers (RotateAction/
+        // UpgradeSpeedAction) only ever hand back a footprint that was already validated when the
+        // building was first placed. A hand-edited or corrupted save doesn't carry that guarantee:
+        // an anchor near the map's edge with a multi-cell footprint (currently only ASSEMBLER)
+        // could reach past it, silently reserving out-of-range Coords in World#occupancy with no
+        // exception at all — a quiet corruption, not a crash, so nothing downstream would even
+        // report it. Checked here, against the actual rebuilt Building's real footprint, not a
+        // guess from BuildingType alone.
+        for (Map.Entry<PlacedBuilding, Building> entry : rebuilt) {
+            PlacedBuilding placed = entry.getKey();
+            Building building = entry.getValue();
+            int farX = placed.x() + building.footprintWidth() - 1;
+            int farY = placed.y() + building.footprintHeight() - 1;
+            if (!world.inBounds(placed.x(), placed.y()) || !world.inBounds(farX, farY)) {
+                return new SaveResult.Failure(
+                        "building at (" + placed.x() + "," + placed.y() + ") falls outside the map");
+            }
         }
 
         world.clear();

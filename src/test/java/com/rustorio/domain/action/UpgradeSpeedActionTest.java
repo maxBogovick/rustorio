@@ -40,6 +40,29 @@ class UpgradeSpeedActionTest {
     }
 
     /**
+     * (Code review finding) {@code Inserter}/{@code Filter}/{@code Splitter} all share the belt's
+     * single-slot "held + arrivedThisTick" shape — a {@code SpeedModule}'s second {@code inner.tick}
+     * call in the same world tick always finds {@code held == null}, provably a no-op, same as the
+     * already-refused {@code Belt}/{@code UndergroundBelt}. Before this fix the player could pay for
+     * the upgrade and get nothing for it.
+     */
+    @Test
+    void upgradingAnInserterFilterOrSplitterIsRefused() {
+        World world = new World(6, 6);
+        world.placeInserter(0, 0, Direction.RIGHT);
+        world.placeFilter(1, 0, Direction.RIGHT);
+        world.placeSplitter(2, 0, Direction.RIGHT);
+
+        assertFalse(new UpgradeSpeedAction(0, 0).apply(world), "an Inserter must be refused, same reason as a Belt");
+        assertFalse(new UpgradeSpeedAction(1, 0).apply(world), "a Filter must be refused, same reason as a Belt");
+        assertFalse(new UpgradeSpeedAction(2, 0).apply(world), "a Splitter must be refused, same reason as a Belt");
+
+        assertEquals(0, world.peek(0, 0).orElseThrow().speedLevel());
+        assertEquals(0, world.peek(1, 0).orElseThrow().speedLevel());
+        assertEquals(0, world.peek(2, 0).orElseThrow().speedLevel());
+    }
+
+    /**
      * (Code review finding, CODE_REVIEW_2026-07-28.md) {@code ASSEMBLER} occupies 2x2 cells —
      * upgrading from a non-anchor cell must wrap the SAME building in place, not re-anchor it at
      * the clicked cell (which would corrupt the occupancy map). Same discipline {@link

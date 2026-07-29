@@ -141,6 +141,25 @@ class LabTest {
         assertEquals(10, world.research().points(), "the batch pays out after a full research time");
     }
 
+    /**
+     * (Code review finding) A custom {@link RecipeBook} can legally have no recipe for {@code GEAR}
+     * at all — the class's own javadoc calls this out as a supported extension point ("an
+     * alternative rule set — a mod, a test fixture — is a constructor argument, not a change to
+     * production code"). Before {@link Lab}'s {@code gearDepth == 0} guard existed, this divided by
+     * zero and, via {@code Math.round(Float.POSITIVE_INFINITY)}, awarded {@code Integer.MAX_VALUE}
+     * research points for the very first item ever researched.
+     */
+    @Test
+    void gearWithNoRecipeInACustomBookFallsBackToTheFlatRateInsteadOfDividingByZero() {
+        World world = new World(4, 4);
+        Lab lab = new Lab(new RecipeBook(java.util.List.of())); // no recipes at all — GEAR has depth 0
+
+        assertTrue(lab.accept(world, Item.GEAR));
+        tickUntilDone(lab, world);
+
+        assertEquals(10, world.research().points(), "falls back to the flat POINTS_PER_GEAR rate, not Integer.MAX_VALUE");
+    }
+
     @Test
     void labRejectsRawMaterials() {
         World world = new World(4, 4);

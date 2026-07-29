@@ -221,6 +221,61 @@ class JsonSaveRepositoryTest {
         assertTrue(world.peek(1, 1).isPresent(), "a semantically broken save must not wipe the current world");
     }
 
+    /**
+     * (Code review finding) {@code OreLayout#restoreDepletion} writes straight into a flat array
+     * with no bounds check of its own — an out-of-range index used to throw {@code
+     * ArrayIndexOutOfBoundsException} AFTER {@code world.clear()} had already run, and OUTSIDE the
+     * try/catch that guards every other "schema-valid but semantically impossible" case, so it
+     * propagated straight out of {@code load()} uncaught, with the current world already destroyed.
+     * Now validated in phase 1, same as every other case this class already refuses cleanly.
+     */
+    @Test
+    void corruptedOreDepletionIndexFailsCleanlyWithoutDestroyingTheCurrentWorld(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("save.json");
+        SaveRepository repository = new JsonSaveRepository(file);
+
+        World scratch = new World(20, 20);
+        // A real, valid depletion entry, so the field isn't just empty/absent — (6,5) is the
+        // standard map's first iron patch.
+        scratch.buildingFactory().oreLayout().extract(6, 5);
+        assertTrue(repository.save(scratch).succeeded());
+
+        // No 256x256 map could ever produce this flat index — same regex technique already used by
+        // aSaveWithoutAnOreLayoutFieldIsTreatedAsAnUnknownMapAndStillLoads below.
+        String corrupted = Files.readString(file).replaceFirst("\"oreDepletion\"\\s*:\\s*\\{[^}]*}",
+                "\"oreDepletion\" : {\n    \"999999999\" : 1\n  }");
+        Files.writeString(file, corrupted);
+
+        World world = new World(4, 4);
+        world.placeChest(1, 1);
+
+        assertFalse(repository.load(world).succeeded());
+        assertTrue(world.peek(1, 1).isPresent(), "a corrupted depletion index must not wipe the current world");
+    }
+
+    /**
+     * (Code review finding, Баг 8) {@code World#restoreBuilding} never checks bounds itself — it
+     * trusts placement rules were already satisfied when a building was first built. A save whose
+     * building doesn't fit the world being loaded into (here: the same standard 256x256 ore map,
+     * but a smaller playable grid than the one the save was made on) used to silently reserve
+     * out-of-range {@code Coord}s in {@code World#occupancy} with no exception and no signal at
+     * all. Now validated in phase 1, against the actual rebuilt footprint.
+     */
+    @Test
+    void buildingThatDoesNotFitTheCurrentWorldFailsCleanlyWithoutDestroyingIt(@TempDir Path dir) {
+        SaveRepository repository = new JsonSaveRepository(dir.resolve("save.json"));
+
+        World big = new World(20, 20);
+        assertTrue(big.place(BuildingType.ASSEMBLER, 18, 18, Direction.RIGHT), "fits fine in a 20x20 world");
+        assertTrue(repository.save(big).succeeded());
+
+        World small = new World(4, 4); // same standard 256x256 ore map, much smaller playable grid
+        small.placeChest(1, 1);
+
+        assertFalse(repository.load(small).succeeded());
+        assertTrue(small.peek(1, 1).isPresent(), "a building that doesn't fit the current world must not wipe it");
+    }
+
     @Test
     void saveFromASeededMapIsNotSilentlyLoadedIntoTheStandardMap(@TempDir Path dir) {
         SaveRepository repository = new JsonSaveRepository(dir.resolve("save.json"));

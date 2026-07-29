@@ -2,7 +2,10 @@ package com.rustorio.domain.action;
 
 import com.rustorio.domain.building.Belt;
 import com.rustorio.domain.building.Building;
+import com.rustorio.domain.building.Filter;
+import com.rustorio.domain.building.Inserter;
 import com.rustorio.domain.building.SpeedModule;
+import com.rustorio.domain.building.Splitter;
 import com.rustorio.domain.building.UndergroundBelt;
 import com.rustorio.domain.world.World;
 import org.jspecify.annotations.Nullable;
@@ -27,6 +30,14 @@ import org.jspecify.annotations.Nullable;
  * none) and returns immediately, so no tunnel ever moves two items in one tick. What's left is a
  * module that provably does nothing at all while still costing the player the upgrade, which is
  * exactly the case P2-03 decided not to sell.
+ *
+ * <p><b>Extended to {@link Inserter}/{@link Filter}/{@link Splitter} (code review finding).</b> All
+ * three share the EXACT same single-slot "accept sets {@code held}+{@code arrivedThisTick}, tick
+ * pushes it out and clears {@code held}" shape as {@code Belt}/{@code UndergroundBelt} — the module's
+ * second {@code inner.tick} call in the same world tick always finds {@code held == null} (the
+ * first call either relayed the held item or found nothing), so it's provably a no-op, same as the
+ * tunnel case above. Unlike a belt, there's no "it works on the tail tile" partial truth here to
+ * even mislead about — it never does anything, on any tile, for any of the three.
  */
 public final class UpgradeSpeedAction implements PlayerAction {
 
@@ -70,7 +81,8 @@ public final class UpgradeSpeedAction implements PlayerAction {
             return false;
         }
         Building bare = Building.unwrap(removed);
-        if (bare instanceof Belt || bare instanceof UndergroundBelt) {
+        if (bare instanceof Belt || bare instanceof UndergroundBelt
+                || bare instanceof Inserter || bare instanceof Filter || bare instanceof Splitter) {
             world.restoreBuilding(anchorX, anchorY, removed); // put it right back — see the class javadoc
             return false;
         }

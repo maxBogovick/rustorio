@@ -95,23 +95,52 @@ public final class PatchOreLayout implements OreLayout {
         this.grid = new Item[width * height];
         this.extractedCount = new int[width * height];
         this.terrainGrid = new Terrain[width * height];
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int index = y * width + x;
-                for (OrePatch patch : PATCHES) {
-                    if (patch.contains(x, y)) {
+        Arrays.fill(terrainGrid, Terrain.GROUND);
+
+        // Bounding-box rasterization, not a full width×height scan checking every patch per cell
+        // (code review finding): PATCHES.length patches, each touching only its own small circle
+        // of cells, instead of width×height×PATCHES.length "does this patch contain this cell"
+        // checks. Ore first, all of it, before any terrain — the grid[index] == null guard inside
+        // rasterizeOre preserves "first patch in declaration order wins an overlap," the same
+        // priority the original cell-major scan gave for free; terrain then only paints cells ore
+        // left empty, preserving "ore always wins" exactly.
+        for (OrePatch patch : PATCHES) {
+            rasterizeOre(patch, width, height);
+        }
+        for (TerrainPatch patch : TERRAIN_PATCHES) {
+            rasterizeTerrain(patch, width, height);
+        }
+    }
+
+    /** Paints {@code patch} into {@link #grid}, touching only its own bounding box — see the constructor's own note. */
+    private void rasterizeOre(OrePatch patch, int width, int height) {
+        int minX = Math.max(0, patch.cx() - patch.radius());
+        int maxX = Math.min(width - 1, patch.cx() + patch.radius());
+        int minY = Math.max(0, patch.cy() - patch.radius());
+        int maxY = Math.min(height - 1, patch.cy() + patch.radius());
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                if (patch.contains(x, y)) {
+                    int index = y * width + x;
+                    if (grid[index] == null) { // first patch in declaration order wins an overlap
                         grid[index] = patch.ore();
-                        break;
                     }
                 }
-                terrainGrid[index] = Terrain.GROUND;
-                if (grid[index] == null) { // ore always wins — never paint terrain over an ore cell
-                    for (TerrainPatch patch : TERRAIN_PATCHES) {
-                        if (patch.contains(x, y)) {
-                            terrainGrid[index] = patch.terrain();
-                            break;
-                        }
-                    }
+            }
+        }
+    }
+
+    /** Paints {@code patch} into {@link #terrainGrid}, skipping any cell ore already claimed — see the constructor's own note. */
+    private void rasterizeTerrain(TerrainPatch patch, int width, int height) {
+        int minX = Math.max(0, patch.cx() - patch.radius());
+        int maxX = Math.min(width - 1, patch.cx() + patch.radius());
+        int minY = Math.max(0, patch.cy() - patch.radius());
+        int maxY = Math.min(height - 1, patch.cy() + patch.radius());
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                int index = y * width + x;
+                if (grid[index] == null && patch.contains(x, y)) { // ore always wins — never paint terrain over an ore cell
+                    terrainGrid[index] = patch.terrain();
                 }
             }
         }
@@ -122,8 +151,10 @@ public final class PatchOreLayout implements OreLayout {
      * a brand-new instance every call, deliberately NOT a cached singleton (D-04, DEV_TASKS.md):
      * once ore depletion made this class stateful and mutable, every caller sharing one cached
      * instance would have shared its depletion too — a test exhausting a cell would leave it thin
-     * for the next unrelated {@code World} built in the same JVM. Rebuilding costs one
-     * O(width×height×16) scan, microseconds, paid once per {@code World} construction, never per tick.
+     * for the next unrelated {@code World} built in the same JVM. Rebuilding touches each patch's
+     * own small bounding box, not the whole {@code width}×{@code height} grid (code review
+     * finding) — already microseconds before that change, paid once per {@code World}
+     * construction, never per tick; still worth doing since it was free to do correctly.
      */
     public static PatchOreLayout standard() {
         return new PatchOreLayout(STANDARD_WIDTH, STANDARD_HEIGHT);

@@ -4,6 +4,7 @@ import com.rustorio.domain.Item;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.EnumMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -71,6 +72,17 @@ public final class ProductionStats implements ProductionListener, ProductionStat
      * card's own acceptance criterion). {@code 0} if nothing in that window, never negative, never
      * a division by a zero-tick window (callers are expected to pass a positive window; this
      * doesn't defend that precondition per this codebase's own "don't guard the impossible" rule).
+     *
+     * <p>Walks {@code deque} NEWEST first (code review finding) and stops the moment a bucket falls
+     * before {@code cutoff}: {@link #onProduced} only ever appends, so {@code bucket.index} is
+     * strictly increasing front-to-back — once one bucket, walking backward from the newest end, is
+     * too old for the window, every earlier one is too. Before this, the loop always scanned every
+     * RETAINED bucket (up to {@link #MAX_BUCKETS} = 600, i.e. ten simulated minutes of history)
+     * even when {@code windowTicks} asked for a tiny fraction of that — the requested window, not
+     * the full retention period, now bounds the work. (A tempting alternative — a running sum kept
+     * up to date in {@link #onProduced} — doesn't actually work here: {@code windowTicks} is a
+     * per-call parameter, not a fixed constant, so a single running total can't answer for an
+     * arbitrary window without becoming wrong for every window narrower than the full history.)
      */
     @Override
     public double ratePerMinute(Item item, long currentTick, long windowTicks) {
@@ -78,9 +90,14 @@ public final class ProductionStats implements ProductionListener, ProductionStat
         long count = 0;
         Deque<Bucket> deque = history.get(item);
         if (deque != null) {
-            for (Bucket bucket : deque) {
+            Iterator<Bucket> newestFirst = deque.descendingIterator();
+            while (newestFirst.hasNext()) {
+                Bucket bucket = newestFirst.next();
                 long bucketStartTick = bucket.index * BUCKET_TICKS;
-                if (bucketStartTick >= cutoff && bucketStartTick <= currentTick) {
+                if (bucketStartTick < cutoff) {
+                    break; // this and every bucket before it (older, since we're walking backward) are outside the window
+                }
+                if (bucketStartTick <= currentTick) {
                     count += bucket.count;
                 }
             }

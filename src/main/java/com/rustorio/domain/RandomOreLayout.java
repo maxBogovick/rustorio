@@ -77,23 +77,50 @@ public final class RandomOreLayout implements OreLayout {
         this.grid = new Item[width * height];
         this.extractedCount = new int[width * height];
         this.terrainGrid = new Terrain[width * height];
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int index = y * width + x;
-                for (OrePatch patch : patches) {
-                    if (patch.contains(x, y)) {
+        Arrays.fill(terrainGrid, Terrain.GROUND);
+
+        // Bounding-box rasterization, not a full width×height scan checking every patch per cell
+        // (code review finding) — same reasoning as PatchOreLayout's own constructor: each patch
+        // touches only its own small circle of cells. Ore first, all of it, then terrain only into
+        // still-ore-free cells — see rasterizeOre/rasterizeTerrain for how the original priority
+        // ("first patch wins an overlap," "ore always wins over terrain") is preserved exactly.
+        for (OrePatch patch : patches) {
+            rasterizeOre(patch, width, height);
+        }
+        for (TerrainPatch patch : terrainPatches) {
+            rasterizeTerrain(patch, width, height);
+        }
+    }
+
+    /** Paints {@code patch} into {@link #grid}, touching only its own bounding box — see the constructor's own note. */
+    private void rasterizeOre(OrePatch patch, int width, int height) {
+        int minX = Math.max(0, patch.cx() - patch.radius());
+        int maxX = Math.min(width - 1, patch.cx() + patch.radius());
+        int minY = Math.max(0, patch.cy() - patch.radius());
+        int maxY = Math.min(height - 1, patch.cy() + patch.radius());
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                if (patch.contains(x, y)) {
+                    int index = y * width + x;
+                    if (grid[index] == null) { // first patch in roll order wins an overlap
                         grid[index] = patch.ore();
-                        break;
                     }
                 }
-                terrainGrid[index] = Terrain.GROUND;
-                if (grid[index] == null) { // ore always wins — never paint terrain over an ore cell
-                    for (TerrainPatch patch : terrainPatches) {
-                        if (patch.contains(x, y)) {
-                            terrainGrid[index] = patch.terrain();
-                            break;
-                        }
-                    }
+            }
+        }
+    }
+
+    /** Paints {@code patch} into {@link #terrainGrid}, skipping any cell ore already claimed — see the constructor's own note. */
+    private void rasterizeTerrain(TerrainPatch patch, int width, int height) {
+        int minX = Math.max(0, patch.cx() - patch.radius());
+        int maxX = Math.min(width - 1, patch.cx() + patch.radius());
+        int minY = Math.max(0, patch.cy() - patch.radius());
+        int maxY = Math.min(height - 1, patch.cy() + patch.radius());
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                int index = y * width + x;
+                if (grid[index] == null && patch.contains(x, y)) { // ore always wins — never paint terrain over an ore cell
+                    terrainGrid[index] = patch.terrain();
                 }
             }
         }

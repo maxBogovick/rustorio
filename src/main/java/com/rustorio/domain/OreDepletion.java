@@ -32,6 +32,17 @@ final class OreDepletion {
     /**
      * Whether the {@code callsSoFar}-th call (0-indexed, the count BEFORE this call) to {@link
      * OreLayout#extract} on one cell succeeds.
+     *
+     * <p>Checked against a code-review claim that this needs {@code Math.floorMod} instead of
+     * {@code %} to defend against {@code callsSoFar} wrapping negative past {@code
+     * Integer.MAX_VALUE} — traced through and found NOT reachable: {@code callsSoFar < RICHNESS}
+     * short-circuits {@code ||} for every negative value (any negative number is less than {@code
+     * RICHNESS}), so the modulo on the right is only ever evaluated once {@code callsSoFar >=
+     * RICHNESS} already holds — at which point {@code callsSoFar - RICHNESS} is a subtraction of a
+     * small positive constant from a value already known non-negative, which cannot itself go
+     * negative or overflow. Left as plain {@code %} deliberately, per this codebase's own "don't
+     * guard the impossible" rule (see {@code ProductionStats#ratePerMinute}'s javadoc for the same
+     * phrase) — {@code Math.floorMod} here would be defensive code with nothing to defend against.
      */
     static boolean yields(int callsSoFar) {
         return callsSoFar < RICHNESS || (callsSoFar - RICHNESS) % TAIL_INTERVAL == 0;

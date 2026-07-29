@@ -4,8 +4,10 @@ import com.rustorio.domain.Direction;
 import com.rustorio.domain.Item;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.SequencedCollection;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
@@ -25,6 +27,16 @@ final class BeltSegment {
 
     /** Index 0 is the tail (entry point); the last element is the head (exit point). */
     private final SequencedCollection<Belt> tiles = new ArrayDeque<>();
+
+    /**
+     * Mirrors {@link #tiles}'s membership exactly, kept in sync by every method that touches
+     * {@code tiles} — exists purely so {@link #requireNotAlreadyPresent} is O(1), not O(length)
+     * (code review finding, OPT-03): {@code ArrayDeque#contains} is a linear scan, so building a
+     * long belt run tile-by-tile (each placement calling {@link #addHead}/{@link #addTail}) used to
+     * cost O(1+2+...+N) = O(N²) total, purely for this membership check — the {@link #tick} loop
+     * itself was never the problem (see that method's own javadoc on why it stays O(length)).
+     */
+    private final Set<Belt> membership = new HashSet<>();
 
     BeltSegment(Direction direction) {
         this.direction = direction;
@@ -47,6 +59,7 @@ final class BeltSegment {
     void addHead(Belt belt) {
         requireNotAlreadyPresent(belt);
         tiles.addLast(belt);
+        membership.add(belt);
         belt.joinSegment(this);
     }
 
@@ -54,6 +67,7 @@ final class BeltSegment {
     void addTail(Belt belt) {
         requireNotAlreadyPresent(belt);
         tiles.addFirst(belt);
+        membership.add(belt);
         belt.joinSegment(this);
     }
 
@@ -63,7 +77,7 @@ final class BeltSegment {
      * corrupt {@link #tick} and {@link #size}; fail loudly instead.
      */
     private void requireNotAlreadyPresent(Belt belt) {
-        if (tiles.contains(belt)) {
+        if (membership.contains(belt)) {
             throw new IllegalStateException("belt is already in this segment");
         }
     }
@@ -72,6 +86,7 @@ final class BeltSegment {
     void mergeHead(BeltSegment other) {
         for (Belt belt : other.tiles) {
             tiles.addLast(belt);
+            membership.add(belt);
             belt.joinSegment(this);
         }
     }
@@ -85,9 +100,11 @@ final class BeltSegment {
         List<Belt> ordered = new ArrayList<>(tiles);
         int index = ordered.indexOf(belt);
         tiles.clear();
+        membership.clear();
 
         for (int i = 0; i < index; i++) {
             tiles.addLast(ordered.get(i));
+            membership.add(ordered.get(i));
         }
         if (index < ordered.size() - 1) {
             BeltSegment tail = new BeltSegment(direction);
