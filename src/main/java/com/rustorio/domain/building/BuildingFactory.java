@@ -1,5 +1,6 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
@@ -85,8 +86,8 @@ public final class BuildingFactory {
         return switch (type) {
             case MINER -> new Miner(oreLayout, direction);
             case CHEST -> new Chest(direction);
-            case FURNACE -> new Furnace(BuildingType.FURNACE, direction, recipeBook);
-            case PRESS -> new Furnace(BuildingType.PRESS, direction, recipeBook);
+            case FURNACE -> new Furnace(BuildingType.FURNACE, direction, recipeBook, prototype(BuildingType.FURNACE));
+            case PRESS -> new Furnace(BuildingType.PRESS, direction, recipeBook, prototype(BuildingType.PRESS));
             case BELT -> new Belt(direction);
             case SPLITTER -> new Splitter(direction);
             // Default filterItem is IRON_ORE — the more common ore, and a reasonable starting
@@ -107,7 +108,7 @@ public final class BuildingFactory {
             // Reuses Furnace outright (X-03, DEV_TASKS.md) rather than a new Building
             // implementation: a 2x2 footprint plus a dedicated ASSEMBLER-kind recipe (see
             // RecipeBook) is the entire difference from PRESS — see Furnace#footprintWidth.
-            case ASSEMBLER -> new Furnace(BuildingType.ASSEMBLER, direction, recipeBook);
+            case ASSEMBLER -> new Furnace(BuildingType.ASSEMBLER, direction, recipeBook, prototype(BuildingType.ASSEMBLER));
         };
     }
 
@@ -128,7 +129,7 @@ public final class BuildingFactory {
         Building building = switch (memento) {
             case BuildingMemento.MinerState s -> new Miner(oreLayout, s.direction(), s.cooldown(), s.held());
             case BuildingMemento.ChestState s -> new Chest(s.direction(), s.contents());
-            case BuildingMemento.FurnaceState s -> new Furnace(s, recipeBook);
+            case BuildingMemento.FurnaceState s -> new Furnace(s, recipeBook, furnacePrototype(s));
             case BuildingMemento.BeltState s -> new Belt(s.direction(), s.held());
             case BuildingMemento.SplitterState s -> new Splitter(s.facing(), s.held(), s.nextIsForward());
             case BuildingMemento.FilterState s -> new Filter(s.facing(), s.filterItem(), s.held(), items);
@@ -140,6 +141,15 @@ public final class BuildingFactory {
             building = new SpeedModule(building);
         }
         return building;
+    }
+
+    /**
+     * {@code state}'s own prototype from THIS factory's registry, or {@code state.kind()}'s
+     * default when {@code prototypeId} is {@code null} (a save written before that field existed).
+     */
+    private BuildingPrototype furnacePrototype(BuildingMemento.FurnaceState state) {
+        ContentId id = state.prototypeId();
+        return id != null ? prototypes.get(id) : prototype(state.kind());
     }
 
     /**

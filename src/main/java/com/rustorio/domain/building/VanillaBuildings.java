@@ -43,14 +43,14 @@ public final class VanillaBuildings {
                 PlacementRule.NEEDS_ORE, VanillaSprites.MINER);
         register(prototypes, BuildingType.CHEST, new BuildingCost(VanillaItems.IRON_PLATE, 5),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.CHEST);
-        register(prototypes, BuildingType.FURNACE, new BuildingCost(VanillaItems.IRON_PLATE, 5),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.FURNACE_COLD);
+        registerFurnaceLike(prototypes, BuildingType.FURNACE, new BuildingCost(VanillaItems.IRON_PLATE, 5),
+                VanillaSprites.FURNACE_COLD, 5, 1);
         register(prototypes, BuildingType.BELT, new BuildingCost(VanillaItems.IRON_PLATE, 1),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.BELT_EMPTY);
         register(prototypes, BuildingType.SPLITTER, new BuildingCost(VanillaItems.IRON_PLATE, 3),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.SPLITTER);
-        register(prototypes, BuildingType.PRESS, new BuildingCost(VanillaItems.IRON_PLATE, 8),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.FURNACE_COLD);
+        registerFurnaceLike(prototypes, BuildingType.PRESS, new BuildingCost(VanillaItems.IRON_PLATE, 8),
+                VanillaSprites.FURNACE_COLD, 5, 1);
         register(prototypes, BuildingType.UNDERGROUND_IN, new BuildingCost(VanillaItems.IRON_PLATE, 2),
                 PlacementRule.ALWAYS, VanillaSprites.UNDERGROUND_IN);
         register(prototypes, BuildingType.UNDERGROUND_OUT, new BuildingCost(VanillaItems.IRON_PLATE, 2),
@@ -61,8 +61,8 @@ public final class VanillaBuildings {
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.FILTER);
         register(prototypes, BuildingType.INSERTER, new BuildingCost(VanillaItems.IRON_PLATE, 2),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.INSERTER);
-        register(prototypes, BuildingType.ASSEMBLER, new BuildingCost(VanillaItems.GEAR, 15),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.ASSEMBLER);
+        registerFurnaceLike(prototypes, BuildingType.ASSEMBLER, new BuildingCost(VanillaItems.GEAR, 15),
+                VanillaSprites.ASSEMBLER, 5, 1);
     }
 
     private static Registry<BuildingPrototype> buildFrozen() {
@@ -72,9 +72,21 @@ public final class VanillaBuildings {
         return prototypes;
     }
 
+    /** Every non-{@link Furnace} archetype: {@code bufferMax}/{@code speedMultiplier} are meaningless to it, registered as {@code 0}/{@code 1}. */
     private static void register(Registry<BuildingPrototype> prototypes, BuildingType type,
             BuildingCost cost, PlacementRule placementRule, ContentId texture) {
+        register(prototypes, type, cost, placementRule, texture, 0, 1);
+    }
+
+    /** A {@link Furnace}-kind archetype (also {@code PRESS}/{@code ASSEMBLER}, which reuse the same class) — always {@link PlacementRule#NEEDS_PASSABLE_TERRAIN}, same as every non-tunnel/miner building. */
+    private static void registerFurnaceLike(Registry<BuildingPrototype> prototypes, BuildingType type,
+            BuildingCost cost, ContentId texture, int bufferMax, int speedMultiplier) {
+        register(prototypes, type, cost, PlacementRule.NEEDS_PASSABLE_TERRAIN, texture, bufferMax, speedMultiplier);
+    }
+
+    private static void register(Registry<BuildingPrototype> prototypes, BuildingType type,
+            BuildingCost cost, PlacementRule placementRule, ContentId texture, int bufferMax, int speedMultiplier) {
         ContentId id = idFor(type);
-        prototypes.register(id, new BuildingPrototype(id, cost, placementRule, texture));
+        prototypes.register(id, new BuildingPrototype(id, cost, placementRule, texture, bufferMax, speedMultiplier));
     }
 }

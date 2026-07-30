@@ -60,6 +60,12 @@ import org.jspecify.annotations.Nullable;
  * A pre-bump save's keys wouldn't parse as the new identifier format at all — not a
  * gracefully-defaultable missing field, an outright unreadable one — so this is exactly the
  * "reject the whole snapshot" case the version check exists for, not a silent break.
+ *
+ * <p>Bumped a sixth time — {@code FurnaceState} gained {@code prototypeId}, naming which
+ * registered {@code BuildingPrototype} supplied a furnace's buffer size and speed. Unlike most
+ * fields above, this one IS gracefully {@code @Nullable} on its own (a pre-bump save resolves it
+ * to {@code kind}'s vanilla default on load) — bumped anyway, per this class's own stated policy
+ * of bumping for any format change, not only ones a missing-field default can't handle by itself.
  */
 record WorldSnapshot(
         int version,
@@ -72,5 +78,5 @@ record WorldSnapshot(
         long tickCount) {
 
     /** Bump this whenever the save format changes — see the class javadoc's bump history. */
-    static final int CURRENT_VERSION = 5;
+    static final int CURRENT_VERSION = 6;
 }

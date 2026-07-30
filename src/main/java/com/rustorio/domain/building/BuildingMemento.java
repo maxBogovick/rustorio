@@ -1,5 +1,6 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
@@ -55,6 +56,13 @@ public sealed interface BuildingMemento {
      * why it's a separate field from {@code recipeOutput}, which is the currently COMMITTED batch)
      * — {@code @Nullable} both for "no preference" and so a save written before this field existed
      * still deserializes (Jackson defaults a missing reference-typed field to {@code null}).
+     *
+     * <p>{@code prototypeId} — which {@code BuildingPrototype} this furnace's buffer size/speed
+     * came from; without it, reloading a modded "steel furnace" would silently revert to the
+     * vanilla default for {@code kind}. {@code @Nullable} for the same reason as the fields
+     * above — a save written before this field existed deserializes it as {@code null}, and {@code
+     * BuildingFactory#restore}'s convenience path reads that as "use {@code kind}'s vanilla
+     * default", not a crash.
      */
     record FurnaceState(
             BuildingType kind,
@@ -65,7 +73,8 @@ public sealed interface BuildingMemento {
             @Nullable ItemType recipeOutput,
             @Nullable ItemType pendingOutput,
             int fuelBuffer,
-            @Nullable ItemType selectedRecipeOutput) implements BuildingMemento {
+            @Nullable ItemType selectedRecipeOutput,
+            @Nullable ContentId prototypeId) implements BuildingMemento {
     }
 
     record BeltState(Direction direction, @Nullable ItemType held) implements BuildingMemento {

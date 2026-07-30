@@ -132,7 +132,13 @@ class WorldReplayTest {
     // "ItemType[id=rustorio:iron_plate, label=Iron Plate, researchGrade=false, colorRgb=...,
     // shape=SQUARE]". Pure format change again, same reasoning as the entry above — nothing about
     // production totals, research, or building placement moved, only how one field type renders.
-    private static final String EXPECTED_HASH = "1c1e1ac73d172de40ac4d58dd03cdfbc65edbaf5beb5f49359a801def89cdbbb";
+    //
+    // Updated again: FurnaceState gained a tenth field, prototypeId (a ContentId naming which
+    // BuildingPrototype supplied this furnace's buffer size/speed) — every furnace/press in this
+    // fixture now prints one more field in its memento dump. Format change again: the new field is
+    // "rustorio:furnace"/"rustorio:press" for every building in this fixture (none of them are a
+    // modded prototype), so production totals/research/placement are unchanged.
+    private static final String EXPECTED_HASH = "26ffa4d281b085abacbc7dd7a3b09ea1afeb97d6f905876859e44d17a0705565";
 
     @Test
     void factoryStateAfterFixedTicksMatchesRecordedBaseline() {

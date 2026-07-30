@@ -9,12 +9,16 @@ import com.rustorio.api.content.ContentId;
  * via a {@code switch} — a new building variant (a faster, pricier furnace) is a new registered
  * value here, not a new {@code case} in {@code BuildingCost}/{@code PlacementRule}/{@code Textures}.
  *
- * <p>Deliberately does NOT carry footprint or archetype-specific tuning (a furnace's buffer size,
- * a miner's mine time): the phase's own acceptance criterion doesn't require either yet, and
- * {@code BuildingFactory.create/restore}'s dispatch (which Java class a {@link
- * com.rustorio.domain.BuildingType} builds) stays a closed {@code switch} until behavior itself
- * opens up — adding fields nothing reads yet would be exactly the "abstraction for a future that
- * isn't this card's job" the project's own design checklist warns against.
+ * <p>{@code bufferMax}/{@code speedMultiplier} are {@link Furnace}-specific tuning — every OTHER
+ * archetype ignores them (registered as {@code 0}/{@code 1}, see {@link VanillaBuildings}).
+ * Deliberately not a general per-archetype parameter bag: only one archetype needs tuning today,
+ * and {@code BuildingFactory.create/restore}'s dispatch (which Java class a {@link
+ * com.rustorio.domain.BuildingType} builds) stays closed until behavior itself opens up — a
+ * generic mechanism for parameters nothing else reads yet would be exactly the "abstraction for a
+ * future that isn't this card's job" the project's own design checklist warns against.
+ *
+ * <p>Still does NOT carry footprint: the phase's own acceptance criterion doesn't require it.
  */
-public record BuildingPrototype(ContentId id, BuildingCost cost, PlacementRule placementRule, ContentId texture) {
+public record BuildingPrototype(ContentId id, BuildingCost cost, PlacementRule placementRule, ContentId texture,
+        int bufferMax, int speedMultiplier) {
 }

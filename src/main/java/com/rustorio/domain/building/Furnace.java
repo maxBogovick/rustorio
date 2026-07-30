@@ -1,5 +1,6 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
@@ -45,8 +46,7 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Furnace implements Building {
 
-    private static final int BUFFER_MAX = 5;
-    /** Same cap as {@link #BUFFER_MAX} — fuel is stored the same way any other buffered input is. */
+    /** Same cap as {@link BuildingPrototype#bufferMax()} — fuel is stored the same way any other buffered input is. */
     private static final int FUEL_MAX = 5;
 
     /**
@@ -61,6 +61,8 @@ public final class Furnace implements Building {
     private final BuildingType kind;
     private final Direction direction;
     private final RecipeBook recipeBook;
+    /** Buffer size and speed multiplier — see {@link BuildingPrototype}'s own javadoc for why only this archetype reads them. */
+    private final BuildingPrototype prototype;
 
     private @Nullable ActiveRecipe active;
     /**
@@ -85,20 +87,42 @@ public final class Furnace implements Building {
     /** Recomputed once per {@link #tick}, not once per render frame — see {@link BuildingStatus}'s own javadoc for why (F-01, DEV_TASKS.md). */
     private BuildingStatus status = BuildingStatus.WORKING;
 
+    /** Convenience for callers that only care about {@code kind}'s vanilla prototype — see the 4-arg constructor for real injection (a modded "steel furnace" needs its own prototype here). */
     public Furnace(BuildingType kind, Direction direction, RecipeBook recipeBook) {
+        this(kind, direction, recipeBook, VanillaBuildings.frozen().get(VanillaBuildings.idFor(kind)));
+    }
+
+    public Furnace(BuildingType kind, Direction direction, RecipeBook recipeBook, BuildingPrototype prototype) {
         this.kind = kind;
         this.direction = direction;
         this.recipeBook = recipeBook;
+        this.prototype = prototype;
+    }
+
+    /**
+     * Convenience restore constructor used by {@link BuildingFactory#restore} for callers that
+     * only care about the vanilla prototype set — resolves {@link
+     * BuildingMemento.FurnaceState#prototypeId()} against {@link VanillaBuildings#frozen()}, or
+     * falls back to {@code state.kind()}'s vanilla default when it's {@code null} (a save written
+     * before this field existed). See the 3-arg restore constructor for real injection.
+     */
+    Furnace(BuildingMemento.FurnaceState state, RecipeBook recipeBook) {
+        this(state, recipeBook, resolvePrototype(state));
+    }
+
+    private static BuildingPrototype resolvePrototype(BuildingMemento.FurnaceState state) {
+        ContentId id = state.prototypeId() != null ? state.prototypeId() : VanillaBuildings.idFor(state.kind());
+        return VanillaBuildings.frozen().get(id);
     }
 
     /**
      * Package-private restore constructor used by {@link BuildingFactory#restore} — takes the
-     * captured {@link BuildingMemento.FurnaceState} whole rather than its seven fields spread
-     * across seven parameters, so there's one grouped state object to read instead of a long,
+     * captured {@link BuildingMemento.FurnaceState} whole rather than its fields spread across
+     * many parameters, so there's one grouped state object to read instead of a long,
      * easy-to-transpose parameter list.
      */
-    Furnace(BuildingMemento.FurnaceState state, RecipeBook recipeBook) {
-        this(state.kind(), state.direction(), recipeBook);
+    Furnace(BuildingMemento.FurnaceState state, RecipeBook recipeBook, BuildingPrototype prototype) {
+        this(state.kind(), state.direction(), recipeBook, prototype);
         this.bufferA = state.bufferA();
         this.bufferB = state.bufferB();
         this.fuelBuffer = state.fuelBuffer();
@@ -275,12 +299,14 @@ public final class Furnace implements Building {
         return kind.footprintHeight();
     }
 
-    private static int effectiveTime(Recipe recipe, TickContext world) {
-        return world.research().fasterIfUnlocked(Tech.FAST_SMELTING, recipe.time());
+    /** {@code recipe.time()}, halved again by {@link #prototype}'s own {@code speedMultiplier} — the "twice as fast" a modded furnace variant asks for stacks with, not instead of, the {@code FAST_SMELTING} tech bonus. */
+    private int effectiveTime(Recipe recipe, TickContext world) {
+        int baseTime = Math.max(1, recipe.time() / prototype.speedMultiplier());
+        return world.research().fasterIfUnlocked(Tech.FAST_SMELTING, baseTime);
     }
 
-    private static int effectiveBufferMax(TickContext world) {
-        return world.research().biggerIfUnlocked(Tech.BIG_BUFFER, BUFFER_MAX);
+    private int effectiveBufferMax(TickContext world) {
+        return world.research().biggerIfUnlocked(Tech.BIG_BUFFER, prototype.bufferMax());
     }
 
     /** First-input buffer count — shown as the furnace's badge. */
@@ -334,8 +360,12 @@ public final class Furnace implements Building {
         BuildingMemento.FurnaceState rotated = new BuildingMemento.FurnaceState(
                 state.kind(), direction.rotate(), state.bufferA(), state.bufferB(),
                 state.cooldown(), state.recipeOutput(), state.pendingOutput(), state.fuelBuffer(),
-                state.selectedRecipeOutput());
-        Furnace turned = new Furnace(rotated, recipeBook);
+                state.selectedRecipeOutput(), state.prototypeId());
+        // The 3-arg restore constructor, with THIS instance's own prototype passed through
+        // directly — not re-resolved from state.prototypeId() via VanillaBuildings.frozen() (the
+        // 2-arg convenience) — a rotation must keep exactly the registry this furnace was already
+        // built with, not silently fall back to the vanilla default if it's running a modded one.
+        Furnace turned = new Furnace(rotated, recipeBook, prototype);
         turned.status = status;
         return Optional.of(turned);
     }
@@ -377,7 +407,8 @@ public final class Furnace implements Building {
                 current == null ? 0 : current.timer().cooldown(),
                 current == null ? null : current.recipe().output(),
                 pendingOutput, fuelBuffer,
-                selectedRecipe == null ? null : selectedRecipe.output());
+                selectedRecipe == null ? null : selectedRecipe.output(),
+                prototype.id());
     }
 
     /** Coal on hand — {@code FURNACE} kind only; always 0 for {@code PRESS}. For the inspection panel (F-03), later. */

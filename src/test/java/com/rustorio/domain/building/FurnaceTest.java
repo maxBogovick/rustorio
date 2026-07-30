@@ -239,7 +239,7 @@ class FurnaceTest {
         world.restoreBuilding(1, 0, chest);
 
         BuildingMemento.FurnaceState state = new BuildingMemento.FurnaceState(
-                BuildingType.PRESS, Direction.RIGHT, 1, 0, 0, VanillaItems.GEAR, null, 0, null);
+                BuildingType.PRESS, Direction.RIGHT, 1, 0, 0, VanillaItems.GEAR, null, 0, null, null);
         Furnace press = new Furnace(state, RECIPES);
 
         press.tick(world, 0, 0);
@@ -502,5 +502,38 @@ class FurnaceTest {
             assembler.tick(world, 2, 2);
         }
         assertEquals(1, expected.amount(VanillaItems.CHASSIS), "facing " + direction);
+    }
+
+    /**
+     * The phase's own acceptance example, proven directly (not through {@link BuildingFactory} —
+     * see the owner's "narrow path" decision): a furnace built with a custom {@link
+     * BuildingPrototype} (buffer 10, twice the vanilla speed) buffers more than the vanilla default
+     * (5) and finishes a batch in roughly half the time — both numbers read from the prototype, not
+     * a hardcoded constant.
+     */
+    @Test
+    void aCustomPrototypeGivesTheFurnaceABiggerBufferAndFasterCooking() {
+        World world = new World(4, 4);
+        Chest chest = new Chest();
+        world.restoreBuilding(1, 0, chest);
+
+        BuildingPrototype vanilla = VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.FURNACE));
+        BuildingPrototype steelFurnace = new BuildingPrototype(
+                vanilla.id(), vanilla.cost(), vanilla.placementRule(), vanilla.texture(), 10, 2);
+        Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES, steelFurnace);
+        assertTrue(furnace.accept(world, VanillaItems.COAL));
+
+        for (int i = 0; i < 6; i++) {
+            assertTrue(furnace.accept(world, VanillaItems.IRON_ORE),
+                    "buffer 10 must hold more than the vanilla default of 5 — this is the 6th unit");
+        }
+
+        int fastTime = Math.max(1, IRON_TIME / 2); // speedMultiplier halves the recipe's own time, floored
+        for (int i = 0; i < fastTime - 1; i++) {
+            furnace.tick(world, 0, 0);
+        }
+        assertEquals(0, chest.count(), "must not finish before the sped-up time");
+        furnace.tick(world, 0, 0);
+        assertEquals(1, chest.count(), "must finish in roughly half the vanilla recipe time");
     }
 }

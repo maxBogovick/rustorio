@@ -38,9 +38,12 @@ class WorldStateHashDeterminismTest {
      * (code review finding S3) — {@code ItemType.toString()} now returns just {@code label()}
      * instead of the record's default every-field dump, changing how every {@code ItemType}-valued
      * memento field prints. Format change, not a behavior one.
+     *
+     * <p>Updated again: same reason as {@link WorldReplayTest#EXPECTED_HASH}'s latest entry —
+     * {@code FurnaceState} gained a {@code prototypeId} field. Format change, not a behavior one.
      */
     private static final String EXPECTED_HASH =
-            "429947a595c7e5d804ea188889a18e88432b8181cd24e0cd7ed38a2992af5254";
+            "8f806daa5a0464554b88c63cb725771b3f8478eb2c6b14096ff4ff217a33a986";
 
     @Test
     void sameSceneHashedTwiceInOneJvmLaunchProducesIdenticalHash() {
