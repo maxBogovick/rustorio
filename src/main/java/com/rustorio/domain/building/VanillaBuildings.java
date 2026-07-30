@@ -37,30 +37,41 @@ public final class VanillaBuildings {
         return FROZEN;
     }
 
-    /** Registers all 12 vanilla building prototypes into {@code prototypes}. For tests/custom assemblies that want their own isolated (unfrozen) copy instead of sharing {@link #frozen()}. */
+    /**
+     * Registers all 12 vanilla building prototypes into {@code prototypes}. For tests/custom
+     * assemblies that want their own isolated (unfrozen) copy instead of sharing {@link #frozen()}.
+     *
+     * <p>{@code acceptsSpeedEffects} is {@code true} exactly for the six kinds {@code
+     * UpgradeSpeedAction} already accepts today ({@code MINER}/{@code CHEST}/{@code FURNACE}/
+     * {@code PRESS}/{@code ASSEMBLER}/{@code LAB}) — {@code CHEST} included, not an oversight:
+     * {@link Chest#tick} genuinely pushes one item per tick, so doubling that call is a real speed
+     * effect, unlike the six single-slot/segment-joining kinds refused below (each doubles a {@code
+     * tick()} call that provably does nothing the second time — see {@code UpgradeSpeedAction}'s
+     * own javadoc).
+     */
     public static void registerAll(Registry<BuildingPrototype> prototypes) {
         register(prototypes, BuildingType.MINER, new BuildingCost(VanillaItems.IRON_PLATE, 5),
-                PlacementRule.NEEDS_ORE, VanillaSprites.MINER);
+                PlacementRule.NEEDS_ORE, VanillaSprites.MINER, true);
         register(prototypes, BuildingType.CHEST, new BuildingCost(VanillaItems.IRON_PLATE, 5),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.CHEST);
+                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.CHEST, true);
         registerFurnaceLike(prototypes, BuildingType.FURNACE, new BuildingCost(VanillaItems.IRON_PLATE, 5),
                 VanillaSprites.FURNACE_COLD, 5, 1);
         register(prototypes, BuildingType.BELT, new BuildingCost(VanillaItems.IRON_PLATE, 1),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.BELT_EMPTY);
+                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.BELT_EMPTY, false);
         register(prototypes, BuildingType.SPLITTER, new BuildingCost(VanillaItems.IRON_PLATE, 3),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.SPLITTER);
+                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.SPLITTER, false);
         registerFurnaceLike(prototypes, BuildingType.PRESS, new BuildingCost(VanillaItems.IRON_PLATE, 8),
                 VanillaSprites.FURNACE_COLD, 5, 1);
         register(prototypes, BuildingType.UNDERGROUND_IN, new BuildingCost(VanillaItems.IRON_PLATE, 2),
-                PlacementRule.ALWAYS, VanillaSprites.UNDERGROUND_IN);
+                PlacementRule.ALWAYS, VanillaSprites.UNDERGROUND_IN, false);
         register(prototypes, BuildingType.UNDERGROUND_OUT, new BuildingCost(VanillaItems.IRON_PLATE, 2),
-                PlacementRule.ALWAYS, VanillaSprites.UNDERGROUND_OUT);
+                PlacementRule.ALWAYS, VanillaSprites.UNDERGROUND_OUT, false);
         register(prototypes, BuildingType.LAB, new BuildingCost(VanillaItems.GEAR, 10),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.LAB);
+                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.LAB, true);
         register(prototypes, BuildingType.FILTER, new BuildingCost(VanillaItems.IRON_PLATE, 3),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.FILTER);
+                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.FILTER, false);
         register(prototypes, BuildingType.INSERTER, new BuildingCost(VanillaItems.IRON_PLATE, 2),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.INSERTER);
+                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.INSERTER, false);
         registerFurnaceLike(prototypes, BuildingType.ASSEMBLER, new BuildingCost(VanillaItems.GEAR, 15),
                 VanillaSprites.ASSEMBLER, 5, 1);
     }
@@ -74,19 +85,25 @@ public final class VanillaBuildings {
 
     /** Every non-{@link Furnace} archetype: {@code bufferMax}/{@code speedMultiplier} are meaningless to it, registered as {@code 0}/{@code 1}. */
     private static void register(Registry<BuildingPrototype> prototypes, BuildingType type,
-            BuildingCost cost, PlacementRule placementRule, ContentId texture) {
-        register(prototypes, type, cost, placementRule, texture, 0, 1);
+            BuildingCost cost, PlacementRule placementRule, ContentId texture, boolean acceptsSpeedEffects) {
+        register(prototypes, type, cost, placementRule, texture, 0, 1, acceptsSpeedEffects);
     }
 
-    /** A {@link Furnace}-kind archetype (also {@code PRESS}/{@code ASSEMBLER}, which reuse the same class) — always {@link PlacementRule#NEEDS_PASSABLE_TERRAIN}, same as every non-tunnel/miner building. */
+    /**
+     * A {@link Furnace}-kind archetype (also {@code PRESS}/{@code ASSEMBLER}, which reuse the same
+     * class) — always {@link PlacementRule#NEEDS_PASSABLE_TERRAIN}, same as every non-tunnel/miner
+     * building, and always accepts speed effects — every {@link Furnace}-kind building does today.
+     */
     private static void registerFurnaceLike(Registry<BuildingPrototype> prototypes, BuildingType type,
             BuildingCost cost, ContentId texture, int bufferMax, int speedMultiplier) {
-        register(prototypes, type, cost, PlacementRule.NEEDS_PASSABLE_TERRAIN, texture, bufferMax, speedMultiplier);
+        register(prototypes, type, cost, PlacementRule.NEEDS_PASSABLE_TERRAIN, texture, bufferMax, speedMultiplier, true);
     }
 
     private static void register(Registry<BuildingPrototype> prototypes, BuildingType type,
-            BuildingCost cost, PlacementRule placementRule, ContentId texture, int bufferMax, int speedMultiplier) {
+            BuildingCost cost, PlacementRule placementRule, ContentId texture, int bufferMax, int speedMultiplier,
+            boolean acceptsSpeedEffects) {
         ContentId id = idFor(type);
-        prototypes.register(id, new BuildingPrototype(id, cost, placementRule, texture, bufferMax, speedMultiplier));
+        prototypes.register(id,
+                new BuildingPrototype(id, cost, placementRule, texture, bufferMax, speedMultiplier, acceptsSpeedEffects));
     }
 }

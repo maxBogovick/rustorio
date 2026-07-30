@@ -143,7 +143,22 @@ class WorldReplayTest {
     // sized to the committed recipe's own ingredient count. Every recipe in this fixture still has
     // 1 or 2 ingredients (ENGINE is the only 2-ingredient recipe reachable here), so the printed
     // numbers are the same as before — only the shape (two bare ints -> a bracketed list) changed.
-    private static final String EXPECTED_HASH = "3e78ac7f5840b65d18bf2291e7afc1dee8b9fe6662e39eef5086b68fc3e71fa8";
+    //
+    // Updated again (bug found in review): Splitter used to WAIT forever on its currently-assigned
+    // side once that side was permanently blocked, never falling back to the other, open side —
+    // once nextIsForward landed on the stuck side it stayed there, since it only ever flips on a
+    // success. Line 2's splitter forward output is a small, boundable chest; once it saturated
+    // partway through this 4000-tick run, the old code stalled roughly every other delivery
+    // attempt from then on, backing the whole line up (press, its input belt, the furnace, the
+    // miner) for the REST of the run. The fix — fall back to the open side the same tick without
+    // flipping nextIsForward — keeps the line running at full speed for the entire run instead, so
+    // this is a large, genuine behavior change, not a formatting one: line 2's totals roughly
+    // double (gear 305->547, iron_ore 336->577, iron_plate 322->563), research points nearly
+    // triple (1000->3370, all from the Lab now getting fed steadily), furnace 5,4's pendingOutput
+    // goes from a stuck "Iron Plate" to null (no longer backed up), and the Lab's buffer goes from
+    // empty to mid-batch. Confirmed by diffing canonicalState before/after the fix with everything
+    // else held fixed, per this constant's own javadoc above.
+    private static final String EXPECTED_HASH = "8d125327714245b4dbb6784bc7a02c17e0108977fabbcdb54da57fb9551b29f6";
 
     @Test
     void factoryStateAfterFixedTicksMatchesRecordedBaseline() {

@@ -48,7 +48,11 @@ class ContentCouplingRatchetTest {
     // restoreBuilding) became instanceof TransportNode — a capability check, not a concrete-subtype
     // check the scanner's closed building-name list still recognizes, so these four drop out of
     // this particular count (they didn't disappear from the source, they changed KIND).
-    private static final int BUILDING_INSTANCEOF_BASELINE = 17;
+    // 17 -> 12: UpgradeSpeedAction's five-class instanceof chain (Belt/UndergroundBelt/Inserter/
+    // Filter/Splitter) is gone, replaced by reading BuildingPrototype.acceptsSpeedEffects() (a
+    // registered value, not a case list) — the same move Phase 4 already made for cost/placement/
+    // texture.
+    private static final int BUILDING_INSTANCEOF_BASELINE = 12;
 
     @Test
     void contentConstantSwitchCountMatchesRecordedBaseline() {

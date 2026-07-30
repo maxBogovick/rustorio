@@ -18,7 +18,12 @@ import com.rustorio.api.content.ContentId;
  * future that isn't this card's job" the project's own design checklist warns against.
  *
  * <p>Still does NOT carry footprint: the phase's own acceptance criterion doesn't require it.
+ *
+ * <p>{@code acceptsSpeedEffects} replaces {@code UpgradeSpeedAction}'s old {@code instanceof}
+ * chain over six single-slot/segment-joining classes: whether a kind's second {@code tick()} call
+ * (from a speed wrapper) does anything meaningful is a property of the kind, not something the
+ * upgrade action should determine by checking concrete Java types.
  */
 public record BuildingPrototype(ContentId id, BuildingCost cost, PlacementRule placementRule, ContentId texture,
-        int bufferMax, int speedMultiplier) {
+        int bufferMax, int speedMultiplier, boolean acceptsSpeedEffects) {
 }

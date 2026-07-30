@@ -568,7 +568,7 @@ class FurnaceTest {
 
         BuildingPrototype vanilla = VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.FURNACE));
         BuildingPrototype steelFurnace = new BuildingPrototype(
-                vanilla.id(), vanilla.cost(), vanilla.placementRule(), vanilla.texture(), 10, 2);
+                vanilla.id(), vanilla.cost(), vanilla.placementRule(), vanilla.texture(), 10, 2, true);
         Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES, steelFurnace);
         assertTrue(furnace.accept(world, VanillaItems.COAL));
 

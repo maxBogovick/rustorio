@@ -15,13 +15,16 @@ import org.jspecify.annotations.Nullable;
  * ({@code SortRule.ORE_FORWARD}, deleted along with the rest of that strategy); this is the
  * genre's actual "balancer" half of that split — {@link Filter} is the other, item-identity half.
  *
- * <p><b>Owner decision:</b> if the side {@link #nextIsForward} currently points at is blocked,
- * this building WAITS rather than opportunistically routing the held item to the other, open side.
- * The alternative — falling back to whichever side happens to be free — would let one side's own
- * backpressure silently skew the split away from 50/50, which defeats the entire point of a
- * balancer: a round-robin's honesty comes from committing to the assigned side even when it costs
- * a stall, the same "hold until delivered, don't improvise" discipline every other producer here
- * already follows.
+ * <p><b>Blocked-side fallback.</b> {@link #tick} always tries {@link #nextIsForward}'s side first;
+ * only if THAT offer is refused does it try the other, open side THIS SAME tick — without flipping
+ * {@link #nextIsForward}, so the assigned side gets first refusal again next time. A permanently
+ * stuck side (a full chest, a dead-end belt, a press that will never want what's being sent) would
+ * otherwise wedge the WHOLE building forever: {@link #nextIsForward} only ever flips on a success,
+ * so once it lands on the stuck side it would keep retrying that exact side on every future tick
+ * and never reach the other, perfectly healthy one again — starving a working output because its
+ * unrelated sibling jammed. The earlier version refused this fallback outright to keep the split
+ * exactly 50/50 under backpressure; that guarantee isn't worth trading total, permanent stalls of
+ * both outputs for it — a temporarily uneven split while one side recovers is the far smaller cost.
  */
 public final class Splitter implements Building, SettlesEachTick {
 
@@ -75,10 +78,19 @@ public final class Splitter implements Building, SettlesEachTick {
         if (held == null || arrivedThisTick) {
             return; // arrived this same tick — the relay waits for the next one, exactly like a belt
         }
-        Direction direction = nextIsForward ? facing : facing.rotate();
-        if (world.offerForward(x + direction.dx(), y + direction.dy(), held)) {
+        Direction assigned = nextIsForward ? facing : facing.rotate();
+        if (world.offerForward(x + assigned.dx(), y + assigned.dy(), held)) {
             held = null;
             nextIsForward = !nextIsForward;
+            return;
+        }
+        // Assigned side refused — try the other, open side THIS tick instead of stalling both
+        // outputs forever. nextIsForward stays put: the assigned side gets first refusal again
+        // next time, so a healthy side isn't permanently starved by its stuck sibling, and a fully
+        // healthy pair still alternates exactly as before (this branch never even runs for one).
+        Direction fallback = nextIsForward ? facing.rotate() : facing;
+        if (world.offerForward(x + fallback.dx(), y + fallback.dy(), held)) {
+            held = null;
         }
     }
 

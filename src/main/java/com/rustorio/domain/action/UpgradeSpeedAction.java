@@ -1,12 +1,7 @@
 package com.rustorio.domain.action;
 
-import com.rustorio.domain.building.Belt;
 import com.rustorio.domain.building.Building;
-import com.rustorio.domain.building.Filter;
-import com.rustorio.domain.building.Inserter;
 import com.rustorio.domain.building.SpeedModule;
-import com.rustorio.domain.building.Splitter;
-import com.rustorio.domain.building.UndergroundBelt;
 import com.rustorio.domain.world.World;
 import org.jspecify.annotations.Nullable;
 
@@ -15,29 +10,18 @@ import org.jspecify.annotations.Nullable;
  * was before (plain, or already wrapped some number of times if this isn't the first upgrade) —
  * the same "remember the object, don't reconstruct it" approach as {@link RemoveAction}.
  *
- * <p><b>Owner decision (P2-03, BUG_FIX_PROGRESS.md):</b> option (A) — {@link Belt}s are refused. A
- * {@link SpeedModule} calls {@code inner.tick} twice, but a belt only actually moves cargo when
- * ticked on its segment's tail tile ({@code Belt.tick}); on any other tile the second call is a
- * no-op, and on the tail it doubles the WHOLE segment (however long), not just this one tile.
- * Which tile is the tail isn't visible to the player and shifts on every merge/split, so the
- * effect of upgrading a belt tile is unpredictable by design — refusing it outright is honest
- * about what this module can't do, rather than pretending to support it.
- *
- * <p><b>Owner decision (N13, NEW_BUGS_PROGRESS.md):</b> {@link UndergroundBelt} halves are refused
- * for the same honesty reason, arrived at from the opposite direction. An external review claimed a
- * wrapped tunnel desynchronizes the tick phases; it doesn't — the module's second {@code inner.tick}
- * call finds {@code held} already {@code null} (the first call either relayed the cargo or found
- * none) and returns immediately, so no tunnel ever moves two items in one tick. What's left is a
- * module that provably does nothing at all while still costing the player the upgrade, which is
- * exactly the case P2-03 decided not to sell.
- *
- * <p><b>Extended to {@link Inserter}/{@link Filter}/{@link Splitter} (code review finding).</b> All
- * three share the EXACT same single-slot "accept sets {@code held}+{@code arrivedThisTick}, tick
- * pushes it out and clears {@code held}" shape as {@code Belt}/{@code UndergroundBelt} — the module's
- * second {@code inner.tick} call in the same world tick always finds {@code held == null} (the
- * first call either relayed the held item or found nothing), so it's provably a no-op, same as the
- * tunnel case above. Unlike a belt, there's no "it works on the tail tile" partial truth here to
- * even mislead about — it never does anything, on any tile, for any of the three.
+ * <p><b>Which kinds refuse the upgrade, and why.</b> Read from {@code
+ * BuildingPrototype.acceptsSpeedEffects()} — a registered property of the kind, not an {@code
+ * instanceof} chain over concrete classes. {@code false} for a belt, a tunnel half, an inserter, a
+ * filter, and a splitter — all six share the same single-slot or segment-joining shape where a
+ * {@link SpeedModule}'s second {@code inner.tick} call in the same world tick either does nothing
+ * (single-slot: {@code held} is already {@code null} after the first call relayed or found nothing)
+ * or, for a belt specifically, doubles the WHOLE segment's move (however long) rather than just one
+ * tile — unpredictable either way, and refusing it outright is honest about what this module can't
+ * do (P2-03/N13, BUG_FIX_PROGRESS.md/NEW_BUGS_PROGRESS.md; extended to inserter/filter/splitter by
+ * a later code review finding). {@code true} for everything else, {@link
+ * com.rustorio.domain.building.Chest} included: {@code Chest.tick} genuinely pushes one item per
+ * tick, so a doubled call is a real, meaningful effect, not a no-op.
  */
 public final class UpgradeSpeedAction implements PlayerAction {
 
@@ -81,8 +65,7 @@ public final class UpgradeSpeedAction implements PlayerAction {
             return false;
         }
         Building bare = Building.unwrap(removed);
-        if (bare instanceof Belt || bare instanceof UndergroundBelt
-                || bare instanceof Inserter || bare instanceof Filter || bare instanceof Splitter) {
+        if (!world.buildingFactory().prototype(bare.type()).acceptsSpeedEffects()) {
             world.restoreBuilding(anchorX, anchorY, removed); // put it right back — see the class javadoc
             return false;
         }

@@ -40,6 +40,36 @@ class UpgradeSpeedActionTest {
     }
 
     /**
+     * No regression test covered this before {@code acceptsSpeedEffects} replaced the old
+     * {@code instanceof} chain (found while reading the existing suite, not assumed) — an
+     * {@code UndergroundBelt} half is one of the six kinds the class javadoc's N13 note refuses,
+     * for the same "second tick() call is a provable no-op" reason as a Belt.
+     */
+    @Test
+    void upgradingAnUndergroundBeltHalfIsRefused() {
+        World world = new World(4, 4);
+        world.placeUndergroundIn(1, 1, Direction.RIGHT);
+
+        assertFalse(new UpgradeSpeedAction(1, 1).apply(world), "an UndergroundBelt half must be refused, same reason as a Belt");
+        assertEquals(0, world.peek(1, 1).orElseThrow().speedLevel());
+    }
+
+    /**
+     * Also not covered before {@code acceptsSpeedEffects} (found while reading, not assumed): a
+     * {@code Chest} is NOT in the refusal list today, correctly — {@code Chest.tick} genuinely
+     * pushes one item per tick (D-01), so doubling that call is a real speed effect, unlike the
+     * six no-op kinds refused above.
+     */
+    @Test
+    void upgradingAChestIsAccepted() {
+        World world = new World(4, 4);
+        world.placeChest(1, 1);
+
+        assertTrue(new UpgradeSpeedAction(1, 1).apply(world), "a Chest's tick genuinely does more work when doubled — must be accepted");
+        assertEquals(1, world.peek(1, 1).orElseThrow().speedLevel());
+    }
+
+    /**
      * (Code review finding) {@code Inserter}/{@code Filter}/{@code Splitter} all share the belt's
      * single-slot "held + arrivedThisTick" shape — a {@code SpeedModule}'s second {@code inner.tick}
      * call in the same world tick always finds {@code held == null}, provably a no-op, same as the

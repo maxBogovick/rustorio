@@ -1,5 +1,6 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
@@ -41,13 +42,13 @@ class SplitterTest {
     }
 
     /**
-     * Honesty of the split: if the side a round-robin splitter is CURRENTLY assigned to is
-     * blocked, it must wait for that side to clear, not silently dump the item on the other
-     * (open) side — the same "hold until delivered" discipline every other producer follows, and
-     * the only thing that keeps a 50/50 split meaningful under backpressure.
+     * A permanently blocked assigned side must not wedge the item forever when the OTHER side is
+     * open — the splitter falls back to it the same tick instead of stalling (found in review: the
+     * old "wait, never reroute" behavior stalled BOTH outputs the moment either one jammed, which
+     * defeats a balancer far more than a temporarily uneven split does).
      */
     @Test
-    void blockedForwardSideMakesTheSplitterWaitRatherThanReroutingToTheOpenSecondarySide() {
+    void blockedAssignedSideFallsBackToTheOpenSecondarySideRatherThanStallingForever() {
         World world = new World(10, 10);
         world.placeSplitter(1, 1, Direction.RIGHT);
         // Forward (RIGHT) neighbor deliberately left unbuilt — nothing there to accept anything.
@@ -57,12 +58,67 @@ class SplitterTest {
         Splitter splitter = (Splitter) world.peek(1, 1).orElseThrow();
         assertTrue(splitter.accept(world, VanillaItems.IRON_ORE));
 
-        for (int i = 0; i < 5; i++) {
+        world.tick();
+
+        assertEquals(1, side.count(), "must have fallen back to the open secondary side instead of stalling");
+        assertEquals(Optional.empty(), splitter.heldItem());
+    }
+
+    /**
+     * A fallback delivery must NOT flip {@link Splitter}'s round-robin bookkeeping — the assigned
+     * side stays "next" so it gets first refusal again once it recovers, instead of the fallback
+     * itself silently becoming the new normal turn order.
+     */
+    @Test
+    void fallbackDeliveryDoesNotStealTheAssignedSidesNextTurn() {
+        World world = new World(10, 10);
+        world.placeSplitter(1, 1, Direction.RIGHT);
+        Chest side = new Chest(Direction.LEFT);
+        world.restoreBuilding(1, 2, side); // secondary — open the whole time
+
+        Splitter splitter = (Splitter) world.peek(1, 1).orElseThrow();
+        assertTrue(splitter.accept(world, VanillaItems.IRON_ORE));
+        world.tick(); // forward still unbuilt -> falls back to secondary; nextIsForward must stay true
+
+        world.place(BuildingType.CHEST, 2, 1); // forward now exists and is open
+        Chest forward = (Chest) world.peek(2, 1).orElseThrow();
+        assertTrue(splitter.accept(world, VanillaItems.IRON_ORE));
+        world.tick();
+
+        assertEquals(1, forward.count(), "the assigned (forward) side must still be tried first, not secondary again");
+        assertEquals(1, side.count(), "unchanged from the earlier fallback delivery");
+    }
+
+    /**
+     * The scenario the fallback exists for: one side of a splitter jams permanently (nothing ever
+     * drains it) while the other stays completely open. Before the fix, EVERY future item stalled
+     * on the jammed side forever, because {@code nextIsForward} only flips on success — starving a
+     * perfectly healthy output because its unrelated sibling got stuck.
+     */
+    @Test
+    void permanentlyBlockedSideNoLongerStarvesTheOpenSideForFutureItems() {
+        World world = new World(10, 10);
+        world.placeSplitter(1, 1, Direction.RIGHT);
+        world.place(BuildingType.CHEST, 2, 1); // forward — about to be demolished mid-run
+        Chest side = new Chest(Direction.LEFT);
+        world.restoreBuilding(1, 2, side); // secondary — stays open for the whole run
+
+        Splitter splitter = (Splitter) world.peek(1, 1).orElseThrow();
+        for (int i = 0; i < 4; i++) {
+            assertTrue(splitter.accept(world, VanillaItems.IRON_ORE));
+            world.tick();
+        }
+        Chest forward = (Chest) world.peek(2, 1).orElseThrow();
+        assertEquals(2, forward.count());
+        assertEquals(2, side.count());
+
+        world.removeBuilding(2, 1); // forward now permanently unreachable
+        for (int i = 0; i < 10; i++) {
+            assertTrue(splitter.accept(world, VanillaItems.IRON_ORE));
             world.tick();
         }
 
-        assertEquals(0, side.count(), "must NOT have opportunistically rerouted to the open side");
-        assertEquals(Optional.of(VanillaItems.IRON_ORE), splitter.heldItem(), "must still be holding, waiting for its assigned side");
+        assertEquals(12, side.count(), "the open side must keep receiving every future item, not just the ones already in flight before the jam");
     }
 
     /**

@@ -41,7 +41,8 @@ class ModdedFurnaceAcceptanceTest {
                 PlacementRule.NEEDS_PASSABLE_TERRAIN,
                 VanillaSprites.FURNACE_COLD,
                 10, // buffer — double the vanilla PRESS's 5
-                2); // speed multiplier — twice as fast
+                2, // speed multiplier — twice as fast
+                true);
 
         Recipe tripleInput = new Recipe(
                 List.of(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.GEAR),
