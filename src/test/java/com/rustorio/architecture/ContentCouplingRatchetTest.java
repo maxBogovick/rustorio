@@ -38,8 +38,17 @@ class ContentCouplingRatchetTest {
     // the one remaining switch is BuildingFactory.create/restore's own dispatch (which Java class
     // to build), deliberately left closed until behavior itself opens up.
     private static final int CONTENT_CONSTANT_SWITCH_BASELINE = 1;
-    private static final int TYPE_PATTERN_SWITCH_BASELINE = 2;
-    private static final int BUILDING_INSTANCEOF_BASELINE = 21;
+    // 2 -> 1: BuildingFactory.clearArrivalMark's switch over Building's sealed hierarchy is gone,
+    // replaced by `instanceof SettlesEachTick` (a capability check, not an exhaustive case list) —
+    // the one remaining type-pattern switch is BuildingFactory.create/restore's own dispatch
+    // (BuildingFactory.java:129), the same one named above, deliberately left closed until
+    // behavior itself opens up.
+    private static final int TYPE_PATTERN_SWITCH_BASELINE = 1;
+    // 21 -> 17: World's four instanceof Belt sites (place, the belt-neighbor lookup, removeBuilding,
+    // restoreBuilding) became instanceof TransportNode — a capability check, not a concrete-subtype
+    // check the scanner's closed building-name list still recognizes, so these four drop out of
+    // this particular count (they didn't disappear from the source, they changed KIND).
+    private static final int BUILDING_INSTANCEOF_BASELINE = 17;
 
     @Test
     void contentConstantSwitchCountMatchesRecordedBaseline() {

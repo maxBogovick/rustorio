@@ -17,7 +17,7 @@ import org.jspecify.annotations.Nullable;
  * independent ones. Each tile still holds its own cargo ({@link #held}) — the segment only
  * reorders it between tiles.
  */
-public final class Belt implements Building {
+public final class Belt implements Building, TransportNode, SettlesEachTick {
 
     private final Direction direction;
     private @Nullable ItemType held;
@@ -52,6 +52,7 @@ public final class Belt implements Building {
         this.held = held;
     }
 
+    @Override
     public Direction direction() {
         return direction;
     }
@@ -74,72 +75,63 @@ public final class Belt implements Building {
         return Optional.of(new Belt(direction.rotate(), held));
     }
 
-    /** Join (or leave, on removal, with {@code null}) a segment — called only by {@link World}. */
-    void joinSegment(@Nullable BeltSegment segment) {
+    /**
+     * Join (or leave, on removal, with {@code null}) a segment — called only by {@code World}.
+     * Public because {@link TransportNode} requires it (interface methods can't be narrower); treat
+     * it as package-private in spirit — general code has no business calling this directly.
+     */
+    @Override
+    public void joinSegment(@Nullable BeltSegment segment) {
         this.segment = segment;
     }
 
     /** The segment this tile currently belongs to — never null while the tile is placed (see field javadoc). */
-    BeltSegment segment() {
+    @Override
+    public BeltSegment segment() {
         return Objects.requireNonNull(segment);
     }
 
     /**
-     * Join this tile to whichever segment(s) its same-direction neighbors belong to — package-
-     * private, reached from {@code World} only through {@link BuildingFactory#attachBelt} (P3-02,
-     * BUG_FIX_PROGRESS.md): {@code World} finds the neighbor behind/ahead (it owns the cell map),
-     * hands them to that narrow public door, and everything past it — {@link BeltSegment}
-     * manipulation — stays inside this package. {@code World} shouldn't need to know segments
-     * exist at all.
-     *
-     * <p>Call order doesn't matter (in particular for save-game loading, which restores tiles in
-     * arbitrary map-key order): whichever tile appears second is the one whose call discovers the
-     * already-standing neighbor and merges segments — the result is the same regardless of which
-     * of the two tiles was restored first.
-     */
-    void attachToNeighbors(@Nullable Belt behind, @Nullable Belt ahead) {
-        if (behind != null) {
-            behind.segment().addHead(this);
-            if (ahead != null && ahead.segment() != behind.segment()) {
-                behind.segment().mergeHead(ahead.segment()); // new tile landed BETWEEN two segments
-            }
-        } else if (ahead != null) {
-            ahead.segment().addTail(this);
-        } else {
-            new BeltSegment(direction).addHead(this); // no belt neighbors — a fresh one-tile segment
-        }
-    }
-
-    /**
      * Leave this tile's segment — package-private, reached from {@code World} only through {@link
-     * BuildingFactory#detachBelt} (P3-02, BUG_FIX_PROGRESS.md), when the belt is demolished or
-     * about to be re-attached idempotently.
+     * BuildingFactory#detachTransportNode} (P3-02, BUG_FIX_PROGRESS.md), when the belt is
+     * demolished or about to be re-attached idempotently.
      */
-    void leaveSegment() {
+    @Override
+    public void leaveSegment() {
         if (segment != null) {
             segment.remove(this);
         }
     }
 
-    @Nullable ItemType held() {
+    /** Public only because {@link TransportNode} requires it — see that interface's javadoc; callers stay {@link BeltSegment}. */
+    @Override
+    public @Nullable ItemType held() {
         return held;
     }
 
-    void setHeld(ItemType item) {
+    @Override
+    public void setHeld(ItemType item) {
         held = item;
     }
 
-    void clearHeld() {
+    @Override
+    public void clearHeld() {
         held = null;
     }
 
     /** Whether {@link BeltSegment#tick} must refuse to move this tile further THIS frame. */
-    boolean arrivedThisTick() {
+    @Override
+    public boolean arrivedThisTick() {
         return arrivedThisTick;
     }
 
-    /** Called once per world tick, before any building ticks — see {@code TickScheduler}. */
-    void clearArrivalMark() {
+    /**
+     * Called once per world tick, before any building ticks — see {@code TickScheduler}. Public
+     * only because {@link SettlesEachTick} requires it (interface methods can't be narrower); no
+     * caller besides {@code TickScheduler} should call this directly.
+     */
+    @Override
+    public void clearArrivalMark() {
         arrivedThisTick = false;
     }
 

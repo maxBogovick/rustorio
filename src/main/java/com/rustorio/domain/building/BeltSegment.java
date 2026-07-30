@@ -15,6 +15,12 @@ import java.util.function.Predicate;
  * advance together in a single {@link #tick} call instead of N independent {@code Belt#tick}
  * calls each separately calling {@code world.offerForward} one tile ahead.
  *
+ * <p>Holds {@link TransportNode} tiles, not specifically {@link Belt}: any class implementing that
+ * capability interface can join this cascade on equal footing with a vanilla {@link Belt} — this is
+ * the whole point of the interface, not an incidental generalization. {@link UndergroundBelt} is
+ * deliberately NOT one of those tiles; it never joins a segment at all (see {@link
+ * UndergroundBelt#findPartner}).
+ *
  * <p>Deliberately O(length) per tick, not O(1): a real transport-belt engine moves cargo via one
  * shared offset instead of walking every item. That would be premature here — belts on this map
  * are short, and a plain scan is easier to verify with merge/split tests, which is the riskiest
@@ -26,7 +32,7 @@ final class BeltSegment {
     private final Direction direction;
 
     /** Index 0 is the tail (entry point); the last element is the head (exit point). */
-    private final SequencedCollection<Belt> tiles = new ArrayDeque<>();
+    private final SequencedCollection<TransportNode> tiles = new ArrayDeque<>();
 
     /**
      * Mirrors {@link #tiles}'s membership exactly, kept in sync by every method that touches
@@ -36,7 +42,7 @@ final class BeltSegment {
      * cost O(1+2+...+N) = O(N²) total, purely for this membership check — the {@link #tick} loop
      * itself was never the problem (see that method's own javadoc on why it stays O(length)).
      */
-    private final Set<Belt> membership = new HashSet<>();
+    private final Set<TransportNode> membership = new HashSet<>();
 
     BeltSegment(Direction direction) {
         this.direction = direction;
@@ -51,54 +57,54 @@ final class BeltSegment {
     }
 
     /** Only the tail drives the segment's tick — see {@link Belt#tick}. */
-    boolean isTail(Belt belt) {
+    boolean isTail(TransportNode belt) {
         return tiles.getFirst() == belt;
     }
 
-    /** Attach {@code belt} as a new head (built directly past the current head). */
-    void addHead(Belt belt) {
-        requireNotAlreadyPresent(belt);
-        tiles.addLast(belt);
-        membership.add(belt);
-        belt.joinSegment(this);
+    /** Attach {@code node} as a new head (built directly past the current head). */
+    void addHead(TransportNode node) {
+        requireNotAlreadyPresent(node);
+        tiles.addLast(node);
+        membership.add(node);
+        node.joinSegment(this);
     }
 
-    /** Attach {@code belt} as a new tail (built directly before the current tail). */
-    void addTail(Belt belt) {
-        requireNotAlreadyPresent(belt);
-        tiles.addFirst(belt);
-        membership.add(belt);
-        belt.joinSegment(this);
+    /** Attach {@code node} as a new tail (built directly before the current tail). */
+    void addTail(TransportNode node) {
+        requireNotAlreadyPresent(node);
+        tiles.addFirst(node);
+        membership.add(node);
+        node.joinSegment(this);
     }
 
     /**
-     * Callers must leave whatever segment a belt is currently in before re-attaching it — see
+     * Callers must leave whatever segment a tile is currently in before re-attaching it — see
      * {@code World#restoreBuilding}. A tile appearing twice in {@link #tiles} would silently
      * corrupt {@link #tick} and {@link #size}; fail loudly instead.
      */
-    private void requireNotAlreadyPresent(Belt belt) {
-        if (membership.contains(belt)) {
+    private void requireNotAlreadyPresent(TransportNode node) {
+        if (membership.contains(node)) {
             throw new IllegalStateException("belt is already in this segment");
         }
     }
 
     /** Merge {@code other} (immediately past this segment's head, same direction) into this one. */
     void mergeHead(BeltSegment other) {
-        for (Belt belt : other.tiles) {
-            tiles.addLast(belt);
-            membership.add(belt);
-            belt.joinSegment(this);
+        for (TransportNode node : other.tiles) {
+            tiles.addLast(node);
+            membership.add(node);
+            node.joinSegment(this);
         }
     }
 
     /**
-     * Remove {@code belt} from the segment (a building was demolished). Shrinks from an edge, or —
+     * Remove {@code node} from the segment (a building was demolished). Shrinks from an edge, or —
      * if the tile was in the middle — splits into two independent segments around the hole. Cargo
      * the removed tile was holding leaves with it, never duplicated onto a neighbor.
      */
-    void remove(Belt belt) {
-        List<Belt> ordered = new ArrayList<>(tiles);
-        int index = ordered.indexOf(belt);
+    void remove(TransportNode node) {
+        List<TransportNode> ordered = new ArrayList<>(tiles);
+        int index = ordered.indexOf(node);
         tiles.clear();
         membership.clear();
 
@@ -112,7 +118,7 @@ final class BeltSegment {
                 tail.addHead(ordered.get(i));
             }
         }
-        belt.joinSegment(null);
+        node.joinSegment(null);
     }
 
     /**
@@ -120,8 +126,8 @@ final class BeltSegment {
      * toward the tail advances into its place, and so on down the chain. One head-to-tail pass
      * gives the "no more than one tile per tick" guarantee WITHIN this one segment.
      *
-     * <p>A tile whose {@link Belt#arrivedThisTick} is set is skipped as a cargo SOURCE (it can
-     * still be a valid destination — {@code next.held() == null} still checks its actual state):
+     * <p>A tile whose {@link TransportNode#arrivedThisTick} is set is skipped as a cargo SOURCE (it
+     * can still be a valid destination — {@code next.held() == null} still checks its actual state):
      * it only just received that cargo via {@code accept}, earlier in the SAME world tick, from a
      * different segment or building entirely. Moving it again in this same pass is exactly the
      * cross-segment double-move P2-07 found; {@code TickScheduler} clears the mark once per frame,
@@ -129,21 +135,21 @@ final class BeltSegment {
      * tick it arrived in — see P3-03, BUG_FIX_PROGRESS.md.
      */
     void tick(Predicate<ItemType> tryExit) {
-        Belt next = null;
+        TransportNode next = null;
         var it = tiles.reversed().iterator();
         while (it.hasNext()) {
-            Belt belt = it.next();
-            boolean eligibleSource = !belt.arrivedThisTick();
+            TransportNode node = it.next();
+            boolean eligibleSource = !node.arrivedThisTick();
             if (next == null) {
-                ItemType head = belt.held();
+                ItemType head = node.held();
                 if (eligibleSource && head != null && tryExit.test(head)) {
-                    belt.clearHeld();
+                    node.clearHeld();
                 }
-            } else if (eligibleSource && belt.held() != null && next.held() == null) {
-                next.setHeld(belt.held());
-                belt.clearHeld();
+            } else if (eligibleSource && node.held() != null && next.held() == null) {
+                next.setHeld(node.held());
+                node.clearHeld();
             }
-            next = belt;
+            next = node;
         }
     }
 }

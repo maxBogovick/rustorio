@@ -23,7 +23,7 @@ import org.jspecify.annotations.Nullable;
  * a stall, the same "hold until delivered, don't improvise" discipline every other producer here
  * already follows.
  */
-public final class Splitter implements Building {
+public final class Splitter implements Building, SettlesEachTick {
 
     private final Direction facing;
     private @Nullable ItemType held;
@@ -60,8 +60,13 @@ public final class Splitter implements Building {
         return true;
     }
 
-    /** Called once per world tick, before any building ticks — see {@code TickScheduler}. */
-    void clearArrivalMark() {
+    /**
+     * Called once per world tick, before any building ticks — see {@code TickScheduler}. Public
+     * only because {@link SettlesEachTick} requires it; no caller besides {@code TickScheduler}
+     * should call this directly.
+     */
+    @Override
+    public void clearArrivalMark() {
         arrivedThisTick = false;
     }
 

@@ -21,7 +21,7 @@ import org.jspecify.annotations.Nullable;
  * one hardcoded rule ({@code SortRule.ORE_FORWARD}, now deleted) and no way for a player to choose
  * a different one at all.
  */
-public final class Filter implements Building {
+public final class Filter implements Building, SettlesEachTick {
 
     private final Direction facing;
     private ItemType filterItem;
@@ -70,8 +70,13 @@ public final class Filter implements Building {
         return true;
     }
 
-    /** Called once per world tick, before any building ticks — see {@code TickScheduler}. */
-    void clearArrivalMark() {
+    /**
+     * Called once per world tick, before any building ticks — see {@code TickScheduler}. Public
+     * only because {@link SettlesEachTick} requires it; no caller besides {@code TickScheduler}
+     * should call this directly.
+     */
+    @Override
+    public void clearArrivalMark() {
         arrivedThisTick = false;
     }
 

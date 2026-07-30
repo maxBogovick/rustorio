@@ -153,48 +153,41 @@ public final class BuildingFactory {
     }
 
     /**
-     * The narrow public door {@code World} reaches {@link Belt#attachToNeighbors} through (P3-02,
-     * BUG_FIX_PROGRESS.md): {@code World} owns the cell map and finds which neighbors (if any) sit
-     * behind/ahead of a freshly placed or restored belt, but everything past that — actually
-     * wiring tiles into a {@link BeltSegment} — is this package's business, not {@code World}'s.
+     * The narrow public door {@code World} reaches {@link TransportNode#attachToNeighbors} through
+     * (P3-02, BUG_FIX_PROGRESS.md): {@code World} owns the cell map and finds which neighbors (if
+     * any) sit behind/ahead of a freshly placed or restored node, but everything past that —
+     * actually wiring tiles into a {@link BeltSegment} — is this package's business, not {@code
+     * World}'s. Takes {@link TransportNode}, not specifically {@link Belt}: any capability
+     * implementer can be attached the same way, not just the vanilla one.
      */
-    public static void attachBelt(Belt belt, @Nullable Belt behind, @Nullable Belt ahead) {
-        belt.attachToNeighbors(behind, ahead);
+    public static void attachTransportNode(TransportNode node, @Nullable TransportNode behind, @Nullable TransportNode ahead) {
+        node.attachToNeighbors(behind, ahead);
     }
 
     /**
-     * The narrow public door {@code World} reaches {@link Belt#leaveSegment} through (P3-02,
-     * BUG_FIX_PROGRESS.md) — on demolition, or to make a re-restore idempotent (see {@code
+     * The narrow public door {@code World} reaches {@link TransportNode#leaveSegment} through
+     * (P3-02, BUG_FIX_PROGRESS.md) — on demolition, or to make a re-restore idempotent (see {@code
      * World.restoreBuilding}).
      */
-    public static void detachBelt(Belt belt) {
-        belt.leaveSegment();
+    public static void detachTransportNode(TransportNode node) {
+        node.leaveSegment();
     }
 
     /**
      * The narrow public door {@code TickScheduler} reaches every arrival mark through (P3-03,
      * BUG_FIX_PROGRESS.md) — called once per building, once per world tick, before either traversal
-     * pass runs. Buildings that carry no mark (a chest, a furnace) simply have nothing to clear.
+     * pass runs. Buildings that carry no mark (a chest, a furnace) simply have nothing to clear —
+     * they don't implement {@link SettlesEachTick} at all.
      *
      * <p>One method taking any {@link Building} rather than one overload per kind (N2,
-     * NEW_BUGS_PROGRESS.md): the {@code switch} over the sealed hierarchy is what keeps the list
-     * honest — a new relay kind that needs a settle shows up here as a case to consider, in the one
-     * place that knows the whole list, instead of {@code TickScheduler} growing another {@code
-     * instanceof} branch each time. {@link Building#unwrap} first, so a {@link SpeedModule}-wrapped
-     * relay is marked-cleared exactly like a bare one.
+     * NEW_BUGS_PROGRESS.md): a relay kind that needs a settle implements the capability interface
+     * and is picked up here automatically, instead of this method (or {@code TickScheduler}) growing
+     * a new branch every time one is added. {@link Building#unwrap} first, so a {@link
+     * SpeedModule}-wrapped relay is marked-cleared exactly like a bare one.
      */
     public static void clearArrivalMark(Building building) {
-        switch (Building.unwrap(building)) {
-            case Belt belt -> belt.clearArrivalMark();
-            case UndergroundBelt tunnel -> tunnel.clearArrivalMark();
-            case Splitter splitter -> splitter.clearArrivalMark();
-            case Filter filter -> filter.clearArrivalMark();
-            case Inserter inserter -> inserter.clearArrivalMark();
-            case Miner ignored -> { }
-            case Chest ignored -> { }
-            case Furnace ignored -> { }
-            case Lab ignored -> { }
-            case SpeedModule ignored -> { } // unreachable after unwrap — the compiler still wants it listed
+        if (Building.unwrap(building) instanceof SettlesEachTick settling) {
+            settling.clearArrivalMark();
         }
     }
 }

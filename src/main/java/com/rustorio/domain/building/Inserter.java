@@ -27,7 +27,7 @@ import org.jspecify.annotations.Nullable;
  * which is a bigger change than this task's own affected-files list covers. Left as a documented
  * gap, not a silent one, for a follow-up if that stronger form turns out to actually be needed.
  */
-public final class Inserter implements Building {
+public final class Inserter implements Building, SettlesEachTick {
 
     private final Direction direction;
     private @Nullable ItemType held;
@@ -54,8 +54,13 @@ public final class Inserter implements Building {
         return true;
     }
 
-    /** Called once per world tick, before any building ticks — see {@code TickScheduler}. */
-    void clearArrivalMark() {
+    /**
+     * Called once per world tick, before any building ticks — see {@code TickScheduler}. Public
+     * only because {@link SettlesEachTick} requires it; no caller besides {@code TickScheduler}
+     * should call this directly.
+     */
+    @Override
+    public void clearArrivalMark() {
         arrivedThisTick = false;
     }
 

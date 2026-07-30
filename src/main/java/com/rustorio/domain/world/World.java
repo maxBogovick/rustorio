@@ -15,6 +15,7 @@ import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.PlacementRule;
 import com.rustorio.domain.building.SpeedModule;
 import com.rustorio.domain.building.TickContext;
+import com.rustorio.domain.building.TransportNode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -306,8 +307,8 @@ public final class World implements TickContext {
         buildings.put(anchor, building);
         occupyFootprint(anchor, w, h);
         trackStatus(anchor, building);
-        if (building instanceof Belt belt) {
-            attachToSegment(belt, x, y, direction);
+        if (building instanceof TransportNode node) {
+            attachToSegment(node, x, y, direction);
         }
         return true;
     }
@@ -354,20 +355,20 @@ public final class World implements TickContext {
         return place(type, x, y, Direction.RIGHT);
     }
 
-    private void attachToSegment(Belt belt, int x, int y, Direction direction) {
-        Belt behind = beltNeighbor(x - direction.dx(), y - direction.dy(), direction).orElse(null);
-        Belt ahead = beltNeighbor(x + direction.dx(), y + direction.dy(), direction).orElse(null);
-        BuildingFactory.attachBelt(belt, behind, ahead);
+    private void attachToSegment(TransportNode node, int x, int y, Direction direction) {
+        TransportNode behind = transportNeighbor(x - direction.dx(), y - direction.dy(), direction).orElse(null);
+        TransportNode ahead = transportNeighbor(x + direction.dx(), y + direction.dy(), direction).orElse(null);
+        BuildingFactory.attachTransportNode(node, behind, ahead);
     }
 
-    /** The neighbor at {@code (x, y)}, if it's a belt facing the same direction — else empty. */
-    private Optional<Belt> beltNeighbor(int x, int y, Direction direction) {
+    /** The neighbor at {@code (x, y)}, if it's a transport node facing the same direction — else empty. */
+    private Optional<TransportNode> transportNeighbor(int x, int y, Direction direction) {
         Building neighbor = buildings.get(new Coord(x, y));
         if (neighbor == null) {
             return Optional.empty();
         }
-        return (Building.unwrap(neighbor) instanceof Belt belt && belt.direction() == direction)
-                ? Optional.of(belt)
+        return (Building.unwrap(neighbor) instanceof TransportNode node && node.direction() == direction)
+                ? Optional.of(node)
                 : Optional.empty();
     }
 
@@ -390,8 +391,8 @@ public final class World implements TickContext {
         if (lastKnown != null) {
             statusCounts.merge(lastKnown, -1, Integer::sum);
         }
-        if (Building.unwrap(removed) instanceof Belt belt) {
-            BuildingFactory.detachBelt(belt);
+        if (Building.unwrap(removed) instanceof TransportNode node) {
+            BuildingFactory.detachTransportNode(node);
         }
         return Optional.of(removed);
     }
@@ -412,9 +413,9 @@ public final class World implements TickContext {
         buildings.put(anchor, building);
         occupyFootprint(anchor, building.footprintWidth(), building.footprintHeight());
         trackStatus(anchor, building);
-        if (Building.unwrap(building) instanceof Belt belt) {
-            BuildingFactory.detachBelt(belt);
-            attachToSegment(belt, x, y, belt.direction());
+        if (Building.unwrap(building) instanceof TransportNode node) {
+            BuildingFactory.detachTransportNode(node);
+            attachToSegment(node, x, y, node.direction());
         }
     }
 

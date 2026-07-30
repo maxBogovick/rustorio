@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
  * same-orientation {@link Kind#OUT} within {@link #MAX_RANGE} tiles, handing the item to it
  * directly. The {@code OUT} half then pushes forward like a plain {@link Belt}.
  */
-public final class UndergroundBelt implements Building {
+public final class UndergroundBelt implements Building, SettlesEachTick {
 
     public enum Kind {
         IN, OUT
@@ -65,8 +65,13 @@ public final class UndergroundBelt implements Building {
         return arrivedThisTick;
     }
 
-    /** Called once per world tick, before any building ticks — see {@code TickScheduler}. */
-    void clearArrivalMark() {
+    /**
+     * Called once per world tick, before any building ticks — see {@code TickScheduler}. Public
+     * only because {@link SettlesEachTick} requires it; no caller besides {@code TickScheduler}
+     * should call this directly.
+     */
+    @Override
+    public void clearArrivalMark() {
         arrivedThisTick = false;
     }
 
