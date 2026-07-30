@@ -2,11 +2,11 @@ package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import java.util.Collections;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -19,7 +19,7 @@ import org.jspecify.annotations.Nullable;
  * these records directly — one {@code @JsonSubTypes} entry per building kind, no manual string
  * splitting, no silent field-count mismatches.
  *
- * <p>Fields are plain nullable types, not {@code Optional<Item>}: Jackson (without the extra
+ * <p>Fields are plain nullable types, not {@code Optional<ItemType>}: Jackson (without the extra
  * jdk8-datatypes module this project doesn't depend on) doesn't serialize {@code Optional}, and
  * Effective Java Item 55 says a field/record-component is the wrong place for it anyway —
  * {@code Optional} belongs on method return types, which is exactly where {@link Building}'s
@@ -27,30 +27,24 @@ import org.jspecify.annotations.Nullable;
  */
 public sealed interface BuildingMemento {
 
-    record MinerState(Direction direction, int cooldown, @Nullable Item held) implements BuildingMemento {
+    record MinerState(Direction direction, int cooldown, @Nullable ItemType held) implements BuildingMemento {
     }
 
     /**
      * {@code contents} carries per-kind counts now, not one blind total (D-02, DEV_TASKS.md — §2.5
      * of the design audit: the old chest threw away item identity on {@code accept}).
      *
-     * <p>Wrapped in an {@link EnumMap}, not {@code Map.copyOf}: the latter's iteration order is
+     * <p>Wrapped in a {@link TreeMap}, not {@code Map.copyOf}: the latter's iteration order is
      * deliberately randomized per JVM run for maps with more than one entry (see {@code
      * java.util.ImmutableCollections}'s salt) — the same trap {@code WorldReplayTest} (S-01) had to
      * route around for {@code ProductionStats.Snapshot}'s totals map. This record's default {@code
      * toString()} is exactly what feeds that replay test's canonical state string, so a randomized
-     * order here would make the "same input, same hash" guarantee quietly false.
+     * order here would make the "same input, same hash" guarantee quietly false — {@link ItemType}'s
+     * own {@code Comparable} (by {@code ContentId}) is what keeps {@link TreeMap}'s order deterministic.
      */
-    record ChestState(Direction direction, Map<Item, Integer> contents) implements BuildingMemento {
+    record ChestState(Direction direction, Map<ItemType, Integer> contents) implements BuildingMemento {
         public ChestState {
-            // new EnumMap<>(Map) throws ClassCastException when the argument is empty and isn't
-            // itself an EnumMap (it can't infer the key type from zero entries — Jackson hands one
-            // of these for every freshly-placed, still-empty chest it deserializes). Same issue
-            // Research.Snapshot's EnumSet already solved: build an empty EnumMap with an explicit
-            // key type, then copy into it, instead of asking EnumMap to copy blind.
-            Map<Item, Integer> copy = new EnumMap<>(Item.class);
-            copy.putAll(contents);
-            contents = Collections.unmodifiableMap(copy);
+            contents = Collections.unmodifiableMap(new TreeMap<>(contents));
         }
     }
 
@@ -68,13 +62,13 @@ public sealed interface BuildingMemento {
             int bufferA,
             int bufferB,
             int cooldown,
-            @Nullable Item recipeOutput,
-            @Nullable Item pendingOutput,
+            @Nullable ItemType recipeOutput,
+            @Nullable ItemType pendingOutput,
             int fuelBuffer,
-            @Nullable Item selectedRecipeOutput) implements BuildingMemento {
+            @Nullable ItemType selectedRecipeOutput) implements BuildingMemento {
     }
 
-    record BeltState(Direction direction, @Nullable Item held) implements BuildingMemento {
+    record BeltState(Direction direction, @Nullable ItemType held) implements BuildingMemento {
     }
 
     /**
@@ -84,15 +78,15 @@ public sealed interface BuildingMemento {
      * of the old combined building, {@link Filter}'s player-chosen item, has its own {@link
      * FilterState}.
      */
-    record SplitterState(Direction facing, @Nullable Item held, boolean nextIsForward) implements BuildingMemento {
+    record SplitterState(Direction facing, @Nullable ItemType held, boolean nextIsForward) implements BuildingMemento {
     }
 
     /** {@code filterItem} — the player's choice via {@link Filter#cycleFilterItem} (X-01, DEV_TASKS.md): what passes forward: everything else goes to the rotated side. */
-    record FilterState(Direction facing, @Nullable Item held, Item filterItem) implements BuildingMemento {
+    record FilterState(Direction facing, @Nullable ItemType held, ItemType filterItem) implements BuildingMemento {
     }
 
     /** (X-01, DEV_TASKS.md) A single-cell direct-transfer building — see {@link Inserter}'s own javadoc for why it's mechanically a one-tile {@link Belt}. */
-    record InserterState(Direction direction, @Nullable Item held) implements BuildingMemento {
+    record InserterState(Direction direction, @Nullable ItemType held) implements BuildingMemento {
     }
 
     /**
@@ -100,13 +94,13 @@ public sealed interface BuildingMemento {
      * DEV_TASKS.md) — {@link Lab} awards points per finished batch proportional to that specific
      * item's {@code RecipeBook.depthOf}, which needs to know which item is which, not only a count.
      */
-    record LabState(List<Item> buffer, int cooldown) implements BuildingMemento {
+    record LabState(List<ItemType> buffer, int cooldown) implements BuildingMemento {
         public LabState {
             buffer = List.copyOf(buffer);
         }
     }
 
-    record UndergroundBeltState(UndergroundBelt.Kind kind, Direction direction, @Nullable Item held)
+    record UndergroundBeltState(UndergroundBelt.Kind kind, Direction direction, @Nullable ItemType held)
             implements BuildingMemento {
     }
 }

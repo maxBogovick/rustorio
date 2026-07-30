@@ -75,11 +75,11 @@ final class RecipeBookRenderer {
         batch.end();
     }
 
-    /** "IRON_ORE -> IRON_PLATE   (Furnace, 5 ticks)" / "ENGINE + GEAR -> CHASSIS   (Press, 15 ticks)". */
+    /** "Iron Ore -> Iron Plate   (Furnace, 5 ticks)" / "Engine + Gear -> Chassis   (Press, 15 ticks)". */
     private static String describe(Recipe recipe) {
-        String inputs = recipe.input().name()
-                + (recipe.input2() == null ? "" : " + " + recipe.input2().name());
-        return inputs + "  ->  " + recipe.output().name()
+        String inputs = recipe.input().label()
+                + (recipe.input2() == null ? "" : " + " + recipe.input2().label());
+        return inputs + "  ->  " + recipe.output().label()
                 + "   (" + recipe.type().label() + ", " + recipe.time() + " ticks)";
     }
 }

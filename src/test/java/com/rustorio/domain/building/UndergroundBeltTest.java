@@ -2,7 +2,8 @@ package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.action.ActionHistory;
 import com.rustorio.domain.action.UpgradeSpeedAction;
 import com.rustorio.domain.world.World;
@@ -55,7 +56,7 @@ class UndergroundBeltTest {
         world.restoreBuilding(6, 0, chest);
 
         Belt feed = (Belt) world.peek(0, 0).orElseThrow();
-        assertTrue(feed.accept(world, Item.IRON_ORE));
+        assertTrue(feed.accept(world, VanillaItems.IRON_ORE));
 
         for (int i = 0; i < 10; i++) {
             world.tick();
@@ -71,12 +72,12 @@ class UndergroundBeltTest {
         world.placeUndergroundOut(6, 0, Direction.RIGHT);
 
         UndergroundBelt in = (UndergroundBelt) world.peek(0, 0).orElseThrow();
-        assertTrue(in.accept(world, Item.IRON_ORE));
+        assertTrue(in.accept(world, VanillaItems.IRON_ORE));
 
         for (int i = 0; i < 5; i++) {
             world.tick();
         }
-        assertEquals(Optional.of(Item.IRON_ORE), in.heldItem(), "пара вне дальности — груз остаётся ждать на входе");
+        assertEquals(Optional.of(VanillaItems.IRON_ORE), in.heldItem(), "пара вне дальности — груз остаётся ждать на входе");
     }
 
     @Test
@@ -92,7 +93,7 @@ class UndergroundBeltTest {
         world.restoreBuilding(5, 0, chest);
 
         UndergroundBelt in = (UndergroundBelt) world.peek(0, 0).orElseThrow();
-        assertTrue(in.accept(world, Item.IRON_ORE));
+        assertTrue(in.accept(world, VanillaItems.IRON_ORE));
 
         for (int i = 0; i < 8; i++) {
             world.tick();
@@ -120,7 +121,7 @@ class UndergroundBeltTest {
         world.restoreBuilding(1, 0, chest); // OUT (LEFT) exits into (1,0)
 
         Belt feed = (Belt) world.peek(5, 0).orElseThrow();
-        assertTrue(feed.accept(world, Item.IRON_ORE));
+        assertTrue(feed.accept(world, VanillaItems.IRON_ORE));
 
         world.tick(); // feeder (phase 1) delivers into IN; IN's own tick (phase 2) follows same frame
         world.tick(); // IN relays to OUT here at the earliest — not before
@@ -157,7 +158,7 @@ class UndergroundBeltTest {
         world.restoreBuilding(chestX, 0, chest);
 
         Belt feed = (Belt) world.peek(beltX, 0).orElseThrow();
-        assertTrue(feed.accept(world, Item.IRON_ORE));
+        assertTrue(feed.accept(world, VanillaItems.IRON_ORE));
 
         int ticks = 0;
         while (chest.count() == 0) {

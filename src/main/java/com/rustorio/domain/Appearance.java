@@ -1,17 +1,18 @@
 package com.rustorio.domain;
 
+import com.rustorio.api.content.ContentId;
 import org.jspecify.annotations.Nullable;
 
 /**
- * How a building looks right now: which {@link Sprite}, an optional numeric badge (how much is
+ * How a building looks right now: which sprite (a {@link ContentId}), an optional numeric badge (how much is
  * queued in a chest, how hot a furnace's buffer is), its {@link BuildingStatus} (F-01,
  * DEV_TASKS.md), and an optional recipe hint (F-03, DEV_TASKS.md). Lives in the domain, not the
  * renderer: the building decides its own appearance; drawing it is dumb, uniform work for every
  * building.
  *
  * <p>{@code badge} is a plain {@code int} with a sentinel, not {@code OptionalInt} — and {@code
- * recipeHint} is a plain {@code @Nullable Item}, not {@code Optional<Item>}: Effective Java Item
- * 55 says {@code Optional} belongs on method return types, never a field or record component —
+ * recipeHint} is a plain {@code @Nullable ItemType}, not {@code Optional<ItemType>}: Effective Java
+ * Item 55 says {@code Optional} belongs on method return types, never a field or record component —
  * see {@code Recipe#input2} for the same reasoning spelled out in full.
  *
  * <p>{@code recipeHint} is which item a furnace or press is currently set to produce — the
@@ -21,38 +22,38 @@ import org.jspecify.annotations.Nullable;
  * a small colored icon directly on the sprite, so the choice is visible without opening the
  * inspection panel — the card's own "не только в панели" requirement.
  *
- * <p>The two/three-argument {@link #of(Sprite)}/{@link #of(Sprite, int)}/{@link #of(Sprite,
+ * <p>The two/three-argument {@link #of(ContentId)}/{@link #of(ContentId, int)}/{@link #of(ContentId,
  * BuildingStatus)} overloads default {@code status} to {@link BuildingStatus#WORKING} and {@code
  * recipeHint} to {@code null} — most buildings ({@code Belt}, {@code Splitter}, {@code
  * UndergroundBelt}, {@code Lab}, {@code SpeedModule}) have no meaningful "stuck" state or recipe
  * choice of their own to report and keep calling these unchanged; only {@code Miner}, {@code
  * Chest} needed a real status, and only {@code Furnace} needs both status and a recipe hint.
  */
-public record Appearance(Sprite sprite, int badge, BuildingStatus status, @Nullable Item recipeHint) {
+public record Appearance(ContentId sprite, int badge, BuildingStatus status, @Nullable ItemType recipeHint) {
 
     private static final int NO_BADGE = -1;
 
-    public static Appearance of(Sprite sprite) {
+    public static Appearance of(ContentId sprite) {
         return new Appearance(sprite, NO_BADGE, BuildingStatus.WORKING, null);
     }
 
-    public static Appearance of(Sprite sprite, int badge) {
+    public static Appearance of(ContentId sprite, int badge) {
         return new Appearance(sprite, badge, BuildingStatus.WORKING, null);
     }
 
-    public static Appearance of(Sprite sprite, BuildingStatus status) {
+    public static Appearance of(ContentId sprite, BuildingStatus status) {
         return new Appearance(sprite, NO_BADGE, status, null);
     }
 
-    public static Appearance of(Sprite sprite, BuildingStatus status, @Nullable Item recipeHint) {
+    public static Appearance of(ContentId sprite, BuildingStatus status, @Nullable ItemType recipeHint) {
         return new Appearance(sprite, NO_BADGE, status, recipeHint);
     }
 
-    public static Appearance of(Sprite sprite, int badge, BuildingStatus status) {
+    public static Appearance of(ContentId sprite, int badge, BuildingStatus status) {
         return new Appearance(sprite, badge, status, null);
     }
 
-    public static Appearance of(Sprite sprite, int badge, BuildingStatus status, @Nullable Item recipeHint) {
+    public static Appearance of(ContentId sprite, int badge, BuildingStatus status, @Nullable ItemType recipeHint) {
         return new Appearance(sprite, badge, status, recipeHint);
     }
 

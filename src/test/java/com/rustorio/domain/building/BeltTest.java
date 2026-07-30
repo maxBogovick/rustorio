@@ -2,7 +2,8 @@ package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.action.ActionHistory;
 import com.rustorio.domain.action.UpgradeSpeedAction;
 import com.rustorio.domain.world.World;
@@ -34,15 +35,15 @@ class BeltTest {
         world.restoreBuilding(3, 0, chest);
 
         Belt tail = beltAt(world, 0, 0);
-        assertTrue(tail.accept(world, Item.IRON_ORE));
+        assertTrue(tail.accept(world, VanillaItems.IRON_ORE));
 
         world.tick();
         assertEquals(Optional.empty(), beltAt(world, 0, 0).heldItem());
-        assertEquals(Optional.of(Item.IRON_ORE), beltAt(world, 1, 0).heldItem());
+        assertEquals(Optional.of(VanillaItems.IRON_ORE), beltAt(world, 1, 0).heldItem());
         assertEquals(0, chest.count(), "за один тик груз не должен доехать дальше одной клетки");
 
         world.tick();
-        assertEquals(Optional.of(Item.IRON_ORE), beltAt(world, 2, 0).heldItem());
+        assertEquals(Optional.of(VanillaItems.IRON_ORE), beltAt(world, 2, 0).heldItem());
         assertEquals(0, chest.count());
 
         world.tick();
@@ -75,11 +76,11 @@ class BeltTest {
         Belt head = beltAt(world, 2, 0);
         assertEquals(3, tail.segment().size());
 
-        tail.accept(world, Item.IRON_ORE);
+        tail.accept(world, VanillaItems.IRON_ORE);
         world.tick(); // едет tail -> mid
 
         Building removed = world.removeBuilding(1, 0).orElseThrow();
-        assertEquals(Optional.of(Item.IRON_ORE), removed.heldItem(), "груз снесённого тайла уходит вместе с ним");
+        assertEquals(Optional.of(VanillaItems.IRON_ORE), removed.heldItem(), "груз снесённого тайла уходит вместе с ним");
 
         assertEquals(1, tail.segment().size(), "хвост остался один в своём куске");
         assertEquals(1, head.segment().size(), "голова стала отдельным куском в одну клетку");
@@ -173,7 +174,7 @@ class BeltTest {
         world.restoreBuilding(0, 1, chest);
 
         Belt entry = beltAt(world, 1, 0);
-        assertTrue(entry.accept(world, Item.IRON_ORE));
+        assertTrue(entry.accept(world, VanillaItems.IRON_ORE));
 
         world.tick();
 

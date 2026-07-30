@@ -3,10 +3,11 @@ package com.rustorio.domain.world;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Research;
 import com.rustorio.domain.ResearchView;
 import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.Belt;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingCost;
@@ -123,7 +124,7 @@ public final class World implements TickContext {
      * design audit (which names no starting-stock number); a bootstrap problem the risk section of
      * D-03 explicitly calls out (no starting stock means the very first miner is unbuildable).
      */
-    private static final Map<Item, Integer> STARTING_INVENTORY = Map.of(Item.IRON_PLATE, 30);
+    private static final Map<ItemType, Integer> STARTING_INVENTORY = Map.of(VanillaItems.IRON_PLATE, 30);
 
     /**
      * Who wants to hear about every produced item. Statistics is always subscribed, but the list
@@ -493,7 +494,7 @@ public final class World implements TickContext {
 
     /** Tell every {@link ProductionListener} an item was produced — once per finished batch. */
     @Override
-    public void notifyProduced(Item item) {
+    public void notifyProduced(ItemType item) {
         for (ProductionListener listener : productionListeners) {
             listener.onProduced(tickCount, item);
         }
@@ -513,7 +514,7 @@ public final class World implements TickContext {
      * "make World support multi-cell buildings at all," the same kind of documented scope call
      * X-01's {@code Inserter} javadoc already makes for its own mechanic.
      */
-    private boolean offer(int x, int y, Item item) {
+    private boolean offer(int x, int y, ItemType item) {
         Coord anchor = occupancy.get(new Coord(x, y));
         Building building = anchor == null ? null : buildings.get(anchor);
         return building != null && building.accept(this, item);
@@ -528,7 +529,7 @@ public final class World implements TickContext {
      * would credit output that never happened.
      */
     @Override
-    public boolean offerForward(int x, int y, Item item) {
+    public boolean offerForward(int x, int y, ItemType item) {
         return offer(x, y, item);
     }
 
@@ -582,7 +583,7 @@ public final class World implements TickContext {
      * GrabChestAction}) — a live bug report: a chest's contents and the player's own buildable
      * stock used to be two completely disconnected pools.
      */
-    public void creditItem(Item item, int amount) {
+    public void creditItem(ItemType item, int amount) {
         inventory.add(item, amount);
     }
 
@@ -593,7 +594,7 @@ public final class World implements TickContext {
      * what a demolition or a hand-collection credited — the same "can't afford to undo, stays
      * applied" compromise {@link #trySpendBuildingCost} already makes for a single item.
      */
-    public boolean trySpendItems(Map<Item, Integer> items) {
+    public boolean trySpendItems(Map<ItemType, Integer> items) {
         return inventory.trySpendAll(items);
     }
 
@@ -607,7 +608,7 @@ public final class World implements TickContext {
      *
      * @return the item taken, or empty if the cell is occupied, has no ore, or is still on cooldown
      */
-    public Optional<Item> tryManualMine(int x, int y) {
+    public Optional<ItemType> tryManualMine(int x, int y) {
         if (!inBounds(x, y) || !isFree(x, y)) {
             return Optional.empty();
         }
@@ -615,7 +616,7 @@ public final class World implements TickContext {
         if (tickCount < manualMineReadyAtTick.getOrDefault(coord, 0L)) {
             return Optional.empty();
         }
-        Optional<Item> ore = buildingFactory.oreLayout().extract(x, y);
+        Optional<ItemType> ore = buildingFactory.oreLayout().extract(x, y);
         ore.ifPresent(item -> {
             inventory.add(item, 1);
             manualMineReadyAtTick.put(coord, tickCount + MANUAL_MINE_COOLDOWN_TICKS);

@@ -1,6 +1,6 @@
 package com.rustorio.domain.building;
 
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.ResearchView;
 import java.util.Optional;
 
@@ -21,7 +21,7 @@ import java.util.Optional;
 public interface TickContext {
 
     /** Hand an item to ONE specific neighbor, addressed by direction — a belt's forward push. */
-    boolean offerForward(int x, int y, Item item);
+    boolean offerForward(int x, int y, ItemType item);
 
     /** Look at a cell without offering or consuming anything. */
     Optional<Building> peek(int x, int y);
@@ -30,7 +30,7 @@ public interface TickContext {
     ResearchView research();
 
     /** Tell every production listener an item was produced. */
-    void notifyProduced(Item item);
+    void notifyProduced(ItemType item);
 
     /** Add research points — the one door a {@link Lab} batch mutates research through. */
     void addResearchPoints(int amount);

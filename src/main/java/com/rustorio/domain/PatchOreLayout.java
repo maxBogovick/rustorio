@@ -48,19 +48,19 @@ public final class PatchOreLayout implements OreLayout {
      * full new map is a real follow-up, just not one this task takes on silently.
      */
     private static final OrePatch[] PATCHES = {
-            new OrePatch(6, 5, 3, Item.IRON_ORE), new OrePatch(9, 14, 3, Item.IRON_ORE),
-            new OrePatch(25, 6, 4, Item.IRON_ORE), new OrePatch(28, 15, 3, Item.IRON_ORE),
-            new OrePatch(52, 10, 4, Item.IRON_ORE), new OrePatch(74, 20, 3, Item.IRON_ORE),
-            new OrePatch(45, 34, 4, Item.IRON_ORE), new OrePatch(14, 44, 3, Item.IRON_ORE),
-            new OrePatch(60, 52, 4, Item.BRONZE_ORE), new OrePatch(84, 42, 3, Item.BRONZE_ORE),
-            new OrePatch(33, 56, 3, Item.BRONZE_ORE), new OrePatch(88, 8, 3, Item.BRONZE_ORE),
+            new OrePatch(6, 5, 3, VanillaItems.IRON_ORE), new OrePatch(9, 14, 3, VanillaItems.IRON_ORE),
+            new OrePatch(25, 6, 4, VanillaItems.IRON_ORE), new OrePatch(28, 15, 3, VanillaItems.IRON_ORE),
+            new OrePatch(52, 10, 4, VanillaItems.IRON_ORE), new OrePatch(74, 20, 3, VanillaItems.IRON_ORE),
+            new OrePatch(45, 34, 4, VanillaItems.IRON_ORE), new OrePatch(14, 44, 3, VanillaItems.IRON_ORE),
+            new OrePatch(60, 52, 4, VanillaItems.BRONZE_ORE), new OrePatch(84, 42, 3, VanillaItems.BRONZE_ORE),
+            new OrePatch(33, 56, 3, VanillaItems.BRONZE_ORE), new OrePatch(88, 8, 3, VanillaItems.BRONZE_ORE),
             // Coal (D-05, DEV_TASKS.md) — smaller deposits than iron/bronze (radius 2, not 3-4),
             // one placed deliberately near EACH existing iron/bronze cluster (checked by hand for
             // no overlap): a furnace needs both an ore belt AND a coal belt converging on it now
             // (§2.3 of the design audit), so coal being reachable near ore, not off on its own,
             // is what keeps that a solvable planning puzzle instead of a scavenger hunt.
-            new OrePatch(2, 10, 2, Item.COAL), new OrePatch(20, 10, 2, Item.COAL),
-            new OrePatch(65, 15, 2, Item.COAL), new OrePatch(70, 48, 2, Item.COAL),
+            new OrePatch(2, 10, 2, VanillaItems.COAL), new OrePatch(20, 10, 2, VanillaItems.COAL),
+            new OrePatch(65, 15, 2, VanillaItems.COAL), new OrePatch(70, 48, 2, VanillaItems.COAL),
     };
 
     /**
@@ -79,7 +79,7 @@ public final class PatchOreLayout implements OreLayout {
 
     private final int width;
     private final int height;
-    private final @Nullable Item[] grid;
+    private final @Nullable ItemType[] grid;
     private final Terrain[] terrainGrid;
     /**
      * Calls to {@link #extract} per cell so far, parallel to {@link #grid} — see {@link
@@ -92,7 +92,7 @@ public final class PatchOreLayout implements OreLayout {
     private PatchOreLayout(int width, int height) {
         this.width = width;
         this.height = height;
-        this.grid = new Item[width * height];
+        this.grid = new ItemType[width * height];
         this.extractedCount = new int[width * height];
         this.terrainGrid = new Terrain[width * height];
         Arrays.fill(terrainGrid, Terrain.GROUND);
@@ -161,7 +161,7 @@ public final class PatchOreLayout implements OreLayout {
     }
 
     @Override
-    public Optional<Item> oreAt(int x, int y) {
+    public Optional<ItemType> oreAt(int x, int y) {
         if (x < 0 || y < 0 || x >= width || y >= height) {
             return Optional.empty();
         }
@@ -169,8 +169,8 @@ public final class PatchOreLayout implements OreLayout {
     }
 
     @Override
-    public Optional<Item> extract(int x, int y) {
-        Optional<Item> ore = oreAt(x, y);
+    public Optional<ItemType> extract(int x, int y) {
+        Optional<ItemType> ore = oreAt(x, y);
         if (ore.isEmpty()) {
             return Optional.empty();
         }

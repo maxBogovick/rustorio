@@ -2,10 +2,11 @@ package com.rustorio.domain.building;
 
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.Sprite;
+import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaItems;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -13,8 +14,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Spends finished goods on research points instead of passing them along — the chain's terminus
- * rather than another link in it. Accepts every {@link Item#isResearchGrade} item alike (P2-08,
- * BUG_FIX_PROGRESS.md — the list of which items qualify lives on {@link Item} itself, not here).
+ * rather than another link in it. Accepts every {@link ItemType#researchGrade} item alike (P2-08,
+ * BUG_FIX_PROGRESS.md — the list of which items qualify lives on {@link ItemType} itself, not here).
  *
  * <p><b>Owner decision (P-01, DEV_TASKS.md; scale revisited in N15, NEW_BUGS_PROGRESS.md):</b> a
  * batch's points are proportional to {@link RecipeBook#depthOf}, not a flat 1 regardless of item — the previous behavior (still what {@link
@@ -55,7 +56,7 @@ public final class Lab implements Building {
     private static final int POINTS_PER_GEAR = 10;
 
     private final RecipeBook recipeBook;
-    private final Deque<Item> buffer = new ArrayDeque<>();
+    private final Deque<ItemType> buffer = new ArrayDeque<>();
     private @Nullable ProcessTimer timer;
 
     public Lab(RecipeBook recipeBook) {
@@ -63,7 +64,7 @@ public final class Lab implements Building {
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Lab(RecipeBook recipeBook, List<Item> buffer, int cooldown) {
+    Lab(RecipeBook recipeBook, List<ItemType> buffer, int cooldown) {
         this(recipeBook);
         this.buffer.addAll(buffer);
         if (!this.buffer.isEmpty()) {
@@ -76,8 +77,8 @@ public final class Lab implements Building {
     }
 
     @Override
-    public boolean accept(TickContext world, Item item) {
-        if (!item.isResearchGrade() || buffer.size() >= BUFFER_MAX) {
+    public boolean accept(TickContext world, ItemType item) {
+        if (!item.researchGrade() || buffer.size() >= BUFFER_MAX) {
             return false;
         }
         if (timer == null) {
@@ -96,7 +97,7 @@ public final class Lab implements Building {
         if (!current.tick(effectiveTime(world))) {
             return;
         }
-        Item finished = buffer.removeFirst();
+        ItemType finished = buffer.removeFirst();
         world.addResearchPoints(researchPoints(finished));
         // current already reset its own cooldown to effectiveTime(world) inside the tick() call
         // above (see ProcessTimer#tick) — reuse it for the next queued item as-is; only clear it
@@ -122,8 +123,8 @@ public final class Lab implements Building {
      * producing {@code Float.POSITIVE_INFINITY} and, via {@code Math.round}, {@code
      * Integer.MAX_VALUE} research points for the very first item ever researched.
      */
-    private int researchPoints(Item item) {
-        int gearDepth = recipeBook.depthOf(Item.GEAR);
+    private int researchPoints(ItemType item) {
+        int gearDepth = recipeBook.depthOf(VanillaItems.GEAR);
         int itemDepth = recipeBook.depthOf(item);
         if (gearDepth <= 0) {
             return POINTS_PER_GEAR; // no baseline to scale against — award the flat, pre-P-01 rate
@@ -137,7 +138,7 @@ public final class Lab implements Building {
 
     @Override
     public Appearance appearance() {
-        return buffer.isEmpty() ? Appearance.of(Sprite.LAB) : Appearance.of(Sprite.LAB, buffer.size());
+        return buffer.isEmpty() ? Appearance.of(VanillaSprites.LAB) : Appearance.of(VanillaSprites.LAB, buffer.size());
     }
 
     @Override

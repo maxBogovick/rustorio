@@ -1,7 +1,8 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.world.World;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,7 @@ class SplitterTest {
         // Same item every time — a SortRule-based filter would send ALL of these the same way;
         // a round-robin balancer must still alternate.
         for (int i = 0; i < 4; i++) {
-            assertTrue(splitter.accept(world, Item.IRON_ORE));
+            assertTrue(splitter.accept(world, VanillaItems.IRON_ORE));
             world.tick();
         }
 
@@ -54,14 +55,14 @@ class SplitterTest {
         world.restoreBuilding(1, 2, side); // secondary (rotate(RIGHT) = DOWN) neighbor — open and willing
 
         Splitter splitter = (Splitter) world.peek(1, 1).orElseThrow();
-        assertTrue(splitter.accept(world, Item.IRON_ORE));
+        assertTrue(splitter.accept(world, VanillaItems.IRON_ORE));
 
         for (int i = 0; i < 5; i++) {
             world.tick();
         }
 
         assertEquals(0, side.count(), "must NOT have opportunistically rerouted to the open side");
-        assertEquals(Optional.of(Item.IRON_ORE), splitter.heldItem(), "must still be holding, waiting for its assigned side");
+        assertEquals(Optional.of(VanillaItems.IRON_ORE), splitter.heldItem(), "must still be holding, waiting for its assigned side");
     }
 
     /**
@@ -79,12 +80,12 @@ class SplitterTest {
 
         Splitter upstream = (Splitter) world.peek(11, 10).orElseThrow();
         Splitter downstream = (Splitter) world.peek(10, 10).orElseThrow();
-        assertTrue(upstream.accept(world, Item.IRON_ORE));
+        assertTrue(upstream.accept(world, VanillaItems.IRON_ORE));
 
         world.tick();
 
         assertEquals(0, target.count(), "the item must not cross two splitters in one tick");
-        assertEquals(Optional.of(Item.IRON_ORE), downstream.heldItem(), "it settles on the middle splitter first");
+        assertEquals(Optional.of(VanillaItems.IRON_ORE), downstream.heldItem(), "it settles on the middle splitter first");
 
         world.tick();
 
@@ -101,7 +102,7 @@ class SplitterTest {
         world.restoreBuilding(1, 2, forward); // (x, y+1) — DOWN
 
         Splitter splitter = (Splitter) world.peek(1, 1).orElseThrow();
-        assertTrue(splitter.accept(world, Item.IRON_ORE));
+        assertTrue(splitter.accept(world, VanillaItems.IRON_ORE));
 
         world.tick();
         assertEquals(1, forward.count(), "first item goes forward (round-robin starts forward)");
@@ -110,13 +111,13 @@ class SplitterTest {
     @Test
     void saveAndLoadRoundTripPreservesFacingCargoAndRoundRobinState() {
         Splitter original = new Splitter(Direction.UP);
-        original.accept(null, Item.GEAR);
+        original.accept(null, VanillaItems.GEAR);
 
         BuildingMemento.SplitterState memento = (BuildingMemento.SplitterState) original.memento();
         Splitter reloaded = new Splitter(memento.facing(), memento.held(), memento.nextIsForward());
 
         assertEquals(Optional.of(Direction.UP), reloaded.outputDirection());
-        assertEquals(Optional.of(Item.GEAR), reloaded.heldItem());
+        assertEquals(Optional.of(VanillaItems.GEAR), reloaded.heldItem());
     }
 
     @Test
@@ -137,7 +138,7 @@ class SplitterTest {
         Chest forward = new Chest();
         world.restoreBuilding(2, 1, forward);
         Splitter splitter = (Splitter) world.peek(1, 1).orElseThrow();
-        splitter.accept(world, Item.IRON_ORE);
+        splitter.accept(world, VanillaItems.IRON_ORE);
         world.tick(); // delivers forward, flips nextIsForward to false
 
         BuildingMemento.SplitterState memento = (BuildingMemento.SplitterState) splitter.memento();

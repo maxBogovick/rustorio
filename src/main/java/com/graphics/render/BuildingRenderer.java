@@ -5,10 +5,11 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
-import com.rustorio.domain.Sprite;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.world.World;
 
 /**
@@ -95,12 +96,12 @@ final class BuildingRenderer {
      * picked by {@code tick}, not by which constant {@code Belt#appearance} happened to report.
      * Empty for every non-belt sprite — the caller falls back to the plain, un-animated lookup.
      */
-    private static Sprite animatedBeltSprite(Sprite sprite, long tick) {
-        if (sprite != Sprite.BELT_EMPTY && sprite != Sprite.BELT_FULL) {
+    private static ContentId animatedBeltSprite(ContentId sprite, long tick) {
+        if (sprite != VanillaSprites.BELT_EMPTY && sprite != VanillaSprites.BELT_FULL) {
             return sprite;
         }
         boolean firstFrame = (tick / BELT_ANIM_TICKS_PER_FRAME) % 2 == 0;
-        return firstFrame ? Sprite.BELT_EMPTY : Sprite.BELT_FULL;
+        return firstFrame ? VanillaSprites.BELT_EMPTY : VanillaSprites.BELT_FULL;
     }
 
     /**
@@ -143,7 +144,7 @@ final class BuildingRenderer {
                         shapes.setColor(color);
                         shapes.rect(grid.x(x), grid.yBottom(y), markerSize, markerSize);
                     });
-                    Item hint = look.recipeHint();
+                    ItemType hint = look.recipeHint();
                     if (hint != null) {
                         // "+ w"/"+ h", not "+ tile" (X-03, DEV_TASKS.md): top-RIGHT of the WHOLE
                         // footprint for a multi-cell building, same reasoning as the badge above.

@@ -4,10 +4,10 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
-import com.rustorio.domain.Sprite;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.Tech;
-import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -19,7 +19,7 @@ import java.util.Optional;
  *
  * <p><b>Owner decision (D-02, DEV_TASKS.md):</b> a chest is now directional, like {@link Miner}
  * became in D-01 — {@link #tick} pushes ONE item per tick out through {@link #direction} via
- * {@link TickContext#offerForward}, trying each {@link Item} kind in enum declaration order
+ * {@link TickContext#offerForward}, trying each {@link ItemType} kind in {@code rawId} order
  * (deterministic, not "whichever {@code Map} iteration happens to hit first"). Making it
  * directional means it also needs {@link #rotatedClockwise} — the same D-01 pairing rule applies:
  * a chest built facing the wrong way, with no way to turn it, would be exactly the kind of trap
@@ -37,7 +37,12 @@ public final class Chest implements Building {
     private static final int CAPACITY = 100;
 
     private final Direction direction;
-    private final Map<Item, Integer> contents = new EnumMap<>(Item.class);
+    // HashMap, not TreeMap: tick() below sorts a snapshot of the keys itself (deterministic
+    // output order without needing the map's own iteration order to be), and memento() hands
+    // this to BuildingMemento.ChestState, whose own compact constructor already re-sorts into a
+    // TreeMap for the canonical dump — sorting twice would be pure waste on Chest's own much
+    // hotter accept()/tick() path (a TreeMap here measurably regressed the benchmark).
+    private final Map<ItemType, Integer> contents = new HashMap<>();
     /**
      * Running total across every kind in {@link #contents}, kept in step with it rather than summed
      * on demand (N17, NEW_BUGS_PROGRESS.md — owner decision). {@link #accept} and {@link #appearance}
@@ -65,7 +70,7 @@ public final class Chest implements Building {
      * #tick}, same call already made for every other building's status), so this always starts
      * fresh at the default {@code WORKING}.
      */
-    Chest(Direction direction, Map<Item, Integer> contents) {
+    Chest(Direction direction, Map<ItemType, Integer> contents) {
         this(direction, contents, BuildingStatus.WORKING);
     }
 
@@ -77,7 +82,7 @@ public final class Chest implements Building {
      * — just because the player rotated it. {@code HudRenderer.alerts()} reads {@code
      * World.statusCounts()} directly now, so a stale reset here is directly visible on the HUD.
      */
-    private Chest(Direction direction, Map<Item, Integer> contents, BuildingStatus status) {
+    private Chest(Direction direction, Map<ItemType, Integer> contents, BuildingStatus status) {
         this.direction = direction;
         this.contents.putAll(contents);
         for (int quantity : this.contents.values()) {
@@ -87,7 +92,7 @@ public final class Chest implements Building {
     }
 
     @Override
-    public boolean accept(TickContext world, Item item) {
+    public boolean accept(TickContext world, ItemType item) {
         if (totalCount() >= effectiveCapacity(world)) {
             return false;
         }
@@ -96,15 +101,14 @@ public final class Chest implements Building {
         return true;
     }
 
-    /** Push one stored item (whichever kind comes first in {@link Item} declaration order) out through {@link #direction}. */
+    /** Push one stored item (whichever kind comes first in {@code rawId} order) out through {@link #direction}. */
     @Override
     public void tick(TickContext world, int x, int y) {
         // At capacity is a real problem worth surfacing (F-01, DEV_TASKS.md, §2.5 of the audit's
         // own "заполненный ящик — тоже OUTPUT_FULL" note) — computed here, not in accept()/appearance(),
         // since only tick() has both the current contents AND TickContext (for BIG_BUFFER) at once.
-        for (Item item : Item.values()) {
-            if (contents.getOrDefault(item, 0) > 0
-                    && world.offerForward(x + direction.dx(), y + direction.dy(), item)) {
+        for (ItemType item : contents.keySet().stream().sorted().toList()) {
+            if (world.offerForward(x + direction.dx(), y + direction.dy(), item)) {
                 decrement(item);
                 // One item per tick, same discipline as every other building — and a chest that
                 // just delivered is working, whatever it weighed a moment ago (N6,
@@ -117,7 +121,7 @@ public final class Chest implements Building {
         status = totalCount() >= effectiveCapacity(world) ? BuildingStatus.OUTPUT_FULL : BuildingStatus.WORKING;
     }
 
-    private void decrement(Item item) {
+    private void decrement(ItemType item) {
         int have = contents.getOrDefault(item, 0);
         if (have <= 1) {
             contents.remove(item);
@@ -135,7 +139,7 @@ public final class Chest implements Building {
     }
 
     /** How many of exactly {@code item} are stored — the per-kind breakdown (for F-03's inspection panel, later). */
-    public int amount(Item item) {
+    public int amount(ItemType item) {
         return contents.getOrDefault(item, 0);
     }
 
@@ -146,13 +150,13 @@ public final class Chest implements Building {
      * pools — a factory that had produced plenty could still be unable to afford its own next
      * building, and demolishing a full chest silently destroyed everything inside it.
      */
-    public Map<Item, Integer> contents() {
+    public Map<ItemType, Integer> contents() {
         return Map.copyOf(contents);
     }
 
     /** Empty this chest completely, returning what was taken — see {@link #contents()}'s javadoc. */
-    public Map<Item, Integer> drain() {
-        Map<Item, Integer> taken = Map.copyOf(contents);
+    public Map<ItemType, Integer> drain() {
+        Map<ItemType, Integer> taken = Map.copyOf(contents);
         contents.clear();
         storedCount = 0;
         return taken;
@@ -165,7 +169,7 @@ public final class Chest implements Building {
      * item. Callers that can't guarantee the chest is still empty (production may have refilled it
      * since the grab) must check {@link #canRestore} first — see that method's javadoc.
      */
-    public void restore(Map<Item, Integer> items) {
+    public void restore(Map<ItemType, Integer> items) {
         items.forEach((item, amount) -> {
             contents.merge(item, amount, Integer::sum);
             storedCount += amount;
@@ -182,7 +186,7 @@ public final class Chest implements Building {
      * {@link #restore} fail after the fact, also means the player never loses items already
      * deducted from inventory to an undo that doesn't fit.
      */
-    public boolean canRestore(TickContext world, Map<Item, Integer> items) {
+    public boolean canRestore(TickContext world, Map<ItemType, Integer> items) {
         int sum = 0;
         for (int amount : items.values()) {
             sum += amount;
@@ -202,7 +206,7 @@ public final class Chest implements Building {
     @Override
     public Appearance appearance() {
         int total = totalCount();
-        return total > 0 ? Appearance.of(Sprite.CHEST, total, status) : Appearance.of(Sprite.CHEST, status);
+        return total > 0 ? Appearance.of(VanillaSprites.CHEST, total, status) : Appearance.of(VanillaSprites.CHEST, status);
     }
 
     @Override

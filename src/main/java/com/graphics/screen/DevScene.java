@@ -2,7 +2,8 @@ package com.graphics.screen;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.building.SpeedModule;
@@ -63,27 +64,27 @@ final class DevScene {
     }
 
     private static void buildBronzeChain(World world) {
-        buildSingleInputChain(world, 8, BuildingType.FURNACE, Item.BRONZE_ORE);
+        buildSingleInputChain(world, 8, BuildingType.FURNACE, VanillaItems.BRONZE_ORE);
         feedCoal(world, 8, 8);
     }
 
     private static void buildGearChain(World world) {
-        buildSingleInputChain(world, 11, BuildingType.PRESS, Item.IRON_PLATE);
+        buildSingleInputChain(world, 11, BuildingType.PRESS, VanillaItems.IRON_PLATE);
     }
 
     private static void buildMechanismChain(World world) {
-        buildSingleInputChain(world, 14, BuildingType.PRESS, Item.BRONZE_PLATE);
+        buildSingleInputChain(world, 14, BuildingType.PRESS, VanillaItems.BRONZE_PLATE);
     }
 
     private static void buildAlloyGearChain(World world) {
-        buildSingleInputChain(world, 26, BuildingType.PRESS, Item.ALLOY_PLATE);
+        buildSingleInputChain(world, 26, BuildingType.PRESS, VanillaItems.ALLOY_PLATE);
     }
 
     /**
      * Common shape for every single-input recipe: {@code Chest(supply) -> belt -> furnace/press ->
      * belt -> Chest(output)}, all facing {@code RIGHT} in one row at {@code y}.
      */
-    private static void buildSingleInputChain(World world, int y, BuildingType kind, Item supply) {
+    private static void buildSingleInputChain(World world, int y, BuildingType kind, ItemType supply) {
         world.place(BuildingType.CHEST, 6, y, Direction.RIGHT);
         world.place(BuildingType.BELT, 7, y, Direction.RIGHT);
         world.place(kind, 8, y, Direction.RIGHT);
@@ -107,8 +108,8 @@ final class DevScene {
         world.place(BuildingType.BELT, 9, 17, Direction.RIGHT);
         world.place(BuildingType.CHEST, 10, 17);
         world.place(BuildingType.CHEST, 8, 16, Direction.DOWN); // MECHANISM supply, feeds straight down
-        stock(world, 6, 17, Item.GEAR);
-        stock(world, 8, 16, Item.MECHANISM);
+        stock(world, 6, 17, VanillaItems.GEAR);
+        stock(world, 8, 16, VanillaItems.MECHANISM);
     }
 
     /** {@code ENGINE + GEAR -> CHASSIS}: same trick as {@link #buildEngineChain} — {@code ENGINE} is unique to this recipe, fed first. */
@@ -119,8 +120,8 @@ final class DevScene {
         world.place(BuildingType.BELT, 9, 20, Direction.RIGHT);
         world.place(BuildingType.CHEST, 10, 20);
         world.place(BuildingType.CHEST, 8, 19, Direction.DOWN); // GEAR supply, feeds straight down
-        stock(world, 6, 20, Item.ENGINE);
-        stock(world, 8, 19, Item.GEAR);
+        stock(world, 6, 20, VanillaItems.ENGINE);
+        stock(world, 8, 19, VanillaItems.GEAR);
     }
 
     /**
@@ -137,18 +138,18 @@ final class DevScene {
         world.place(BuildingType.CHEST, 10, 23);
         world.place(BuildingType.CHEST, 8, 22, Direction.DOWN); // BRONZE_PLATE supply, feeds straight down (north side)
         world.place(BuildingType.CHEST, 8, 24, Direction.UP); // COAL supply, feeds straight up (south side — north is already taken above)
-        stock(world, 6, 23, Item.IRON_PLATE);
-        stock(world, 8, 22, Item.BRONZE_PLATE);
-        stock(world, 8, 24, Item.COAL);
+        stock(world, 6, 23, VanillaItems.IRON_PLATE);
+        stock(world, 8, 22, VanillaItems.BRONZE_PLATE);
+        stock(world, 8, 24, VanillaItems.COAL);
     }
 
     /** A small chest directly NORTH of {@code (x, y)}, feeding real {@code COAL} straight down into whatever stands there. */
     private static void feedCoal(World world, int x, int y) {
         world.place(BuildingType.CHEST, x, y - 1, Direction.DOWN);
-        stock(world, x, y - 1, Item.COAL);
+        stock(world, x, y - 1, VanillaItems.COAL);
     }
 
-    private static void stock(World world, int x, int y, Item item) {
+    private static void stock(World world, int x, int y, ItemType item) {
         Chest chest = (Chest) world.peek(x, y).orElseThrow();
         for (int i = 0; i < SUPPLY_STOCK; i++) {
             chest.accept(world, item);
@@ -162,7 +163,7 @@ final class DevScene {
         world.place(BuildingType.SPLITTER, 6, 29, Direction.RIGHT);
         world.place(BuildingType.BELT, 7, 29, Direction.RIGHT);
         world.place(BuildingType.BELT, 6, 30, Direction.DOWN);
-        stock(world, 4, 29, Item.IRON_ORE);
+        stock(world, 4, 29, VanillaItems.IRON_ORE);
     }
 
     /** A tunnel pair well within range, actually relaying cargo from a feeder chest. */
@@ -171,7 +172,7 @@ final class DevScene {
         world.place(BuildingType.UNDERGROUND_IN, 6, 32, Direction.RIGHT);
         world.place(BuildingType.UNDERGROUND_OUT, 9, 32, Direction.RIGHT); // 3 tiles ahead — inside MAX_RANGE even un-teched
         world.place(BuildingType.BELT, 10, 32, Direction.RIGHT);
-        stock(world, 5, 32, Item.IRON_ORE);
+        stock(world, 5, 32, VanillaItems.IRON_ORE);
     }
 
     /** A lab continuously fed research-grade goods. */
@@ -179,7 +180,7 @@ final class DevScene {
         world.place(BuildingType.CHEST, 6, 35, Direction.RIGHT);
         world.place(BuildingType.BELT, 7, 35, Direction.RIGHT);
         world.place(BuildingType.LAB, 8, 35);
-        stock(world, 6, 35, Item.GEAR);
+        stock(world, 6, 35, VanillaItems.GEAR);
     }
 
     /** A belt wrapped in a {@link SpeedModule} — the same wrapping {@code UpgradeSpeedAction} does, just done directly — actually carrying cargo. */
@@ -189,7 +190,7 @@ final class DevScene {
         world.place(BuildingType.CHEST, 8, 38);
         Building belt = world.removeBuilding(7, 38).orElseThrow();
         world.restoreBuilding(7, 38, new SpeedModule(belt));
-        stock(world, 6, 38, Item.IRON_ORE);
+        stock(world, 6, 38, VanillaItems.IRON_ORE);
     }
 
     /**

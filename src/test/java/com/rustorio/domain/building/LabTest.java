@@ -1,6 +1,7 @@
 package com.rustorio.domain.building;
 
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.Tech;
 import com.rustorio.domain.world.World;
@@ -33,7 +34,7 @@ class LabTest {
         World world = new World(4, 4);
         Lab lab = new Lab(RECIPES);
 
-        assertTrue(lab.accept(world, Item.GEAR));
+        assertTrue(lab.accept(world, VanillaItems.GEAR));
         for (int i = 0; i < RESEARCH_TIME - 1; i++) {
             lab.tick(world, 0, 0);
             assertEquals(0, world.research().points(), "не должно быть готово раньше срока");
@@ -56,7 +57,7 @@ class LabTest {
         assertEquals(0, world.research().points(), "цепочка потратила ровно столько очков, сколько было начислено");
 
         Lab lab = new Lab(RECIPES);
-        assertTrue(lab.accept(world, Item.GEAR));
+        assertTrue(lab.accept(world, VanillaItems.GEAR));
 
         int halvedTime = Math.max(1, RESEARCH_TIME / 2);
         for (int i = 0; i < halvedTime - 1; i++) {
@@ -86,7 +87,7 @@ class LabTest {
         World world = new World(4, 4);
         Lab lab = new Lab(RECIPES);
 
-        assertTrue(lab.accept(world, Item.CHASSIS));
+        assertTrue(lab.accept(world, VanillaItems.CHASSIS));
         tickUntilDone(lab, world);
 
         assertEquals(51, world.research().points(), "CHASSIS (глубина 66) при базе GEAR=13→10 очков даёт 51");
@@ -98,7 +99,7 @@ class LabTest {
         World world = new World(4, 4);
         Lab lab = new Lab(RECIPES);
 
-        assertTrue(lab.accept(world, Item.ALLOY_GEAR));
+        assertTrue(lab.accept(world, VanillaItems.ALLOY_GEAR));
         tickUntilDone(lab, world);
 
         assertEquals(23, world.research().points());
@@ -114,8 +115,8 @@ class LabTest {
         World world = new World(4, 4);
         Lab lab = new Lab(RECIPES);
 
-        assertTrue(lab.accept(world, Item.GEAR));
-        assertTrue(lab.accept(world, Item.CHASSIS));
+        assertTrue(lab.accept(world, VanillaItems.GEAR));
+        assertTrue(lab.accept(world, VanillaItems.CHASSIS));
 
         tickUntilDone(lab, world); // GEAR finishes first (FIFO) — +10
         assertEquals(10, world.research().points());
@@ -132,7 +133,7 @@ class LabTest {
     @Test
     void aRestoredLabWithNoRecordedCooldownStartsAFullBatchInsteadOfAwardingPointsInstantly() {
         World world = new World(4, 4);
-        Lab lab = new Lab(RECIPES, java.util.List.of(Item.GEAR), 0);
+        Lab lab = new Lab(RECIPES, java.util.List.of(VanillaItems.GEAR), 0);
 
         lab.tick(world, 0, 0);
         assertEquals(0, world.research().points(), "one tick must not finish a whole batch");
@@ -154,7 +155,7 @@ class LabTest {
         World world = new World(4, 4);
         Lab lab = new Lab(new RecipeBook(java.util.List.of())); // no recipes at all — GEAR has depth 0
 
-        assertTrue(lab.accept(world, Item.GEAR));
+        assertTrue(lab.accept(world, VanillaItems.GEAR));
         tickUntilDone(lab, world);
 
         assertEquals(10, world.research().points(), "falls back to the flat POINTS_PER_GEAR rate, not Integer.MAX_VALUE");
@@ -165,9 +166,9 @@ class LabTest {
         World world = new World(4, 4);
         Lab lab = new Lab(RECIPES);
 
-        assertFalse(lab.accept(world, Item.IRON_ORE));
-        assertFalse(lab.accept(world, Item.IRON_PLATE));
-        assertFalse(lab.accept(world, Item.BRONZE_ORE));
-        assertFalse(lab.accept(world, Item.ALLOY_PLATE));
+        assertFalse(lab.accept(world, VanillaItems.IRON_ORE));
+        assertFalse(lab.accept(world, VanillaItems.IRON_PLATE));
+        assertFalse(lab.accept(world, VanillaItems.BRONZE_ORE));
+        assertFalse(lab.accept(world, VanillaItems.ALLOY_PLATE));
     }
 }

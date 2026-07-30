@@ -2,7 +2,7 @@ package com.graphics.render;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -24,10 +24,10 @@ import org.jspecify.annotations.Nullable;
  * for the same reason: all four originate in {@code InputHandler}, same as {@code selected}/{@code
  * facing}, and the render layer needs them alongside those — {@code dragTiles} empty when nothing
  * is being dragged, {@code inspected} null when no panel is open, {@code altOverlay} true only
- * while Alt is held down, {@code statsItem} which {@link Item} the {@code N} key has currently
+ * while Alt is held down, {@code statsItem} which {@link ItemType} the {@code N} key has currently
  * selected to graph on the stats screen (meaningless while {@code showStats} is false).
  */
 public record HudState(BuildingType selected, Direction facing, boolean paused, int speed, boolean showRecipeBook,
         boolean showTechTree, List<TilePos> dragTiles, @Nullable TilePos inspected, boolean altOverlay,
-        boolean showStats, Item statsItem) {
+        boolean showStats, ItemType statsItem) {
 }

@@ -1,7 +1,7 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -128,14 +128,14 @@ final class BeltSegment {
      * before either traversal pass runs, so a tile is only ever blocked for the remainder of the
      * tick it arrived in — see P3-03, BUG_FIX_PROGRESS.md.
      */
-    void tick(Predicate<Item> tryExit) {
+    void tick(Predicate<ItemType> tryExit) {
         Belt next = null;
         var it = tiles.reversed().iterator();
         while (it.hasNext()) {
             Belt belt = it.next();
             boolean eligibleSource = !belt.arrivedThisTick();
             if (next == null) {
-                Item head = belt.held();
+                ItemType head = belt.held();
                 if (eligibleSource && head != null && tryExit.test(head)) {
                     belt.clearHeld();
                 }

@@ -1,7 +1,7 @@
 package com.rustorio.domain;
 
 /**
- * What kind of ground lies under a cell — orthogonal to {@link Item} ore (a cell reports both:
+ * What kind of ground lies under a cell — orthogonal to {@link ItemType} ore (a cell reports both:
  * see {@link OreLayout#terrainAt}). Only {@link #GROUND} is buildable; {@link #WATER} and {@link
  * #ROCK} are the obstacles X-02 (DEV_TASKS.md) introduces, giving a tunnel (the only building
  * {@code PlacementRule} lets ignore terrain) something to actually be needed for — before this,

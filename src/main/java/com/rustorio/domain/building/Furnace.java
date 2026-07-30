@@ -4,10 +4,11 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.Sprite;
+import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.Tech;
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +35,7 @@ import org.jspecify.annotations.Nullable;
  * calls {@link #cycleRecipe} to say which one they want.
  *
  * <p><b>Owner decision (D-05, DEV_TASKS.md):</b> only the {@code FURNACE} kind burns {@link
- * Item#COAL} — a {@code PRESS} is mechanical stamping, not a heat process, so it has no physical
+ * VanillaItems#COAL} — a {@code PRESS} is mechanical stamping, not a heat process, so it has no physical
  * reason to need fuel (§2.3 of the design audit only ever talks about smelting, and the card's own
  * acceptance criterion says "печь", furnace specifically, not press). {@link #fuelBuffer} is
  * deliberately independent of {@link #bufferA}/{@code bufferB}: fuel isn't a recipe ingredient (no
@@ -80,7 +81,7 @@ public final class Furnace implements Building {
      * nothing (see {@link #tick}), and a furnace can be mid-cooldown on a NEW recipe while an
      * older {@code pendingOutput} is still waiting to leave.
      */
-    private @Nullable Item pendingOutput;
+    private @Nullable ItemType pendingOutput;
     /** Recomputed once per {@link #tick}, not once per render frame — see {@link BuildingStatus}'s own javadoc for why (F-01, DEV_TASKS.md). */
     private BuildingStatus status = BuildingStatus.WORKING;
 
@@ -101,7 +102,7 @@ public final class Furnace implements Building {
         this.bufferA = state.bufferA();
         this.bufferB = state.bufferB();
         this.fuelBuffer = state.fuelBuffer();
-        Item recipeOutput = state.recipeOutput();
+        ItemType recipeOutput = state.recipeOutput();
         if (recipeOutput != null) {
             Recipe recipe = recipeBook.findByOutput(state.kind(), recipeOutput)
                     .orElseThrow(() -> new IllegalStateException("Unknown recipe output: " + recipeOutput));
@@ -114,7 +115,7 @@ public final class Furnace implements Building {
             this.active = new ActiveRecipe(recipe, new ProcessTimer(cooldown));
         }
         this.pendingOutput = state.pendingOutput();
-        Item selectedOutput = state.selectedRecipeOutput();
+        ItemType selectedOutput = state.selectedRecipeOutput();
         if (selectedOutput != null) {
             this.selectedRecipe = recipeBook.findByOutput(state.kind(), selectedOutput)
                     .orElseThrow(() -> new IllegalStateException("Unknown recipe output: " + selectedOutput));
@@ -122,8 +123,8 @@ public final class Furnace implements Building {
     }
 
     @Override
-    public boolean accept(TickContext world, Item item) {
-        if (item == Item.COAL) {
+    public boolean accept(TickContext world, ItemType item) {
+        if (item.equals(VanillaItems.COAL)) {
             if (kind != BuildingType.FURNACE || fuelBuffer >= FUEL_MAX) {
                 return false;
             }
@@ -141,8 +142,8 @@ public final class Furnace implements Building {
         }
         Recipe recipe = current.recipe();
         int max = effectiveBufferMax(world);
-        boolean fitsA = item == recipe.input() && bufferA < max;
-        boolean fitsB = recipe.hasSecondInput() && item == recipe.input2() && bufferB < max;
+        boolean fitsA = item.equals(recipe.input()) && bufferA < max;
+        boolean fitsB = recipe.hasSecondInput() && item.equals(recipe.input2()) && bufferB < max;
         // A recipe whose two ingredients are the same item fits BOTH buffers (N12,
         // NEW_BUGS_PROGRESS.md) — fill the emptier one instead of taking the first match and
         // returning. Matching A first, as this used to, piled every unit into bufferA while
@@ -174,7 +175,7 @@ public final class Furnace implements Building {
      * exactly one, or {@code null} — refuse, don't guess — when there's more than one and the
      * player hasn't picked.
      */
-    private @Nullable Recipe pickRecipe(Item item) {
+    private @Nullable Recipe pickRecipe(ItemType item) {
         List<Recipe> candidates = recipeBook.findAll(kind, item);
         if (selectedRecipe != null && candidates.contains(selectedRecipe)) {
             return selectedRecipe;
@@ -189,7 +190,7 @@ public final class Furnace implements Building {
      *
      * @return the newly selected recipe's output, or empty for "no preference"
      */
-    public Optional<Item> cycleRecipe() {
+    public Optional<ItemType> cycleRecipe() {
         List<Recipe> options = recipeBook.forKind(kind);
         int next = selectedRecipe == null ? 0 : options.indexOf(selectedRecipe) + 1;
         selectedRecipe = next < options.size() ? options.get(next) : null;
@@ -340,7 +341,7 @@ public final class Furnace implements Building {
     }
 
     @Override
-    public Optional<Item> heldItem() {
+    public Optional<ItemType> heldItem() {
         return Optional.ofNullable(pendingOutput);
     }
 
@@ -350,17 +351,17 @@ public final class Furnace implements Building {
         // what's actually cooking; selectedRecipe only matters again once active clears (F-03,
         // DEV_TASKS.md: "выбранный рецепт... виден на экране, не только в панели").
         ActiveRecipe current = active;
-        Item recipeHint = current != null ? current.recipe().output()
+        ItemType recipeHint = current != null ? current.recipe().output()
                 : selectedRecipe != null ? selectedRecipe.output() : null;
         // ASSEMBLER (X-03, DEV_TASKS.md) has exactly one drawn sprite — resources/assembler.png,
-        // via Sprite.ASSEMBLER — unlike FURNACE/PRESS's hot/cold pair, since there's no second
+        // via VanillaSprites.ASSEMBLER — unlike FURNACE/PRESS's hot/cold pair, since there's no second
         // assembler sprite to distinguish "actively cooking" from "idle" with.
         if (kind == BuildingType.ASSEMBLER) {
-            return Appearance.of(Sprite.ASSEMBLER, bufferA, status, recipeHint);
+            return Appearance.of(VanillaSprites.ASSEMBLER, bufferA, status, recipeHint);
         }
         return bufferA > 0
-                ? Appearance.of(Sprite.FURNACE_HOT, bufferA, status, recipeHint)
-                : Appearance.of(Sprite.FURNACE_COLD, status, recipeHint);
+                ? Appearance.of(VanillaSprites.FURNACE_HOT, bufferA, status, recipeHint)
+                : Appearance.of(VanillaSprites.FURNACE_COLD, status, recipeHint);
     }
 
     @Override

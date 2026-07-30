@@ -2,7 +2,8 @@ package com.rustorio.domain.action;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.Belt;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.Furnace;
@@ -26,7 +27,7 @@ class RotateActionTest {
         World world = new World(4, 4);
         assertTrue(world.placeFurnace(1, 1, Direction.RIGHT));
         Furnace furnace = (Furnace) world.peek(1, 1).orElseThrow();
-        furnace.accept(world, Item.IRON_ORE);
+        furnace.accept(world, VanillaItems.IRON_ORE);
 
         assertTrue(new RotateAction(1, 1).apply(world));
 

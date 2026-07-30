@@ -1,6 +1,6 @@
 package com.rustorio.domain.action;
 
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.world.World;
@@ -26,14 +26,14 @@ public final class RemoveAction implements PlayerAction {
 
     /**
      * What was demolished — captured in {@link #apply}, restored in {@link #undo}. A plain
-     * nullable field, not {@code Optional<Building>}: Effective Java Item 55 says {@code Optional}
+     * nullable field, not {@code Optional<Building>}: Effective Java ItemType 55 says {@code Optional}
      * belongs on method return types, never on a field (see {@code Recipe#input2} for the same
      * reasoning spelled out in full).
      */
     private @Nullable Building removed;
 
     /** What a demolished {@link Chest} was holding, credited to inventory in {@link #apply} — {@code null} for every other building kind, or an empty chest. */
-    private @Nullable Map<Item, Integer> reclaimedContents;
+    private @Nullable Map<ItemType, Integer> reclaimedContents;
 
     /**
      * The demolished building's ANCHOR cell, resolved via {@link World#originOf} in {@link
@@ -65,7 +65,7 @@ public final class RemoveAction implements PlayerAction {
             // audit finding (§3.8) this task doesn't touch.
             world.refundBuildingCost(removed.type());
             if (Building.unwrap(removed) instanceof Chest chest) {
-                Map<Item, Integer> contents = chest.contents();
+                Map<ItemType, Integer> contents = chest.contents();
                 if (!contents.isEmpty()) {
                     reclaimedContents = contents;
                     contents.forEach(world::creditItem);

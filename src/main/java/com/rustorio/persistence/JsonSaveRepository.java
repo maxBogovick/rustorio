@@ -2,7 +2,11 @@ package com.rustorio.persistence;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.rustorio.api.registry.Registry;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayoutId;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.world.PlayerInventory;
@@ -39,15 +43,36 @@ public final class JsonSaveRepository implements SaveRepository {
         this(DEFAULT_PATH);
     }
 
+    /** Reads/writes {@link ItemType} values against the vanilla-only registry — see {@link #JsonSaveRepository(Path, Registry)} for a game/test running with additional (modded) content. */
     public JsonSaveRepository(Path path) {
-        this.path = path;
-        this.mapper = newMapper();
+        this(path, VanillaItems.frozen());
     }
 
-    private static ObjectMapper newMapper() {
+    /**
+     * {@code items} must contain every {@link ItemType} any save this repository reads could name
+     * — a save mentioning a {@code ContentId} missing from it fails to load (unknown key), the
+     * same as any other malformed save. Passing a registry that only knows the vanilla items (the
+     * other constructor's default) is exactly correct for a game running no mods; a game or test
+     * with additional registered content needs to pass a registry that includes it too.
+     */
+    public JsonSaveRepository(Path path, Registry<ItemType> items) {
+        this.path = path;
+        this.mapper = newMapper(items);
+    }
+
+    private static ObjectMapper newMapper(Registry<ItemType> items) {
         ObjectMapper mapper = new ObjectMapper();
         mapper.enable(SerializationFeature.INDENT_OUTPUT);
         mapper.addMixIn(com.rustorio.domain.building.BuildingMemento.class, BuildingMementoMixin.class);
+        // ItemType replaced the Item enum — Jackson serialized an enum
+        // both as a plain value and as a Map key via name() for free; a record needs both an
+        // explicit (de)serializer AND a key (de)serializer instead (see ItemTypeSerializer's
+        // javadoc for why the plain one matters just as much as the key one).
+        mapper.registerModule(new SimpleModule()
+                .addSerializer(ItemType.class, new ItemTypeSerializer())
+                .addDeserializer(ItemType.class, new ItemTypeDeserializer(items))
+                .addKeySerializer(ItemType.class, new ItemTypeKeySerializer())
+                .addKeyDeserializer(ItemType.class, new ItemTypeKeyDeserializer(items)));
         return mapper;
     }
 

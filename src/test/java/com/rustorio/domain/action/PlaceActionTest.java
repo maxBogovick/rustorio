@@ -2,7 +2,8 @@ package com.rustorio.domain.action;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.BuildingCost;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.world.World;
@@ -85,17 +86,17 @@ class PlaceActionTest {
         assertTrue(action.apply(world));
 
         Chest chest = (Chest) world.peek(1, 1).orElseThrow();
-        assertTrue(chest.accept(world, Item.GEAR));
-        assertTrue(chest.accept(world, Item.GEAR));
-        assertTrue(chest.accept(world, Item.COAL));
-        int gearBefore = world.inventory().amount(Item.GEAR);
-        int coalBefore = world.inventory().amount(Item.COAL);
+        assertTrue(chest.accept(world, VanillaItems.GEAR));
+        assertTrue(chest.accept(world, VanillaItems.GEAR));
+        assertTrue(chest.accept(world, VanillaItems.COAL));
+        int gearBefore = world.inventory().amount(VanillaItems.GEAR);
+        int coalBefore = world.inventory().amount(VanillaItems.COAL);
 
         action.undo(world);
 
         assertFalse(world.peek(1, 1).isPresent());
-        assertEquals(gearBefore + 2, world.inventory().amount(Item.GEAR), "stored GEAR must come back to the player");
-        assertEquals(coalBefore + 1, world.inventory().amount(Item.COAL), "and so must every other kind");
+        assertEquals(gearBefore + 2, world.inventory().amount(VanillaItems.GEAR), "stored GEAR must come back to the player");
+        assertEquals(coalBefore + 1, world.inventory().amount(VanillaItems.COAL), "and so must every other kind");
     }
 
     /**
@@ -114,24 +115,24 @@ class PlaceActionTest {
         history.perform(world, new PlaceAction(BuildingType.CHEST, 1, 1));
 
         Chest chest = (Chest) world.peek(1, 1).orElseThrow();
-        assertTrue(chest.accept(world, Item.IRON_ORE));
-        assertTrue(chest.accept(world, Item.IRON_ORE));
-        assertTrue(chest.accept(world, Item.GEAR));
+        assertTrue(chest.accept(world, VanillaItems.IRON_ORE));
+        assertTrue(chest.accept(world, VanillaItems.IRON_ORE));
+        assertTrue(chest.accept(world, VanillaItems.GEAR));
 
         history.undo(world);
         assertFalse(world.peek(1, 1).isPresent(), "sanity check — the chest must be gone after undo");
-        int ironOreAfterUndo = world.inventory().amount(Item.IRON_ORE);
-        int gearAfterUndo = world.inventory().amount(Item.GEAR);
+        int ironOreAfterUndo = world.inventory().amount(VanillaItems.IRON_ORE);
+        int gearAfterUndo = world.inventory().amount(VanillaItems.GEAR);
         assertEquals(2, ironOreAfterUndo, "undo must have credited the drained IRON_ORE to inventory");
 
         history.redo(world);
 
         Chest restored = (Chest) world.peek(1, 1).orElseThrow();
-        assertEquals(2, restored.amount(Item.IRON_ORE), "redo must restore what undo drained, not a blank chest");
-        assertEquals(1, restored.amount(Item.GEAR));
-        assertEquals(ironOreAfterUndo - 2, world.inventory().amount(Item.IRON_ORE),
+        assertEquals(2, restored.amount(VanillaItems.IRON_ORE), "redo must restore what undo drained, not a blank chest");
+        assertEquals(1, restored.amount(VanillaItems.GEAR));
+        assertEquals(ironOreAfterUndo - 2, world.inventory().amount(VanillaItems.IRON_ORE),
                 "the restored contents must be claimed back OUT of inventory, not duplicated");
-        assertEquals(gearAfterUndo - 1, world.inventory().amount(Item.GEAR));
+        assertEquals(gearAfterUndo - 1, world.inventory().amount(VanillaItems.GEAR));
     }
 
     /**
@@ -146,16 +147,16 @@ class PlaceActionTest {
         ActionHistory history = new ActionHistory();
         history.perform(world, new PlaceAction(BuildingType.CHEST, 1, 1));
         Chest chest = (Chest) world.peek(1, 1).orElseThrow();
-        assertTrue(chest.accept(world, Item.GEAR));
+        assertTrue(chest.accept(world, VanillaItems.GEAR));
 
         history.undo(world);
         // Spend exactly the one credited GEAR on something else before redoing.
-        assertTrue(world.trySpendItems(Map.of(Item.GEAR, 1)));
+        assertTrue(world.trySpendItems(Map.of(VanillaItems.GEAR, 1)));
 
         history.redo(world);
 
         Chest restored = (Chest) world.peek(1, 1).orElseThrow();
-        assertEquals(0, restored.amount(Item.GEAR), "nothing left to restore — the player already spent it");
+        assertEquals(0, restored.amount(VanillaItems.GEAR), "nothing left to restore — the player already spent it");
     }
 
     /**
@@ -169,7 +170,7 @@ class PlaceActionTest {
         BuildingCost pressCost = BuildingCost.forType(BuildingType.PRESS);
         BuildingCost labCost = BuildingCost.forType(BuildingType.LAB);
 
-        assertEquals(Item.IRON_PLATE, pressCost.item());
-        assertEquals(Item.GEAR, labCost.item());
+        assertEquals(VanillaItems.IRON_PLATE, pressCost.item());
+        assertEquals(VanillaItems.GEAR, labCost.item());
     }
 }

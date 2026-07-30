@@ -3,8 +3,8 @@ package com.rustorio.domain.building;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
-import com.rustorio.domain.Sprite;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaSprites;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -30,7 +30,7 @@ import org.jspecify.annotations.Nullable;
 public final class Inserter implements Building {
 
     private final Direction direction;
-    private @Nullable Item held;
+    private @Nullable ItemType held;
     /** Same one-tick settle every other relay carries — see {@link Splitter#arrivedThisTick} (N2, NEW_BUGS_PROGRESS.md). */
     private boolean arrivedThisTick;
 
@@ -39,13 +39,13 @@ public final class Inserter implements Building {
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Inserter(Direction direction, @Nullable Item held) {
+    Inserter(Direction direction, @Nullable ItemType held) {
         this(direction);
         this.held = held;
     }
 
     @Override
-    public boolean accept(TickContext world, Item item) {
+    public boolean accept(TickContext world, ItemType item) {
         if (held != null) {
             return false;
         }
@@ -70,13 +70,13 @@ public final class Inserter implements Building {
     }
 
     @Override
-    public Optional<Item> heldItem() {
+    public Optional<ItemType> heldItem() {
         return Optional.ofNullable(held);
     }
 
     @Override
     public Appearance appearance() {
-        return Appearance.of(Sprite.INSERTER);
+        return Appearance.of(VanillaSprites.INSERTER);
     }
 
     @Override

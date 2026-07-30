@@ -1,7 +1,8 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.OreLayoutId;
 import com.rustorio.domain.Terrain;
@@ -21,15 +22,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PlacementRuleTest {
 
-    private static OreLayout layoutAt(int atX, int atY, Terrain terrain, @Nullable Item ore) {
+    private static OreLayout layoutAt(int atX, int atY, Terrain terrain, @Nullable ItemType ore) {
         return new OreLayout() {
             @Override
-            public Optional<Item> oreAt(int x, int y) {
+            public Optional<ItemType> oreAt(int x, int y) {
                 return x == atX && y == atY ? Optional.ofNullable(ore) : Optional.empty();
             }
 
             @Override
-            public Optional<Item> extract(int x, int y) {
+            public Optional<ItemType> extract(int x, int y) {
                 return oreAt(x, y);
             }
 
@@ -92,9 +93,9 @@ class PlacementRuleTest {
 
     @Test
     void minerNeedsBothPassableTerrainAndOre() {
-        OreLayout groundWithOre = layoutAt(0, 0, Terrain.GROUND, Item.IRON_ORE);
+        OreLayout groundWithOre = layoutAt(0, 0, Terrain.GROUND, VanillaItems.IRON_ORE);
         OreLayout groundNoOre = layoutAt(0, 0, Terrain.GROUND, null);
-        OreLayout waterWithOre = layoutAt(0, 0, Terrain.WATER, Item.IRON_ORE);
+        OreLayout waterWithOre = layoutAt(0, 0, Terrain.WATER, VanillaItems.IRON_ORE);
 
         assertTrue(PlacementRule.forType(BuildingType.MINER).test(0, 0, groundWithOre));
         assertFalse(PlacementRule.forType(BuildingType.MINER).test(0, 0, groundNoOre),

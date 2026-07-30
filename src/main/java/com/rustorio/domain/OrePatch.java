@@ -6,7 +6,7 @@ package com.rustorio.domain;
  * out here so the two implementations share one definition instead of two that could silently
  * drift apart (P4-03, BUG_FIX_PROGRESS.md).
  */
-record OrePatch(int cx, int cy, int radius, Item ore) {
+record OrePatch(int cx, int cy, int radius, ItemType ore) {
 
     boolean contains(int x, int y) {
         int dx = x - cx;

@@ -1,19 +1,22 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
+import com.rustorio.domain.VanillaItems;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Factory Method: the one place that turns "build a {@link BuildingType} facing this way" or "here
  * is a captured {@link BuildingMemento}" into a live {@link Building} instance. Everything each
  * concrete building needs beyond its own state — the {@link OreLayout} a {@link Miner} reads, the
- * {@link RecipeBook} a {@link Furnace} searches — is injected here once, at construction, instead
- * of every building reaching for static, shared state on its own.
+ * {@link RecipeBook} a {@link Furnace} searches, the {@link Registry} a {@link Filter} cycles
+ * through — is injected here once, at construction, instead of every building reaching for
+ * static, shared state on its own.
  *
  * <p>Consolidates what used to be two separate hand-written {@code switch} statements living in
  * two different classes ({@code World}'s placement dispatch and the save/load file's loading
@@ -24,10 +27,17 @@ public final class BuildingFactory {
 
     private final OreLayout oreLayout;
     private final RecipeBook recipeBook;
+    private final Registry<ItemType> items;
 
+    /** Convenience for callers that only care about the vanilla item set — see the 3-arg constructor for real injection. */
     public BuildingFactory(OreLayout oreLayout, RecipeBook recipeBook) {
+        this(oreLayout, recipeBook, VanillaItems.frozen());
+    }
+
+    public BuildingFactory(OreLayout oreLayout, RecipeBook recipeBook, Registry<ItemType> items) {
         this.oreLayout = oreLayout;
         this.recipeBook = recipeBook;
+        this.items = items;
     }
 
     /** The game's default factory: the standard ore map and the standard recipe set. */
@@ -41,6 +51,11 @@ public final class BuildingFactory {
 
     public RecipeBook recipeBook() {
         return recipeBook;
+    }
+
+    /** The item registry this factory's buildings were built with — what {@link Filter#cycleFilterItem()} cycles through. */
+    public Registry<ItemType> items() {
+        return items;
     }
 
     /**
@@ -71,7 +86,7 @@ public final class BuildingFactory {
             // this comment previously overclaimed equivalence with ORE_FORWARD (code review
             // finding); fixing the mismatch means fixing the CLAIM, since Filter's single-item
             // design is deliberate, not a bug.
-            case FILTER -> new Filter(direction, Item.IRON_ORE);
+            case FILTER -> new Filter(direction, VanillaItems.IRON_ORE, items);
             case INSERTER -> new Inserter(direction);
             case UNDERGROUND_IN -> new UndergroundBelt(UndergroundBelt.Kind.IN, direction);
             case UNDERGROUND_OUT -> new UndergroundBelt(UndergroundBelt.Kind.OUT, direction);
@@ -103,7 +118,7 @@ public final class BuildingFactory {
             case BuildingMemento.FurnaceState s -> new Furnace(s, recipeBook);
             case BuildingMemento.BeltState s -> new Belt(s.direction(), s.held());
             case BuildingMemento.SplitterState s -> new Splitter(s.facing(), s.held(), s.nextIsForward());
-            case BuildingMemento.FilterState s -> new Filter(s.facing(), s.filterItem(), s.held());
+            case BuildingMemento.FilterState s -> new Filter(s.facing(), s.filterItem(), s.held(), items);
             case BuildingMemento.InserterState s -> new Inserter(s.direction(), s.held());
             case BuildingMemento.LabState s -> new Lab(recipeBook, s.buffer(), s.cooldown());
             case BuildingMemento.UndergroundBeltState s -> new UndergroundBelt(s.kind(), s.direction(), s.held());

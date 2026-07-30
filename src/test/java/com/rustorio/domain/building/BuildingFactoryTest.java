@@ -1,10 +1,17 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
+import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemShape;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.PatchOreLayout;
+import com.rustorio.domain.RecipeBook;
+import com.rustorio.domain.VanillaItems;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
@@ -75,9 +82,39 @@ class BuildingFactoryTest {
 
         Building filter = factory.restore(factory.create(BuildingType.FILTER, Direction.RIGHT).memento(), 0);
         assertInstanceOf(Filter.class, filter);
-        assertEquals(Item.IRON_ORE, ((Filter) filter).filterItem());
+        assertEquals(VanillaItems.IRON_ORE, ((Filter) filter).filterItem());
 
         Building inserter = factory.restore(factory.create(BuildingType.INSERTER, Direction.RIGHT).memento(), 0);
         assertInstanceOf(Inserter.class, inserter);
+    }
+
+    /**
+     * Regression test for code review finding S2: a {@link Filter} built through a factory that
+     * was itself constructed with a custom {@link Registry} must cycle through THAT registry —
+     * before the fix, {@link Filter#cycleFilterItem} always reached for {@code
+     * VanillaItems.frozen()} instead, no matter which registry the surrounding factory actually held.
+     */
+    @Test
+    void filterCreatedByTheFactoryCyclesThroughTheFactorysOwnRegistry() {
+        Registry<ItemType> modded = new Registry<>();
+        VanillaItems.registerAll(modded);
+        ItemType copperOre = new ItemType(ContentId.of("test:copper_ore"), "Copper Ore", false, 0, ItemShape.CIRCLE);
+        modded.register(copperOre.id(), copperOre);
+        modded.freeze();
+        BuildingFactory moddedFactory =
+                new BuildingFactory(PatchOreLayout.standard(), RecipeBook.standard(), modded);
+
+        Filter created = (Filter) moddedFactory.create(BuildingType.FILTER, Direction.RIGHT);
+        while (created.filterItem() != copperOre) {
+            created.cycleFilterItem(); // must terminate: copperOre is registered in `modded`
+        }
+        assertEquals(copperOre, created.filterItem());
+
+        // restore() must wire in the SAME registry: cycling a restored filter whose filterItem is
+        // copperOre would throw NoSuchElementException against VanillaItems.frozen() (which has
+        // no idea "test:copper_ore" exists) if restore() fell back to the hardcoded vanilla
+        // registry instead of the factory's own — exactly the bug the finding described.
+        Filter restored = (Filter) moddedFactory.restore(created.memento(), 0);
+        assertDoesNotThrow(restored::cycleFilterItem);
     }
 }

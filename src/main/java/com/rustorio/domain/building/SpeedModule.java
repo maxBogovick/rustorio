@@ -3,7 +3,7 @@ package com.rustorio.domain.building;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import java.util.Optional;
 
 /**
@@ -42,7 +42,7 @@ public final class SpeedModule implements Building {
     }
 
     @Override
-    public boolean accept(TickContext world, Item item) {
+    public boolean accept(TickContext world, ItemType item) {
         return inner.accept(world, item);
     }
 
@@ -52,7 +52,7 @@ public final class SpeedModule implements Building {
     }
 
     @Override
-    public Optional<Item> heldItem() {
+    public Optional<ItemType> heldItem() {
         return inner.heldItem();
     }
 

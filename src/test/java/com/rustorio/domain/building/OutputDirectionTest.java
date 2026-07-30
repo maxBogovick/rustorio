@@ -2,7 +2,8 @@ package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
 import java.util.Optional;
@@ -69,7 +70,7 @@ class OutputDirectionTest {
     /** (X-01, DEV_TASKS.md) Filter also has two outputs now — see its own class javadoc. */
     @Test
     void filterReportsBothOutputsTooJustLikeSplitter() {
-        Filter filter = new Filter(Direction.UP, Item.IRON_ORE);
+        Filter filter = new Filter(Direction.UP, VanillaItems.IRON_ORE);
         assertEquals(Optional.of(Direction.UP), filter.outputDirection());
         assertEquals(Optional.of(Direction.RIGHT), filter.secondaryOutputDirection());
     }

@@ -3,8 +3,8 @@ package com.rustorio.domain.building;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
-import com.rustorio.domain.Sprite;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.Tech;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -26,7 +26,7 @@ public final class UndergroundBelt implements Building {
 
     private final Kind kind;
     private final Direction direction;
-    private @Nullable Item held;
+    private @Nullable ItemType held;
     /**
      * True for the rest of the CURRENT world tick if this {@code IN} tile received cargo via
      * {@link #accept} earlier in the same tick — the tunnel analogue of {@link Belt#arrivedThisTick}
@@ -45,13 +45,13 @@ public final class UndergroundBelt implements Building {
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    UndergroundBelt(Kind kind, Direction direction, @Nullable Item held) {
+    UndergroundBelt(Kind kind, Direction direction, @Nullable ItemType held) {
         this(kind, direction);
         this.held = held;
     }
 
     @Override
-    public boolean accept(TickContext world, Item item) {
+    public boolean accept(TickContext world, ItemType item) {
         if (kind != Kind.IN || held != null) {
             return false;
         }
@@ -123,7 +123,7 @@ public final class UndergroundBelt implements Building {
     }
 
     private void tickOut(TickContext world, int x, int y) {
-        Item cargo = held;
+        ItemType cargo = held;
         if (cargo == null) {
             return;
         }
@@ -133,13 +133,13 @@ public final class UndergroundBelt implements Building {
     }
 
     @Override
-    public Optional<Item> heldItem() {
+    public Optional<ItemType> heldItem() {
         return Optional.ofNullable(held);
     }
 
     @Override
     public Appearance appearance() {
-        return Appearance.of(kind == Kind.IN ? Sprite.UNDERGROUND_IN : Sprite.UNDERGROUND_OUT);
+        return Appearance.of(kind == Kind.IN ? VanillaSprites.UNDERGROUND_IN : VanillaSprites.UNDERGROUND_OUT);
     }
 
     @Override

@@ -129,7 +129,7 @@ public final class Renderer implements Disposable {
         }
         // 8. экран статистики (P-03, DEV_TASKS.md) — поверх всего, только если игрок открыл его (V).
         if (hud.showStats()) {
-            statsScreenRenderer.render(world.stats(), world.currentTick(), hud.statsItem());
+            statsScreenRenderer.render(world.stats(), world.currentTick(), hud.statsItem(), world.buildingFactory().items());
         }
     }
 

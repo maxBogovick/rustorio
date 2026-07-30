@@ -36,7 +36,7 @@ public final class RandomOreLayout implements OreLayout {
     private final long seed;
     private final int width;
     private final int height;
-    private final @Nullable Item[] grid;
+    private final @Nullable ItemType[] grid;
     private final Terrain[] terrainGrid;
     /** Calls to {@link #extract} per cell so far, parallel to {@link #grid} — see {@link OreDepletion} (D-04). */
     private final int[] extractedCount;
@@ -49,7 +49,7 @@ public final class RandomOreLayout implements OreLayout {
         Random random = new Random(seed);
         OrePatch[] patches = new OrePatch[PATCH_COUNT + COAL_PATCHES];
         for (int i = 0; i < PATCH_COUNT; i++) {
-            Item ore = i < PATCH_COUNT - BRONZE_PATCHES ? Item.IRON_ORE : Item.BRONZE_ORE;
+            ItemType ore = i < PATCH_COUNT - BRONZE_PATCHES ? VanillaItems.IRON_ORE : VanillaItems.BRONZE_ORE;
             int radius = fitRadius(MIN_RADIUS + random.nextInt(MAX_RADIUS - MIN_RADIUS + 1), width, height);
             int cx = radius + random.nextInt(width - 2 * radius);
             int cy = radius + random.nextInt(height - 2 * radius);
@@ -61,7 +61,7 @@ public final class RandomOreLayout implements OreLayout {
             int radius = fitRadius(COAL_RADIUS, width, height);
             int cx = radius + random.nextInt(width - 2 * radius);
             int cy = radius + random.nextInt(height - 2 * radius);
-            patches[PATCH_COUNT + i] = new OrePatch(cx, cy, radius, Item.COAL);
+            patches[PATCH_COUNT + i] = new OrePatch(cx, cy, radius, VanillaItems.COAL);
         }
         // Same seeded Random, continued — keeps "same seed -> same map" true for terrain too,
         // not just ore (see RandomOreLayoutTest.sameSeedYieldsTheExactSameMap).
@@ -74,7 +74,7 @@ public final class RandomOreLayout implements OreLayout {
             terrainPatches[i] = new TerrainPatch(cx, cy, radius, terrain);
         }
 
-        this.grid = new Item[width * height];
+        this.grid = new ItemType[width * height];
         this.extractedCount = new int[width * height];
         this.terrainGrid = new Terrain[width * height];
         Arrays.fill(terrainGrid, Terrain.GROUND);
@@ -145,7 +145,7 @@ public final class RandomOreLayout implements OreLayout {
     }
 
     @Override
-    public Optional<Item> oreAt(int x, int y) {
+    public Optional<ItemType> oreAt(int x, int y) {
         if (x < 0 || y < 0 || x >= width || y >= height) {
             return Optional.empty();
         }
@@ -153,8 +153,8 @@ public final class RandomOreLayout implements OreLayout {
     }
 
     @Override
-    public Optional<Item> extract(int x, int y) {
-        Optional<Item> ore = oreAt(x, y);
+    public Optional<ItemType> extract(int x, int y) {
+        Optional<ItemType> ore = oreAt(x, y);
         if (ore.isEmpty()) {
             return Optional.empty();
         }

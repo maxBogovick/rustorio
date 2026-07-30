@@ -1,6 +1,6 @@
 package com.rustorio.domain.world;
 
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -20,11 +20,11 @@ public final class ProductionLog implements ProductionListener, ProductionLogVie
      * is exactly "push to the front, trim from the back," which {@code ArrayList} can only do via
      * {@code add(0, …)} — an O(n) shift on every single production event.
      */
-    private final Deque<Item> recent = new ArrayDeque<>();
+    private final Deque<ItemType> recent = new ArrayDeque<>();
 
     /** {@code tick} isn't used here (D-06, DEV_TASKS.md) — the recent-items log only ever cared about order, not timing. */
     @Override
-    public void onProduced(long tick, Item item) {
+    public void onProduced(long tick, ItemType item) {
         recent.addFirst(item);
         if (recent.size() > CAPACITY) {
             recent.removeLast();
@@ -32,7 +32,7 @@ public final class ProductionLog implements ProductionListener, ProductionLogVie
     }
 
     @Override
-    public List<Item> recent() {
+    public List<ItemType> recent() {
         return List.copyOf(recent);
     }
 }

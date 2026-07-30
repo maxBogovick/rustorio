@@ -1,6 +1,7 @@
 package com.rustorio.domain.world;
 
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -17,13 +18,13 @@ class ProductionStatsTest {
     @Test
     void totalAccumulatesAcrossTicks() {
         ProductionStats stats = new ProductionStats();
-        stats.onProduced(1, Item.IRON_ORE);
-        stats.onProduced(5, Item.IRON_ORE);
-        stats.onProduced(5, Item.GEAR);
+        stats.onProduced(1, VanillaItems.IRON_ORE);
+        stats.onProduced(5, VanillaItems.IRON_ORE);
+        stats.onProduced(5, VanillaItems.GEAR);
 
-        assertEquals(2, stats.total(Item.IRON_ORE));
-        assertEquals(1, stats.total(Item.GEAR));
-        assertEquals(0, stats.total(Item.COAL));
+        assertEquals(2, stats.total(VanillaItems.IRON_ORE));
+        assertEquals(1, stats.total(VanillaItems.GEAR));
+        assertEquals(0, stats.total(VanillaItems.COAL));
     }
 
     /** 6 units inside a 60-tick (1 simulated second) window extrapolates to 360/min. */
@@ -31,10 +32,10 @@ class ProductionStatsTest {
     void ratePerMinuteExtrapolatesFromTheCountInTheWindow() {
         ProductionStats stats = new ProductionStats();
         for (int i = 0; i < 6; i++) {
-            stats.onProduced(i, Item.IRON_ORE);
+            stats.onProduced(i, VanillaItems.IRON_ORE);
         }
 
-        double rate = stats.ratePerMinute(Item.IRON_ORE, 60, 60);
+        double rate = stats.ratePerMinute(VanillaItems.IRON_ORE, 60, 60);
 
         assertEquals(360.0, rate, 0.001);
     }
@@ -42,9 +43,9 @@ class ProductionStatsTest {
     @Test
     void ratePerMinuteIsZeroOutsideTheWindow() {
         ProductionStats stats = new ProductionStats();
-        stats.onProduced(0, Item.IRON_ORE); // long, long ago
+        stats.onProduced(0, VanillaItems.IRON_ORE); // long, long ago
 
-        double rate = stats.ratePerMinute(Item.IRON_ORE, 100_000, 60);
+        double rate = stats.ratePerMinute(VanillaItems.IRON_ORE, 100_000, 60);
 
         assertEquals(0.0, rate);
     }
@@ -55,21 +56,21 @@ class ProductionStatsTest {
         ProductionStats fast = new ProductionStats();
         ProductionStats slow = new ProductionStats();
         for (int i = 0; i < 6; i++) {
-            fast.onProduced(i, Item.IRON_ORE); // same 6 ticks either way — the point is the axis is ticks, not wall time
-            slow.onProduced(i, Item.IRON_ORE);
+            fast.onProduced(i, VanillaItems.IRON_ORE); // same 6 ticks either way — the point is the axis is ticks, not wall time
+            slow.onProduced(i, VanillaItems.IRON_ORE);
         }
 
-        assertEquals(fast.ratePerMinute(Item.IRON_ORE, 60, 60), slow.ratePerMinute(Item.IRON_ORE, 60, 60));
+        assertEquals(fast.ratePerMinute(VanillaItems.IRON_ORE, 60, 60), slow.ratePerMinute(VanillaItems.IRON_ORE, 60, 60));
     }
 
     @Test
     void historyBucketsEventsByTickWindow() {
         ProductionStats stats = new ProductionStats();
-        stats.onProduced(0, Item.IRON_ORE);
-        stats.onProduced(10, Item.IRON_ORE); // same bucket (ticks 0-59)
-        stats.onProduced(60, Item.IRON_ORE); // next bucket
+        stats.onProduced(0, VanillaItems.IRON_ORE);
+        stats.onProduced(10, VanillaItems.IRON_ORE); // same bucket (ticks 0-59)
+        stats.onProduced(60, VanillaItems.IRON_ORE); // next bucket
 
-        List<ProductionStatsView.RateSample> history = stats.history(Item.IRON_ORE);
+        List<ProductionStatsView.RateSample> history = stats.history(VanillaItems.IRON_ORE);
 
         assertEquals(2, history.size());
         assertEquals(0L, history.get(0).tick());
@@ -83,23 +84,23 @@ class ProductionStatsTest {
         ProductionStats stats = new ProductionStats();
         // Far more buckets than the retention window — one event per bucket, for a LOT of buckets.
         for (int bucket = 0; bucket < 10_000; bucket++) {
-            stats.onProduced(bucket * ProductionStats.BUCKET_TICKS, Item.IRON_ORE);
+            stats.onProduced(bucket * ProductionStats.BUCKET_TICKS, VanillaItems.IRON_ORE);
         }
 
-        assertTrue(stats.history(Item.IRON_ORE).size() <= 600,
+        assertTrue(stats.history(VanillaItems.IRON_ORE).size() <= 600,
                 "the ring buffer must stay bounded — see the card's own risk note");
     }
 
     @Test
     void snapshotAndRestoreRoundTripTotalsOnly() {
         ProductionStats stats = new ProductionStats();
-        stats.onProduced(1, Item.IRON_ORE);
-        stats.onProduced(2, Item.IRON_ORE);
+        stats.onProduced(1, VanillaItems.IRON_ORE);
+        stats.onProduced(2, VanillaItems.IRON_ORE);
 
         ProductionStats.Snapshot snapshot = stats.snapshot();
         ProductionStats restored = new ProductionStats();
         restored.restore(snapshot);
 
-        assertEquals(2, restored.total(Item.IRON_ORE));
+        assertEquals(2, restored.total(VanillaItems.IRON_ORE));
     }
 }

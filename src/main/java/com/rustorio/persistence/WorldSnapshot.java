@@ -1,6 +1,6 @@
 package com.rustorio.persistence;
 
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayoutId;
 import com.rustorio.domain.Research;
 import com.rustorio.domain.world.PlayerInventory;
@@ -53,6 +53,13 @@ import org.jspecify.annotations.Nullable;
  * put the two permanently out of step. Same reasoning as the bumps above — a pre-N3 save would
  * deserialize a missing {@code tickCount} as {@code 0} (Jackson's primitive default), which is
  * exactly the silently-wrong value this field exists to stop.
+ *
+ * <p><b>Owner decision:</b> bumped a fifth time — the item enum backing {@link #inventory}'s keys
+ * and {@code ChestState}'s contents became a registry-backed prototype, identified by a namespaced
+ * string (e.g. {@code "rustorio:iron_ore"}) instead of a bare enum name (e.g. {@code "IRON_ORE"}).
+ * A pre-bump save's keys wouldn't parse as the new identifier format at all — not a
+ * gracefully-defaultable missing field, an outright unreadable one — so this is exactly the
+ * "reject the whole snapshot" case the version check exists for, not a silent break.
  */
 record WorldSnapshot(
         int version,
@@ -60,10 +67,10 @@ record WorldSnapshot(
         Research.Snapshot research,
         List<PlacedBuilding> buildings,
         @Nullable OreLayoutId oreLayout,
-        Map<Item, Integer> inventory,
+        Map<ItemType, Integer> inventory,
         Map<Integer, Integer> oreDepletion,
         long tickCount) {
 
-    /** Bump this whenever the save format changes — see the class javadoc's D-07/F-03/X-01/N3 notes. */
-    static final int CURRENT_VERSION = 4;
+    /** Bump this whenever the save format changes — see the class javadoc's bump history. */
+    static final int CURRENT_VERSION = 5;
 }

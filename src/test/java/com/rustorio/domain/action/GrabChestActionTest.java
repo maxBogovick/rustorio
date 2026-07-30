@@ -1,7 +1,8 @@
 package com.rustorio.domain.action;
 
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.world.World;
 import java.util.Map;
@@ -23,16 +24,16 @@ class GrabChestActionTest {
         World world = new World(4, 4);
         Chest chest = new Chest();
         world.restoreBuilding(1, 1, chest);
-        chest.accept(world, Item.IRON_ORE);
-        chest.accept(world, Item.IRON_ORE);
-        chest.accept(world, Item.GEAR);
-        int oreBefore = world.inventory().amount(Item.IRON_ORE);
-        int gearBefore = world.inventory().amount(Item.GEAR);
+        chest.accept(world, VanillaItems.IRON_ORE);
+        chest.accept(world, VanillaItems.IRON_ORE);
+        chest.accept(world, VanillaItems.GEAR);
+        int oreBefore = world.inventory().amount(VanillaItems.IRON_ORE);
+        int gearBefore = world.inventory().amount(VanillaItems.GEAR);
 
         assertTrue(new GrabChestAction(1, 1).apply(world));
 
-        assertEquals(oreBefore + 2, world.inventory().amount(Item.IRON_ORE));
-        assertEquals(gearBefore + 1, world.inventory().amount(Item.GEAR));
+        assertEquals(oreBefore + 2, world.inventory().amount(VanillaItems.IRON_ORE));
+        assertEquals(gearBefore + 1, world.inventory().amount(VanillaItems.GEAR));
         assertEquals(0, chest.count(), "the chest itself must be empty after a grab");
     }
 
@@ -41,7 +42,7 @@ class GrabChestActionTest {
         World world = new World(4, 4);
         Chest chest = new Chest();
         world.restoreBuilding(1, 1, chest);
-        chest.accept(world, Item.GEAR);
+        chest.accept(world, VanillaItems.GEAR);
 
         new GrabChestAction(1, 1).apply(world);
 
@@ -76,17 +77,17 @@ class GrabChestActionTest {
         World world = new World(4, 4);
         Chest chest = new Chest();
         world.restoreBuilding(1, 1, chest);
-        chest.accept(world, Item.GEAR);
-        chest.accept(world, Item.GEAR);
-        int gearBefore = world.inventory().amount(Item.GEAR);
+        chest.accept(world, VanillaItems.GEAR);
+        chest.accept(world, VanillaItems.GEAR);
+        int gearBefore = world.inventory().amount(VanillaItems.GEAR);
         GrabChestAction grab = new GrabChestAction(1, 1);
 
         grab.apply(world);
         grab.undo(world);
 
-        assertEquals(gearBefore, world.inventory().amount(Item.GEAR),
+        assertEquals(gearBefore, world.inventory().amount(VanillaItems.GEAR),
                 "undo must claw back exactly what the grab credited");
-        assertEquals(2, chest.amount(Item.GEAR), "and hand it back to the same chest");
+        assertEquals(2, chest.amount(VanillaItems.GEAR), "and hand it back to the same chest");
     }
 
     @Test
@@ -94,14 +95,14 @@ class GrabChestActionTest {
         World world = new World(4, 4);
         Chest chest = new Chest();
         world.restoreBuilding(1, 1, chest);
-        chest.accept(world, Item.GEAR);
+        chest.accept(world, VanillaItems.GEAR);
         GrabChestAction grab = new GrabChestAction(1, 1);
         grab.apply(world);
 
-        assertTrue(world.trySpendItems(Map.of(Item.GEAR, 1)), "simulate spending the grabbed GEAR elsewhere");
+        assertTrue(world.trySpendItems(Map.of(VanillaItems.GEAR, 1)), "simulate spending the grabbed GEAR elsewhere");
 
         grab.undo(world);
 
-        assertEquals(0, chest.amount(Item.GEAR), "undo must refuse — nothing left to pay back into the chest");
+        assertEquals(0, chest.amount(VanillaItems.GEAR), "undo must refuse — nothing left to pay back into the chest");
     }
 }

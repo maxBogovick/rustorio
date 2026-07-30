@@ -100,8 +100,8 @@ class PatchOreLayoutTest {
     void standardMapHasMinableCoal() {
         PatchOreLayout layout = PatchOreLayout.standard();
 
-        assertEquals(Optional.of(Item.COAL), layout.oreAt(2, 10));
-        assertEquals(Optional.of(Item.COAL), layout.extract(2, 10));
+        assertEquals(Optional.of(VanillaItems.COAL), layout.oreAt(2, 10));
+        assertEquals(Optional.of(VanillaItems.COAL), layout.extract(2, 10));
         assertTrue(layout.isPassable(2, 10), "a coal cell must still be buildable ground, same as any other ore cell");
     }
 

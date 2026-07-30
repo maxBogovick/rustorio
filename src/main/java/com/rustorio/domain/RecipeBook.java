@@ -1,8 +1,9 @@
 package com.rustorio.domain;
 
-import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -21,18 +22,18 @@ import java.util.Optional;
  */
 public final class RecipeBook {
 
-    private static final Recipe IRON = new Recipe(Item.IRON_ORE, Item.IRON_PLATE, 5, BuildingType.FURNACE);
-    private static final Recipe GEAR = new Recipe(Item.IRON_PLATE, Item.GEAR, 8, BuildingType.PRESS);
-    private static final Recipe BRONZE = new Recipe(Item.BRONZE_ORE, Item.BRONZE_PLATE, 5, BuildingType.FURNACE);
-    private static final Recipe MECHANISM = new Recipe(Item.BRONZE_PLATE, Item.MECHANISM, 8, BuildingType.PRESS);
+    private static final Recipe IRON = new Recipe(VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, 5, BuildingType.FURNACE);
+    private static final Recipe GEAR = new Recipe(VanillaItems.IRON_PLATE, VanillaItems.GEAR, 8, BuildingType.PRESS);
+    private static final Recipe BRONZE = new Recipe(VanillaItems.BRONZE_ORE, VanillaItems.BRONZE_PLATE, 5, BuildingType.FURNACE);
+    private static final Recipe MECHANISM = new Recipe(VanillaItems.BRONZE_PLATE, VanillaItems.MECHANISM, 8, BuildingType.PRESS);
     private static final Recipe ENGINE =
-            new Recipe(Item.GEAR, Item.MECHANISM, Item.ENGINE, 12, BuildingType.PRESS);
+            new Recipe(VanillaItems.GEAR, VanillaItems.MECHANISM, VanillaItems.ENGINE, 12, BuildingType.PRESS);
     private static final Recipe CHASSIS =
-            new Recipe(Item.ENGINE, Item.GEAR, Item.CHASSIS, 15, BuildingType.PRESS);
+            new Recipe(VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15, BuildingType.PRESS);
     private static final Recipe ALLOY =
-            new Recipe(Item.IRON_PLATE, Item.BRONZE_PLATE, Item.ALLOY_PLATE, 10, BuildingType.FURNACE);
+            new Recipe(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.ALLOY_PLATE, 10, BuildingType.FURNACE);
     private static final Recipe ALLOY_GEAR =
-            new Recipe(Item.ALLOY_PLATE, Item.ALLOY_GEAR, 10, BuildingType.PRESS);
+            new Recipe(VanillaItems.ALLOY_PLATE, VanillaItems.ALLOY_GEAR, 10, BuildingType.PRESS);
     /**
      * (X-03, DEV_TASKS.md) Same ingredients/output/time as {@link #CHASSIS} — deliberately: this
      * doesn't give {@code ASSEMBLER} a new item to make, only a second, four-cell-footprint MACHINE
@@ -46,7 +47,7 @@ public final class RecipeBook {
      * and this one is declared after it.
      */
     private static final Recipe CHASSIS_ASSEMBLED =
-            new Recipe(Item.ENGINE, Item.GEAR, Item.CHASSIS, 15, BuildingType.ASSEMBLER);
+            new Recipe(VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15, BuildingType.ASSEMBLER);
 
     private static final RecipeBook STANDARD = new RecipeBook(
             List.of(IRON, GEAR, BRONZE, MECHANISM, ENGINE, CHASSIS, ALLOY, ALLOY_GEAR, CHASSIS_ASSEMBLED));
@@ -59,7 +60,7 @@ public final class RecipeBook {
      * entry is impossible by construction, and the worst a second caller can do is compute the same
      * number twice. See {@link #depthOf} for why this is lazy rather than precomputed.
      */
-    private final Map<Item, Integer> depthCache = new EnumMap<>(Item.class);
+    private final Map<ItemType, Integer> depthCache = new HashMap<>();
 
     public RecipeBook(List<Recipe> recipes) {
         this.recipes = List.copyOf(recipes);
@@ -78,10 +79,10 @@ public final class RecipeBook {
     /** Same ingredient multiset, order ignored — {@code (GEAR, MECHANISM)} equals {@code (MECHANISM, GEAR)}. */
     private static boolean sameIngredients(Recipe a, Recipe b) {
         if (a.input2() == null || b.input2() == null) {
-            return a.input2() == b.input2() && a.input() == b.input();
+            return Objects.equals(a.input2(), b.input2()) && a.input().equals(b.input());
         }
-        return (a.input() == b.input() && a.input2() == b.input2())
-                || (a.input() == b.input2() && a.input2() == b.input());
+        return (a.input().equals(b.input()) && a.input2().equals(b.input2()))
+                || (a.input().equals(b.input2()) && a.input2().equals(b.input()));
     }
 
     /** The game's built-in recipe set — what every furnace/press is given unless told otherwise. */
@@ -94,9 +95,9 @@ public final class RecipeBook {
     }
 
     /** Recipe for {@code kind} that accepts {@code input} as its first or second ingredient. */
-    public Optional<Recipe> find(BuildingType kind, Item input) {
+    public Optional<Recipe> find(BuildingType kind, ItemType input) {
         return recipes.stream()
-                .filter(r -> r.type() == kind && (r.input() == input || r.input2() == input))
+                .filter(r -> r.type() == kind && (r.input().equals(input) || input.equals(r.input2())))
                 .findFirst();
     }
 
@@ -106,9 +107,9 @@ public final class RecipeBook {
      * and {@code CHASSIS}). {@code Furnace.accept} uses the size of this list to tell "obvious"
      * from "needs the player to pick" — see P2-02 in BUG_FIX_PROGRESS.md.
      */
-    public List<Recipe> findAll(BuildingType kind, Item input) {
+    public List<Recipe> findAll(BuildingType kind, ItemType input) {
         return recipes.stream()
-                .filter(r -> r.type() == kind && (r.input() == input || r.input2() == input))
+                .filter(r -> r.type() == kind && (r.input().equals(input) || input.equals(r.input2())))
                 .toList();
     }
 
@@ -122,8 +123,8 @@ public final class RecipeBook {
      * furnace that already committed to a recipe: a saved dual-input recipe's input is ambiguous
      * (which of the two arrived first?), but within one {@code kind} the output is always unique.
      */
-    public Optional<Recipe> findByOutput(BuildingType kind, Item output) {
-        return recipes.stream().filter(r -> r.type() == kind && r.output() == output).findFirst();
+    public Optional<Recipe> findByOutput(BuildingType kind, ItemType output) {
+        return recipes.stream().filter(r -> r.type() == kind && r.output().equals(output)).findFirst();
     }
 
     /**
@@ -148,20 +149,20 @@ public final class RecipeBook {
      * isn't vacuous, and a cyclic book must stay constructible — this way an unanswerable question
      * only blows up if someone actually asks it, exactly as before.
      */
-    public int depthOf(Item item) {
+    public int depthOf(ItemType item) {
         Integer known = depthCache.get(item);
         if (known != null) {
             return known;
         }
         // First recipe by declaration order — a second recipe producing the same output
         // (ASSEMBLER's CHASSIS, X-03) must not change the depth this reports.
-        Optional<Recipe> recipe = recipes.stream().filter(r -> r.output() == item).findFirst();
+        Optional<Recipe> recipe = recipes.stream().filter(r -> r.output().equals(item)).findFirst();
         int depth;
         if (recipe.isEmpty()) {
             depth = 0; // raw ore — mined, not crafted, so it costs nothing to "make"
         } else {
             Recipe r = recipe.get();
-            Item input2 = r.input2(); // local, not r.input2() again below — NullAway can't see hasSecondInput()'s guarantee across a ternary
+            ItemType input2 = r.input2(); // local, not r.input2() again below — NullAway can't see hasSecondInput()'s guarantee across a ternary
             depth = r.time() + depthOf(r.input()) + (input2 != null ? depthOf(input2) : 0);
         }
         depthCache.put(item, depth); // only ever reached for a finite chain — see the javadoc above

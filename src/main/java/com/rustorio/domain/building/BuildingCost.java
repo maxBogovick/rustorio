@@ -1,7 +1,8 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 
 /**
  * What a building costs to place, from the player's inventory — one item kind and amount per
@@ -34,22 +35,22 @@ import com.rustorio.domain.Item;
  * audit's §2.1 asks for, so it should cost a LITTLE more than the transport primitive it's built
  * from, not the same.
  */
-public record BuildingCost(Item item, int amount) {
+public record BuildingCost(ItemType item, int amount) {
 
     public static BuildingCost forType(BuildingType type) {
         return switch (type) {
-            case MINER, CHEST, FURNACE -> new BuildingCost(Item.IRON_PLATE, 5);
-            case BELT -> new BuildingCost(Item.IRON_PLATE, 1);
-            case SPLITTER, FILTER -> new BuildingCost(Item.IRON_PLATE, 3);
-            case INSERTER -> new BuildingCost(Item.IRON_PLATE, 2);
-            case UNDERGROUND_IN, UNDERGROUND_OUT -> new BuildingCost(Item.IRON_PLATE, 2);
-            case PRESS -> new BuildingCost(Item.IRON_PLATE, 8);
-            case LAB -> new BuildingCost(Item.GEAR, 10);
+            case MINER, CHEST, FURNACE -> new BuildingCost(VanillaItems.IRON_PLATE, 5);
+            case BELT -> new BuildingCost(VanillaItems.IRON_PLATE, 1);
+            case SPLITTER, FILTER -> new BuildingCost(VanillaItems.IRON_PLATE, 3);
+            case INSERTER -> new BuildingCost(VanillaItems.IRON_PLATE, 2);
+            case UNDERGROUND_IN, UNDERGROUND_OUT -> new BuildingCost(VanillaItems.IRON_PLATE, 2);
+            case PRESS -> new BuildingCost(VanillaItems.IRON_PLATE, 8);
+            case LAB -> new BuildingCost(VanillaItems.GEAR, 10);
             // (X-03, DEV_TASKS.md) Priced in GEAR like LAB, not IRON_PLATE like PRESS: a
             // four-cell machine that crafts CHASSIS directly is a late-game purchase, not an
             // early bootstrap building — pricing it above LAB reflects that it's strictly more
             // machine (4 cells vs 1) for a comparable spot in the tech tree.
-            case ASSEMBLER -> new BuildingCost(Item.GEAR, 15);
+            case ASSEMBLER -> new BuildingCost(VanillaItems.GEAR, 15);
         };
     }
 }

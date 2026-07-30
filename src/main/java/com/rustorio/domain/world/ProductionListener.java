@@ -1,6 +1,6 @@
 package com.rustorio.domain.world;
 
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 
 /**
  * Observer pattern: notified whenever an item is produced anywhere on the map. {@link World}
@@ -9,7 +9,7 @@ import com.rustorio.domain.Item;
  *
  * <p><b>Owner decision (D-06, DEV_TASKS.md):</b> {@code tick} is the world's own tick counter at
  * the moment of production — {@link World#tick()} incremented it, not real time. This is a
- * breaking interface change (there used to be no time axis at all: {@code onProduced(Item)}), made
+ * breaking interface change (there used to be no time axis at all: {@code onProduced(ItemType)}), made
  * deliberately while reworking {@link ProductionStats} rather than bolted on later, per the design
  * audit's §4.1 warning that "sht/min" (items per minute) is uncomputable without one.
  *
@@ -21,5 +21,5 @@ import com.rustorio.domain.Item;
  */
 @FunctionalInterface
 public interface ProductionListener {
-    void onProduced(long tick, Item item);
+    void onProduced(long tick, ItemType item);
 }

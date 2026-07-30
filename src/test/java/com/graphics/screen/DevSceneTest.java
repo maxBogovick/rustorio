@@ -1,7 +1,8 @@
 package com.graphics.screen;
 
 import com.graphics.GfxConfig;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.world.World;
 import org.junit.jupiter.api.Test;
@@ -32,14 +33,14 @@ class DevSceneTest {
             world.tick();
         }
 
-        assertOutput(world, 10, 5, Item.IRON_PLATE);
-        assertOutput(world, 10, 8, Item.BRONZE_PLATE);
-        assertOutput(world, 10, 11, Item.GEAR);
-        assertOutput(world, 10, 14, Item.MECHANISM);
-        assertOutput(world, 10, 17, Item.ENGINE);
-        assertOutput(world, 10, 20, Item.CHASSIS);
-        assertOutput(world, 10, 23, Item.ALLOY_PLATE);
-        assertOutput(world, 10, 26, Item.ALLOY_GEAR);
+        assertOutput(world, 10, 5, VanillaItems.IRON_PLATE);
+        assertOutput(world, 10, 8, VanillaItems.BRONZE_PLATE);
+        assertOutput(world, 10, 11, VanillaItems.GEAR);
+        assertOutput(world, 10, 14, VanillaItems.MECHANISM);
+        assertOutput(world, 10, 17, VanillaItems.ENGINE);
+        assertOutput(world, 10, 20, VanillaItems.CHASSIS);
+        assertOutput(world, 10, 23, VanillaItems.ALLOY_PLATE);
+        assertOutput(world, 10, 26, VanillaItems.ALLOY_GEAR);
     }
 
     /** The deliberately broken miner must actually stay broken — a live demonstration of NO_ORE, not an accident. */
@@ -56,7 +57,7 @@ class DevSceneTest {
                 "the stranded miner sits off every ore patch on purpose — it must never actually mine");
     }
 
-    private static void assertOutput(World world, int x, int y, Item expected) {
+    private static void assertOutput(World world, int x, int y, ItemType expected) {
         Chest output = (Chest) world.peek(x, y).orElseThrow();
         assertTrue(output.amount(expected) > 0,
                 "(" + x + "," + y + ")'s output chest must have accumulated at least one " + expected

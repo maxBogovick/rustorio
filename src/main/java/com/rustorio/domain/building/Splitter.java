@@ -3,8 +3,8 @@ package com.rustorio.domain.building;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
-import com.rustorio.domain.Sprite;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaSprites;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
 public final class Splitter implements Building {
 
     private final Direction facing;
-    private @Nullable Item held;
+    private @Nullable ItemType held;
     /** Which side gets the NEXT successfully delivered item — flips only on an actual successful delivery, never on a blocked attempt. */
     private boolean nextIsForward = true;
     /**
@@ -44,14 +44,14 @@ public final class Splitter implements Building {
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Splitter(Direction facing, @Nullable Item held, boolean nextIsForward) {
+    Splitter(Direction facing, @Nullable ItemType held, boolean nextIsForward) {
         this(facing);
         this.held = held;
         this.nextIsForward = nextIsForward;
     }
 
     @Override
-    public boolean accept(TickContext world, Item item) {
+    public boolean accept(TickContext world, ItemType item) {
         if (held != null) {
             return false;
         }
@@ -78,13 +78,13 @@ public final class Splitter implements Building {
     }
 
     @Override
-    public Optional<Item> heldItem() {
+    public Optional<ItemType> heldItem() {
         return Optional.ofNullable(held);
     }
 
     @Override
     public Appearance appearance() {
-        return Appearance.of(Sprite.SPLITTER);
+        return Appearance.of(VanillaSprites.SPLITTER);
     }
 
     @Override

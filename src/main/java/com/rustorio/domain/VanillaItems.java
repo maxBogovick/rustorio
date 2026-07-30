@@ -1,0 +1,99 @@
+package com.rustorio.domain;
+
+import com.rustorio.api.content.ContentId;
+import com.rustorio.api.registry.Registry;
+
+/**
+ * The game's own built-in items — code standing in for a data file until Phase 3 lets mods supply
+ * their own. {@link #frozen()} is the one shared, already-frozen {@link Registry} every
+ * vanilla-content class in {@code domain} (recipes, ore layouts) reads its {@link ItemType}
+ * instances from, so two classes both asking for "iron ore" get the exact same object — needed
+ * for the {@code ==} comparisons {@code RecipeBook} already relies on. A frozen registry can't be
+ * mutated ({@code register}/{@code update} throw), so sharing this one constant is safe in a way
+ * sharing an unfrozen {@code Registry} would not be (that risk — see {@code Registry}'s own
+ * javadoc — is about shared MUTABLE state before freeze, not about a read-only result after it).
+ *
+ * <p>Field values (research grade, color, shape) are transcribed from the current {@code Palette}
+ * (colors/shapes) — cross-checked by {@code VanillaItemsTest} against those exact numbers.
+ */
+public final class VanillaItems {
+
+    // Declared (and therefore initialized) before FROZEN and every public constant below: both
+    // read these IDs, and Java runs static field initializers in textual, top-to-bottom order.
+    // Also the single source of each item's path string (code review finding R5) — before this,
+    // every public ItemType constant retyped its own "rustorio:xxx" literal independently of the
+    // bare "xxx" literal registerAll() passed to register() below; a rename in one without the
+    // other was NOT a compile error, only a NoSuchElementException wrapped in
+    // ExceptionInInitializerError the moment this class was first touched. Now each id is typed
+    // exactly once and both the constant and registerAll() read the same object.
+    private static final ContentId IRON_ORE_ID = ContentId.of("rustorio:iron_ore");
+    private static final ContentId IRON_PLATE_ID = ContentId.of("rustorio:iron_plate");
+    private static final ContentId GEAR_ID = ContentId.of("rustorio:gear");
+    private static final ContentId BRONZE_ORE_ID = ContentId.of("rustorio:bronze_ore");
+    private static final ContentId BRONZE_PLATE_ID = ContentId.of("rustorio:bronze_plate");
+    private static final ContentId MECHANISM_ID = ContentId.of("rustorio:mechanism");
+    private static final ContentId ENGINE_ID = ContentId.of("rustorio:engine");
+    private static final ContentId CHASSIS_ID = ContentId.of("rustorio:chassis");
+    private static final ContentId ALLOY_PLATE_ID = ContentId.of("rustorio:alloy_plate");
+    private static final ContentId ALLOY_GEAR_ID = ContentId.of("rustorio:alloy_gear");
+    private static final ContentId COAL_ID = ContentId.of("rustorio:coal");
+
+    // FROZEN must be declared (and therefore initialized) before any constant below that calls
+    // frozen() — Java runs static field initializers in textual, top-to-bottom order, and a
+    // constant declared above FROZEN would call frozen() while FROZEN still held its default
+    // null, throwing a NullPointerException wrapped in ExceptionInInitializerError the moment
+    // this class was first touched (caught by World's own static STARTING_INVENTORY field
+    // failing to initialize, not by a test that exercises this class directly).
+    private static final Registry<ItemType> FROZEN = buildFrozen();
+
+    public static final ItemType IRON_ORE = frozen().get(IRON_ORE_ID);
+    public static final ItemType IRON_PLATE = frozen().get(IRON_PLATE_ID);
+    public static final ItemType GEAR = frozen().get(GEAR_ID);
+    public static final ItemType BRONZE_ORE = frozen().get(BRONZE_ORE_ID);
+    public static final ItemType BRONZE_PLATE = frozen().get(BRONZE_PLATE_ID);
+    public static final ItemType MECHANISM = frozen().get(MECHANISM_ID);
+    public static final ItemType ENGINE = frozen().get(ENGINE_ID);
+    public static final ItemType CHASSIS = frozen().get(CHASSIS_ID);
+    public static final ItemType ALLOY_PLATE = frozen().get(ALLOY_PLATE_ID);
+    public static final ItemType ALLOY_GEAR = frozen().get(ALLOY_GEAR_ID);
+    public static final ItemType COAL = frozen().get(COAL_ID);
+
+    private VanillaItems() {
+    }
+
+    /** The canonical, already-frozen registry backing the constants above. */
+    public static Registry<ItemType> frozen() {
+        return FROZEN;
+    }
+
+    /** Registers all 11 vanilla items into {@code items}. For tests/custom assemblies that want their own isolated (unfrozen) copy instead of sharing {@link #frozen()}. */
+    public static void registerAll(Registry<ItemType> items) {
+        register(items, IRON_ORE_ID, "Iron Ore", false, rgb(105, 100, 95), ItemShape.CIRCLE);
+        register(items, IRON_PLATE_ID, "Iron Plate", false, rgb(170, 172, 178), ItemShape.SQUARE);
+        register(items, GEAR_ID, "Gear", true, rgb(230, 195, 60), ItemShape.TRIANGLE);
+        register(items, BRONZE_ORE_ID, "Bronze Ore", false, rgb(110, 80, 60), ItemShape.CIRCLE);
+        register(items, BRONZE_PLATE_ID, "Bronze Plate", false, rgb(214, 122, 44), ItemShape.SQUARE);
+        register(items, MECHANISM_ID, "Mechanism", true, rgb(163, 68, 40), ItemShape.TRIANGLE);
+        register(items, ENGINE_ID, "Engine", true, rgb(90, 170, 90), ItemShape.TRIANGLE);
+        register(items, CHASSIS_ID, "Chassis", true, rgb(60, 90, 150), ItemShape.TRIANGLE);
+        register(items, ALLOY_PLATE_ID, "Alloy Plate", false, rgb(150, 140, 130), ItemShape.SQUARE);
+        register(items, ALLOY_GEAR_ID, "Alloy Gear", true, rgb(190, 170, 90), ItemShape.TRIANGLE);
+        register(items, COAL_ID, "Coal", false, rgb(35, 33, 32), ItemShape.CIRCLE);
+    }
+
+    private static Registry<ItemType> buildFrozen() {
+        Registry<ItemType> items = new Registry<>();
+        registerAll(items);
+        items.freeze();
+        return items;
+    }
+
+    private static void register(Registry<ItemType> items, ContentId id, String label,
+            boolean researchGrade, int colorRgb, ItemShape shape) {
+        items.register(id, new ItemType(id, label, researchGrade, colorRgb, shape));
+    }
+
+    private static int rgb(int r, int g, int b) {
+        return (r << 16) | (g << 8) | b;
+    }
+}

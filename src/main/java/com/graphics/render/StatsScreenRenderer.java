@@ -5,7 +5,8 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.rustorio.domain.Item;
+import com.rustorio.api.registry.Registry;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.world.ProductionStatsView;
 import com.rustorio.domain.world.ProductionStatsView.RateSample;
 import java.util.List;
@@ -52,11 +53,11 @@ final class StatsScreenRenderer {
         this.font = font;
     }
 
-    void render(ProductionStatsView stats, long currentTick, Item selected) {
-        Item[] items = Item.values();
+    void render(ProductionStatsView stats, long currentTick, ItemType selected, Registry<ItemType> registry) {
+        List<ItemType> items = registry.iterate();
         int screenW = Gdx.graphics.getWidth();
         int screenH = Gdx.graphics.getHeight();
-        float panelH = PADDING * 2 + TITLE_HEIGHT + ROW_HEIGHT * items.length + GRAPH_HEIGHT + PADDING;
+        float panelH = PADDING * 2 + TITLE_HEIGHT + ROW_HEIGHT * items.size() + GRAPH_HEIGHT + PADDING;
         float panelX = (screenW - PANEL_WIDTH) / 2f;
         float panelY = (screenH - panelH) / 2f;
 
@@ -78,11 +79,11 @@ final class StatsScreenRenderer {
 
         font.getData().setScale(0.8f);
         float y = firstRowY;
-        for (Item item : items) {
+        for (ItemType item : items) {
             double rate = stats.ratePerMinute(item, currentTick, LIST_WINDOW_TICKS);
             boolean isGraphed = item == selected;
             font.setColor(isGraphed ? Palette.SLOT_SELECTED : Color.WHITE);
-            font.draw(batch, (isGraphed ? "> " : "  ") + item + "   "
+            font.draw(batch, (isGraphed ? "> " : "  ") + item.label() + "   "
                     + String.format("%.1f/min", rate) + "   total " + stats.total(item), panelX + PADDING, y);
             y -= ROW_HEIGHT;
         }
@@ -97,7 +98,7 @@ final class StatsScreenRenderer {
      * fixed scale, so the graph is always readable regardless of whether the selected item makes
      * one unit an hour or a hundred a minute.
      */
-    private void renderGraph(ProductionStatsView stats, long currentTick, Item selected, float x, float y, float w,
+    private void renderGraph(ProductionStatsView stats, long currentTick, ItemType selected, float x, float y, float w,
             float h) {
         long bucketTicks = stats.bucketTicks();
         long currentBucket = currentTick / bucketTicks;

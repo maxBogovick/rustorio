@@ -2,7 +2,8 @@ package com.rustorio.domain.action;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingCost;
 import com.rustorio.domain.building.Chest;
@@ -61,11 +62,11 @@ class RemoveActionTest {
         remove.apply(world); // refunds 1 IRON_PLATE
 
         // Spend every last plate on something else before attempting the undo.
-        int plates = world.inventory().amount(Item.IRON_PLATE);
+        int plates = world.inventory().amount(VanillaItems.IRON_PLATE);
         for (int x = 0; x < plates; x++) {
             new PlaceAction(BuildingType.BELT, 2 + x, 1, Direction.RIGHT).apply(world);
         }
-        assertEquals(0, world.inventory().amount(Item.IRON_PLATE));
+        assertEquals(0, world.inventory().amount(VanillaItems.IRON_PLATE));
 
         remove.undo(world);
 
@@ -79,16 +80,16 @@ class RemoveActionTest {
         World world = new World(4, 4);
         Chest chest = new Chest();
         world.restoreBuilding(1, 1, chest);
-        chest.accept(world, Item.GEAR);
-        chest.accept(world, Item.GEAR);
-        chest.accept(world, Item.IRON_ORE);
-        int gearBefore = world.inventory().amount(Item.GEAR);
-        int oreBefore = world.inventory().amount(Item.IRON_ORE);
+        chest.accept(world, VanillaItems.GEAR);
+        chest.accept(world, VanillaItems.GEAR);
+        chest.accept(world, VanillaItems.IRON_ORE);
+        int gearBefore = world.inventory().amount(VanillaItems.GEAR);
+        int oreBefore = world.inventory().amount(VanillaItems.IRON_ORE);
 
         assertTrue(new RemoveAction(1, 1).apply(world));
 
-        assertEquals(gearBefore + 2, world.inventory().amount(Item.GEAR));
-        assertEquals(oreBefore + 1, world.inventory().amount(Item.IRON_ORE));
+        assertEquals(gearBefore + 2, world.inventory().amount(VanillaItems.GEAR));
+        assertEquals(oreBefore + 1, world.inventory().amount(VanillaItems.IRON_ORE));
     }
 
     @Test
@@ -96,18 +97,18 @@ class RemoveActionTest {
         World world = new World(4, 4);
         Chest chest = new Chest();
         world.restoreBuilding(1, 1, chest);
-        chest.accept(world, Item.GEAR);
-        int gearBefore = world.inventory().amount(Item.GEAR);
+        chest.accept(world, VanillaItems.GEAR);
+        int gearBefore = world.inventory().amount(VanillaItems.GEAR);
         RemoveAction remove = new RemoveAction(1, 1);
 
         remove.apply(world); // credits 1 GEAR, refunds the chest's own IRON_PLATE cost
         remove.undo(world);
 
         assertTrue(world.peek(1, 1).isPresent());
-        assertEquals(gearBefore, world.inventory().amount(Item.GEAR),
+        assertEquals(gearBefore, world.inventory().amount(VanillaItems.GEAR),
                 "undo must claw back exactly the GEAR that demolition credited");
         Chest restored = (Chest) world.peek(1, 1).orElseThrow();
-        assertEquals(1, restored.amount(Item.GEAR), "the restored chest must have its GEAR back too");
+        assertEquals(1, restored.amount(VanillaItems.GEAR), "the restored chest must have its GEAR back too");
     }
 
     /**
@@ -120,17 +121,17 @@ class RemoveActionTest {
         World world = new World(4, 4);
         Chest chest = new Chest();
         world.restoreBuilding(1, 1, chest);
-        chest.accept(world, Item.GEAR);
+        chest.accept(world, VanillaItems.GEAR);
         RemoveAction remove = new RemoveAction(1, 1);
         remove.apply(world); // credits 1 GEAR, refunds the chest's own IRON_PLATE cost
-        int platesAfterApply = world.inventory().amount(Item.IRON_PLATE);
+        int platesAfterApply = world.inventory().amount(VanillaItems.IRON_PLATE);
 
-        assertTrue(world.trySpendItems(Map.of(Item.GEAR, 1)), "simulate having spent the reclaimed GEAR elsewhere");
+        assertTrue(world.trySpendItems(Map.of(VanillaItems.GEAR, 1)), "simulate having spent the reclaimed GEAR elsewhere");
 
         remove.undo(world);
 
         assertFalse(world.peek(1, 1).isPresent(), "undo must refuse — the player can't pay back the reclaimed GEAR");
-        assertEquals(platesAfterApply, world.inventory().amount(Item.IRON_PLATE),
+        assertEquals(platesAfterApply, world.inventory().amount(VanillaItems.IRON_PLATE),
                 "the building-cost charge taken during the failed undo attempt must have been rolled back");
     }
 

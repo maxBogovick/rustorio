@@ -167,9 +167,9 @@ class RandomOreLayoutTest {
         boolean sawCoal = false;
         for (int x = 0; x < 96 && !sawCoal; x++) {
             for (int y = 0; y < 64 && !sawCoal; y++) {
-                if (layout.oreAt(x, y).equals(Optional.of(Item.COAL))) {
+                if (layout.oreAt(x, y).equals(Optional.of(VanillaItems.COAL))) {
                     sawCoal = true;
-                    assertEquals(Optional.of(Item.COAL), layout.extract(x, y));
+                    assertEquals(Optional.of(VanillaItems.COAL), layout.extract(x, y));
                 }
             }
         }

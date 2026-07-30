@@ -1,6 +1,6 @@
 package com.rustorio.domain.world;
 
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import java.util.List;
 
 /**
@@ -10,7 +10,7 @@ import java.util.List;
  */
 public interface ProductionStatsView {
 
-    long total(Item item);
+    long total(ItemType item);
 
     ProductionStats.Snapshot snapshot();
 
@@ -19,14 +19,14 @@ public interface ProductionStatsView {
      * ending at {@code currentTick} (P-03, DEV_TASKS.md) — ticks, not real time, so the 1×/2×/4×
      * speed multiplier can't distort it.
      */
-    double ratePerMinute(Item item, long currentTick, long windowTicks);
+    double ratePerMinute(ItemType item, long currentTick, long windowTicks);
 
     /** One tick-bucket's worth of production — {@link #tick()} is the bucket's START tick, {@link #count()} how many finished within it. */
     record RateSample(long tick, int count) {
     }
 
     /** {@code item}'s retained rate history, oldest bucket first — what a graph draws (P-03, DEV_TASKS.md). */
-    List<RateSample> history(Item item);
+    List<RateSample> history(ItemType item);
 
     /** How many ticks wide one {@link RateSample} bucket is — the graph's own X-axis unit. */
     long bucketTicks();

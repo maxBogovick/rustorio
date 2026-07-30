@@ -1,7 +1,8 @@
 package com.rustorio;
 
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.world.World;
 
@@ -39,11 +40,11 @@ public final class Main {
             // coal the other" planning puzzle D-05 is about — real gameplay, not a 20-line
             // headless demo's job to model. accept() caps at its own fuel limit and returns
             // false once full, so this is a harmless no-op most ticks.
-            furnace.accept(world, Item.COAL);
+            furnace.accept(world, VanillaItems.COAL);
             world.tick();
             if (tick % REPORT_EVERY == 0) {
                 System.out.printf("tick %3d: ore mined %2d, plates smelted %2d%n",
-                        tick, world.stats().total(Item.IRON_ORE), world.stats().total(Item.IRON_PLATE));
+                        tick, world.stats().total(VanillaItems.IRON_ORE), world.stats().total(VanillaItems.IRON_PLATE));
             }
         }
     }

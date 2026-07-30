@@ -3,7 +3,7 @@ package com.rustorio.domain.building;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import java.util.Optional;
 
 /**
@@ -44,12 +44,12 @@ public sealed interface Building
      *
      * @return {@code true} if the item was taken; {@code false} if this building doesn't want it
      */
-    default boolean accept(TickContext world, Item item) {
+    default boolean accept(TickContext world, ItemType item) {
         return false;
     }
 
     /** The item this building is physically holding "in transit" right now, if any. */
-    default Optional<Item> heldItem() {
+    default Optional<ItemType> heldItem() {
         return Optional.empty();
     }
 

@@ -1,6 +1,6 @@
 package com.rustorio.domain.action;
 
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.world.World;
@@ -23,7 +23,7 @@ public final class GrabChestAction implements PlayerAction {
     private final int y;
 
     /** What was taken — {@code null} if {@link #apply} found no chest here or an already-empty one (nothing to undo). */
-    private @Nullable Map<Item, Integer> taken;
+    private @Nullable Map<ItemType, Integer> taken;
 
     public GrabChestAction(int x, int y) {
         this.x = x;
@@ -36,7 +36,7 @@ public final class GrabChestAction implements PlayerAction {
         if (!(unwrapped instanceof Chest chest)) {
             return false;
         }
-        Map<Item, Integer> drained = chest.drain();
+        Map<ItemType, Integer> drained = chest.drain();
         if (drained.isEmpty()) {
             return false; // nothing to grab — not worth remembering for undo
         }
@@ -59,7 +59,7 @@ public final class GrabChestAction implements PlayerAction {
      */
     @Override
     public void undo(World world) {
-        Map<Item, Integer> items = taken;
+        Map<ItemType, Integer> items = taken;
         if (items == null) {
             return;
         }

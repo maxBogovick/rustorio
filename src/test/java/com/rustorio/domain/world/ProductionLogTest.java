@@ -1,6 +1,7 @@
 package com.rustorio.domain.world;
 
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -15,21 +16,21 @@ class ProductionLogTest {
     @Test
     void mostRecentComesFirst() {
         ProductionLog log = new ProductionLog();
-        log.onProduced(1, Item.IRON_ORE);
-        log.onProduced(2, Item.GEAR);
+        log.onProduced(1, VanillaItems.IRON_ORE);
+        log.onProduced(2, VanillaItems.GEAR);
 
-        assertEquals(List.of(Item.GEAR, Item.IRON_ORE), log.recent());
+        assertEquals(List.of(VanillaItems.GEAR, VanillaItems.IRON_ORE), log.recent());
     }
 
     @Test
     void ringDropsTheOldestPastCapacity() {
         ProductionLog log = new ProductionLog();
-        Item[] items = {Item.IRON_ORE, Item.COAL, Item.GEAR, Item.BRONZE_ORE, Item.ENGINE, Item.CHASSIS};
+        ItemType[] items = {VanillaItems.IRON_ORE, VanillaItems.COAL, VanillaItems.GEAR, VanillaItems.BRONZE_ORE, VanillaItems.ENGINE, VanillaItems.CHASSIS};
         for (int i = 0; i < items.length; i++) {
             log.onProduced(i, items[i]); // six events, capacity five — IRON_ORE (the first) must fall off
         }
 
-        assertEquals(List.of(Item.CHASSIS, Item.ENGINE, Item.BRONZE_ORE, Item.GEAR, Item.COAL), log.recent());
+        assertEquals(List.of(VanillaItems.CHASSIS, VanillaItems.ENGINE, VanillaItems.BRONZE_ORE, VanillaItems.GEAR, VanillaItems.COAL), log.recent());
     }
 
     @Test

@@ -7,10 +7,12 @@ import com.graphics.render.GameCamera;
 import com.graphics.render.HotbarLayout;
 import com.graphics.render.HudState;
 import com.graphics.render.TilePos;
+import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.action.ActionHistory;
 import com.rustorio.domain.action.CompositeAction;
 import com.rustorio.domain.action.GrabChestAction;
@@ -52,7 +54,7 @@ public final class InputHandler {
     /** Клетка под панелью инспекции (F-03, DEV_TASKS.md) — {@code null}, пока ничего не открыто. */
     private @Nullable TilePos inspected;
     /** Какой предмет графикуется на экране статистики (P-03, DEV_TASKS.md) — {@code N} переключает, пока экран открыт. */
-    private Item statsItem = Item.IRON_ORE;
+    private ItemType statsItem = VanillaItems.IRON_ORE;
     /** Протяжка ЛКМ/ПКМ копится в одно {@link CompositeAction} на отпускание — см. {@link #handleDrag}. */
     private final DragCollector buildDrag = new DragCollector(Input.Buttons.LEFT);
     private final DragCollector removeDrag = new DragCollector(Input.Buttons.RIGHT);
@@ -122,7 +124,7 @@ public final class InputHandler {
                         .filter(Furnace.class::isInstance)
                         .map(Furnace.class::cast)
                         .ifPresent(furnace -> {
-                            Optional<Item> output = furnace.cycleRecipe();
+                            Optional<ItemType> output = furnace.cycleRecipe();
                             LOGGER.log(System.Logger.Level.INFO, "Recipe selected: {0}",
                                     output.map(Object::toString).orElse("auto"));
                         });
@@ -134,8 +136,8 @@ public final class InputHandler {
                         .filter(Filter.class::isInstance)
                         .map(Filter.class::cast)
                         .ifPresent(filter -> {
-                            Item chosen = filter.cycleFilterItem();
-                            LOGGER.log(System.Logger.Level.INFO, "Filter now passes: {0}", chosen);
+                            ItemType chosen = filter.cycleFilterItem();
+                            LOGGER.log(System.Logger.Level.INFO, "Filter now passes: {0}", chosen.label());
                         });
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.G)) {
@@ -152,8 +154,8 @@ public final class InputHandler {
         if (simulationControls.showStats() && Gdx.input.isKeyJustPressed(Input.Keys.N)) {
             // Экран статистики открыт (V, P-03, DEV_TASKS.md) — N листает, какой предмет
             // графикуется, по кругу; вне этого экрана клавиша ничего не делает.
-            Item[] items = Item.values();
-            statsItem = items[(statsItem.ordinal() + 1) % items.length];
+            Registry<ItemType> items = world.buildingFactory().items();
+            statsItem = items.get((items.rawId(statsItem.id()) + 1) % items.size());
         }
         boolean ctrl = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);

@@ -3,8 +3,8 @@ package com.rustorio.domain.building;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
-import com.rustorio.domain.Sprite;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaSprites;
 import java.util.Objects;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -20,7 +20,7 @@ import org.jspecify.annotations.Nullable;
 public final class Belt implements Building {
 
     private final Direction direction;
-    private @Nullable Item held;
+    private @Nullable ItemType held;
     /**
      * Set right after construction, by {@code World.attachToSegment} calling {@link
      * #joinSegment} — never left unset while this tile is placed in the world; only null in the
@@ -47,7 +47,7 @@ public final class Belt implements Building {
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Belt(Direction direction, @Nullable Item held) {
+    Belt(Direction direction, @Nullable ItemType held) {
         this.direction = direction;
         this.held = held;
     }
@@ -121,11 +121,11 @@ public final class Belt implements Building {
         }
     }
 
-    @Nullable Item held() {
+    @Nullable ItemType held() {
         return held;
     }
 
-    void setHeld(Item item) {
+    void setHeld(ItemType item) {
         held = item;
     }
 
@@ -144,7 +144,7 @@ public final class Belt implements Building {
     }
 
     @Override
-    public boolean accept(TickContext world, Item item) {
+    public boolean accept(TickContext world, ItemType item) {
         if (held != null) {
             return false;
         }
@@ -165,13 +165,13 @@ public final class Belt implements Building {
     }
 
     @Override
-    public Optional<Item> heldItem() {
+    public Optional<ItemType> heldItem() {
         return Optional.ofNullable(held);
     }
 
     @Override
     public Appearance appearance() {
-        return held == null ? Appearance.of(Sprite.BELT_EMPTY) : Appearance.of(Sprite.BELT_FULL);
+        return held == null ? Appearance.of(VanillaSprites.BELT_EMPTY) : Appearance.of(VanillaSprites.BELT_FULL);
     }
 
     @Override

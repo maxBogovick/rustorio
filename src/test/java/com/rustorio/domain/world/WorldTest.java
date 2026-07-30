@@ -3,7 +3,8 @@ package com.rustorio.domain.world;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -131,9 +132,9 @@ class WorldTest {
 
         world.tick();
         world.tick();
-        world.notifyProduced(Item.IRON_ORE); // still tick 2 — no further tick() call yet
+        world.notifyProduced(VanillaItems.IRON_ORE); // still tick 2 — no further tick() call yet
         world.tick();
-        world.notifyProduced(Item.IRON_PLATE); // now tick 3
+        world.notifyProduced(VanillaItems.IRON_PLATE); // now tick 3
 
         assertEquals(List.of(2L, 3L), seenTicks);
     }
@@ -147,10 +148,10 @@ class WorldTest {
     void manualMineCreditsInventoryFromAnEmptyOreCell() {
         World world = new World(10, 10);
 
-        Optional<Item> mined = world.tryManualMine(6, 5); // standard map's first iron patch, see MinerTest
+        Optional<ItemType> mined = world.tryManualMine(6, 5); // standard map's first iron patch, see MinerTest
 
-        assertEquals(Optional.of(Item.IRON_ORE), mined);
-        assertEquals(1, world.inventory().amount(Item.IRON_ORE));
+        assertEquals(Optional.of(VanillaItems.IRON_ORE), mined);
+        assertEquals(1, world.inventory().amount(VanillaItems.IRON_ORE));
     }
 
     @Test
@@ -223,26 +224,26 @@ class WorldTest {
     @Test
     void trySpendItemsDeductsEveryRequestedItemWhenAllAreAvailable() {
         World world = new World(4, 4);
-        world.creditItem(Item.GEAR, 3);
-        world.creditItem(Item.COAL, 5);
+        world.creditItem(VanillaItems.GEAR, 3);
+        world.creditItem(VanillaItems.COAL, 5);
 
-        assertTrue(world.trySpendItems(Map.of(Item.GEAR, 3, Item.COAL, 5)));
+        assertTrue(world.trySpendItems(Map.of(VanillaItems.GEAR, 3, VanillaItems.COAL, 5)));
 
-        assertEquals(0, world.inventory().amount(Item.GEAR));
-        assertEquals(0, world.inventory().amount(Item.COAL));
+        assertEquals(0, world.inventory().amount(VanillaItems.GEAR));
+        assertEquals(0, world.inventory().amount(VanillaItems.COAL));
     }
 
     @Test
     void trySpendItemsIsAllOrNothingWhenOneKindIsShort() {
         World world = new World(4, 4);
-        world.creditItem(Item.GEAR, 3);
-        world.creditItem(Item.COAL, 2); // not enough — needs 5 below
+        world.creditItem(VanillaItems.GEAR, 3);
+        world.creditItem(VanillaItems.COAL, 2); // not enough — needs 5 below
 
-        assertFalse(world.trySpendItems(Map.of(Item.GEAR, 3, Item.COAL, 5)));
+        assertFalse(world.trySpendItems(Map.of(VanillaItems.GEAR, 3, VanillaItems.COAL, 5)));
 
-        assertEquals(3, world.inventory().amount(Item.GEAR),
+        assertEquals(3, world.inventory().amount(VanillaItems.GEAR),
                 "GEAR must be untouched — a partial spend would leave the two pools inconsistent");
-        assertEquals(2, world.inventory().amount(Item.COAL));
+        assertEquals(2, world.inventory().amount(VanillaItems.COAL));
     }
 
     /**
@@ -254,15 +255,15 @@ class WorldTest {
     @Test
     void trySpendItemsRefusesNegativeAmountsInsteadOfCreditingThem() {
         World world = new World(4, 4);
-        world.creditItem(Item.GEAR, 3);
+        world.creditItem(VanillaItems.GEAR, 3);
 
-        assertFalse(world.trySpendItems(Map.of(Item.GEAR, -100)), "a negative spend is not a spend");
-        assertEquals(3, world.inventory().amount(Item.GEAR), "must not have been credited 100 free GEAR");
+        assertFalse(world.trySpendItems(Map.of(VanillaItems.GEAR, -100)), "a negative spend is not a spend");
+        assertEquals(3, world.inventory().amount(VanillaItems.GEAR), "must not have been credited 100 free GEAR");
 
-        assertFalse(world.trySpendItems(Map.of(Item.GEAR, 3, Item.COAL, -5)),
+        assertFalse(world.trySpendItems(Map.of(VanillaItems.GEAR, 3, VanillaItems.COAL, -5)),
                 "one negative entry poisons the whole atomic batch");
-        assertEquals(3, world.inventory().amount(Item.GEAR), "and nothing at all is deducted");
-        assertEquals(0, world.inventory().amount(Item.COAL));
+        assertEquals(3, world.inventory().amount(VanillaItems.GEAR), "and nothing at all is deducted");
+        assertEquals(0, world.inventory().amount(VanillaItems.COAL));
     }
 
     /**

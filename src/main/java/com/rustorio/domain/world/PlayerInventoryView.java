@@ -1,6 +1,6 @@
 package com.rustorio.domain.world;
 
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 
 /**
  * Read-only face of {@link PlayerInventory} — {@code World.inventory()} returns this, not {@code
@@ -11,7 +11,7 @@ import com.rustorio.domain.Item;
 public interface PlayerInventoryView {
 
     /** How many of {@code item} the player currently has — {@code 0} if none. */
-    int amount(Item item);
+    int amount(ItemType item);
 
     /** Immutable point-in-time snapshot for persistence (Memento pattern) — see {@code JsonSaveRepository} (D-07, DEV_TASKS.md). */
     PlayerInventory.Snapshot snapshot();

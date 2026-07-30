@@ -4,9 +4,9 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
-import com.rustorio.domain.Sprite;
+import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.Tech;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -39,7 +39,7 @@ public final class Miner implements Building {
     private final Direction direction;
 
     private int cooldown = MINE_TIME;
-    private @Nullable Item held;
+    private @Nullable ItemType held;
     /** Recomputed once per {@link #tick}, not once per render frame — see {@link BuildingStatus}'s own javadoc for why (F-01, DEV_TASKS.md). */
     private BuildingStatus status = BuildingStatus.WORKING;
 
@@ -49,7 +49,7 @@ public final class Miner implements Building {
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Miner(OreLayout oreLayout, Direction direction, int cooldown, @Nullable Item held) {
+    Miner(OreLayout oreLayout, Direction direction, int cooldown, @Nullable ItemType held) {
         this.oreLayout = oreLayout;
         this.direction = direction;
         this.cooldown = cooldown;
@@ -63,7 +63,7 @@ public final class Miner implements Building {
                 return;
             }
             cooldown = effectiveTime(world);
-            Optional<Item> ore = oreLayout.extract(x, y);
+            Optional<ItemType> ore = oreLayout.extract(x, y);
             if (ore.isEmpty()) {
                 // Two different situations, and (N14, NEW_BUGS_PROGRESS.md — owner decision) they no
                 // longer look the same on screen. No ore under this tile at all is NO_ORE, a
@@ -93,11 +93,11 @@ public final class Miner implements Building {
 
     @Override
     public Appearance appearance() {
-        return Appearance.of(Sprite.MINER, status);
+        return Appearance.of(VanillaSprites.MINER, status);
     }
 
     @Override
-    public Optional<Item> heldItem() {
+    public Optional<ItemType> heldItem() {
         return Optional.ofNullable(held);
     }
 

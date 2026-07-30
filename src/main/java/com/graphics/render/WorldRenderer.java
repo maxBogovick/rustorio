@@ -4,9 +4,10 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.Terrain;
+import com.rustorio.domain.VanillaItems;
 import java.util.Optional;
 
 /**
@@ -71,7 +72,7 @@ final class WorldRenderer {
         batch.begin();
         for (int y = range.minY(); y <= range.maxY(); y++) {
             for (int x = range.minX(); x <= range.maxX(); x++) {
-                if (oreLayout.oreAt(x, y).equals(Optional.of(Item.COAL))) {
+                if (oreLayout.oreAt(x, y).equals(Optional.of(VanillaItems.COAL))) {
                     batch.draw(textures.coalOre(), grid.x(x), grid.yBottom(y), tile, tile);
                 }
             }
@@ -92,12 +93,21 @@ final class WorldRenderer {
         return terrain == Terrain.WATER ? Palette.TERRAIN_WATER : Palette.TERRAIN_ROCK;
     }
 
-    /** Cell color for an ore of this kind — a new ore gets its color here, in one line. */
-    private static Color oreColor(Item ore) {
-        return switch (ore) {
-            case BRONZE_ORE -> Palette.ORE_BRONZE;
-            case COAL -> Palette.ORE_COAL;
-            default -> Palette.ORE; // IRON_ORE — the only other kind oreAt() ever actually returns
-        };
+    /**
+     * Ground-tile ore color — deliberately its OWN palette (not {@link ItemType#colorRgb}, which
+     * colors the mined cargo instead): the same ore reads as blue on the map but neutral gray once
+     * picked up (see {@code Palette}'s own comment on why). Reference equality against {@link
+     * VanillaItems}' constants, not a {@code switch}: {@link ItemType} is a record with no fixed
+     * case set — a mod's ore isn't one of these three, so it falls through to the {@code IRON_ORE}-
+     * style default rather than failing to compile the moment a new ore is registered.
+     */
+    private static Color oreColor(ItemType ore) {
+        if (ore == VanillaItems.BRONZE_ORE) {
+            return Palette.ORE_BRONZE;
+        }
+        if (ore == VanillaItems.COAL) {
+            return Palette.ORE_COAL;
+        }
+        return Palette.ORE; // IRON_ORE, and any other/modded ore — the only other kind oreAt() ever actually returns today
     }
 }

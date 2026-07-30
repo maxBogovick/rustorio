@@ -2,8 +2,9 @@ package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
-import com.rustorio.domain.Sprite;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
+import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.Tech;
 import com.rustorio.domain.world.World;
 import java.util.Optional;
@@ -26,7 +27,7 @@ class ChestTest {
     void emptyChestHasNoBadge() {
         Chest chest = new Chest();
 
-        assertEquals(Sprite.CHEST, chest.appearance().sprite());
+        assertEquals(VanillaSprites.CHEST, chest.appearance().sprite());
         assertFalse(chest.appearance().hasBadge(), "an empty chest must not draw a \"0\" badge");
     }
 
@@ -35,8 +36,8 @@ class ChestTest {
         World world = new World(4, 4);
         Chest chest = new Chest();
 
-        chest.accept(world, Item.IRON_ORE);
-        chest.accept(world, Item.IRON_ORE);
+        chest.accept(world, VanillaItems.IRON_ORE);
+        chest.accept(world, VanillaItems.IRON_ORE);
 
         assertTrue(chest.appearance().hasBadge());
         assertEquals(2, chest.appearance().badge());
@@ -47,10 +48,10 @@ class ChestTest {
         World world = new World(4, 4);
         Chest chest = new Chest();
 
-        for (Item item : Item.values()) {
+        for (ItemType item : VanillaItems.frozen().iterate()) {
             assertTrue(chest.accept(world, item), "a chest must accept every item kind, unsorted");
         }
-        assertEquals(Item.values().length, chest.count());
+        assertEquals(VanillaItems.frozen().size(), chest.count());
     }
 
     /** (D-02, DEV_TASKS.md) §2.5's actual defect: item TYPE used to be thrown away on accept. */
@@ -59,13 +60,13 @@ class ChestTest {
         World world = new World(4, 4);
         Chest chest = new Chest();
 
-        chest.accept(world, Item.IRON_ORE);
-        chest.accept(world, Item.IRON_ORE);
-        chest.accept(world, Item.BRONZE_ORE);
+        chest.accept(world, VanillaItems.IRON_ORE);
+        chest.accept(world, VanillaItems.IRON_ORE);
+        chest.accept(world, VanillaItems.BRONZE_ORE);
 
-        assertEquals(2, chest.amount(Item.IRON_ORE));
-        assertEquals(1, chest.amount(Item.BRONZE_ORE));
-        assertEquals(0, chest.amount(Item.GEAR), "never offered any GEAR — must read back as zero, not stay unset oddly");
+        assertEquals(2, chest.amount(VanillaItems.IRON_ORE));
+        assertEquals(1, chest.amount(VanillaItems.BRONZE_ORE));
+        assertEquals(0, chest.amount(VanillaItems.GEAR), "never offered any GEAR — must read back as zero, not stay unset oddly");
         assertEquals(3, chest.count(), "the badge total is still the sum across every kind");
     }
 
@@ -77,11 +78,11 @@ class ChestTest {
         Chest chest = new Chest();
 
         for (int i = 0; i < CAPACITY; i++) {
-            assertTrue(chest.accept(world, Item.IRON_ORE), "unit " + i + " should still fit under the cap");
+            assertTrue(chest.accept(world, VanillaItems.IRON_ORE), "unit " + i + " should still fit under the cap");
         }
 
-        assertFalse(chest.accept(world, Item.IRON_ORE), "the chest is full — one more must be refused");
-        assertFalse(chest.accept(world, Item.BRONZE_ORE), "full is full regardless of which kind is offered next");
+        assertFalse(chest.accept(world, VanillaItems.IRON_ORE), "the chest is full — one more must be refused");
+        assertFalse(chest.accept(world, VanillaItems.BRONZE_ORE), "full is full regardless of which kind is offered next");
         assertEquals(CAPACITY, chest.count());
     }
 
@@ -98,9 +99,9 @@ class ChestTest {
         Chest chest = new Chest();
 
         for (int i = 0; i < CAPACITY; i++) {
-            assertTrue(chest.accept(world, Item.IRON_ORE));
+            assertTrue(chest.accept(world, VanillaItems.IRON_ORE));
         }
-        assertTrue(chest.accept(world, Item.IRON_ORE), "BIG_BUFFER must have doubled the cap past the un-teched " + CAPACITY);
+        assertTrue(chest.accept(world, VanillaItems.IRON_ORE), "BIG_BUFFER must have doubled the cap past the un-teched " + CAPACITY);
         assertEquals(CAPACITY + 1, chest.count());
     }
 
@@ -112,24 +113,24 @@ class ChestTest {
         Chest sink = new Chest(Direction.LEFT); // faces off the map — a passive receiver for this assertion
         world.restoreBuilding(2, 1, sink);
         Chest source = (Chest) world.peek(1, 1).orElseThrow();
-        source.accept(world, Item.GEAR);
+        source.accept(world, VanillaItems.GEAR);
 
         world.tick();
 
         assertEquals(0, source.count(), "the item must have left the source chest");
-        assertEquals(1, sink.amount(Item.GEAR), "…and arrived at the neighbor in its output direction");
+        assertEquals(1, sink.amount(VanillaItems.GEAR), "…and arrived at the neighbor in its output direction");
     }
 
     @Test
     void rotatingChangesDirectionButKeepsContents() {
         World world = new World(4, 4);
         Chest chest = new Chest(Direction.RIGHT);
-        chest.accept(world, Item.GEAR);
+        chest.accept(world, VanillaItems.GEAR);
 
         Chest rotated = (Chest) chest.rotatedClockwise().orElseThrow();
 
         assertEquals(Optional.of(Direction.DOWN), rotated.outputDirection());
-        assertEquals(1, rotated.amount(Item.GEAR), "rotating must not drop what was already stored");
+        assertEquals(1, rotated.amount(VanillaItems.GEAR), "rotating must not drop what was already stored");
     }
 
     /**
@@ -146,7 +147,7 @@ class ChestTest {
         Chest chest = new Chest(Direction.RIGHT); // faces off the map — nothing ever drains it
         world.restoreBuilding(1, 1, chest);
         for (int i = 0; i < CAPACITY; i++) {
-            assertTrue(chest.accept(world, Item.IRON_ORE));
+            assertTrue(chest.accept(world, VanillaItems.IRON_ORE));
         }
         world.tick();
         assertEquals(BuildingStatus.OUTPUT_FULL, chest.appearance().status(), "sanity check before rotating");
@@ -165,7 +166,7 @@ class ChestTest {
         world.restoreBuilding(1, 1, chest);
 
         for (int i = 0; i < CAPACITY; i++) {
-            assertTrue(chest.accept(world, Item.IRON_ORE));
+            assertTrue(chest.accept(world, VanillaItems.IRON_ORE));
         }
         assertEquals(BuildingStatus.WORKING, chest.appearance().status(),
                 "status is only recomputed in tick() — still stale WORKING right after accept() alone");
@@ -190,7 +191,7 @@ class ChestTest {
         world.restoreBuilding(2, 1, receiver);
 
         for (int i = 0; i < CAPACITY; i++) {
-            assertTrue(chest.accept(world, Item.IRON_ORE));
+            assertTrue(chest.accept(world, VanillaItems.IRON_ORE));
         }
 
         world.tick();
@@ -205,7 +206,7 @@ class ChestTest {
         World world = new World(4, 4);
         Chest chest = new Chest();
         world.restoreBuilding(1, 1, chest);
-        chest.accept(world, Item.GEAR);
+        chest.accept(world, VanillaItems.GEAR);
 
         world.tick();
 

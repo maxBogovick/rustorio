@@ -89,7 +89,7 @@ public final class GameScreen extends ScreenAdapter {
         }
         this.camera = new GameCamera(GfxConfig.GRID_W, GfxConfig.GRID_H);
         this.input = new InputHandler(camera, new JsonSaveRepository());
-        this.textures = new Textures();
+        this.textures = Textures.vanilla();
         this.renderer = new Renderer(textures, camera, world.buildingFactory().oreLayout(), world.width(), world.height());
         // Колесо мыши в libGDX — событие, опросом его не поймать: подписываемся.
         this.inputProcessor = new InputAdapter() {

@@ -22,7 +22,7 @@ import java.util.Optional;
 public interface OreLayout {
 
     /** Which ore (if any) lies under cell {@code (x, y)}. Must be deterministic and never mutate state. */
-    Optional<Item> oreAt(int x, int y);
+    Optional<ItemType> oreAt(int x, int y);
 
     default boolean hasOre(int x, int y) {
         return oreAt(x, y).isPresent();
@@ -42,7 +42,7 @@ public interface OreLayout {
      * result as "try again next cycle," so a depleted cell simply slows a miner down instead of
      * needing any change to its timing logic.
      */
-    Optional<Item> extract(int x, int y);
+    Optional<ItemType> extract(int x, int y);
 
     /** Which map this is — see {@link OreLayoutId} for why a save needs to know. */
     OreLayoutId id();

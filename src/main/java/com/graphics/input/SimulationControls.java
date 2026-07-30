@@ -6,7 +6,7 @@ import com.graphics.render.HudState;
 import com.graphics.render.TilePos;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -97,7 +97,7 @@ final class SimulationControls {
      * inspected}/{@code altOverlay}/{@code statsItem} — those are its own business, not ours.
      */
     HudState hudState(BuildingType selected, Direction facing, List<TilePos> dragTiles, @Nullable TilePos inspected,
-            boolean altOverlay, Item statsItem) {
+            boolean altOverlay, ItemType statsItem) {
         return new HudState(selected, facing, paused, speed(), showRecipeBook, showTechTree, dragTiles, inspected,
                 altOverlay, showStats, statsItem);
     }

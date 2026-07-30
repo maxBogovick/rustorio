@@ -11,7 +11,8 @@ import com.graphics.GfxConfig;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.api.registry.Registry;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.ResearchView;
 import com.rustorio.domain.Tech;
@@ -54,7 +55,7 @@ final class HudRenderer {
     private static final String NO_ALERTS = "Alerts: none";
 
     /** One nonzero item's worth of chip: a {@link Palette#itemColor} dot plus its count as text — see {@link #layoutChips}. */
-    private record ItemChip(Item item, String text) {
+    private record ItemChip(ItemType item, String text) {
     }
 
     /**
@@ -62,7 +63,7 @@ final class HudRenderer {
      * ShapeRenderer} circle, a {@link SpriteBatch} number), and hit-tested a third time for
      * {@link #renderChipTooltip} (live bug report: color alone doesn't say which item is which).
      */
-    private record ChipLayout(Item item, float circleX, float circleY, Color color, float textX, float textY,
+    private record ChipLayout(ItemType item, float circleX, float circleY, Color color, float textX, float textY,
             String text) {
     }
 
@@ -89,7 +90,7 @@ final class HudRenderer {
     private List<ItemChip> producedChipsCache = List.of();
     private long researchSignature = -1;
     private String researchCache = "";
-    private List<Item> recentSignature = List.of();
+    private List<ItemType> recentSignature = List.of();
     private String recentCache = "";
     private long inventorySignature = -1;
     private List<ItemChip> inventoryChipsCache = List.of();
@@ -119,7 +120,7 @@ final class HudRenderer {
      * закрывает, всегда совпадают по построению, не по совпадению двух чисел в разных файлах.
      *
      * <p><b>Produced/Inventory as icon chips, not names (live bug report).</b> The old version
-     * printed EVERY {@link Item}, including the zero ones — mostly noise once more than two or
+     * printed EVERY {@link ItemType}, including the zero ones — mostly noise once more than two or
      * three item kinds exist — as bare text ({@code "IRON_ORE 12    IRON_PLATE 4    ...""}), which
      * ran off the right edge of the window with all eleven kinds unlocked (nothing wrapped, nothing
      * was cut for space). {@link #producedChips}/{@link #inventoryChips} now filter to nonzero only,
@@ -129,6 +130,7 @@ final class HudRenderer {
      */
     private void renderInfoPanel(World world, ProductionStatsView stats, ResearchView research,
             PlayerInventoryView inventory, ProductionLogView log, boolean paused, int speed, int ups) {
+        Registry<ItemType> items = world.buildingFactory().items();
         int screenW = Gdx.graphics.getWidth();
         float top = Gdx.graphics.getHeight();
         float panelH = GfxConfig.HUD_TOP_HEIGHT;
@@ -142,8 +144,8 @@ final class HudRenderer {
         shapes.end();
 
         font.getData().setScale(1f); // layout measures glyph widths at THIS scale — fix it before laying out
-        List<ChipLayout> producedLayout = layoutChips(producedChips(stats), top - 36, maxX);
-        List<ChipLayout> inventoryLayout = layoutChips(inventoryChips(inventory), top - 54, maxX);
+        List<ChipLayout> producedLayout = layoutChips(producedChips(items, stats), top - 36, maxX);
+        List<ChipLayout> inventoryLayout = layoutChips(inventoryChips(items, inventory), top - 54, maxX);
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         drawChipCircles(producedLayout);
@@ -202,7 +204,7 @@ final class HudRenderer {
 
     /**
      * A small floating box naming whichever chip the mouse is currently over — the color dot alone
-     * doesn't say which {@link Item} it is (live bug report). Checks {@code producedLayout} first,
+     * doesn't say which {@link ItemType} it is (live bug report). Checks {@code producedLayout} first,
      * then {@code inventoryLayout}; draws nothing at all when the cursor isn't over either row's
      * dots, so this costs nothing on every other frame.
      */
@@ -220,7 +222,7 @@ final class HudRenderer {
             return;
         }
 
-        String text = rowLabel + ": " + hovered.item() + "  " + hovered.text();
+        String text = rowLabel + ": " + hovered.item().label() + "  " + hovered.text();
         glyphLayout.setText(font, text);
         float boxW = glyphLayout.width + 16f;
         float boxH = glyphLayout.height + 14f;
@@ -252,7 +254,7 @@ final class HudRenderer {
     /**
      * Positions one row of chips left to right from {@link #CHIP_ROW_X}, stopping (not wrapping)
      * once the next chip would cross {@code maxX} — with the color-dot format, even all eleven
-     * {@link Item} kinds nonzero at once comfortably fits one row at the default window width,
+     * {@link ItemType} kinds nonzero at once comfortably fits one row at the default window width,
      * so this is a defensive cap for unusually narrow windows, not an expected everyday case; a
      * wrapped second row would need every fixed-position line below it (research/recent/alerts/
      * hints) to shift down too, which isn't worth the complexity for a case this rare.
@@ -421,7 +423,7 @@ final class HudRenderer {
         if (found.isEmpty()) {
             return;
         }
-        List<String> lines = inspectionLines(world, at, found.get());
+        List<String> lines = inspectionLines(world, world.buildingFactory().items(), at, found.get());
 
         float lineH = 18f;
         float panelW = 340f; // wide enough for a two-input recipe line ("IRON_ORE + BRONZE_PLATE -> ALLOY_PLATE")
@@ -449,24 +451,24 @@ final class HudRenderer {
     }
 
     /** One line per fact — kind-specific extras appended after the facts every building shares. */
-    private static List<String> inspectionLines(World world, TilePos at, Building building) {
+    private static List<String> inspectionLines(World world, Registry<ItemType> items, TilePos at, Building building) {
         List<String> lines = new ArrayList<>();
         lines.add(building.type().label() + "  (" + at.x() + ", " + at.y() + ")");
         lines.add("Status: " + building.appearance().status());
         if (building.speedLevel() > 0) {
             lines.add("Speed modules: x" + building.speedLevel());
         }
-        building.heldItem().ifPresent(item -> lines.add("Holding: " + item));
+        building.heldItem().ifPresent(item -> lines.add("Holding: " + item.label()));
 
         Building real = Building.unwrap(building);
         if (real instanceof Chest chest) {
-            appendChestContents(lines, chest);
+            appendChestContents(lines, items, chest);
         } else if (real instanceof Furnace furnace) {
             appendFurnaceDetails(lines, building, furnace);
         } else if (real instanceof UndergroundBelt tunnel) {
             appendTunnelPairing(lines, world, at, building, tunnel);
         } else if (real instanceof Filter filter) {
-            lines.add("Passes forward: " + filter.filterItem() + "  (F to change)");
+            lines.add("Passes forward: " + filter.filterItem().label() + "  (F to change)");
             lines.add("Everything else -> secondary side");
         } else if (real instanceof Splitter) {
             lines.add("Round-robin: alternates forward / secondary side");
@@ -474,12 +476,12 @@ final class HudRenderer {
         return lines;
     }
 
-    private static void appendChestContents(List<String> lines, Chest chest) {
+    private static void appendChestContents(List<String> lines, Registry<ItemType> items, Chest chest) {
         boolean any = false;
-        for (Item item : Item.values()) {
+        for (ItemType item : items.iterate()) {
             int amount = chest.amount(item);
             if (amount > 0) {
-                lines.add("  " + item + ": " + amount);
+                lines.add("  " + item.label() + ": " + amount);
                 any = true;
             }
         }
@@ -517,8 +519,11 @@ final class HudRenderer {
     }
 
     private static String recipeLine(Recipe recipe) {
-        String inputs = recipe.hasSecondInput() ? recipe.input() + " + " + recipe.input2() : recipe.input().toString();
-        return inputs + " -> " + recipe.output();
+        ItemType input2 = recipe.input2(); // local, not recipe.input2() again below — NullAway can't see hasSecondInput()'s guarantee across a ternary
+        String inputs = recipe.hasSecondInput() && input2 != null
+                ? recipe.input().label() + " + " + input2.label()
+                : recipe.input().label();
+        return inputs + " -> " + recipe.output().label();
     }
 
     private static void appendTunnelPairing(List<String> lines, World world, TilePos at, Building building,
@@ -538,9 +543,9 @@ final class HudRenderer {
      * ProductionStats}'s lifetime (barring {@code restore}), so a matching sum reliably means
      * "nothing happened."
      */
-    private List<ItemChip> producedChips(ProductionStatsView stats) {
+    private List<ItemChip> producedChips(Registry<ItemType> items, ProductionStatsView stats) {
         long signature = 0;
-        for (Item item : Item.values()) {
+        for (ItemType item : items.iterate()) {
             signature += stats.total(item);
         }
         if (signature == producedSignature) {
@@ -548,7 +553,7 @@ final class HudRenderer {
         }
         producedSignature = signature;
         List<ItemChip> chips = new ArrayList<>();
-        for (Item item : Item.values()) {
+        for (ItemType item : items.iterate()) {
             long total = stats.total(item);
             if (total > 0) {
                 chips.add(new ItemChip(item, Long.toString(total)));
@@ -561,22 +566,22 @@ final class HudRenderer {
      * Chips for the «Inventory» row (D-03, DEV_TASKS.md) — nonzero items only, same as {@link
      * #producedChips} (live bug report).
      *
-     * <p>Signature is a weighted sum (weight = {@code item.ordinal()+1}), not a bare sum like
+     * <p>Signature is a weighted sum (weight = {@code rawId+1}), not a bare sum like
      * {@link #producedChips}: there, the total only ever grows; here amounts can fall (spending) or
      * rise (refunds), so "nothing changed" can't be told apart from "two items changed and the sum
      * happened to match" without a weight that distinguishes which item moved, not just by how much.
      */
-    private List<ItemChip> inventoryChips(PlayerInventoryView inventory) {
+    private List<ItemChip> inventoryChips(Registry<ItemType> items, PlayerInventoryView inventory) {
         long signature = 0;
-        for (Item item : Item.values()) {
-            signature += (long) (item.ordinal() + 1) * inventory.amount(item);
+        for (ItemType item : items.iterate()) {
+            signature += (long) (items.rawId(item.id()) + 1) * inventory.amount(item);
         }
         if (signature == inventorySignature) {
             return inventoryChipsCache;
         }
         inventorySignature = signature;
         List<ItemChip> chips = new ArrayList<>();
-        for (Item item : Item.values()) {
+        for (ItemType item : items.iterate()) {
             int amount = inventory.amount(item);
             if (amount > 0) {
                 chips.add(new ItemChip(item, Integer.toString(amount)));
@@ -663,13 +668,13 @@ final class HudRenderer {
     }
 
     /**
-     * Строка лога: «Recent:   IRON_ORE  IRON_PLATE  IRON_ORE» — самый свежий слева. {@code
+     * Строка лога: «Recent:   Iron Ore  Iron Plate  Iron Ore» — самый свежий слева. {@code
      * ProductionLogView} не отдаёт ничего дешевле самого списка (P4-05), так что {@code
      * log.recent()} всё равно копируется каждый кадр — кеш здесь экономит только пересборку
      * строки, не саму копию.
      */
     private String recent(ProductionLogView log) {
-        List<Item> current = log.recent();
+        List<ItemType> current = log.recent();
         if (current.equals(recentSignature)) {
             return recentCache;
         }
@@ -678,8 +683,8 @@ final class HudRenderer {
         if (current.isEmpty()) {
             return recentCache = sb.append('-').toString();
         }
-        for (Item item : current) {
-            sb.append(item.name()).append("  ");
+        for (ItemType item : current) {
+            sb.append(item.label()).append("  ");
         }
         return recentCache = sb.toString();
     }

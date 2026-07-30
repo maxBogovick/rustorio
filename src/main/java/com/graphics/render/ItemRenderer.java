@@ -5,7 +5,8 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemShape;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.world.World;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +38,7 @@ final class ItemRenderer {
     private static final Color OUTLINE = new Color(0f, 0f, 0f, 0.55f);
 
     /** One piece of visible cargo, already in screen coordinates — collected once, drawn three times (fill, outline, letter). */
-    private record Cargo(float x, float y, Item item) {
+    private record Cargo(float x, float y, ItemType item) {
     }
 
     private final SpriteBatch batch;
@@ -88,7 +89,7 @@ final class ItemRenderer {
         batch.end();
     }
 
-    private void drawShape(Palette.ItemShape shape, float cx, float cy, float radius) {
+    private void drawShape(ItemShape shape, float cx, float cy, float radius) {
         switch (shape) {
             case CIRCLE -> shapes.circle(cx, cy, radius, 20);
             case SQUARE -> shapes.rect(cx - radius, cy - radius, radius * 2f, radius * 2f);
@@ -100,13 +101,13 @@ final class ItemRenderer {
         }
     }
 
-    /** First letter of the item's name — see the class javadoc for why this, on top of shape, is still needed. */
-    private static String letterFor(Item item) {
-        return item.name().substring(0, 1);
+    /** First letter of the item's label — see the class javadoc for why this, on top of shape, is still needed. */
+    private static String letterFor(ItemType item) {
+        return item.label().substring(0, 1);
     }
 
     /** Whichever of black/white actually reads against this item's own fill color, by relative luminance. */
-    private static Color letterColor(Item item) {
+    private static Color letterColor(ItemType item) {
         Color fill = Palette.itemColor(item);
         float luminance = 0.299f * fill.r + 0.587f * fill.g + 0.114f * fill.b;
         return luminance > 0.55f ? Color.BLACK : Color.WHITE;

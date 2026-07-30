@@ -1,10 +1,11 @@
 package com.rustorio.domain.world;
 
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.RandomOreLayout;
 import com.rustorio.domain.RecipeBook;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.action.UpgradeSpeedAction;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingFactory;
@@ -48,7 +49,7 @@ class WorldReplayTest {
     // before updating, per this constant's own javadoc above.
     //
     // Updated again for P-01 (DEV_TASKS.md): BuildingMemento.LabState's `buffer` changed from a
-    // plain int to a List<Item>, changing this scene's Lab's canonical memento text regardless of
+    // plain int to a List<ItemType>, changing this scene's Lab's canonical memento text regardless of
     // points math. The points themselves are unaffected here: this scene's Lab only ever receives
     // GEAR (see buildLine2), and GEAR is P-01's baseline unit (depth 13 / 13 = 1 point) — exactly
     // what it already earned before this task. Confirmed by diffing before updating.
@@ -69,7 +70,7 @@ class WorldReplayTest {
     // production timing or balance changed. Confirmed by diffing before updating.
     //
     // Updated again for D-02 (DEV_TASKS.md): BuildingMemento.ChestState changed from a plain int
-    // to a Map<Item, Integer>, changing line 1's chest's canonical memento text regardless of what
+    // to a Map<ItemType, Integer>, changing line 1's chest's canonical memento text regardless of what
     // it actually holds — that chest only ever receives GEAR from the press ahead of it (see
     // buildLine1), so the stored quantity itself is unaffected, only its serialized shape.
     // Confirmed by diffing before updating.
@@ -115,7 +116,23 @@ class WorldReplayTest {
     // is 60x16); and the Miner (N14) / Chest (N6) status changes never reach a memento at all.
     // The lab consumed exactly 100 GEAR batches (305 produced, 205 still on the map), so 1000 points
     // is exactly 100 x POINTS_PER_GEAR — the new scale, applied once per batch, and nothing else.
-    private static final String EXPECTED_HASH = "2ddb91e2962493f9db391c870107d0120a2d171cf036f72f9533736371aa46cc";
+    //
+    // Updated again: Item (enum) became ItemType (a Registry-backed record) — canonicalState()
+    // now prints each item's ContentId ("rustorio:iron_ore") instead of the old enum name
+    // ("IRON_ORE"), and every ItemType-valued field inside a BuildingMemento (ChestState's map
+    // keys, FurnaceState's recipeOutput/pendingOutput/selectedRecipeOutput) now serializes
+    // through ItemType's own (much longer) default record toString() instead of a bare enum
+    // name. This is a pure format change, not a behavior one — verified by reasoning through
+    // which fields changed shape, not by a literal byte diff against the previous run (the old
+    // code no longer exists in this tree to regenerate it from).
+    //
+    // Updated again (code review finding S3): ItemType got a custom toString() returning just
+    // label() instead of the record's default every-field dump — every ItemType-valued field
+    // inside a BuildingMemento now prints "Iron Plate" instead of
+    // "ItemType[id=rustorio:iron_plate, label=Iron Plate, researchGrade=false, colorRgb=...,
+    // shape=SQUARE]". Pure format change again, same reasoning as the entry above — nothing about
+    // production totals, research, or building placement moved, only how one field type renders.
+    private static final String EXPECTED_HASH = "1c1e1ac73d172de40ac4d58dd03cdfbc65edbaf5beb5f49359a801def89cdbbb";
 
     @Test
     void factoryStateAfterFixedTicksMatchesRecordedBaseline() {
@@ -129,8 +146,8 @@ class WorldReplayTest {
             // second direction without disturbing the existing straight-line layout, would add
             // real scope to a test whose job is regression-detection across the OTHER seven
             // building kinds, not modeling fuel logistics realism.
-            scene.furnace1().accept(scene.world(), Item.COAL);
-            scene.furnace2().accept(scene.world(), Item.COAL);
+            scene.furnace1().accept(scene.world(), VanillaItems.COAL);
+            scene.furnace2().accept(scene.world(), VanillaItems.COAL);
             scene.world().tick();
         }
 
@@ -140,8 +157,13 @@ class WorldReplayTest {
                         + " no longer matches the recorded baseline — actual=" + actualHash);
     }
 
-    /** The world plus a direct reference to each line's FURNACE-kind building, so the fuel top-up above doesn't need to re-derive coordinates. */
-    private record Scene(World world, Building furnace1, Building furnace2) {
+    /**
+     * The world plus a direct reference to each line's FURNACE-kind building, so the fuel top-up
+     * above doesn't need to re-derive coordinates. Package-private, not private: {@link
+     * WorldStateHashDeterminismTest} reuses this fixture and {@link #buildScene()} instead of
+     * duplicating ~130 lines of scenario construction for its own replay-hash tests.
+     */
+    record Scene(World world, Building furnace1, Building furnace2) {
     }
 
     /**
@@ -153,7 +175,7 @@ class WorldReplayTest {
      * keeps working even if {@link RandomOreLayout}'s internal patch-rolling changes, as long as it
      * still hands out iron ore somewhere with room around it.
      */
-    private static Scene buildScene() {
+    static Scene buildScene() {
         OreLayout oreLayout = new RandomOreLayout(SEED, WIDTH, HEIGHT);
         BuildingFactory buildingFactory = new BuildingFactory(oreLayout, RecipeBook.standard());
         World world = new World(WIDTH, HEIGHT, buildingFactory);
@@ -221,7 +243,7 @@ class WorldReplayTest {
         int marginBottom = 2; // line 2's Lab sits one row below its splitter
         for (int y = 1; y < height - marginBottom; y++) {
             for (int x = 1; x < width - marginRight; x++) {
-                if (oreLayout.oreAt(x, y).equals(Optional.of(Item.IRON_ORE)) && footprintIsPassable(oreLayout, x, y)) {
+                if (oreLayout.oreAt(x, y).equals(Optional.of(VanillaItems.IRON_ORE)) && footprintIsPassable(oreLayout, x, y)) {
                     spots.add(new int[] {x, y});
                 }
             }
@@ -251,18 +273,23 @@ class WorldReplayTest {
      *
      * <p>{@code ProductionStats.Snapshot}'s inner map comes from {@code Map.copyOf}, whose
      * iteration order the JDK deliberately randomizes per JVM run (see {@code
-     * java.util.ImmutableCollections}'s salt) — reading it through {@link Item#values()} instead of
-     * iterating the map directly is what keeps this canonical form, and therefore the hash, stable
-     * across separate test runs and not just within one. {@code Research.Snapshot}'s {@code
+     * java.util.ImmutableCollections}'s salt) — reading it through {@code VanillaItems.frozen()}'s
+     * own {@code rawId} order instead of iterating the map directly is what keeps this canonical
+     * form, and therefore the hash, stable across separate test runs and not just within one.
+     * {@code Research.Snapshot}'s {@code
      * unlocked} set is a real {@code EnumSet} (see its compact constructor), whose iteration order
      * is specified to follow enum declaration order, so it needs no such treatment.
+     *
+     * <p>Package-private, not private: this is the canonical-dump half of the replay-hash tool
+     * {@link WorldStateHashDeterminismTest} needs — kept here rather than duplicated because it
+     * must stay byte-for-byte identical to what {@link #EXPECTED_HASH} above was computed from.
      */
-    private static String canonicalState(World world) {
+    static String canonicalState(World world) {
         StringBuilder state = new StringBuilder();
 
         ProductionStats.Snapshot stats = world.stats().snapshot();
-        for (Item item : Item.values()) {
-            state.append(item).append('=').append(stats.totals().getOrDefault(item, 0L)).append(';');
+        for (ItemType item : VanillaItems.frozen().iterate()) {
+            state.append(item.id()).append('=').append(stats.totals().getOrDefault(item, 0L)).append(';');
         }
         state.append('\n');
 
@@ -275,7 +302,7 @@ class WorldReplayTest {
         return state.toString();
     }
 
-    private static String sha256(String input) {
+    static String sha256(String input) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));

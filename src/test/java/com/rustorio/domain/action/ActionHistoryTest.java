@@ -2,7 +2,8 @@ package com.rustorio.domain.action;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.world.World;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -165,14 +166,14 @@ class ActionHistoryTest {
     void compositeActionOnlyChargesForWhatActuallyGotPlaced() {
         World world = new World(50, 1);
         ActionHistory history = new ActionHistory();
-        int startingPlates = world.inventory().amount(Item.IRON_PLATE);
+        int startingPlates = world.inventory().amount(VanillaItems.IRON_PLATE);
 
         // Spend down to exactly 2 IRON_PLATE left (BELT costs 1 each), leaving no room to guess a
         // hardcoded starting-stock number here.
         for (int x = 0; x < startingPlates - 2; x++) {
             history.perform(world, new PlaceAction(BuildingType.BELT, x, 0, Direction.RIGHT));
         }
-        assertEquals(2, world.inventory().amount(Item.IRON_PLATE));
+        assertEquals(2, world.inventory().amount(VanillaItems.IRON_PLATE));
 
         int dragStart = startingPlates - 2;
         history.perform(world, new CompositeAction(List.of(
@@ -187,13 +188,13 @@ class ActionHistoryTest {
         assertFalse(world.peek(dragStart + 2, 0).isPresent(), "out of plates — must not have been placed");
         assertFalse(world.peek(dragStart + 3, 0).isPresent());
         assertFalse(world.peek(dragStart + 4, 0).isPresent());
-        assertEquals(0, world.inventory().amount(Item.IRON_PLATE), "exactly the 2 affordable belts must have been charged");
+        assertEquals(0, world.inventory().amount(VanillaItems.IRON_PLATE), "exactly the 2 affordable belts must have been charged");
 
         history.undo(world);
 
         assertFalse(world.peek(dragStart, 0).isPresent());
         assertFalse(world.peek(dragStart + 1, 0).isPresent());
-        assertEquals(2, world.inventory().amount(Item.IRON_PLATE),
+        assertEquals(2, world.inventory().amount(VanillaItems.IRON_PLATE),
                 "undo must refund exactly the 2 belts that actually got placed, not the whole drag");
     }
 
@@ -210,7 +211,7 @@ class ActionHistoryTest {
 
         history.perform(world, new PlaceAction(BuildingType.CHEST, 1, 1));
         history.undo(world);
-        int platesAfterUndo = world.inventory().amount(Item.IRON_PLATE);
+        int platesAfterUndo = world.inventory().amount(VanillaItems.IRON_PLATE);
 
         // Built directly, outside the history — the cell the redo wants is no longer free.
         world.placeBelt(1, 1, Direction.RIGHT);
@@ -225,7 +226,7 @@ class ActionHistoryTest {
         assertTrue(world.peek(1, 1)
                 .map(b -> b.type() == BuildingType.BELT)
                 .orElse(false), "undo must not demolish a building the failed redo never placed");
-        assertEquals(platesAfterUndo, world.inventory().amount(Item.IRON_PLATE),
+        assertEquals(platesAfterUndo, world.inventory().amount(VanillaItems.IRON_PLATE),
                 "a failed redo followed by undo must not refund a cost that was never spent");
     }
 

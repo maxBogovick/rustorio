@@ -2,7 +2,10 @@ package com.graphics.render;
 
 import com.badlogic.gdx.graphics.Color;
 import com.rustorio.domain.BuildingStatus;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemShape;
+import com.rustorio.domain.ItemType;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 /** Все цвета отрисовки в одном месте (перенесены из render.rs Rust-версии). */
@@ -22,26 +25,6 @@ final class Palette {
     static final Color TERRAIN_WATER = rgb(40, 90, 140);
     static final Color TERRAIN_ROCK = rgb(60, 58, 55);
 
-    // Цвета груза на ленте/буре/сортировщике/подземке (см. ItemRenderer). Настоящие спрайты
-    // предметов (iron_ore.png и т.п.) — заготовки 3×4/4×4 пикселя, где руда/пластина/шестерня
-    // одной цепочки перекрашены в один и тот же серый (бронза — в один и тот же оранжевый):
-    // на глаз неразличимы ни при каком масштабе. Пока нет настоящей художки — однозначная
-    // цветная метка вместо неё, тот же приём, что уже красит плашку лаборатории.
-    // Руда на земле (см. ORE выше) — синяя, так исторически закрашены рудные пятна в этой игре
-    // ещё до всех правок. Но добытый КУСОК руды в руках/на ленте — не то же самое, что клетка
-    // карты: тут ожидание другое (камень/металл, не вода), поэтому цвет предмета — нейтральный
-    // тёмно-серый, а не синий.
-    static final Color ITEM_IRON_ORE = rgb(105, 100, 95);       // тёмно-серый камень — сырьё
-    static final Color ITEM_IRON_PLATE = rgb(170, 172, 178);    // светлее ore, но НЕ белый
-    static final Color ITEM_GEAR = rgb(230, 195, 60);
-    static final Color ITEM_BRONZE_ORE = rgb(110, 80, 60);      // тёмно-коричневый камень — сырьё
-    static final Color ITEM_BRONZE_PLATE = rgb(214, 122, 44);
-    static final Color ITEM_MECHANISM = rgb(163, 68, 40);
-    static final Color ITEM_ENGINE = rgb(90, 170, 90);
-    static final Color ITEM_CHASSIS = rgb(60, 90, 150);
-    static final Color ITEM_ALLOY_PLATE = rgb(150, 140, 130); // между серым железом и рыжей бронзой
-    static final Color ITEM_ALLOY_GEAR = rgb(190, 170, 90); // темнее ITEM_GEAR — материал дороже
-    static final Color ITEM_COAL = rgb(35, 33, 32); // D-05, DEV_TASKS.md — тот же почти-чёрный, что ORE_COAL на земле
     static final Color HINT = rgb(179, 179, 199);
     static final Color WORKING = Color.GREEN;
     static final Color IDLE = Color.RED;
@@ -75,52 +58,37 @@ final class Palette {
     // читаться на любом спрайте под ней, а не сливаться с конкретным цветом конкретного здания.
     static final Color DIRECTION_ARROW = new Color(1f, 1f, 1f, 0.85f);
 
+    /** Memoizes {@link #itemColor} by packed rgb int — see that method's own javadoc for why. */
+    private static final Map<Integer, Color> ITEM_COLORS = new HashMap<>();
+
     private Palette() {
     }
 
     /**
-     * Цвет кружка для предмета — новый сорт получит цвет здесь, одной строкой. Раньше жил только
-     * внутри {@link ItemRenderer} (груз на ленте); теперь используется ещё и {@link
-     * RecipeBookRenderer} (иконка рецепта) — единственное место с этим {@code switch}, а не два
-     * места, которые рано или поздно разойдутся при добавлении предмета.
+     * Cargo color — read straight off the prototype's own {@link ItemType#colorRgb()} instead of
+     * switching on item identity: a new item gets a color the moment it's registered, with no
+     * change to this file at all.
+     *
+     * <p>Cached by the raw packed int, not by {@link ItemType} itself (code review finding S5):
+     * {@code itemColor} is called once per visible cargo/chip EVERY FRAME, and the old code
+     * allocated a fresh {@link Color} on every single call. Keying by {@code colorRgb} rather than
+     * by the item avoids a subtler staleness bug a by-item cache would have — {@link ItemType}'s
+     * identity is its {@link com.rustorio.api.content.ContentId} alone (see that class's own
+     * javadoc), so a by-item cache would keep handing out a stale color forever after a mod's
+     * {@code Registry.update()} changed {@code colorRgb} for an id already seen once; keying on
+     * the int itself means a new color value always gets its own (correct) cache entry.
      */
-    static Color itemColor(Item item) {
-        return switch (item) {
-            case IRON_ORE -> ITEM_IRON_ORE;
-            case IRON_PLATE -> ITEM_IRON_PLATE;
-            case GEAR -> ITEM_GEAR;
-            case BRONZE_ORE -> ITEM_BRONZE_ORE;
-            case BRONZE_PLATE -> ITEM_BRONZE_PLATE;
-            case MECHANISM -> ITEM_MECHANISM;
-            case ENGINE -> ITEM_ENGINE;
-            case CHASSIS -> ITEM_CHASSIS;
-            case ALLOY_PLATE -> ITEM_ALLOY_PLATE;
-            case ALLOY_GEAR -> ITEM_ALLOY_GEAR;
-            case COAL -> ITEM_COAL;
-        };
-    }
-
-    /** Cargo silhouette (X-06, DEV_TASKS.md) — see {@link #itemShape}. */
-    enum ItemShape {
-        CIRCLE, SQUARE, TRIANGLE
+    static Color itemColor(ItemType item) {
+        return ITEM_COLORS.computeIfAbsent(item.colorRgb(),
+                rgb -> rgb((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF));
     }
 
     /**
-     * Which silhouette a cargo circle draws as (X-06, DEV_TASKS.md) — color alone is an
-     * accessibility failure ({@code ITEM_IRON_ORE} (105,100,95) and {@code ITEM_ALLOY_PLATE}
-     * (150,140,130) read as the same gray to a colorblind player); shape is the second, independent
-     * channel. Grouped by production ROLE, not by chain — a raw ore and its own smelted plate
-     * should look categorically different, not like variations of one thing: {@code CIRCLE} for
-     * mined raw materials, {@code SQUARE} for a furnace's flat stamped output, {@code TRIANGLE} for
-     * everything a press assembles from those plates. {@link ItemRenderer} additionally draws each
-     * item's first letter on top — shape alone still leaves 3-5 items per group looking identical.
+     * Which silhouette a cargo circle draws as — {@link ItemType#shape()} directly; see that
+     * field's own javadoc (in {@code com.rustorio.domain}) for why shape exists alongside color.
      */
-    static ItemShape itemShape(Item item) {
-        return switch (item) {
-            case IRON_ORE, BRONZE_ORE, COAL -> ItemShape.CIRCLE;
-            case IRON_PLATE, BRONZE_PLATE, ALLOY_PLATE -> ItemShape.SQUARE;
-            case GEAR, ALLOY_GEAR, MECHANISM, ENGINE, CHASSIS -> ItemShape.TRIANGLE;
-        };
+    static ItemShape itemShape(ItemType item) {
+        return item.shape();
     }
 
     /**

@@ -1,7 +1,8 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.world.World;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -25,7 +26,7 @@ class InserterTest {
         world.restoreBuilding(2, 1, target);
 
         Inserter inserter = (Inserter) world.peek(1, 1).orElseThrow();
-        assertTrue(inserter.accept(world, Item.IRON_PLATE));
+        assertTrue(inserter.accept(world, VanillaItems.IRON_PLATE));
 
         world.tick();
 
@@ -36,9 +37,9 @@ class InserterTest {
     @Test
     void refusesASecondItemWhileStillHoldingTheFirst() {
         Inserter inserter = new Inserter(Direction.RIGHT);
-        assertTrue(inserter.accept(null, Item.IRON_PLATE));
+        assertTrue(inserter.accept(null, VanillaItems.IRON_PLATE));
 
-        assertFalse(inserter.accept(null, Item.GEAR));
+        assertFalse(inserter.accept(null, VanillaItems.GEAR));
     }
 
     @Test
@@ -48,11 +49,11 @@ class InserterTest {
         // (2,1) deliberately left empty — nothing there to accept anything.
 
         Inserter inserter = (Inserter) world.peek(1, 1).orElseThrow();
-        assertTrue(inserter.accept(world, Item.IRON_PLATE));
+        assertTrue(inserter.accept(world, VanillaItems.IRON_PLATE));
 
         world.tick();
 
-        assertEquals(Optional.of(Item.IRON_PLATE), inserter.heldItem(), "must keep holding, not drop the item");
+        assertEquals(Optional.of(VanillaItems.IRON_PLATE), inserter.heldItem(), "must keep holding, not drop the item");
     }
 
     /**
@@ -71,12 +72,12 @@ class InserterTest {
 
         Inserter upstream = (Inserter) world.peek(11, 10).orElseThrow();
         Inserter downstream = (Inserter) world.peek(10, 10).orElseThrow();
-        assertTrue(upstream.accept(world, Item.IRON_PLATE));
+        assertTrue(upstream.accept(world, VanillaItems.IRON_PLATE));
 
         world.tick();
 
         assertEquals(0, target.count(), "the item must not cross two cells in one tick");
-        assertEquals(Optional.of(Item.IRON_PLATE), downstream.heldItem(), "it settles on the middle cell first");
+        assertEquals(Optional.of(VanillaItems.IRON_PLATE), downstream.heldItem(), "it settles on the middle cell first");
 
         world.tick();
 
@@ -86,23 +87,23 @@ class InserterTest {
     @Test
     void rotatingChangesDirectionButKeepsCargo() {
         Inserter inserter = new Inserter(Direction.RIGHT);
-        inserter.accept(null, Item.GEAR);
+        inserter.accept(null, VanillaItems.GEAR);
 
         Inserter rotated = (Inserter) inserter.rotatedClockwise().orElseThrow();
 
         assertEquals(Optional.of(Direction.DOWN), rotated.outputDirection());
-        assertEquals(Optional.of(Item.GEAR), rotated.heldItem());
+        assertEquals(Optional.of(VanillaItems.GEAR), rotated.heldItem());
     }
 
     @Test
     void saveAndLoadRoundTripPreservesDirectionAndCargo() {
         Inserter original = new Inserter(Direction.LEFT);
-        original.accept(null, Item.CHASSIS);
+        original.accept(null, VanillaItems.CHASSIS);
 
         BuildingMemento.InserterState memento = (BuildingMemento.InserterState) original.memento();
         Inserter reloaded = new Inserter(memento.direction(), memento.held());
 
         assertEquals(Optional.of(Direction.LEFT), reloaded.outputDirection());
-        assertEquals(Optional.of(Item.CHASSIS), reloaded.heldItem());
+        assertEquals(Optional.of(VanillaItems.CHASSIS), reloaded.heldItem());
     }
 }

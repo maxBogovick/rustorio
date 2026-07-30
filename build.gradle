@@ -52,6 +52,7 @@ ext {
     jacksonVersion = '2.18.2' // сериализация сохранений в JSON (слой persist)
     errorproneVersion = '2.36.0'
     nullawayVersion = '0.12.3'
+    archunitVersion = '1.4.2' // E0-03, ENGINE_TASKS.md: границы пакетов по байткоду, не по grep (владелец, 29.07.2026)
 }
 
 // libGDX 1.14.2 по умолчанию подтягивает LWJGL 3.3.3, который старше Java 25 и на
@@ -86,6 +87,7 @@ dependencies {
     testImplementation platform("org.junit:junit-bom:$junitVersion")
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation "com.tngtech.archunit:archunit-junit5:$archunitVersion"
 
     errorprone "com.google.errorprone:error_prone_core:$errorproneVersion"
     errorprone "com.uber.nullaway:nullaway:$nullawayVersion"

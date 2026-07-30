@@ -1,9 +1,9 @@
 package com.rustorio.domain.world;
 
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -30,8 +30,15 @@ public final class ProductionStats implements ProductionListener, ProductionStat
     /** Ring buffer depth — {@link #BUCKET_TICKS} × this many = 10 simulated minutes of retained history, then oldest buckets drop. */
     private static final int MAX_BUCKETS = 600;
 
-    private final Map<Item, Long> totals = new EnumMap<>(Item.class);
-    private final Map<Item, Deque<Bucket>> history = new EnumMap<>(Item.class);
+    // HashMap, not TreeMap: onProduced() is the hottest path in the whole tick (called once per
+    // item any of thousands of buildings finishes), and unlike Chest/PlayerInventory's maps,
+    // neither of these is ever iterated directly — only point-looked-up by key (total/
+    // ratePerMinute/history below), or handed out via Map.copyOf (Snapshot), whose own iteration
+    // order callers already read through a fixed external list (see WorldReplayTest's
+    // canonicalState), not by trusting this map's order. TreeMap's ItemType.compareTo (via
+    // ContentId's string concatenation) measurably regressed the benchmark here.
+    private final Map<ItemType, Long> totals = new HashMap<>();
+    private final Map<ItemType, Deque<Bucket>> history = new HashMap<>();
 
     /** One item's count within one {@link #BUCKET_TICKS}-wide tick window — mutable so a same-bucket event just increments it in place, not a new allocation per production event. */
     private static final class Bucket {
@@ -45,7 +52,7 @@ public final class ProductionStats implements ProductionListener, ProductionStat
     }
 
     @Override
-    public void onProduced(long tick, Item item) {
+    public void onProduced(long tick, ItemType item) {
         totals.merge(item, 1L, Long::sum);
 
         Deque<Bucket> deque = history.computeIfAbsent(item, unused -> new ArrayDeque<>());
@@ -62,7 +69,7 @@ public final class ProductionStats implements ProductionListener, ProductionStat
     }
 
     @Override
-    public long total(Item item) {
+    public long total(ItemType item) {
         return totals.getOrDefault(item, 0L);
     }
 
@@ -85,7 +92,7 @@ public final class ProductionStats implements ProductionListener, ProductionStat
      * arbitrary window without becoming wrong for every window narrower than the full history.)
      */
     @Override
-    public double ratePerMinute(Item item, long currentTick, long windowTicks) {
+    public double ratePerMinute(ItemType item, long currentTick, long windowTicks) {
         long cutoff = currentTick - windowTicks;
         long count = 0;
         Deque<Bucket> deque = history.get(item);
@@ -113,7 +120,7 @@ public final class ProductionStats implements ProductionListener, ProductionStat
      * axis; {@link #BUCKET_TICKS} is public via {@link #bucketTicks()} for exactly that).
      */
     @Override
-    public List<RateSample> history(Item item) {
+    public List<RateSample> history(ItemType item) {
         Deque<Bucket> deque = history.get(item);
         if (deque == null) {
             return List.of();
@@ -139,7 +146,7 @@ public final class ProductionStats implements ProductionListener, ProductionStat
      * now" instrument, not save-worthy state, the same call already made for {@code BuildingStatus}
      * (F-01) and a furnace's ephemeral status field.
      */
-    public record Snapshot(Map<Item, Long> totals) {
+    public record Snapshot(Map<ItemType, Long> totals) {
         public Snapshot {
             totals = Map.copyOf(totals);
         }

@@ -1,7 +1,8 @@
 package com.rustorio;
 
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.OreLayoutId;
 import com.rustorio.domain.RecipeBook;
@@ -84,7 +85,7 @@ public final class Benchmark {
             world.placeChest(laneLength, y);
 
             for (int x = 0; x < laneLength; x++) {
-                belt(world, x, y).accept(world, Item.IRON_ORE); // pack the line with cargo up front
+                belt(world, x, y).accept(world, VanillaItems.IRON_ORE); // pack the line with cargo up front
             }
             tails.add(belt(world, 0, y));
         }
@@ -99,7 +100,7 @@ public final class Benchmark {
     private record Scene(World world, List<Belt> tails) {
         void tick() {
             for (Belt tail : tails) {
-                tail.accept(world, Item.IRON_ORE); // tail busy -> rejected, harmlessly
+                tail.accept(world, VanillaItems.IRON_ORE); // tail busy -> rejected, harmlessly
             }
             world.tick();
         }
@@ -112,12 +113,12 @@ public final class Benchmark {
      */
     private static final class FlatOreLayout implements OreLayout {
         @Override
-        public Optional<Item> oreAt(int x, int y) {
+        public Optional<ItemType> oreAt(int x, int y) {
             return Optional.empty();
         }
 
         @Override
-        public Optional<Item> extract(int x, int y) {
+        public Optional<ItemType> extract(int x, int y) {
             return Optional.empty();
         }
 

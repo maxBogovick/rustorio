@@ -3,7 +3,8 @@ package com.rustorio.domain.building;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.Tech;
@@ -18,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Печь + {@link ProcessTimer}: срок готовности порции и его тех-модификация FAST_SMELTING. Since
- * D-05 (DEV_TASKS.md), {@code FURNACE} kind additionally needs {@link Item#COAL} on hand to even
+ * D-05 (DEV_TASKS.md), {@code FURNACE} kind additionally needs {@link ItemType#COAL} on hand to even
  * start a batch (§2.3 of the design audit) — every FURNACE-kind test here now feeds it one unit;
  * {@code PRESS}-kind tests are untouched (mechanical stamping, no fuel concept — see {@link
  * Furnace}'s own D-05 javadoc note for why the split is deliberate).
@@ -26,13 +27,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FurnaceTest {
 
     private static final RecipeBook RECIPES = RecipeBook.standard();
-    private static final int IRON_TIME = RECIPES.find(BuildingType.FURNACE, Item.IRON_ORE).orElseThrow().time();
-    private static final int CHASSIS_TIME = RECIPES.find(BuildingType.PRESS, Item.ENGINE).orElseThrow().time();
-    private static final int ENGINE_TIME = RECIPES.find(BuildingType.PRESS, Item.MECHANISM).orElseThrow().time();
-    private static final int ALLOY_TIME = RECIPES.find(BuildingType.FURNACE, Item.IRON_PLATE).orElseThrow().time();
+    private static final int IRON_TIME = RECIPES.find(BuildingType.FURNACE, VanillaItems.IRON_ORE).orElseThrow().time();
+    private static final int CHASSIS_TIME = RECIPES.find(BuildingType.PRESS, VanillaItems.ENGINE).orElseThrow().time();
+    private static final int ENGINE_TIME = RECIPES.find(BuildingType.PRESS, VanillaItems.MECHANISM).orElseThrow().time();
+    private static final int ALLOY_TIME = RECIPES.find(BuildingType.FURNACE, VanillaItems.IRON_PLATE).orElseThrow().time();
     private static final int ALLOY_GEAR_TIME =
-            RECIPES.find(BuildingType.PRESS, Item.ALLOY_PLATE).orElseThrow().time();
-    private static final int GEAR_TIME = RECIPES.findByOutput(BuildingType.PRESS, Item.GEAR).orElseThrow().time();
+            RECIPES.find(BuildingType.PRESS, VanillaItems.ALLOY_PLATE).orElseThrow().time();
+    private static final int GEAR_TIME = RECIPES.findByOutput(BuildingType.PRESS, VanillaItems.GEAR).orElseThrow().time();
 
     @Test
     void smeltsIronOreIntoPlateAfterRecipeTime() {
@@ -41,8 +42,8 @@ class FurnaceTest {
         world.restoreBuilding(1, 0, chest); // держим ссылку на ящик напрямую, минуя place*
 
         Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES);
-        assertTrue(furnace.accept(world, Item.IRON_ORE));
-        assertTrue(furnace.accept(world, Item.COAL), "FURNACE needs fuel too now (D-05, DEV_TASKS.md)");
+        assertTrue(furnace.accept(world, VanillaItems.IRON_ORE));
+        assertTrue(furnace.accept(world, VanillaItems.COAL), "FURNACE needs fuel too now (D-05, DEV_TASKS.md)");
 
         for (int i = 0; i < IRON_TIME - 1; i++) {
             furnace.tick(world, 0, 0);
@@ -67,8 +68,8 @@ class FurnaceTest {
         assertTrue(world.tryUnlockTech(Tech.FAST_SMELTING));
 
         Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES);
-        assertTrue(furnace.accept(world, Item.IRON_ORE));
-        assertTrue(furnace.accept(world, Item.COAL), "FURNACE needs fuel too now (D-05, DEV_TASKS.md)");
+        assertTrue(furnace.accept(world, VanillaItems.IRON_ORE));
+        assertTrue(furnace.accept(world, VanillaItems.COAL), "FURNACE needs fuel too now (D-05, DEV_TASKS.md)");
 
         int halvedTime = Math.max(1, IRON_TIME / 2);
         for (int i = 0; i < halvedTime - 1; i++) {
@@ -88,8 +89,8 @@ class FurnaceTest {
         Furnace press = new Furnace(BuildingType.PRESS, Direction.RIGHT, RECIPES);
         // ENGINE — первый вход рецепта CHASSIS и ни для какого другого рецепта пресса входом не
         // служит, поэтому им и стоит кормить первым.
-        assertTrue(press.accept(world, Item.ENGINE));
-        assertTrue(press.accept(world, Item.GEAR));
+        assertTrue(press.accept(world, VanillaItems.ENGINE));
+        assertTrue(press.accept(world, VanillaItems.GEAR));
 
         for (int i = 0; i < CHASSIS_TIME - 1; i++) {
             press.tick(world, 0, 0);
@@ -107,9 +108,9 @@ class FurnaceTest {
 
         // ALLOY — первый рецепт ПЕЧИ (не пресса) с двумя входами; порядок подачи не важен.
         Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES);
-        assertTrue(furnace.accept(world, Item.BRONZE_PLATE));
-        assertTrue(furnace.accept(world, Item.IRON_PLATE));
-        assertTrue(furnace.accept(world, Item.COAL), "FURNACE needs fuel too now (D-05, DEV_TASKS.md)");
+        assertTrue(furnace.accept(world, VanillaItems.BRONZE_PLATE));
+        assertTrue(furnace.accept(world, VanillaItems.IRON_PLATE));
+        assertTrue(furnace.accept(world, VanillaItems.COAL), "FURNACE needs fuel too now (D-05, DEV_TASKS.md)");
 
         for (int i = 0; i < ALLOY_TIME - 1; i++) {
             furnace.tick(world, 0, 0);
@@ -132,14 +133,14 @@ class FurnaceTest {
         world.restoreBuilding(1, 0, chest);
 
         Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES);
-        assertTrue(furnace.accept(world, Item.IRON_ORE));
+        assertTrue(furnace.accept(world, VanillaItems.IRON_ORE));
 
         for (int i = 0; i < IRON_TIME * 3; i++) { // far past the recipe's own time, still no fuel
             furnace.tick(world, 0, 0);
         }
         assertEquals(0, chest.count(), "no coal was ever supplied — nothing should have finished, however long it waited");
 
-        assertTrue(furnace.accept(world, Item.COAL));
+        assertTrue(furnace.accept(world, VanillaItems.COAL));
         for (int i = 0; i < IRON_TIME; i++) {
             furnace.tick(world, 0, 0);
         }
@@ -153,8 +154,8 @@ class FurnaceTest {
         world.restoreBuilding(1, 0, chest);
 
         Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES);
-        assertTrue(furnace.accept(world, Item.IRON_ORE)); // тот же тип FURNACE, что и у ALLOY
-        assertTrue(furnace.accept(world, Item.COAL), "FURNACE needs fuel too now (D-05, DEV_TASKS.md)");
+        assertTrue(furnace.accept(world, VanillaItems.IRON_ORE)); // тот же тип FURNACE, что и у ALLOY
+        assertTrue(furnace.accept(world, VanillaItems.COAL), "FURNACE needs fuel too now (D-05, DEV_TASKS.md)");
 
         for (int i = 0; i < IRON_TIME; i++) {
             furnace.tick(world, 0, 0);
@@ -173,17 +174,17 @@ class FurnaceTest {
         // GEAR is ambiguous on its own: it's ENGINE's first ingredient AND CHASSIS's second.
         // Guessing (the old behavior) could commit to a recipe whose other ingredient never
         // arrives — refusing instead means the item just doesn't move, not "gone forever".
-        assertFalse(press.accept(world, Item.GEAR), "an ambiguous item must not be silently guessed at");
+        assertFalse(press.accept(world, VanillaItems.GEAR), "an ambiguous item must not be silently guessed at");
 
         // Player disambiguates: cycle forward to the ENGINE recipe (GEAR + MECHANISM -> ENGINE).
-        Optional<Item> selected = Optional.empty();
+        Optional<ItemType> selected = Optional.empty();
         for (int i = 0; i < 3; i++) {
             selected = press.cycleRecipe();
         }
-        assertEquals(Optional.of(Item.ENGINE), selected, "third cycle step must land on ENGINE");
+        assertEquals(Optional.of(VanillaItems.ENGINE), selected, "third cycle step must land on ENGINE");
 
-        assertTrue(press.accept(world, Item.GEAR), "now that ENGINE is selected, GEAR is unambiguous");
-        assertTrue(press.accept(world, Item.MECHANISM));
+        assertTrue(press.accept(world, VanillaItems.GEAR), "now that ENGINE is selected, GEAR is unambiguous");
+        assertTrue(press.accept(world, VanillaItems.MECHANISM));
 
         for (int i = 0; i < ENGINE_TIME - 1; i++) {
             press.tick(world, 0, 0);
@@ -205,14 +206,14 @@ class FurnaceTest {
     @Test
     void pressWithARecipeThatTakesTwoOfTheSameItemFillsBothBuffers() {
         RecipeBook doubleInput = new RecipeBook(java.util.List.of(
-                new Recipe(Item.IRON_PLATE, Item.IRON_PLATE, Item.ALLOY_PLATE, 3, BuildingType.PRESS)));
+                new Recipe(VanillaItems.IRON_PLATE, VanillaItems.IRON_PLATE, VanillaItems.ALLOY_PLATE, 3, BuildingType.PRESS)));
         World world = new World(4, 4);
         Chest chest = new Chest();
         world.restoreBuilding(1, 0, chest);
 
         Furnace press = new Furnace(BuildingType.PRESS, Direction.RIGHT, doubleInput);
-        assertTrue(press.accept(world, Item.IRON_PLATE));
-        assertTrue(press.accept(world, Item.IRON_PLATE));
+        assertTrue(press.accept(world, VanillaItems.IRON_PLATE));
+        assertTrue(press.accept(world, VanillaItems.IRON_PLATE));
 
         for (int i = 0; i < 3 - 1; i++) {
             press.tick(world, 0, 0);
@@ -238,7 +239,7 @@ class FurnaceTest {
         world.restoreBuilding(1, 0, chest);
 
         BuildingMemento.FurnaceState state = new BuildingMemento.FurnaceState(
-                BuildingType.PRESS, Direction.RIGHT, 1, 0, 0, Item.GEAR, null, 0, null);
+                BuildingType.PRESS, Direction.RIGHT, 1, 0, 0, VanillaItems.GEAR, null, 0, null);
         Furnace press = new Furnace(state, RECIPES);
 
         press.tick(world, 0, 0);
@@ -259,7 +260,7 @@ class FurnaceTest {
         world.restoreBuilding(1, 0, chest);
 
         Furnace press = new Furnace(BuildingType.PRESS, Direction.RIGHT, RECIPES);
-        assertTrue(press.accept(world, Item.ALLOY_PLATE));
+        assertTrue(press.accept(world, VanillaItems.ALLOY_PLATE));
 
         for (int i = 0; i < ALLOY_GEAR_TIME - 1; i++) {
             press.tick(world, 0, 0);
@@ -281,12 +282,12 @@ class FurnaceTest {
         assertEquals(BuildingStatus.NO_INPUT, furnace.appearance().status(),
                 "nothing buffered yet at all");
 
-        assertTrue(furnace.accept(world, Item.IRON_ORE));
+        assertTrue(furnace.accept(world, VanillaItems.IRON_ORE));
         furnace.tick(world, 0, 0);
         assertEquals(BuildingStatus.NO_FUEL, furnace.appearance().status(),
                 "ore is buffered, but a FURNACE still needs coal to start cooking (D-05, DEV_TASKS.md)");
 
-        assertTrue(furnace.accept(world, Item.COAL));
+        assertTrue(furnace.accept(world, VanillaItems.COAL));
         for (int i = 0; i < IRON_TIME - 1; i++) {
             furnace.tick(world, 0, 0);
             assertEquals(BuildingStatus.WORKING, furnace.appearance().status(),
@@ -309,8 +310,8 @@ class FurnaceTest {
         // No forward neighbor at all — a finished batch has nowhere to go (same setup as
         // furnaceStatusReflectsWhyItIsBlocked below).
         Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES);
-        assertTrue(furnace.accept(world, Item.IRON_ORE));
-        assertTrue(furnace.accept(world, Item.COAL));
+        assertTrue(furnace.accept(world, VanillaItems.IRON_ORE));
+        assertTrue(furnace.accept(world, VanillaItems.COAL));
         for (int i = 0; i < IRON_TIME; i++) {
             furnace.tick(world, 0, 0);
         }
@@ -330,8 +331,8 @@ class FurnaceTest {
         world.restoreBuilding(1, 0, chest);
 
         Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES);
-        assertTrue(furnace.accept(world, Item.BRONZE_PLATE)); // ALLOY's first input; second (IRON_PLATE) never arrives
-        assertTrue(furnace.accept(world, Item.COAL));
+        assertTrue(furnace.accept(world, VanillaItems.BRONZE_PLATE)); // ALLOY's first input; second (IRON_PLATE) never arrives
+        assertTrue(furnace.accept(world, VanillaItems.COAL));
 
         furnace.tick(world, 0, 0);
         assertEquals(BuildingStatus.NO_INPUT, furnace.appearance().status(),
@@ -345,8 +346,8 @@ class FurnaceTest {
         assertNull(furnace.appearance().recipeHint(), "nothing committed yet — no hint to show");
 
         World world = new World(4, 4);
-        assertTrue(furnace.accept(world, Item.IRON_ORE));
-        assertEquals(Item.IRON_PLATE, furnace.appearance().recipeHint(),
+        assertTrue(furnace.accept(world, VanillaItems.IRON_ORE));
+        assertEquals(VanillaItems.IRON_PLATE, furnace.appearance().recipeHint(),
                 "IRON_ORE unambiguously commits to the IRON_ORE -> IRON_PLATE recipe");
     }
 
@@ -360,7 +361,7 @@ class FurnaceTest {
             press.cycleRecipe();
         }
 
-        assertEquals(Item.ENGINE, press.appearance().recipeHint());
+        assertEquals(VanillaItems.ENGINE, press.appearance().recipeHint());
     }
 
     /**
@@ -381,7 +382,7 @@ class FurnaceTest {
         Furnace restored = (Furnace) factory.restore(press.memento(), 0);
 
         World world = new World(4, 4);
-        assertTrue(restored.accept(world, Item.GEAR),
+        assertTrue(restored.accept(world, VanillaItems.GEAR),
                 "restored furnace must still remember ENGINE was selected — GEAR alone is ambiguous otherwise");
     }
 
@@ -396,7 +397,7 @@ class FurnaceTest {
         Furnace rotated = (Furnace) press.rotatedClockwise().orElseThrow();
 
         World world = new World(4, 4);
-        assertTrue(rotated.accept(world, Item.GEAR),
+        assertTrue(rotated.accept(world, VanillaItems.GEAR),
                 "rotating must not drop the player's selected recipe");
     }
 
@@ -419,11 +420,11 @@ class FurnaceTest {
         assertTrue(furnace.activeRecipe().isEmpty());
 
         World world = new World(4, 4);
-        assertTrue(furnace.accept(world, Item.IRON_ORE));
+        assertTrue(furnace.accept(world, VanillaItems.IRON_ORE));
 
         Recipe active = furnace.activeRecipe().orElseThrow();
-        assertEquals(Item.IRON_ORE, active.input());
-        assertEquals(Item.IRON_PLATE, active.output());
+        assertEquals(VanillaItems.IRON_ORE, active.input());
+        assertEquals(VanillaItems.IRON_PLATE, active.output());
     }
 
     @Test
@@ -434,10 +435,10 @@ class FurnaceTest {
         for (int i = 0; i < 3; i++) { // same three cycles as pressFedGearFirstDoesNotDeadlockForever — lands on ENGINE
             press.cycleRecipe();
         }
-        assertEquals(Item.ENGINE, press.selectedRecipeChoice().orElseThrow().output());
+        assertEquals(VanillaItems.ENGINE, press.selectedRecipeChoice().orElseThrow().output());
 
         World world = new World(4, 4);
-        assertTrue(press.accept(world, Item.GEAR)); // commits — activeRecipe takes over from here
+        assertTrue(press.accept(world, VanillaItems.GEAR)); // commits — activeRecipe takes over from here
         assertTrue(press.activeRecipe().isPresent());
     }
 
@@ -457,8 +458,8 @@ class FurnaceTest {
         world.restoreBuilding(2, 0, chest);
 
         Furnace assembler = new Furnace(BuildingType.ASSEMBLER, Direction.RIGHT, RECIPES);
-        assertTrue(assembler.accept(world, Item.ENGINE));
-        assertTrue(assembler.accept(world, Item.GEAR));
+        assertTrue(assembler.accept(world, VanillaItems.ENGINE));
+        assertTrue(assembler.accept(world, VanillaItems.GEAR));
 
         for (int i = 0; i < CHASSIS_TIME - 1; i++) {
             assembler.tick(world, 0, 0);
@@ -466,7 +467,7 @@ class FurnaceTest {
         }
         assembler.tick(world, 0, 0);
 
-        assertEquals(1, chest.amount(Item.CHASSIS));
+        assertEquals(1, chest.amount(VanillaItems.CHASSIS));
     }
 
     /**
@@ -495,11 +496,11 @@ class FurnaceTest {
 
     private static void assertProducesInto(RecipeBook recipes, Direction direction, World world, Chest expected) {
         Furnace assembler = new Furnace(BuildingType.ASSEMBLER, direction, recipes);
-        assembler.accept(world, Item.ENGINE);
-        assembler.accept(world, Item.GEAR);
+        assembler.accept(world, VanillaItems.ENGINE);
+        assembler.accept(world, VanillaItems.GEAR);
         for (int i = 0; i < CHASSIS_TIME; i++) {
             assembler.tick(world, 2, 2);
         }
-        assertEquals(1, expected.amount(Item.CHASSIS), "facing " + direction);
+        assertEquals(1, expected.amount(VanillaItems.CHASSIS), "facing " + direction);
     }
 }

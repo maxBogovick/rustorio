@@ -2,7 +2,7 @@ package com.rustorio.domain.action;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.world.World;
@@ -31,7 +31,7 @@ public final class PlaceAction implements PlayerAction {
      * it" discipline {@code RemoveAction#undo}/{@code GrabChestAction#undo} already use, just on
      * the redo side of the stack instead of the undo side.
      */
-    private @Nullable Map<Item, Integer> savedChestContents;
+    private @Nullable Map<ItemType, Integer> savedChestContents;
 
     public PlaceAction(BuildingType type, int x, int y) {
         this(type, x, y, Direction.RIGHT); // direction only matters to belts, furnaces, tunnels, splitters
@@ -67,7 +67,7 @@ public final class PlaceAction implements PlayerAction {
             world.refundBuildingCost(type);
             return false;
         }
-        Map<Item, Integer> contents = savedChestContents;
+        Map<ItemType, Integer> contents = savedChestContents;
         if (contents != null) {
             if (world.trySpendItems(contents)) {
                 world.peek(x, y)
@@ -105,7 +105,7 @@ public final class PlaceAction implements PlayerAction {
                 .filter(Chest.class::isInstance)
                 .map(Chest.class::cast)
                 .ifPresent(chest -> {
-                    Map<Item, Integer> contents = chest.drain();
+                    Map<ItemType, Integer> contents = chest.drain();
                     if (!contents.isEmpty()) {
                         savedChestContents = contents;
                         contents.forEach(world::creditItem);

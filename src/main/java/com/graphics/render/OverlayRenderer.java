@@ -7,10 +7,11 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
+import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Item;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingCost;
@@ -133,11 +134,12 @@ final class OverlayRenderer {
      * kind (D-02). Both share one line/one pass since a full chest shows both at once.
      */
     private void renderInfoLabels(World world, TileRange visible, float tile) {
+        Registry<ItemType> items = world.buildingFactory().items();
         batch.begin();
         font.getData().setScale(0.5f);
         font.setColor(Color.WHITE);
         world.forEachBuildingIn(visible.minX(), visible.minY(), visible.maxX(), visible.maxY(), (x, y, building) -> {
-            String line = infoLine(building);
+            String line = infoLine(building, items);
             if (!line.isEmpty()) {
                 font.draw(batch, line, grid.x(x), grid.yBottom(y) + tile + 11f);
             }
@@ -147,17 +149,18 @@ final class OverlayRenderer {
         batch.end();
     }
 
-    private static String infoLine(Building building) {
+    /** Package-private (not private) so {@link OverlayRendererGhostTest}-style headless tests can call it directly — pure logic, no libGDX. */
+    static String infoLine(Building building, Registry<ItemType> items) {
         StringBuilder sb = new StringBuilder();
         BuildingStatus status = building.appearance().status();
         if (status != BuildingStatus.WORKING) {
             sb.append(status).append(' ');
         }
         if (Building.unwrap(building) instanceof Chest chest) {
-            for (Item item : Item.values()) {
+            for (ItemType item : items.iterate()) {
                 int amount = chest.amount(item);
                 if (amount > 0) {
-                    sb.append(item).append(':').append(amount).append(' ');
+                    sb.append(item.label()).append(':').append(amount).append(' ');
                 }
             }
         }
@@ -248,7 +251,8 @@ final class OverlayRenderer {
      * Checked in the same order {@link #canPlaceHere}/{@code World.place} itself would fail — the
      * first one that's actually wrong is the one reported, not every problem at once.
      */
-    private static String reasonInvalid(World world, BuildingType type, int x, int y) {
+    /** Package-private (not private) so a headless test can call it directly — pure logic, no libGDX, same reason as {@link #infoLine}. */
+    static String reasonInvalid(World world, BuildingType type, int x, int y) {
         int w = type.footprintWidth();
         int h = type.footprintHeight();
         for (int dx = 0; dx < w; dx++) {
@@ -273,7 +277,7 @@ final class OverlayRenderer {
         BuildingCost cost = BuildingCost.forType(type);
         int have = world.inventory().amount(cost.item());
         if (have < cost.amount()) {
-            return "need " + cost.amount() + " " + cost.item() + " (have " + have + ")";
+            return "need " + cost.amount() + " " + cost.item().label() + " (have " + have + ")";
         }
         // canPlaceHere() and affordability() both agreed this tile is fine — reasonInvalid() is
         // only ever called after they disagreed, so this is unreachable in practice; still, an
@@ -292,7 +296,7 @@ final class OverlayRenderer {
      */
     private static boolean[] affordability(World world, BuildingType type, List<TilePos> tiles) {
         BuildingCost cost = BuildingCost.forType(type);
-        Item item = cost.item();
+        ItemType item = cost.item();
         int remaining = world.inventory().amount(item);
         boolean[] afford = new boolean[tiles.size()];
         for (int i = 0; i < tiles.size(); i++) {
