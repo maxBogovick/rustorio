@@ -8,6 +8,7 @@ import com.graphics.input.InputHandler;
 import com.graphics.render.GameCamera;
 import com.graphics.render.Renderer;
 import com.graphics.render.Textures;
+import com.rustorio.BuildingType;
 import com.rustorio.World;
 
 /**
@@ -40,13 +41,14 @@ public final class GameScreen extends ScreenAdapter {
         });
     }
 
+
+
     @Override
     public void render(float delta) {
-        input.handle(world, delta);      // 1. ввод: камера + постройка бура кликом
-        world.tick();                    // 2. тик: буры делают свою работу
-        renderer.render(world, delta);   // 3. рендер: карта + буры
+        input.handle(world, delta);
+        world.tick();
+        renderer.render(world, delta, input.selected());
     }
-
     @Override
     public void resize(int width, int height) {
         if (width > 0 && height > 0) { // 0×0 приходит при сворачивании окна

@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Disposable;
 import com.graphics.GfxConfig;
+import com.rustorio.BuildingType;
 import com.rustorio.World;
 
 /**
@@ -37,14 +38,14 @@ public final class Renderer implements Disposable {
 
         Grid grid = new Grid(GfxConfig.GRID_H);
         this.worldRenderer = new WorldRenderer(shapes, grid);
-        this.buildingRenderer = new BuildingRenderer(batch, textures, grid);
+        this.buildingRenderer = new BuildingRenderer(batch, textures, grid, font);
         this.itemRenderer = new ItemRenderer(batch, font, textures, grid);
         this.overlayRenderer = new OverlayRenderer(batch, shapes, font, textures, grid);
         this.hudRenderer = new HudRenderer(batch, font);
     }
 
     /** Нарисовать кадр по текущему состоянию мира. */
-    public void render(World world, float delta) {
+    public void render(World world, float delta, BuildingType selected) {
         Gdx.gl.glClearColor(Palette.BG.r, Palette.BG.g, Palette.BG.b, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -56,13 +57,13 @@ public final class Renderer implements Disposable {
         TileRange visible = camera.visibleTiles(GfxConfig.GRID_W);
 
         worldRenderer.render(visible);   // 1. земля + рудные области
-        buildingRenderer.render(world);  // 2. буры на карте
+        buildingRenderer.render(world, selected);  // 2. буры на карте
         itemRenderer.render();           // 3. пусто (предметы — позже)
         overlayRenderer.renderWorld();   // 4. пусто
 
         // HUD — в координатах окна.
         batch.setProjectionMatrix(camera.hudMatrix());
-        hudRenderer.render();                        // 5. заголовок + подсказки
+        hudRenderer.render(selected, world.stats());                        // 5. заголовок + подсказки
         overlayRenderer.renderHud();     // 6. пусто
     }
 

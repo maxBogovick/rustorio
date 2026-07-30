@@ -24,5 +24,6 @@ final class ItemRenderer {
 
     /** Пока ничего не рисует — предметы вернутся сюда позже. */
     void render() {
+
     }
 }
