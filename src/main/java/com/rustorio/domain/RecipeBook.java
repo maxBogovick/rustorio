@@ -23,14 +23,14 @@ public final class RecipeBook {
 
     private static final Recipe IRON = new Recipe(VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, 5, BuildingType.FURNACE);
     private static final Recipe GEAR = new Recipe(VanillaItems.IRON_PLATE, VanillaItems.GEAR, 8, BuildingType.PRESS);
-    private static final Recipe BRONZE = new Recipe(VanillaItems.BRONZE_ORE, VanillaItems.BRONZE_PLATE, 5, BuildingType.FURNACE);
-    private static final Recipe MECHANISM = new Recipe(VanillaItems.BRONZE_PLATE, VanillaItems.MECHANISM, 8, BuildingType.PRESS);
+    private static final Recipe COPPER = new Recipe(VanillaItems.COPPER_ORE, VanillaItems.COPPER_PLATE, 5, BuildingType.FURNACE);
+    private static final Recipe MECHANISM = new Recipe(VanillaItems.COPPER_PLATE, VanillaItems.MECHANISM, 8, BuildingType.PRESS);
     private static final Recipe ENGINE =
             new Recipe(VanillaItems.GEAR, VanillaItems.MECHANISM, VanillaItems.ENGINE, 12, BuildingType.PRESS);
     private static final Recipe CHASSIS =
             new Recipe(VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15, BuildingType.PRESS);
     private static final Recipe ALLOY =
-            new Recipe(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.ALLOY_PLATE, 10, BuildingType.FURNACE);
+            new Recipe(VanillaItems.IRON_PLATE, VanillaItems.COPPER_PLATE, VanillaItems.ALLOY_PLATE, 10, BuildingType.FURNACE);
     private static final Recipe ALLOY_GEAR =
             new Recipe(VanillaItems.ALLOY_PLATE, VanillaItems.ALLOY_GEAR, 10, BuildingType.PRESS);
     /**
@@ -49,7 +49,7 @@ public final class RecipeBook {
             new Recipe(VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15, BuildingType.ASSEMBLER);
 
     private static final RecipeBook STANDARD = new RecipeBook(
-            List.of(IRON, GEAR, BRONZE, MECHANISM, ENGINE, CHASSIS, ALLOY, ALLOY_GEAR, CHASSIS_ASSEMBLED));
+            List.of(IRON, GEAR, COPPER, MECHANISM, ENGINE, CHASSIS, ALLOY, ALLOY_GEAR, CHASSIS_ASSEMBLED));
 
     private final List<Recipe> recipes;
     /**

@@ -4,6 +4,8 @@ import com.badlogic.gdx.graphics.Color;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.ItemShape;
 import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaItems;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -14,8 +16,13 @@ final class Palette {
     static final Color BG = rgb(26, 26, 31);
     static final Color GROUND = rgb(42, 46, 54);
     static final Color ORE = rgb(51, 71, 115);        // железная руда — синий
-    static final Color ORE_BRONZE = rgb(122, 78, 39);  // бронзовая руда — тёплый коричневый
+    static final Color ORE_COPPER = rgb(196, 110, 60);  // медная руда — тёплый рыжий
     static final Color ORE_COAL = rgb(35, 33, 32);     // уголь — почти чёрный (D-05, DEV_TASKS.md)
+    static final Color ORE_SAND = rgb(200, 185, 140);   // кварцевый песок — светлый песочный
+    static final Color ORE_TIN = rgb(170, 170, 180);    // олово — светлый серебристый
+    static final Color ORE_LEAD = rgb(80, 80, 90);       // свинец — тёмный сине-серый
+    static final Color ORE_OIL = rgb(15, 10, 20);        // нефть — почти чёрный, чуть синее угля
+    static final Color ORE_GOLD = rgb(200, 160, 40);     // золото — насыщенный жёлтый
     static final Color GRID = rgb(90, 96, 110);
 
     // Рельеф (X-02, DEV_TASKS.md): непроходимые клетки должны читаться на глаз ДО первого клика
@@ -108,5 +115,30 @@ final class Palette {
 
     private static Color rgb(int r, int g, int b) {
         return new Color(r / 255f, g / 255f, b / 255f, 1f);
+    }
+
+    private static Color oreColor(ItemType ore) {
+        if (ore == VanillaItems.COPPER_ORE) {
+            return Palette.ORE_COPPER;
+        }
+        if (ore == VanillaItems.COAL) {
+            return Palette.ORE_COAL;
+        }
+        if (ore == VanillaItems.QUARTZ_SAND) {
+            return Palette.ORE_SAND;
+        }
+        if (ore == VanillaItems.TIN_ORE) {
+            return Palette.ORE_TIN;
+        }
+        if (ore == VanillaItems.LEAD_ORE) {
+            return Palette.ORE_LEAD;
+        }
+        if (ore == VanillaItems.CRUDE_OIL) {
+            return Palette.ORE_OIL;
+        }
+        if (ore == VanillaItems.GOLD_ORE) {
+            return Palette.ORE_GOLD;
+        }
+        return Palette.ORE; // IRON_ORE, and any other/modded ore
     }
 }

@@ -9,7 +9,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * A second {@link OreLayout} implementation, alongside {@link PatchOreLayout}: same shape of map
- * (twelve iron/bronze patches plus four smaller coal patches, D-05), but scattered at positions
+ * (twelve iron/copper patches plus four smaller coal patches, D-05), but scattered at positions
  * rolled from a seed instead of {@link PatchOreLayout}'s fixed coordinates — so a player isn't
  * stuck mining the exact same map every game. Deterministic per {@link OreLayout}'s contract:
  * patches are rolled once, at construction, from the given seed, and immediately baked into a
@@ -21,13 +21,19 @@ import org.jspecify.annotations.Nullable;
 public final class RandomOreLayout implements OreLayout {
 
     private static final int PATCH_COUNT = 12;
-    private static final int BRONZE_PATCHES = 4;
+    private static final int COPPER_PATCHES = 4;
     private static final int MIN_RADIUS = 3;
     private static final int MAX_RADIUS = 4;
 
-    /** Coal (D-05, DEV_TASKS.md) — smaller deposits than iron/bronze, same fixed radius {@link PatchOreLayout}'s coal patches use. */
+    /** Coal (D-05, DEV_TASKS.md) — smaller deposits than iron/copper, same fixed radius {@link PatchOreLayout}'s coal patches use. */
     private static final int COAL_PATCHES = 4;
     private static final int COAL_RADIUS = 2;
+    private static final int SAND_PATCHES = 4;
+    private static final int TIN_PATCHES = 2;
+    private static final int LEAD_PATCHES = 2;
+    private static final int OIL_PATCHES = 2;
+    private static final int GOLD_PATCHES = 2;
+    private static final int GOLD_RADIUS = 1;
 
     /** Obstacles (X-02, DEV_TASKS.md) — half water, half rock, same radius range as ore patches. */
     private static final int TERRAIN_PATCH_COUNT = 6;
@@ -47,15 +53,16 @@ public final class RandomOreLayout implements OreLayout {
         this.width = width;
         this.height = height;
         Random random = new Random(seed);
-        OrePatch[] patches = new OrePatch[PATCH_COUNT + COAL_PATCHES];
+        int newOreCount = SAND_PATCHES + TIN_PATCHES + LEAD_PATCHES + OIL_PATCHES + GOLD_PATCHES;
+        OrePatch[] patches = new OrePatch[PATCH_COUNT + COAL_PATCHES + newOreCount];
         for (int i = 0; i < PATCH_COUNT; i++) {
-            ItemType ore = i < PATCH_COUNT - BRONZE_PATCHES ? VanillaItems.IRON_ORE : VanillaItems.BRONZE_ORE;
+            ItemType ore = i < PATCH_COUNT - COPPER_PATCHES ? VanillaItems.IRON_ORE : VanillaItems.COPPER_ORE;
             int radius = fitRadius(MIN_RADIUS + random.nextInt(MAX_RADIUS - MIN_RADIUS + 1), width, height);
             int cx = radius + random.nextInt(width - 2 * radius);
             int cy = radius + random.nextInt(height - 2 * radius);
             patches[i] = new OrePatch(cx, cy, radius, ore);
         }
-        // Coal, same seeded Random, right after iron/bronze so a furnace's two supply lines (ore
+        // Coal, same seeded Random, right after iron/copper so a furnace's two supply lines (ore
         // + fuel, D-05) both come from the same deterministic roll a player can actually learn.
         for (int i = 0; i < COAL_PATCHES; i++) {
             int radius = fitRadius(COAL_RADIUS, width, height);
@@ -63,6 +70,14 @@ public final class RandomOreLayout implements OreLayout {
             int cy = radius + random.nextInt(height - 2 * radius);
             patches[PATCH_COUNT + i] = new OrePatch(cx, cy, radius, VanillaItems.COAL);
         }
+
+        int offset = PATCH_COUNT + COAL_PATCHES;
+        offset = rollOre(patches, offset, random, SAND_PATCHES, MIN_RADIUS, MAX_RADIUS, width, height, VanillaItems.QUARTZ_SAND);
+        offset = rollOre(patches, offset, random, TIN_PATCHES, MIN_RADIUS, MAX_RADIUS, width, height, VanillaItems.TIN_ORE);
+        offset = rollOre(patches, offset, random, LEAD_PATCHES, MIN_RADIUS, MAX_RADIUS, width, height, VanillaItems.LEAD_ORE);
+        offset = rollOre(patches, offset, random, OIL_PATCHES, MIN_RADIUS, MAX_RADIUS, width, height, VanillaItems.CRUDE_OIL);
+        rollOre(patches, offset, random, GOLD_PATCHES, GOLD_RADIUS, GOLD_RADIUS, width, height, VanillaItems.GOLD_ORE);
+
         // Same seeded Random, continued — keeps "same seed -> same map" true for terrain too,
         // not just ore (see RandomOreLayoutTest.sameSeedYieldsTheExactSameMap).
         TerrainPatch[] terrainPatches = new TerrainPatch[TERRAIN_PATCH_COUNT];
@@ -193,5 +208,17 @@ public final class RandomOreLayout implements OreLayout {
             return Terrain.ROCK; // fail closed — off the generated grid entirely, never buildable
         }
         return terrainGrid[y * width + x];
+    }
+
+    /** Rolls {@code count} patches of {@code ore} into {@code patches}, starting at {@code offset}; returns the next free offset. */
+    private static int rollOre(OrePatch[] patches, int offset, Random random, int count,
+                               int minRadius, int maxRadius, int width, int height, ItemType ore) {
+        for (int i = 0; i < count; i++) {
+            int radius = fitRadius(minRadius + random.nextInt(maxRadius - minRadius + 1), width, height);
+            int cx = radius + random.nextInt(width - 2 * radius);
+            int cy = radius + random.nextInt(height - 2 * radius);
+            patches[offset + i] = new OrePatch(cx, cy, radius, ore);
+        }
+        return offset + count;
     }
 }

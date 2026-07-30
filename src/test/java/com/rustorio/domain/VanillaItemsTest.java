@@ -46,13 +46,13 @@ class VanillaItemsTest {
     }
 
     @Test
-    void bronzeOreMatchesCurrentPaletteValues() {
-        assertItem(VanillaItems.BRONZE_ORE, "bronze_ore", "Bronze Ore", false, 110, 80, 60, ItemShape.CIRCLE);
+    void copperOreMatchesCurrentPaletteValues() {
+        assertItem(VanillaItems.COPPER_ORE, "copper_ore", "Copper Ore", false, 184, 98, 60, ItemShape.CIRCLE);
     }
 
     @Test
-    void bronzePlateMatchesCurrentPaletteValues() {
-        assertItem(VanillaItems.BRONZE_PLATE, "bronze_plate", "Bronze Plate", false, 214, 122, 44, ItemShape.SQUARE);
+    void copperPlateMatchesCurrentPaletteValues() {
+        assertItem(VanillaItems.COPPER_PLATE, "copper_plate", "Copper Plate", false, 214, 130, 60, ItemShape.SQUARE);
     }
 
     @Test
@@ -83,6 +83,31 @@ class VanillaItemsTest {
     @Test
     void coalMatchesCurrentPaletteValues() {
         assertItem(VanillaItems.COAL, "coal", "Coal", false, 35, 33, 32, ItemShape.CIRCLE);
+    }
+
+    @Test
+    void quartzSandMatchesCurrentPaletteValues() {
+        assertItem(VanillaItems.QUARTZ_SAND, "quartz_sand", "Quartz Sand", false, 194, 178, 128, ItemShape.CIRCLE);
+    }
+
+    @Test
+    void tinOreMatchesCurrentPaletteValues() {
+        assertItem(VanillaItems.TIN_ORE, "tin_ore", "Tin Ore", false, 180, 180, 190, ItemShape.CIRCLE);
+    }
+
+    @Test
+    void leadOreMatchesCurrentPaletteValues() {
+        assertItem(VanillaItems.LEAD_ORE, "lead_ore", "Lead Ore", false, 90, 90, 100, ItemShape.CIRCLE);
+    }
+
+    @Test
+    void crudeOilMatchesCurrentPaletteValues() {
+        assertItem(VanillaItems.CRUDE_OIL, "crude_oil", "Crude Oil", false, 25, 20, 18, ItemShape.CIRCLE);
+    }
+
+    @Test
+    void goldOreMatchesCurrentPaletteValues() {
+        assertItem(VanillaItems.GOLD_ORE, "gold_ore", "Gold Ore", false, 212, 175, 55, ItemShape.CIRCLE);
     }
 
     @Test

@@ -92,11 +92,11 @@ public final class BuildingFactory {
             case SPLITTER -> new Splitter(direction);
             // Default filterItem is IRON_ORE — the more common ore, and a reasonable starting
             // point for a newly-placed FILTER. NOT full parity with the old (deleted)
-            // SortRule.ORE_FORWARD, which forwarded BOTH IRON_ORE and BRONZE_ORE: Filter passes
+            // SortRule.ORE_FORWARD, which forwarded BOTH IRON_ORE and COPPER_ORE: Filter passes
             // exactly ONE item identity by design (see Filter's own class javadoc — that's the
             // whole point of replacing a fixed multi-item rule with player-cyclable data), so no
-            // single default can replicate a two-item rule. A default Filter on a bronze line will
-            // route bronze ore to the side lane until the player cycles it (F) to BRONZE_ORE —
+            // single default can replicate a two-item rule. A default Filter on a copper line will
+            // route copper ore to the side lane until the player cycles it (F) to COPPER_ORE —
             // this comment previously overclaimed equivalence with ORE_FORWARD (code review
             // finding); fixing the mismatch means fixing the CLAIM, since Filter's single-item
             // design is deliberate, not a bug.

@@ -16,7 +16,7 @@ import java.util.Optional;
  *
  * <p>Which ore (if any) lies under a cell comes from the same {@link OreLayout} the world builds
  * miners against — injected here rather than read from a static table, so this layer stays in
- * sync with whatever layout a given {@code World} was actually configured with. Iron and bronze
+ * sync with whatever layout a given {@code World} was actually configured with. Iron and copper
  * are colored differently ({@link #oreColor}) so a player can tell them apart before ever
  * building a miner, instead of checking the HUD after the fact.
  *
@@ -26,10 +26,10 @@ import java.util.Optional;
  * practice never triggers, not a real precedence decision.
  *
  * <p><b>Owner decision (D-05, DEV_TASKS.md):</b> coal gets BOTH a flat color ({@link
- * Palette#ORE_COAL}, same treatment as iron/bronze) AND {@code resources/coal_ore.png} drawn on
+ * Palette#ORE_COAL}, same treatment as iron/copper) AND {@code resources/coal_ore.png} drawn on
  * top, in a separate {@link SpriteBatch} pass — the card's acceptance criterion names the file
  * specifically ("resources/coal_ore.png используется в рендере"), and this is the one ground
- * texture actually packed into the atlas; iron/bronze stay color-only (their sprites are
+ * texture actually packed into the atlas; iron/copper stay color-only (their sprites are
  * deliberately unused placeholders — see {@link Textures}).
  */
 final class WorldRenderer {
@@ -94,7 +94,7 @@ final class WorldRenderer {
     }
 
     /**
-     * Ground-tile ore color — deliberately its OWN palette (not {@link ItemType#colorRgb}, which
+     * Ground-tile ore color — deliberately its OWN palette (not {@link ItemType# colorRgb}, which
      * colors the mined cargo instead): the same ore reads as blue on the map but neutral gray once
      * picked up (see {@code Palette}'s own comment on why). Reference equality against {@link
      * VanillaItems}' constants, not a {@code switch}: {@link ItemType} is a record with no fixed
@@ -102,8 +102,8 @@ final class WorldRenderer {
      * style default rather than failing to compile the moment a new ore is registered.
      */
     private static Color oreColor(ItemType ore) {
-        if (ore == VanillaItems.BRONZE_ORE) {
-            return Palette.ORE_BRONZE;
+        if (ore == VanillaItems.COPPER_ORE) {
+            return Palette.ORE_COPPER;
         }
         if (ore == VanillaItems.COAL) {
             return Palette.ORE_COAL;

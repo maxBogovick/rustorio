@@ -428,7 +428,7 @@ final class HudRenderer {
         List<String> lines = inspectionLines(world, world.buildingFactory().items(), at, found.get());
 
         float lineH = 18f;
-        float panelW = 340f; // wide enough for a two-input recipe line ("IRON_ORE + BRONZE_PLATE -> ALLOY_PLATE")
+        float panelW = 340f; // wide enough for a two-input recipe line ("IRON_ORE + COPPER_PLATE -> ALLOY_PLATE")
         float panelH = 20f + lines.size() * lineH;
         float screenW = Gdx.graphics.getWidth();
         float top = Gdx.graphics.getHeight();

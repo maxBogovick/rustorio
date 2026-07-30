@@ -64,7 +64,7 @@ final class DevScene {
     }
 
     private static void buildBronzeChain(World world) {
-        buildSingleInputChain(world, 8, BuildingType.FURNACE, VanillaItems.BRONZE_ORE);
+        buildSingleInputChain(world, 8, BuildingType.FURNACE, VanillaItems.COPPER_ORE);
         feedCoal(world, 8, 8);
     }
 
@@ -73,7 +73,7 @@ final class DevScene {
     }
 
     private static void buildMechanismChain(World world) {
-        buildSingleInputChain(world, 14, BuildingType.PRESS, VanillaItems.BRONZE_PLATE);
+        buildSingleInputChain(world, 14, BuildingType.PRESS, VanillaItems.COPPER_PLATE);
     }
 
     private static void buildAlloyGearChain(World world) {
@@ -139,7 +139,7 @@ final class DevScene {
         world.place(BuildingType.CHEST, 8, 22, Direction.DOWN); // BRONZE_PLATE supply, feeds straight down (north side)
         world.place(BuildingType.CHEST, 8, 24, Direction.UP); // COAL supply, feeds straight up (south side — north is already taken above)
         stock(world, 6, 23, VanillaItems.IRON_PLATE);
-        stock(world, 8, 22, VanillaItems.BRONZE_PLATE);
+        stock(world, 8, 22, VanillaItems.COPPER_PLATE);
         stock(world, 8, 24, VanillaItems.COAL);
     }
 
