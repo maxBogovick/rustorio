@@ -6,6 +6,7 @@ import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.BuildingCost;
 import com.rustorio.domain.building.Chest;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.world.World;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -21,10 +22,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PlaceActionTest {
 
+    private static BuildingCost costFor(BuildingType type) {
+        return VanillaBuildings.frozen().get(VanillaBuildings.idFor(type)).cost();
+    }
+
     @Test
     void placingChargesTheBuildingsCost() {
         World world = new World(4, 4);
-        BuildingCost cost = BuildingCost.forType(BuildingType.CHEST);
+        BuildingCost cost = costFor(BuildingType.CHEST);
         int before = world.inventory().amount(cost.item());
 
         assertTrue(new PlaceAction(BuildingType.CHEST, 1, 1).apply(world));
@@ -35,7 +40,7 @@ class PlaceActionTest {
     @Test
     void cannotAffordMeansNothingIsChargedAndNothingIsBuilt() {
         World world = new World(4, 4);
-        BuildingCost labCost = BuildingCost.forType(BuildingType.LAB); // GEAR — the player starts with none
+        BuildingCost labCost = costFor(BuildingType.LAB); // GEAR — the player starts with none
         int before = world.inventory().amount(labCost.item());
 
         assertFalse(new PlaceAction(BuildingType.LAB, 1, 1).apply(world),
@@ -49,7 +54,7 @@ class PlaceActionTest {
     void placementFailingForAnUnrelatedReasonRefundsTheCharge() {
         World world = new World(4, 4);
         world.placeChest(1, 1); // occupy the cell directly, for free, ahead of time
-        BuildingCost cost = BuildingCost.forType(BuildingType.CHEST);
+        BuildingCost cost = costFor(BuildingType.CHEST);
         int before = world.inventory().amount(cost.item());
 
         assertFalse(new PlaceAction(BuildingType.CHEST, 1, 1).apply(world),
@@ -62,7 +67,7 @@ class PlaceActionTest {
     @Test
     void undoRefundsExactlyWhatApplyCharged() {
         World world = new World(4, 4);
-        BuildingCost cost = BuildingCost.forType(BuildingType.BELT);
+        BuildingCost cost = costFor(BuildingType.BELT);
         int before = world.inventory().amount(cost.item());
         PlaceAction action = new PlaceAction(BuildingType.BELT, 1, 1, Direction.RIGHT);
 
@@ -167,8 +172,8 @@ class PlaceActionTest {
      */
     @Test
     void pressCostsPlateNotGearToAvoidABootstrapDeadlock() {
-        BuildingCost pressCost = BuildingCost.forType(BuildingType.PRESS);
-        BuildingCost labCost = BuildingCost.forType(BuildingType.LAB);
+        BuildingCost pressCost = costFor(BuildingType.PRESS);
+        BuildingCost labCost = costFor(BuildingType.LAB);
 
         assertEquals(VanillaItems.IRON_PLATE, pressCost.item());
         assertEquals(VanillaItems.GEAR, labCost.item());

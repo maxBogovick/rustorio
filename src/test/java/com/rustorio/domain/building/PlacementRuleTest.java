@@ -18,9 +18,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * (X-02, DEV_TASKS.md) {@link PlacementRule}: terrain now gates every building except a tunnel,
  * and a miner needs BOTH passable terrain and ore, not just ore — a fixed, hand-built {@link
  * OreLayout} double gives full control over the (terrain, ore) combination at one cell, rather
- * than hunting for one in a real generated map.
+ * than hunting for one in a real generated map. Reads each type's rule off {@link
+ * VanillaBuildings} (data), not a {@code switch} — {@code PlacementRule.forType} no longer exists.
  */
 class PlacementRuleTest {
+
+    private static PlacementRule ruleFor(BuildingType type) {
+        return VanillaBuildings.frozen().get(VanillaBuildings.idFor(type)).placementRule();
+    }
 
     private static OreLayout layoutAt(int atX, int atY, Terrain terrain, @Nullable ItemType ore) {
         return new OreLayout() {
@@ -65,8 +70,8 @@ class PlacementRuleTest {
             if (type == BuildingType.UNDERGROUND_IN || type == BuildingType.UNDERGROUND_OUT) {
                 continue; // covered separately below
             }
-            assertFalse(PlacementRule.forType(type).test(0, 0, water), type + " must refuse water");
-            assertFalse(PlacementRule.forType(type).test(0, 0, rock), type + " must refuse rock");
+            assertFalse(ruleFor(type).test(0, 0, water), type + " must refuse water");
+            assertFalse(ruleFor(type).test(0, 0, rock), type + " must refuse rock");
         }
     }
 
@@ -78,7 +83,7 @@ class PlacementRuleTest {
             if (type == BuildingType.MINER) {
                 continue; // a miner additionally needs ore — covered separately below
             }
-            assertTrue(PlacementRule.forType(type).test(0, 0, bareGround), type + " must accept plain passable ground");
+            assertTrue(ruleFor(type).test(0, 0, bareGround), type + " must accept plain passable ground");
         }
     }
 
@@ -87,8 +92,8 @@ class PlacementRuleTest {
         OreLayout water = layoutAt(0, 0, Terrain.WATER, null);
         OreLayout rock = layoutAt(0, 0, Terrain.ROCK, null);
 
-        assertTrue(PlacementRule.forType(BuildingType.UNDERGROUND_IN).test(0, 0, water));
-        assertTrue(PlacementRule.forType(BuildingType.UNDERGROUND_OUT).test(0, 0, rock));
+        assertTrue(ruleFor(BuildingType.UNDERGROUND_IN).test(0, 0, water));
+        assertTrue(ruleFor(BuildingType.UNDERGROUND_OUT).test(0, 0, rock));
     }
 
     @Test
@@ -97,10 +102,10 @@ class PlacementRuleTest {
         OreLayout groundNoOre = layoutAt(0, 0, Terrain.GROUND, null);
         OreLayout waterWithOre = layoutAt(0, 0, Terrain.WATER, VanillaItems.IRON_ORE);
 
-        assertTrue(PlacementRule.forType(BuildingType.MINER).test(0, 0, groundWithOre));
-        assertFalse(PlacementRule.forType(BuildingType.MINER).test(0, 0, groundNoOre),
+        assertTrue(ruleFor(BuildingType.MINER).test(0, 0, groundWithOre));
+        assertFalse(ruleFor(BuildingType.MINER).test(0, 0, groundNoOre),
                 "passable but no ore — a miner here would idle forever");
-        assertFalse(PlacementRule.forType(BuildingType.MINER).test(0, 0, waterWithOre),
+        assertFalse(ruleFor(BuildingType.MINER).test(0, 0, waterWithOre),
                 "ore under water must still refuse — terrain gates a miner just like everything else");
     }
 }

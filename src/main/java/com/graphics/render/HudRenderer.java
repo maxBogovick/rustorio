@@ -17,6 +17,7 @@ import com.rustorio.domain.Recipe;
 import com.rustorio.domain.ResearchView;
 import com.rustorio.domain.Tech;
 import com.rustorio.domain.building.Building;
+import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.building.Filter;
 import com.rustorio.domain.building.Furnace;
@@ -107,7 +108,7 @@ final class HudRenderer {
     void render(HudState hud, World world, TileRange visible, ProductionStatsView stats, ResearchView research,
             PlayerInventoryView inventory, ProductionLogView log, int ups) {
         renderInfoPanel(world, stats, research, inventory, log, hud.paused(), hud.speed(), ups);
-        renderHotbar(hud.selected(), hud.facing());
+        renderHotbar(hud.selected(), hud.facing(), world.buildingFactory());
         renderMinimap(world, visible);
         renderInspectionPanel(world, hud.inspected());
     }
@@ -308,7 +309,7 @@ final class HudRenderer {
      * Высота — {@link GfxConfig#HUD_BOTTOM_HEIGHT}, та же, на которую камера сузила вьюпорт
      * снизу (см. {@link #renderInfoPanel} — тот же приём для верхней панели).
      */
-    private void renderHotbar(BuildingType selected, Direction facing) {
+    private void renderHotbar(BuildingType selected, Direction facing, BuildingFactory buildingFactory) {
         int screenW = Gdx.graphics.getWidth();
         BuildingType[] types = BuildingType.values();
         float barH = GfxConfig.HUD_BOTTOM_HEIGHT;
@@ -345,7 +346,7 @@ final class HudRenderer {
             BuildingType type = types[i];
             float x = HotbarLayout.slotX(i, screenW);
             float y = HotbarLayout.slotY();
-            TextureRegion icon = textures.forBuildingType(type);
+            TextureRegion icon = textures.forSprite(buildingFactory.prototype(type).texture());
             font.setColor(Color.WHITE);
             batch.draw(icon, x + iconPad, y + iconPad, iconSize, iconSize);
 

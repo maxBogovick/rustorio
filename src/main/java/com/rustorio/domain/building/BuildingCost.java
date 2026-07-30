@@ -2,7 +2,6 @@ package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaItems;
 
 /**
  * What a building costs to place, from the player's inventory — one item kind and amount per
@@ -10,11 +9,9 @@ import com.rustorio.domain.VanillaItems;
  * before this, {@code World.place} checked geometry only, so produced goods never fed back into
  * the player's ability to expand the factory.
  *
- * <p>{@link #forType} is an exhaustive {@code switch}, not a {@code Map} literal, deliberately —
- * the same reason {@link BuildingFactory#create} is one: the compiler rejects a new {@link
- * BuildingType} constant left out of this method, instead of it silently reaching a missing map
- * entry at runtime. A new building kind must get a cost here, same as it must get a {@code
- * BuildingFactory}/{@code PlacementRule} case.
+ * <p>The actual numbers per building live in {@link VanillaBuildings#registerAll}, as data on
+ * each {@link BuildingPrototype} — not a {@code switch} here — so a new building variant is a new
+ * registered value, not a new {@code case}.
  *
  * <p>Owner's balance pass, not derived from anything in the audit (which names no numbers): every
  * building a player needs to bootstrap their FIRST production line ({@code MINER}, {@code BELT},
@@ -36,21 +33,4 @@ import com.rustorio.domain.VanillaItems;
  * from, not the same.
  */
 public record BuildingCost(ItemType item, int amount) {
-
-    public static BuildingCost forType(BuildingType type) {
-        return switch (type) {
-            case MINER, CHEST, FURNACE -> new BuildingCost(VanillaItems.IRON_PLATE, 5);
-            case BELT -> new BuildingCost(VanillaItems.IRON_PLATE, 1);
-            case SPLITTER, FILTER -> new BuildingCost(VanillaItems.IRON_PLATE, 3);
-            case INSERTER -> new BuildingCost(VanillaItems.IRON_PLATE, 2);
-            case UNDERGROUND_IN, UNDERGROUND_OUT -> new BuildingCost(VanillaItems.IRON_PLATE, 2);
-            case PRESS -> new BuildingCost(VanillaItems.IRON_PLATE, 8);
-            case LAB -> new BuildingCost(VanillaItems.GEAR, 10);
-            // (X-03, DEV_TASKS.md) Priced in GEAR like LAB, not IRON_PLATE like PRESS: a
-            // four-cell machine that crafts CHASSIS directly is a late-game purchase, not an
-            // early bootstrap building — pricing it above LAB reflects that it's strictly more
-            // machine (4 cells vs 1) for a comparable spot in the tech tree.
-            case ASSEMBLER -> new BuildingCost(VanillaItems.GEAR, 15);
-        };
-    }
 }

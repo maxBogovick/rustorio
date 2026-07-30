@@ -25,7 +25,7 @@ class RemoveActionTest {
     @Test
     void demolishingRefundsTheBuildingsCost() {
         World world = new World(4, 4);
-        BuildingCost cost = BuildingCost.forType(BuildingType.CHEST);
+        BuildingCost cost = world.buildingFactory().prototype(BuildingType.CHEST).cost();
         world.placeChest(1, 1); // placed directly (free) — this test is about the REFUND, not the charge
         int before = world.inventory().amount(cost.item());
 
@@ -37,7 +37,7 @@ class RemoveActionTest {
     @Test
     void undoOfADemolitionRechargesTheCostAndRestoresTheBuilding() {
         World world = new World(4, 4);
-        BuildingCost cost = BuildingCost.forType(BuildingType.BELT);
+        BuildingCost cost = world.buildingFactory().prototype(BuildingType.BELT).cost();
         world.placeBelt(1, 1, Direction.RIGHT);
         int beforeRemoval = world.inventory().amount(cost.item());
         RemoveAction action = new RemoveAction(1, 1);

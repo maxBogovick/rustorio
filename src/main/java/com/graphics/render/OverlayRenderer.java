@@ -216,7 +216,7 @@ final class OverlayRenderer {
         float tile = GfxConfig.TILE;
         float footprintW = tile * type.footprintWidth();
         float footprintH = tile * type.footprintHeight();
-        TextureRegion region = textures.forBuildingType(type);
+        TextureRegion region = textures.forSprite(world.buildingFactory().prototype(type).texture());
         batch.begin();
         batch.setColor(1f, 1f, 1f, 0.55f);
         for (TilePos t : tiles) {
@@ -274,7 +274,7 @@ final class OverlayRenderer {
         if (type == BuildingType.MINER && !oreLayout.hasOre(x, y)) {
             return "no ore here";
         }
-        BuildingCost cost = BuildingCost.forType(type);
+        BuildingCost cost = world.buildingFactory().prototype(type).cost();
         int have = world.inventory().amount(cost.item());
         if (have < cost.amount()) {
             return "need " + cost.amount() + " " + cost.item().label() + " (have " + have + ")";
@@ -295,7 +295,7 @@ final class OverlayRenderer {
      * balance — a failed {@code PlaceAction} refunds immediately, so it never actually spends.
      */
     private static boolean[] affordability(World world, BuildingType type, List<TilePos> tiles) {
-        BuildingCost cost = BuildingCost.forType(type);
+        BuildingCost cost = world.buildingFactory().prototype(type).cost();
         ItemType item = cost.item();
         int remaining = world.inventory().amount(item);
         boolean[] afford = new boolean[tiles.size()];

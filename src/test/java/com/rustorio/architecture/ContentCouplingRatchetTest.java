@@ -33,7 +33,11 @@ class ContentCouplingRatchetTest {
     // absorbed into a new baseline.
     // 5 -> 4: Textures.forSprite's switch (case MINER, CHEST, ...) is gone, replaced by a plain
     // map lookup keyed by ContentId now that sprites are open content, not a closed enum.
-    private static final int CONTENT_CONSTANT_SWITCH_BASELINE = 4;
+    // 4 -> 1: BuildingCost.forType, PlacementRule.forType and Textures.forBuildingType's switches
+    // are gone, replaced by reading BuildingPrototype (a registered value, not a case label) —
+    // the one remaining switch is BuildingFactory.create/restore's own dispatch (which Java class
+    // to build), deliberately left closed until behavior itself opens up.
+    private static final int CONTENT_CONSTANT_SWITCH_BASELINE = 1;
     private static final int TYPE_PATTERN_SWITCH_BASELINE = 2;
     private static final int BUILDING_INSTANCEOF_BASELINE = 21;
 

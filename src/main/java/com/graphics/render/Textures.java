@@ -8,7 +8,6 @@ import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Disposable;
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.VanillaSprites;
 import java.util.HashMap;
 import java.util.Map;
@@ -119,30 +118,6 @@ public final class Textures implements Disposable {
             throw new IllegalArgumentException("No packed texture for sprite: " + sprite);
         }
         return region;
-    }
-
-    /**
-     * A building's "at rest" picture, by kind rather than by sprite — a live building's sprite
-     * can depend on its own state (a furnace's hot/cold, F-01's status), which neither the hotbar
-     * icon ({@link HudRenderer}) nor the build-ghost preview ({@link OverlayRenderer}, F-02,
-     * DEV_TASKS.md) has: there's no live building yet, only a chosen kind. One switch, not two
-     * that could quietly drift apart — the same reason {@link Palette#itemColor} exists instead
-     * of a copy in every renderer that needs an item's color.
-     */
-    TextureRegion forBuildingType(BuildingType type) {
-        return forSprite(switch (type) {
-            case MINER -> VanillaSprites.MINER;
-            case CHEST -> VanillaSprites.CHEST;
-            case FURNACE, PRESS -> VanillaSprites.FURNACE_COLD;
-            case BELT -> VanillaSprites.BELT_EMPTY;
-            case SPLITTER -> VanillaSprites.SPLITTER;
-            case FILTER -> VanillaSprites.FILTER;
-            case INSERTER -> VanillaSprites.INSERTER;
-            case UNDERGROUND_IN -> VanillaSprites.UNDERGROUND_IN;
-            case UNDERGROUND_OUT -> VanillaSprites.UNDERGROUND_OUT;
-            case LAB -> VanillaSprites.LAB;
-            case ASSEMBLER -> VanillaSprites.ASSEMBLER;
-        });
     }
 
     /** Спрайт угля на земле (D-05, DEV_TASKS.md) — читает {@link WorldRenderer}, рисуя его поверх клеток с углём. */

@@ -28,16 +28,24 @@ public final class BuildingFactory {
     private final OreLayout oreLayout;
     private final RecipeBook recipeBook;
     private final Registry<ItemType> items;
+    private final Registry<BuildingPrototype> prototypes;
 
-    /** Convenience for callers that only care about the vanilla item set — see the 3-arg constructor for real injection. */
+    /** Convenience for callers that only care about the vanilla item/building sets — see the 4-arg constructor for real injection. */
     public BuildingFactory(OreLayout oreLayout, RecipeBook recipeBook) {
-        this(oreLayout, recipeBook, VanillaItems.frozen());
+        this(oreLayout, recipeBook, VanillaItems.frozen(), VanillaBuildings.frozen());
     }
 
+    /** Convenience for callers that only care about the vanilla building set — see the 4-arg constructor for real injection. */
     public BuildingFactory(OreLayout oreLayout, RecipeBook recipeBook, Registry<ItemType> items) {
+        this(oreLayout, recipeBook, items, VanillaBuildings.frozen());
+    }
+
+    public BuildingFactory(OreLayout oreLayout, RecipeBook recipeBook, Registry<ItemType> items,
+            Registry<BuildingPrototype> prototypes) {
         this.oreLayout = oreLayout;
         this.recipeBook = recipeBook;
         this.items = items;
+        this.prototypes = prototypes;
     }
 
     /** The game's default factory: the standard ore map and the standard recipe set. */
@@ -58,13 +66,18 @@ public final class BuildingFactory {
         return items;
     }
 
+    /** {@code type}'s data — cost, placement rule, texture — read from this factory's own registry instead of a switch. */
+    public BuildingPrototype prototype(BuildingType type) {
+        return prototypes.get(VanillaBuildings.idFor(type));
+    }
+
     /**
      * Whether {@code type} satisfies its {@link PlacementRule} at {@code (x, y)} — the type-
      * specific half of {@code World.place}'s check; the free+in-bounds half is {@code World}'s own
      * business and stays there. See P3-04, BUG_FIX_PROGRESS.md.
      */
     public boolean canPlace(BuildingType type, int x, int y) {
-        return PlacementRule.forType(type).test(x, y, oreLayout);
+        return prototype(type).placementRule().test(x, y, oreLayout);
     }
 
     /** Build a brand-new building of {@code type}, facing {@code direction} where that matters. */

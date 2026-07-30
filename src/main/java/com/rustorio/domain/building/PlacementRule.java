@@ -18,6 +18,9 @@ import com.rustorio.domain.OreLayout;
  * <p>Collapses what used to be nine near-identical {@code World.place*} methods — seven of them
  * literally {@code return placeIfFree(TYPE, x, y, direction);} — down to one rule lookup plus one
  * {@link BuildingFactory#create} call in {@code World.place}. See P3-04, BUG_FIX_PROGRESS.md.
+ *
+ * <p>Which constant applies to which {@link BuildingType} is data now — see {@link
+ * VanillaBuildings#registerAll} and {@link BuildingFactory#prototype} — not a {@code switch} here.
  */
 @FunctionalInterface
 public interface PlacementRule {
@@ -33,13 +36,4 @@ public interface PlacementRule {
 
     /** Whether {@code (x, y)} satisfies this rule, beyond the free+in-bounds check {@code World} already made. */
     boolean test(int x, int y, OreLayout oreLayout);
-
-    /** The rule for {@code type} — {@link #NEEDS_ORE} for a miner, {@link #ALWAYS} for a tunnel, {@link #NEEDS_PASSABLE_TERRAIN} otherwise. */
-    static PlacementRule forType(BuildingType type) {
-        return switch (type) {
-            case MINER -> NEEDS_ORE;
-            case UNDERGROUND_IN, UNDERGROUND_OUT -> ALWAYS;
-            default -> NEEDS_PASSABLE_TERRAIN;
-        };
-    }
 }

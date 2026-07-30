@@ -560,7 +560,7 @@ public final class World implements TickContext {
      * placement, and {@code RemoveAction.undo} to re-charge an undone demolition.
      */
     public boolean trySpendBuildingCost(BuildingType type) {
-        BuildingCost cost = BuildingCost.forType(type);
+        BuildingCost cost = buildingFactory.prototype(type).cost();
         return inventory.trySpend(cost.item(), cost.amount());
     }
 
@@ -571,7 +571,7 @@ public final class World implements TickContext {
      * them can.
      */
     public void refundBuildingCost(BuildingType type) {
-        BuildingCost cost = BuildingCost.forType(type);
+        BuildingCost cost = buildingFactory.prototype(type).cost();
         inventory.add(cost.item(), cost.amount());
     }
 
