@@ -66,6 +66,12 @@ import org.jspecify.annotations.Nullable;
  * fields above, this one IS gracefully {@code @Nullable} on its own (a pre-bump save resolves it
  * to {@code kind}'s vanilla default on load) — bumped anyway, per this class's own stated policy
  * of bumping for any format change, not only ones a missing-field default can't handle by itself.
+ *
+ * <p>Bumped a seventh time — {@code FurnaceState}'s fixed {@code bufferA}/{@code bufferB} pair
+ * became {@code buffers}, a list sized to however many ingredients the committed recipe actually
+ * has. An incompatible shape change, not a gracefully-defaultable missing field (a pre-bump save's
+ * two counts don't parse as a list at all) — the same "reject the whole snapshot" case the
+ * {@code SplitterState} rename above already used this mechanism for.
  */
 record WorldSnapshot(
         int version,
@@ -78,5 +84,5 @@ record WorldSnapshot(
         long tickCount) {
 
     /** Bump this whenever the save format changes — see the class javadoc's bump history. */
-    static final int CURRENT_VERSION = 6;
+    static final int CURRENT_VERSION = 7;
 }

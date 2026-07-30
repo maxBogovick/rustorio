@@ -11,6 +11,7 @@ import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.Tech;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -21,11 +22,12 @@ import org.jspecify.annotations.Nullable;
  * build time — never back out its own input side, which is what let a stalled downstream neighbor
  * jam an entire line silently in earlier versions of this building.
  *
- * <p>A furnace doesn't know its recipe until the first item arrives ({@link #accept}); once both
- * buffers empty out it forgets again and is ready to retool for a different material. {@code
- * bufferA}/{@code bufferB} are separate (not one shared counter) because {@link RecipeBook}'s
- * {@code ENGINE} recipe needs one of each ingredient before it can start — spending the first one
- * to arrive before its partner shows up would waste it.
+ * <p>A furnace doesn't know its recipe until the first item arrives ({@link #accept}); once every
+ * ingredient's buffer empties out it forgets again and is ready to retool for a different
+ * material. One buffer slot per {@link Recipe#ingredients()} entry (not one shared counter),
+ * sized the moment a recipe commits — {@link RecipeBook}'s {@code ENGINE} recipe needs one of each
+ * ingredient before it can start, so spending the first one to arrive before its partner shows up
+ * would waste it.
  *
  * <p><b>Owner decision (P2-02, BUG_FIX_PROGRESS.md):</b> option (C) — explicit player choice. Some
  * items are ambiguous: a {@code GEAR} is the first ingredient of {@code ENGINE} and the second
@@ -50,12 +52,14 @@ public final class Furnace implements Building {
     private static final int FUEL_MAX = 5;
 
     /**
-     * A committed recipe and its cooking timer — always set or cleared together (see {@link
-     * #accept}/{@link #tick}), never one without the other. Grouping them into a single nullable
-     * field, instead of two independent nullable fields that happen to move in lockstep, makes
-     * "timer set but recipe forgotten" (or vice versa) unrepresentable instead of just unintended.
+     * A committed recipe, its cooking timer, and one buffer slot per {@link Recipe#ingredients()}
+     * entry — always set or cleared together (see {@link #accept}/{@link #tick}), never one
+     * without the others. Grouping them into a single nullable field, instead of independent
+     * nullable/uninitialized fields that happen to move in lockstep, makes "timer set but recipe
+     * forgotten" (or a buffer array sized for the WRONG recipe) unrepresentable instead of just
+     * unintended.
      */
-    private record ActiveRecipe(Recipe recipe, ProcessTimer timer) {
+    private record ActiveRecipe(Recipe recipe, ProcessTimer timer, int[] inputBuffers) {
     }
 
     private final BuildingType kind;
@@ -73,8 +77,6 @@ public final class Furnace implements Building {
      * Persisted since F-03, DEV_TASKS.md (see {@link #memento()}) — it used to not be.
      */
     private @Nullable Recipe selectedRecipe;
-    private int bufferA;
-    private int bufferB;
     /** Coal on hand, {@code FURNACE} kind only — see the class javadoc's D-05 note. Always 0 and unused for {@code PRESS}. */
     private int fuelBuffer;
     /**
@@ -123,8 +125,6 @@ public final class Furnace implements Building {
      */
     Furnace(BuildingMemento.FurnaceState state, RecipeBook recipeBook, BuildingPrototype prototype) {
         this(state.kind(), state.direction(), recipeBook, prototype);
-        this.bufferA = state.bufferA();
-        this.bufferB = state.bufferB();
         this.fuelBuffer = state.fuelBuffer();
         ItemType recipeOutput = state.recipeOutput();
         if (recipeOutput != null) {
@@ -136,7 +136,8 @@ public final class Furnace implements Building {
             // for free. A live furnace never writes a 0 here (the countdown always resets to at
             // least 1), so this only guards a hand-edited or corrupted save; start a full batch.
             int cooldown = state.cooldown() > 0 ? state.cooldown() : recipe.time();
-            this.active = new ActiveRecipe(recipe, new ProcessTimer(cooldown));
+            int[] buffers = state.buffers().stream().mapToInt(Integer::intValue).toArray();
+            this.active = new ActiveRecipe(recipe, new ProcessTimer(cooldown), buffers);
         }
         this.pendingOutput = state.pendingOutput();
         ItemType selectedOutput = state.selectedRecipeOutput();
@@ -161,36 +162,31 @@ public final class Furnace implements Building {
             if (recipe == null) {
                 return false;
             }
-            current = new ActiveRecipe(recipe, new ProcessTimer(effectiveTime(recipe, world)));
+            current = new ActiveRecipe(recipe, new ProcessTimer(effectiveTime(recipe, world)),
+                    new int[recipe.ingredients().size()]);
             active = current;
         }
-        Recipe recipe = current.recipe();
+        List<ItemType> ingredients = current.recipe().ingredients();
+        int[] buffers = current.inputBuffers();
         int max = effectiveBufferMax(world);
-        boolean fitsA = item.equals(recipe.input()) && bufferA < max;
-        boolean fitsB = recipe.hasSecondInput() && item.equals(recipe.input2()) && bufferB < max;
-        // A recipe whose two ingredients are the same item fits BOTH buffers (N12,
-        // NEW_BUGS_PROGRESS.md) — fill the emptier one instead of taking the first match and
-        // returning. Matching A first, as this used to, piled every unit into bufferA while
-        // bufferB stayed at 0, and tick() never starts a batch without the second ingredient: a
-        // press jammed forever on a full input buffer. No standard recipe looks like this today,
-        // but an injected RecipeBook (a mod, a test fixture) may define one and nothing forbids it.
-        if (fitsA && fitsB) {
-            if (bufferA <= bufferB) {
-                bufferA++;
-            } else {
-                bufferB++;
+        // Two (or more) ingredient slots can be the SAME item (N12, NEW_BUGS_PROGRESS.md) — fill
+        // whichever matching slot is emptiest instead of always the first match. Always filling
+        // the first slot piled every unit into it while the others stayed at 0, and tick() never
+        // starts a batch without EVERY ingredient: a press jammed forever on a full input buffer.
+        // No standard recipe looks like this today, but an injected RecipeBook (a mod, a test
+        // fixture) may define one and nothing forbids it.
+        int bestSlot = -1;
+        for (int i = 0; i < ingredients.size(); i++) {
+            if (ingredients.get(i).equals(item) && buffers[i] < max
+                    && (bestSlot == -1 || buffers[i] < buffers[bestSlot])) {
+                bestSlot = i;
             }
-            return true;
         }
-        if (fitsA) {
-            bufferA++;
-            return true;
+        if (bestSlot == -1) {
+            return false;
         }
-        if (fitsB) {
-            bufferB++;
-            return true;
-        }
-        return false;
+        buffers[bestSlot]++;
+        return true;
     }
 
     /**
@@ -225,20 +221,36 @@ public final class Furnace implements Building {
     public void tick(TickContext world, int x, int y) {
         if (pendingOutput == null) {
             ActiveRecipe current = active;
-            boolean secondInputReady = current == null || !current.recipe().hasSecondInput() || bufferB > 0;
+            if (current == null) {
+                status = BuildingStatus.NO_INPUT; // nothing committed yet (F-01, DEV_TASKS.md)
+                return;
+            }
+            int[] buffers = current.inputBuffers();
+            // The FIRST ingredient's slot is checked before fuel, deliberately — the rest are
+            // checked after (see below): both branches report the same NO_INPUT status either
+            // way, but this keeps the priority a live furnace already had before ingredients
+            // became a list — a furnace with nothing at all buffered reports NO_INPUT even if it
+            // also happens to be out of fuel, rather than NO_FUEL.
+            if (buffers[0] == 0) {
+                status = BuildingStatus.NO_INPUT;
+                return;
+            }
             // FURNACE needs coal on hand to even start a batch (D-05, DEV_TASKS.md); PRESS has no
             // fuel concept at all, so this is trivially true for it — see the class javadoc.
             boolean fuelReady = kind != BuildingType.FURNACE || fuelBuffer > 0;
-            if (bufferA == 0 || current == null) {
-                status = BuildingStatus.NO_INPUT; // nothing buffered at all yet (F-01, DEV_TASKS.md)
-                return;
-            }
             if (!fuelReady) {
                 status = BuildingStatus.NO_FUEL;
                 return;
             }
-            if (!secondInputReady) {
-                status = BuildingStatus.NO_INPUT; // has the first ingredient, still waiting on the second
+            boolean everyIngredientReady = true;
+            for (int i = 1; i < buffers.length; i++) {
+                if (buffers[i] == 0) {
+                    everyIngredientReady = false;
+                    break;
+                }
+            }
+            if (!everyIngredientReady) {
+                status = BuildingStatus.NO_INPUT; // has SOME ingredients, still waiting on the rest
                 return;
             }
             Recipe recipe = current.recipe();
@@ -246,16 +258,22 @@ public final class Furnace implements Building {
                 status = BuildingStatus.WORKING; // actively cooking, just not done this tick
                 return;
             }
-            bufferA--;
-            if (recipe.hasSecondInput()) {
-                bufferB--;
+            for (int i = 0; i < buffers.length; i++) {
+                buffers[i]--;
             }
             if (kind == BuildingType.FURNACE) {
                 fuelBuffer--;
             }
             pendingOutput = recipe.output();
             world.notifyProduced(pendingOutput);
-            if (bufferA == 0 && (!recipe.hasSecondInput() || bufferB == 0)) {
+            boolean everyBufferEmpty = true;
+            for (int count : buffers) {
+                if (count > 0) {
+                    everyBufferEmpty = false;
+                    break;
+                }
+            }
+            if (everyBufferEmpty) {
                 active = null;
             }
         }
@@ -309,9 +327,17 @@ public final class Furnace implements Building {
         return world.research().biggerIfUnlocked(Tech.BIG_BUFFER, prototype.bufferMax());
     }
 
-    /** First-input buffer count — shown as the furnace's badge. */
+    /** Sum of every ingredient's buffered count (0 with no recipe committed yet) — shown as the furnace's badge; the method name predates recipes taking more than one ingredient. */
     public int oreBuffer() {
-        return bufferA;
+        ActiveRecipe current = active;
+        if (current == null) {
+            return 0;
+        }
+        int total = 0;
+        for (int count : current.inputBuffers()) {
+            total += count;
+        }
+        return total;
     }
 
     /**
@@ -358,7 +384,7 @@ public final class Furnace implements Building {
     public Optional<Building> rotatedClockwise() {
         BuildingMemento.FurnaceState state = (BuildingMemento.FurnaceState) memento();
         BuildingMemento.FurnaceState rotated = new BuildingMemento.FurnaceState(
-                state.kind(), direction.rotate(), state.bufferA(), state.bufferB(),
+                state.kind(), direction.rotate(), state.buffers(),
                 state.cooldown(), state.recipeOutput(), state.pendingOutput(), state.fuelBuffer(),
                 state.selectedRecipeOutput(), state.prototypeId());
         // The 3-arg restore constructor, with THIS instance's own prototype passed through
@@ -386,11 +412,12 @@ public final class Furnace implements Building {
         // ASSEMBLER (X-03, DEV_TASKS.md) has exactly one drawn sprite — resources/assembler.png,
         // via VanillaSprites.ASSEMBLER — unlike FURNACE/PRESS's hot/cold pair, since there's no second
         // assembler sprite to distinguish "actively cooking" from "idle" with.
+        int buffered = oreBuffer();
         if (kind == BuildingType.ASSEMBLER) {
-            return Appearance.of(VanillaSprites.ASSEMBLER, bufferA, status, recipeHint);
+            return Appearance.of(VanillaSprites.ASSEMBLER, buffered, status, recipeHint);
         }
-        return bufferA > 0
-                ? Appearance.of(VanillaSprites.FURNACE_HOT, bufferA, status, recipeHint)
+        return buffered > 0
+                ? Appearance.of(VanillaSprites.FURNACE_HOT, buffered, status, recipeHint)
                 : Appearance.of(VanillaSprites.FURNACE_COLD, status, recipeHint);
     }
 
@@ -402,8 +429,11 @@ public final class Furnace implements Building {
     @Override
     public BuildingMemento memento() {
         ActiveRecipe current = active;
+        List<Integer> buffers = current == null
+                ? List.of()
+                : Arrays.stream(current.inputBuffers()).boxed().toList();
         return new BuildingMemento.FurnaceState(
-                kind, direction, bufferA, bufferB,
+                kind, direction, buffers,
                 current == null ? 0 : current.timer().cooldown(),
                 current == null ? null : current.recipe().output(),
                 pendingOutput, fuelBuffer,

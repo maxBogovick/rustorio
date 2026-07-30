@@ -138,7 +138,12 @@ class WorldReplayTest {
     // fixture now prints one more field in its memento dump. Format change again: the new field is
     // "rustorio:furnace"/"rustorio:press" for every building in this fixture (none of them are a
     // modded prototype), so production totals/research/placement are unchanged.
-    private static final String EXPECTED_HASH = "26ffa4d281b085abacbc7dd7a3b09ea1afeb97d6f905876859e44d17a0705565";
+    //
+    // Updated again: FurnaceState's fixed bufferA/bufferB pair became buffers, a List<Integer>
+    // sized to the committed recipe's own ingredient count. Every recipe in this fixture still has
+    // 1 or 2 ingredients (ENGINE is the only 2-ingredient recipe reachable here), so the printed
+    // numbers are the same as before — only the shape (two bare ints -> a bracketed list) changed.
+    private static final String EXPECTED_HASH = "3e78ac7f5840b65d18bf2291e7afc1dee8b9fe6662e39eef5086b68fc3e71fa8";
 
     @Test
     void factoryStateAfterFixedTicksMatchesRecordedBaseline() {

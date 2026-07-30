@@ -9,6 +9,7 @@ import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.Tech;
 import com.rustorio.domain.world.World;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -225,6 +226,54 @@ class FurnaceTest {
     }
 
     /**
+     * The phase's other acceptance example, proven directly: a recipe with three DIFFERENT
+     * ingredients (not just the vanilla book's usual one or two) commits, buffers each ingredient
+     * in its own slot, and cooks correctly — nothing about {@link Recipe}/{@link Furnace} is
+     * hardcoded to at most two inputs anymore.
+     */
+    @Test
+    void aRecipeWithThreeIngredientsCommitsAndCooksCorrectly() {
+        Recipe tripleInput = new Recipe(
+                List.of(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.GEAR),
+                VanillaItems.CHASSIS, 6, BuildingType.PRESS);
+        RecipeBook customBook = new RecipeBook(List.of(tripleInput));
+        World world = new World(4, 4);
+        Chest chest = new Chest();
+        world.restoreBuilding(1, 0, chest);
+
+        Furnace press = new Furnace(BuildingType.PRESS, Direction.RIGHT, customBook);
+        assertTrue(press.accept(world, VanillaItems.IRON_PLATE));
+        assertTrue(press.accept(world, VanillaItems.BRONZE_PLATE));
+        assertTrue(press.accept(world, VanillaItems.GEAR));
+
+        for (int i = 0; i < 6; i++) {
+            press.tick(world, 0, 0);
+        }
+        assertEquals(1, chest.amount(VanillaItems.CHASSIS), "all three ingredients present must be enough to finish the batch");
+    }
+
+    /** The other half of the same guarantee: two out of three ingredients must NOT be enough. */
+    @Test
+    void aRecipeWithThreeIngredientsRefusesToCookWithOnlyTwoDelivered() {
+        Recipe tripleInput = new Recipe(
+                List.of(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.GEAR),
+                VanillaItems.CHASSIS, 6, BuildingType.PRESS);
+        RecipeBook customBook = new RecipeBook(List.of(tripleInput));
+        World world = new World(4, 4);
+        Chest chest = new Chest();
+        world.restoreBuilding(1, 0, chest);
+
+        Furnace press = new Furnace(BuildingType.PRESS, Direction.RIGHT, customBook);
+        assertTrue(press.accept(world, VanillaItems.IRON_PLATE));
+        assertTrue(press.accept(world, VanillaItems.BRONZE_PLATE));
+
+        for (int i = 0; i < 10; i++) {
+            press.tick(world, 0, 0);
+        }
+        assertEquals(0, chest.count(), "the third ingredient (GEAR) never arrived — must not cook");
+    }
+
+    /**
      * A cooldown of 0 in a save means "no countdown recorded", never "this batch is done" (N10,
      * NEW_BUGS_PROGRESS.md). {@code ProcessTimer.tick} decrements FIRST, so a timer restored at 0
      * goes to -1, fails the {@code > 0} test and reports the batch finished on the very first tick
@@ -239,7 +288,7 @@ class FurnaceTest {
         world.restoreBuilding(1, 0, chest);
 
         BuildingMemento.FurnaceState state = new BuildingMemento.FurnaceState(
-                BuildingType.PRESS, Direction.RIGHT, 1, 0, 0, VanillaItems.GEAR, null, 0, null, null);
+                BuildingType.PRESS, Direction.RIGHT, List.of(1), 0, VanillaItems.GEAR, null, 0, null, null);
         Furnace press = new Furnace(state, RECIPES);
 
         press.tick(world, 0, 0);
@@ -423,7 +472,7 @@ class FurnaceTest {
         assertTrue(furnace.accept(world, VanillaItems.IRON_ORE));
 
         Recipe active = furnace.activeRecipe().orElseThrow();
-        assertEquals(VanillaItems.IRON_ORE, active.input());
+        assertEquals(List.of(VanillaItems.IRON_ORE), active.ingredients());
         assertEquals(VanillaItems.IRON_PLATE, active.output());
     }
 

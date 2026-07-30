@@ -93,10 +93,7 @@ class RecipeBookGraphTest {
     private static Map<ItemType, List<ItemType>> inputsByOutput(RecipeBook book) {
         Map<ItemType, List<ItemType>> inputs = new TreeMap<>();
         for (Recipe recipe : book.all()) {
-            List<ItemType> recipeInputs = recipe.hasSecondInput()
-                    ? List.of(recipe.input(), recipe.input2())
-                    : List.of(recipe.input());
-            inputs.merge(recipe.output(), recipeInputs, (existing, added) -> {
+            inputs.merge(recipe.output(), recipe.ingredients(), (existing, added) -> {
                 List<ItemType> combined = new ArrayList<>(existing);
                 combined.addAll(added);
                 return combined;

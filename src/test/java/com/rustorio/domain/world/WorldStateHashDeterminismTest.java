@@ -41,9 +41,12 @@ class WorldStateHashDeterminismTest {
      *
      * <p>Updated again: same reason as {@link WorldReplayTest#EXPECTED_HASH}'s latest entry —
      * {@code FurnaceState} gained a {@code prototypeId} field. Format change, not a behavior one.
+     *
+     * <p>Updated again: same reason as {@link WorldReplayTest#EXPECTED_HASH}'s latest entry —
+     * {@code bufferA}/{@code bufferB} became a {@code buffers} list. Format change, not behavior.
      */
     private static final String EXPECTED_HASH =
-            "8f806daa5a0464554b88c63cb725771b3f8478eb2c6b14096ff4ff217a33a986";
+            "5b0224f2838c4ddc5b828a9d24b5450da063dec1138473deccdd54b502fc294b";
 
     @Test
     void sameSceneHashedTwiceInOneJvmLaunchProducesIdenticalHash() {

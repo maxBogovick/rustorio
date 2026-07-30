@@ -50,7 +50,15 @@ public sealed interface BuildingMemento {
     }
 
     /**
-     * {@code fuelBuffer} — coal on hand (D-05, DEV_TASKS.md); always 0 for a {@code PRESS}, which
+     * {@code buffers} — one entry per {@code Recipe.ingredients()}, in the same order, empty when
+     * no recipe is committed yet; replaces the old fixed {@code bufferA}/{@code bufferB} pair now
+     * that a recipe can take any number of ingredients. Not gracefully {@code @Nullable}-defaultable
+     * the way most fields below are: an incompatible shape change (a missing list deserializes as
+     * {@code null}, not "two zero counts"), same class of break as {@code SplitterState}'s
+     * {@code rule}-to-{@code nextIsForward} change — {@code WorldSnapshot}'s own version-bump
+     * history explains why this forces a whole-snapshot rejection, not a per-field default.
+     *
+     * <p>{@code fuelBuffer} — coal on hand (D-05, DEV_TASKS.md); always 0 for a {@code PRESS}, which
      * has no fuel concept. {@code selectedRecipeOutput} — the player's STANDING preference among
      * ambiguous recipes (F-03, DEV_TASKS.md; see {@code Furnace#selectedRecipe}'s own javadoc for
      * why it's a separate field from {@code recipeOutput}, which is the currently COMMITTED batch)
@@ -67,14 +75,16 @@ public sealed interface BuildingMemento {
     record FurnaceState(
             BuildingType kind,
             Direction direction,
-            int bufferA,
-            int bufferB,
+            List<Integer> buffers,
             int cooldown,
             @Nullable ItemType recipeOutput,
             @Nullable ItemType pendingOutput,
             int fuelBuffer,
             @Nullable ItemType selectedRecipeOutput,
             @Nullable ContentId prototypeId) implements BuildingMemento {
+        public FurnaceState {
+            buffers = List.copyOf(buffers);
+        }
     }
 
     record BeltState(Direction direction, @Nullable ItemType held) implements BuildingMemento {
