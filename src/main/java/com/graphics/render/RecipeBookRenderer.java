@@ -5,8 +5,10 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeBook;
+import java.util.stream.Collectors;
 
 /**
  * Recipe book: a translucent panel listing every recipe in a {@link RecipeBook} — opened and
@@ -51,7 +53,7 @@ final class RecipeBookRenderer {
         // Palette#itemColor), so the recipe book doesn't need its own separate marker system.
         float y = firstRowY;
         for (Recipe recipe : recipeBook.all()) {
-            shapes.setColor(Palette.itemColor(recipe.input()));
+            shapes.setColor(Palette.itemColor(recipe.ingredients().get(0)));
             shapes.circle(panelX + PADDING + ICON_RADIUS, y + 3, ICON_RADIUS, 16);
             y -= ROW_HEIGHT;
         }
@@ -77,8 +79,7 @@ final class RecipeBookRenderer {
 
     /** "Iron Ore -> Iron Plate   (Furnace, 5 ticks)" / "Engine + Gear -> Chassis   (Press, 15 ticks)". */
     private static String describe(Recipe recipe) {
-        String inputs = recipe.input().label()
-                + (recipe.input2() == null ? "" : " + " + recipe.input2().label());
+        String inputs = recipe.ingredients().stream().map(ItemType::label).collect(Collectors.joining(" + "));
         return inputs + "  ->  " + recipe.output().label()
                 + "   (" + recipe.type().label() + ", " + recipe.time() + " ticks)";
     }

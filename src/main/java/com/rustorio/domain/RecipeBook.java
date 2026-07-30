@@ -3,7 +3,6 @@ package com.rustorio.domain;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -76,13 +75,17 @@ public final class RecipeBook {
         }
     }
 
-    /** Same ingredient multiset, order ignored — {@code (GEAR, MECHANISM)} equals {@code (MECHANISM, GEAR)}. */
+    /** Same ingredient multiset, order ignored — {@code (GEAR, MECHANISM)} equals {@code (MECHANISM, GEAR)}, for any number of ingredients. */
     private static boolean sameIngredients(Recipe a, Recipe b) {
-        if (a.input2() == null || b.input2() == null) {
-            return Objects.equals(a.input2(), b.input2()) && a.input().equals(b.input());
+        if (a.ingredients().size() != b.ingredients().size()) {
+            return false;
         }
-        return (a.input().equals(b.input()) && a.input2().equals(b.input2()))
-                || (a.input().equals(b.input2()) && a.input2().equals(b.input()));
+        // Sorting a copy of each (ItemType's own Comparable, by ContentId) turns "same multiset,
+        // any order" into a plain list-equality check — the same trick used wherever this project
+        // needs order-independent comparison of a small collection.
+        List<ItemType> sortedA = a.ingredients().stream().sorted().toList();
+        List<ItemType> sortedB = b.ingredients().stream().sorted().toList();
+        return sortedA.equals(sortedB);
     }
 
     /** The game's built-in recipe set — what every furnace/press is given unless told otherwise. */
@@ -97,7 +100,7 @@ public final class RecipeBook {
     /** Recipe for {@code kind} that accepts {@code input} as its first or second ingredient. */
     public Optional<Recipe> find(BuildingType kind, ItemType input) {
         return recipes.stream()
-                .filter(r -> r.type() == kind && (r.input().equals(input) || input.equals(r.input2())))
+                .filter(r -> r.type() == kind && r.ingredients().contains(input))
                 .findFirst();
     }
 
@@ -109,7 +112,7 @@ public final class RecipeBook {
      */
     public List<Recipe> findAll(BuildingType kind, ItemType input) {
         return recipes.stream()
-                .filter(r -> r.type() == kind && (r.input().equals(input) || input.equals(r.input2())))
+                .filter(r -> r.type() == kind && r.ingredients().contains(input))
                 .toList();
     }
 
@@ -162,8 +165,10 @@ public final class RecipeBook {
             depth = 0; // raw ore — mined, not crafted, so it costs nothing to "make"
         } else {
             Recipe r = recipe.get();
-            ItemType input2 = r.input2(); // local, not r.input2() again below — NullAway can't see hasSecondInput()'s guarantee across a ternary
-            depth = r.time() + depthOf(r.input()) + (input2 != null ? depthOf(input2) : 0);
+            depth = r.time();
+            for (ItemType ingredient : r.ingredients()) {
+                depth += depthOf(ingredient);
+            }
         }
         depthCache.put(item, depth); // only ever reached for a finite chain — see the javadoc above
         return depth;

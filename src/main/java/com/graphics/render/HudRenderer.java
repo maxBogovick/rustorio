@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -520,10 +521,7 @@ final class HudRenderer {
     }
 
     private static String recipeLine(Recipe recipe) {
-        ItemType input2 = recipe.input2(); // local, not recipe.input2() again below — NullAway can't see hasSecondInput()'s guarantee across a ternary
-        String inputs = recipe.hasSecondInput() && input2 != null
-                ? recipe.input().label() + " + " + input2.label()
-                : recipe.input().label();
+        String inputs = recipe.ingredients().stream().map(ItemType::label).collect(Collectors.joining(" + "));
         return inputs + " -> " + recipe.output().label();
     }
 
