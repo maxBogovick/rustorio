@@ -1,6 +1,6 @@
 {
   "path": "inserter",
-  "label": "Inserter",
+  "label": { "en": "Inserter", "ru": "Манипулятор" },
   "archetype": "INSERTER",
   "cost": { "item": "iron_plate", "amount": 2 },
   "placement": "NEEDS_PASSABLE_TERRAIN",

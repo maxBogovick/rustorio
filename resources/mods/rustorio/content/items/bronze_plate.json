@@ -1,1 +1,1 @@
-{ "path": "bronze_plate", "label": "Bronze Plate", "researchGrade": false, "colorRgb": "#D67A2C", "shape": "SQUARE" }
+{ "path": "bronze_plate", "label": { "en": "Bronze Plate", "ru": "Бронзовая пластина" }, "researchGrade": false, "colorRgb": "#D67A2C", "shape": "SQUARE" }

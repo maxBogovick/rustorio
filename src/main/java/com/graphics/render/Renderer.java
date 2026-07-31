@@ -75,7 +75,7 @@ public final class Renderer implements Disposable {
         this.recipeBookRenderer = new RecipeBookRenderer(batch, shapes, font);
         this.techTreeRenderer = new TechTreeRenderer(batch, shapes, font);
         this.statsScreenRenderer = new StatsScreenRenderer(batch, shapes, font);
-        this.buildMenuRenderer = new BuildMenuRenderer(batch, shapes, font);
+        this.buildMenuRenderer = new BuildMenuRenderer(batch, shapes, font, textures);
     }
 
     /**
@@ -133,9 +133,10 @@ public final class Renderer implements Disposable {
         if (hud.showStats()) {
             statsScreenRenderer.render(world.stats(), world.currentTick(), hud.statsItem(), world.buildingFactory().items());
         }
-        // 9. меню построек (Фаза 8) — поверх всего, только если игрок открыл его (B).
+        // 9. меню построек — поверх всего, только если игрок открыл его (B).
         if (hud.showBuildMenu()) {
-            buildMenuRenderer.render(world.buildingFactory().buildings(), hud.buildMenuQuery(), hud.buildMenuCategoryCycle());
+            buildMenuRenderer.render(world.buildingFactory().buildings(), hud.selected(), hud.buildMenuQuery(),
+                    hud.buildMenuCategoryCycle(), hud.buildMenuScrollOffset());
         }
     }
 

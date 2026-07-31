@@ -1,6 +1,6 @@
 {
   "path": "filter",
-  "label": "Filter",
+  "label": { "en": "Filter", "ru": "Фильтр" },
   "archetype": "FILTER",
   "cost": { "item": "iron_plate", "amount": 3 },
   "placement": "NEEDS_PASSABLE_TERRAIN",

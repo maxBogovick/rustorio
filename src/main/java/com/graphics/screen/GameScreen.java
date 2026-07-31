@@ -95,7 +95,12 @@ public final class GameScreen extends ScreenAdapter {
         this.inputProcessor = new InputAdapter() {
             @Override
             public boolean scrolled(float amountX, float amountY) {
-                camera.zoomAt(Gdx.input.getX(), Gdx.input.getY(), amountY);
+                // Меню построек открыто (B) — колесо листает его сетку иконок, а не зумит камеру
+                // под ним; input.handleScroll возвращает false, когда меню не открыто, и тогда
+                // колесо зумит как раньше.
+                if (!input.handleScroll(amountY)) {
+                    camera.zoomAt(Gdx.input.getX(), Gdx.input.getY(), amountY);
+                }
                 return true;
             }
         };

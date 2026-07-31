@@ -29,6 +29,14 @@ import java.util.List;
  * wall-clock time — the speed multiplier (1×/2×/4×) changes how fast ticks arrive, not what one
  * tick means, so neither number distorts when the player changes it (the card's own acceptance
  * criterion).
+ *
+ * <p><b>{@link #MAX_VISIBLE_ITEMS} (live bug report).</b> Items are JSON content now, loaded
+ * through the same open, moddable registry as buildings ({@code com.rustorio.mod}) - the exact
+ * risk {@link BuildMenuLayout}'s own {@code MAX_VISIBLE_TILES} was already hardened against.
+ * Before this, a mod registering enough items (the Phase 8 acceptance test alone stress-tests 200
+ * of them) drew a panel far taller than the window with no visible cue anything was missing;
+ * this truncates the same way the build menu already does, with the same honest "showing first N
+ * of M" line rather than silently hiding the rest.
  */
 final class StatsScreenRenderer {
 
@@ -37,6 +45,8 @@ final class StatsScreenRenderer {
     private static final float ROW_HEIGHT = 22f;
     private static final float PANEL_WIDTH = 720f;
     private static final float GRAPH_HEIGHT = 200f;
+    /** How many item rows fit on the panel (default window height) without scrolling - see the class javadoc. */
+    static final int MAX_VISIBLE_ITEMS = 18;
 
     /** Averaging window for each row's displayed rate — 10 simulated seconds: responsive, but not jumping on every single production event. */
     private static final long LIST_WINDOW_TICKS = 600;
@@ -54,10 +64,14 @@ final class StatsScreenRenderer {
     }
 
     void render(ProductionStatsView stats, long currentTick, ItemType selected, Registry<ItemType> registry) {
-        List<ItemType> items = registry.iterate();
+        List<ItemType> all = registry.iterate();
+        List<ItemType> items = visibleItems(all);
+        boolean truncated = items.size() < all.size();
+        int extraHintRow = truncated ? 1 : 0;
+
         int screenW = Gdx.graphics.getWidth();
         int screenH = Gdx.graphics.getHeight();
-        float panelH = PADDING * 2 + TITLE_HEIGHT + ROW_HEIGHT * items.size() + GRAPH_HEIGHT + PADDING;
+        float panelH = PADDING * 2 + TITLE_HEIGHT + ROW_HEIGHT * (items.size() + extraHintRow) + GRAPH_HEIGHT + PADDING;
         float panelX = (screenW - PANEL_WIDTH) / 2f;
         float panelY = (screenH - panelH) / 2f;
 
@@ -87,9 +101,18 @@ final class StatsScreenRenderer {
                     + String.format("%.1f/min", rate) + "   total " + stats.total(item), panelX + PADDING, y);
             y -= ROW_HEIGHT;
         }
+        if (truncated) {
+            font.setColor(Palette.HINT);
+            font.draw(batch, "(showing first " + items.size() + " of " + all.size() + " items)", panelX + PADDING, y);
+        }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
+    }
+
+    /** The visible slice of {@code all} - truncated to {@link #MAX_VISIBLE_ITEMS}, never longer. Package-private, pure - no libGDX - so a JUnit test can pin it down without a window, same reason {@code BuildMenuLayout#visibleTiles} is public. */
+    static List<ItemType> visibleItems(List<ItemType> all) {
+        return all.size() > MAX_VISIBLE_ITEMS ? all.subList(0, MAX_VISIBLE_ITEMS) : all;
     }
 
     /**

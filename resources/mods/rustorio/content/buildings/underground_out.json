@@ -1,6 +1,6 @@
 {
   "path": "underground_out",
-  "label": "Tunnel out",
+  "label": { "en": "Tunnel out", "ru": "Тоннель (выход)" },
   "archetype": "UNDERGROUND_OUT",
   "cost": { "item": "iron_plate", "amount": 2 },
   "placement": "ALWAYS",

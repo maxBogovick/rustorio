@@ -28,18 +28,25 @@ import org.jspecify.annotations.Nullable;
  * selected to graph on the stats screen (meaningless while {@code showStats} is false).
  *
  * <p>{@code selected} is a {@link ContentId} — any registered building prototype, vanilla or
- * modded, not just the closed {@code BuildingType} set (Phase 8). {@code hotbarSlots} is the
+ * modded, not just the closed {@code BuildingType} set. {@code hotbarSlots} is the
  * player's own configurable hotbar — see {@code InputHandler}'s own field for what populates it —
  * read here so {@code HudRenderer}/{@code OverlayRenderer} never need a second way to ask "what's
  * pinned to slot N."
  *
- * <p>{@code buildMenuQuery}/{@code buildMenuCategoryCycle} (Phase 8) are meaningless while {@code
- * showBuildMenu} is {@code false} — {@code BuildMenuRenderer} owns turning the raw cycle counter
- * into an actual category (it's the one place that knows how many namespaces are registered right
- * now; see {@code SimulationControls}'s own field for why the counter itself doesn't know).
+ * <p>{@code buildMenuQuery}/{@code buildMenuCategoryCycle}/{@code buildMenuScrollOffset} are
+ * meaningless while {@code showBuildMenu} is {@code false} — {@code BuildMenuRenderer} owns
+ * turning the raw cycle/scroll counters into an actual category and page (it's the one place that
+ * knows how many namespaces/matches are registered right now; see {@code SimulationControls}'s own
+ * fields for why the counters themselves don't know).
+ *
+ * <p>{@code statusMessage} is {@code null} outside the few seconds right after F5/F9 — a live bug
+ * report: pressing save/load gave the player NO on-screen feedback at all, success or failure
+ * (only a {@code System.Logger} line {@code InputHandler} wrote on failure, invisible in a
+ * windowed run started any way other than from a terminal); a player had no way to tell whether F5
+ * had actually done anything.
  */
 public record HudState(ContentId selected, Direction facing, boolean paused, int speed, boolean showRecipeBook,
         boolean showTechTree, List<TilePos> dragTiles, @Nullable TilePos inspected, boolean altOverlay,
         boolean showStats, ItemType statsItem, List<ContentId> hotbarSlots, boolean showBuildMenu,
-        String buildMenuQuery, int buildMenuCategoryCycle) {
+        String buildMenuQuery, int buildMenuCategoryCycle, int buildMenuScrollOffset, @Nullable String statusMessage) {
 }

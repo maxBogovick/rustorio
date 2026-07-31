@@ -27,34 +27,21 @@ final class SimulationControls {
     private int speedIndex;
 
     /**
-     * Открыта ли книга рецептов ({@code Renderer} рисует панель поверх экрана, если {@code true})
-     * — TAB переключает. Мир при этом продолжает тикать: книга — справочник, а не пауза; кто
-     * хочет разглядывать рецепты без спешки, ставит паузу отдельно (SPACE).
+     * Какая из четырёх модальных панелей открыта прямо сейчас — не четыре независимых {@code
+     * boolean}, как было раньше (live bug report): TAB, потом T, потом V каждый молча включал
+     * СВОЙ собственный флаг, не трогая остальные — три панели рисовались друг поверх друга в одном
+     * и том же месте экрана одновременно, и игрок не мог понять, где чья строка. Один {@code enum}
+     * делает «максимум одна панель открыта» инвариантом, а не случайным совпадением: {@link
+     * #toggleOrSwitch} либо закрывает уже открытую панель, либо ПЕРЕКЛЮЧАЕТ на другую вместо того,
+     * чтобы открыть её поверх.
      */
-    private boolean showRecipeBook;
+    enum OverlayPanel { NONE, RECIPE_BOOK, TECH_TREE, STATS, BUILD_MENU }
 
     /**
-     * Открыто ли дерево техов (P-02, DEV_TASKS.md) — {@code T} переключает. Пока открыто, {@link
-     * InputHandler} перенаправляет цифровые клавиши 1-9 на выбор теха для разблокировки вместо
-     * выбора здания в хотбаре — тот же приём, что уже применён к книге рецептов: показ не трогает
-     * мир и не ставит игру на паузу сам по себе.
+     * Мир при любой открытой панели продолжает тикать как обычно: все четыре — справочник/меню, а
+     * не пауза; кто хочет разглядывать без спешки, ставит паузу отдельно (SPACE).
      */
-    private boolean showTechTree;
-
-    /**
-     * Открыт ли экран статистики (P-03, DEV_TASKS.md) — {@code V} переключает. Тот же чистый
-     * показ-без-побочных-эффектов, что у книги рецептов/дерева техов; пока открыт, {@link
-     * InputHandler} перенаправляет {@code N} на переключение графикуемого предмета.
-     */
-    private boolean showStats;
-
-    /**
-     * Открыто ли меню построек (Фаза 8) — {@code B} переключает. Пока открыто, буквы A-Z идут в
-     * {@link #searchQuery}, а не в свои обычные однобуквенные горячие клавиши (TAB/T/V/B сами) —
-     * см. {@link #handle()}, единственная панель, что перехватывает ввод целиком, а не просто
-     * добавляет свой собственный переключатель показа.
-     */
-    private boolean showBuildMenu;
+    private OverlayPanel openPanel = OverlayPanel.NONE;
 
     /** Текст поиска по подписи здания, накапливается посимвольно, пока меню открыто — очищается при закрытии. */
     private final StringBuilder searchQuery = new StringBuilder();
@@ -63,8 +50,18 @@ final class SimulationControls {
      * Сырой счётчик TAB-нажатий, пока меню открыто — во ЧТО он превращается (номер категории)
      * решает {@code BuildMenuRenderer}, который один знает, сколько категорий сейчас реально
      * зарегистрировано (namespace'ов); этот класс о реестре построек ничего не знает и не должен.
+     * Клик по вкладке (см. {@link #setCategoryIndex}) выставляет то же самое поле напрямую —
+     * TAB и клик по вкладке ведут к одному и тому же результату, не двум параллельным состояниям.
      */
     private int categoryCycle;
+
+    /**
+     * Сырой счётчик прокрутки сетки построек (колесо мыши) — та же раздельная ответственность,
+     * что {@link #categoryCycle}: этот класс копит нажатия/notch'и колеса, а во сколько строк
+     * это реально упирается (сколько всего совпадений сейчас) решает {@code BuildMenuLayout},
+     * единственный, кто знает текущий список совпадений.
+     */
+    private int scrollOffsetRows;
 
     void handle() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
@@ -76,50 +73,108 @@ final class SimulationControls {
         if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT_BRACKET)) {
             speedIndex = Math.min(SPEEDS.length - 1, speedIndex + 1);
         }
-        if (showBuildMenu) {
+        if (openPanel == OverlayPanel.BUILD_MENU) {
             // Меню — единственная панель с текстовым вводом: пока оно открыто, буквы/TAB/BACKSPACE
             // управляют ИМ целиком, не своими обычными значениями (книга рецептов/дерево техов
             // тоже висели бы на T/TAB, которые здесь заняты поиском/категорией).
+            //
+            // Живой баг-репорт: B раньше ЗАКРЫВАЛ меню, даже посреди набора текста — строку с буквой
+            // "b" («Belt», «Assembler», «Underground Belt») набрать было физически невозможно: даже
+            // первая же буква "b" искомого запроса схлопывала меню и стирала уже введённое. Пробовали
+            // компромисс «B закрывает, только пока строка пуста» — но и это ломало запросы, начинающиеся
+            // именно на "b" («Belt» — реальная подпись здания), раз первая буква и есть B. Правильный
+            // фикс: пока меню открыто, B — ВСЕГДА обычная буква, без исключений; единственный выход —
+            // ESC (см. InputHandler, closeAnyOpenPanel), который одинаково закрывает любую из четырёх
+            // модальных панелей — тот же ключ везде, а не свой на каждую.
             handleSearchInput();
             if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
                 categoryCycle++;
-            }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.B)) {
-                showBuildMenu = false;
-                searchQuery.setLength(0);
-                categoryCycle = 0;
+                scrollOffsetRows = 0; // new category means a different, possibly shorter, match list
             }
             return;
         }
-        // Книга рецептов (TAB): чистый переключатель показа, мира не касается вовсе.
+        // Книга рецептов (TAB) / дерево техов (T) / статистика (V): чистые переключатели показа,
+        // мира не касаются вовсе. Переключают ЕДИНУЮ openPanel, а не свой отдельный boolean — нажатие
+        // клавой ДРУГОЙ панели, пока эта уже открыта, ПЕРЕКЛЮЧАЕТ на неё, а не открывает поверх
+        // (см. openPanel/toggleOrSwitch).
         if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
-            showRecipeBook = !showRecipeBook;
+            toggleOrSwitch(OverlayPanel.RECIPE_BOOK);
         }
-        // Дерево техов (T): тот же чистый переключатель показа.
         if (Gdx.input.isKeyJustPressed(Input.Keys.T)) {
-            showTechTree = !showTechTree;
+            toggleOrSwitch(OverlayPanel.TECH_TREE);
         }
-        // Экран статистики (V, P-03, DEV_TASKS.md): тот же чистый переключатель показа.
         if (Gdx.input.isKeyJustPressed(Input.Keys.V)) {
-            showStats = !showStats;
+            toggleOrSwitch(OverlayPanel.STATS);
         }
-        // Меню построек (B, Фаза 8): тот же чистый переключатель показа.
+        // Меню построек (B): та же логика — этот путь достижим, только когда BUILD_MENU ещё не
+        // открыто (см. проверку openPanel в начале метода), так что здесь он всегда именно открывает.
         if (Gdx.input.isKeyJustPressed(Input.Keys.B)) {
-            showBuildMenu = true;
+            toggleOrSwitch(OverlayPanel.BUILD_MENU);
         }
     }
 
-    /** Буквы A-Z дописывают строку поиска, BACKSPACE стирает последний символ — единственный текстовый ввод в этом проекте, см. класс-javadoc. */
+    /**
+     * Закрыть уже открытую {@code panel} или переключиться на неё вместо того, чтобы открыть
+     * поверх — единственное место, что трогает {@link #openPanel}, кроме {@link
+     * #closeAnyOpenPanel}. Package-private, не {@code private} (как {@code
+     * OverlayRenderer#canPlaceHere}) — сама логика переключения не трогает {@code Gdx} вовсе, так
+     * что {@code SimulationControlsTest} прогоняет её напрямую, без окна.
+     */
+    void toggleOrSwitch(OverlayPanel panel) {
+        openPanel = openPanel == panel ? OverlayPanel.NONE : panel;
+    }
+
+    /**
+     * ESC — единый выход из ЛЮБОЙ из четырёх модальных панелей (live bug report: раньше ESC
+     * трогал только панель инспекции — {@code InputHandler}'s own {@code inspected}, — и ни книгу
+     * рецептов, ни дерево техов, ни статистику, ни меню построек; закрыть их можно было только той
+     * же самой клавишей, что открыла, и для каждой — своей). Вызывается из {@code InputHandler}
+     * вместе со сбросом {@code inspected}, вне зависимости от того, что сейчас открыто — не-открытая
+     * панель просто не заметит вызова ({@link #openPanel} и так {@code NONE}).
+     */
+    void closeAnyOpenPanel() {
+        if (openPanel == OverlayPanel.BUILD_MENU) {
+            searchQuery.setLength(0);
+            categoryCycle = 0;
+            scrollOffsetRows = 0;
+        }
+        openPanel = OverlayPanel.NONE;
+    }
+
+    /**
+     * Буквы A-Z, цифры, пробел и BACKSPACE — единственный текстовый ввод в этом проекте, см.
+     * класс-javadoc.
+     *
+     * <p>Живой баг-репорт: раньше здесь ловились только A-Z — пробел и цифры просто ничего не
+     * делали (не печатались, но и не терялись, buildMenuClick их тоже не читал). Здание «Tunnel
+     * in» набрать было нельзя: без пробела запрос схлопывался в «tunnelin», а
+     * {@code "tunnel in".contains("tunnelin")} — {@code false}, реального совпадения в списке не
+     * находилось, хотя здание там есть. Пробел и цифры теперь дописываются точно так же, как буквы.
+     */
     private void handleSearchInput() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE) && searchQuery.length() > 0) {
             searchQuery.setLength(searchQuery.length() - 1);
+            scrollOffsetRows = 0;
         }
         for (int key = Input.Keys.A; key <= Input.Keys.Z; key++) {
             if (Gdx.input.isKeyJustPressed(key)) {
                 // Input.Keys.toString даёт "A".."Z" для этого диапазона — не полагаемся на то, что
                 // числовые коды идут в алфавитном порядке без пропусков, даже если сегодня так и есть.
                 searchQuery.append(Input.Keys.toString(key).toLowerCase(java.util.Locale.ROOT));
+                scrollOffsetRows = 0;
             }
+        }
+        for (int key = Input.Keys.NUM_0; key <= Input.Keys.NUM_9; key++) {
+            if (Gdx.input.isKeyJustPressed(key)) {
+                // Same reasoning as the letters above: Input.Keys.toString gives "0".."9" for this
+                // range without assuming the codes themselves are laid out in order.
+                searchQuery.append(Input.Keys.toString(key));
+                scrollOffsetRows = 0;
+            }
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+            searchQuery.append(' ');
+            scrollOffsetRows = 0;
         }
     }
 
@@ -132,19 +187,19 @@ final class SimulationControls {
     }
 
     boolean showRecipeBook() {
-        return showRecipeBook;
+        return openPanel == OverlayPanel.RECIPE_BOOK;
     }
 
     boolean showTechTree() {
-        return showTechTree;
+        return openPanel == OverlayPanel.TECH_TREE;
     }
 
     boolean showStats() {
-        return showStats;
+        return openPanel == OverlayPanel.STATS;
     }
 
     boolean showBuildMenu() {
-        return showBuildMenu;
+        return openPanel == OverlayPanel.BUILD_MENU;
     }
 
     /** Current search text, pending menu click handling in {@code InputHandler} — same value {@link #hudState} hands the renderer. */
@@ -157,14 +212,41 @@ final class SimulationControls {
         return categoryCycle;
     }
 
+    /** Current raw scroll offset, for {@code InputHandler}'s own click handling — see {@link #scrollOffsetRows}'s own javadoc for why it's raw. */
+    int buildMenuScrollOffset() {
+        return scrollOffsetRows;
+    }
+
+    /**
+     * A tab click sets the category directly, instead of cycling forward through categories one
+     * TAB press at a time — {@code index} is the tab's own position (0 = "all", 1..N = the Nth
+     * registered namespace), the same numbering {@link #activeCategory} in {@code BuildMenuLayout}
+     * already gives {@link #categoryCycle}. Resets the scroll: a different category is a different,
+     * possibly shorter, match list.
+     */
+    void setCategoryIndex(int index) {
+        categoryCycle = index;
+        scrollOffsetRows = 0;
+    }
+
+    /**
+     * Mouse wheel over the build menu — {@code deltaRows} is which way it turned, not a distance in
+     * pixels (one notch, one row). Never goes negative here; the upper bound depends on how many
+     * matches exist right now, which only {@code BuildMenuLayout.clampScrollRows} knows.
+     */
+    void scrollBuildMenu(int deltaRows) {
+        scrollOffsetRows = Math.max(0, scrollOffsetRows + deltaRows);
+    }
+
     /**
      * {@link InputHandler} supplies {@code selected}/{@code facing}/{@code dragTiles}/{@code
      * inspected}/{@code altOverlay}/{@code statsItem}/{@code hotbarSlots} — those are its own
      * business, not ours.
      */
     HudState hudState(ContentId selected, Direction facing, List<TilePos> dragTiles, @Nullable TilePos inspected,
-            boolean altOverlay, ItemType statsItem, List<ContentId> hotbarSlots) {
-        return new HudState(selected, facing, paused, speed(), showRecipeBook, showTechTree, dragTiles, inspected,
-                altOverlay, showStats, statsItem, hotbarSlots, showBuildMenu, searchQuery.toString(), categoryCycle);
+            boolean altOverlay, ItemType statsItem, List<ContentId> hotbarSlots, @Nullable String statusMessage) {
+        return new HudState(selected, facing, paused, speed(), showRecipeBook(), showTechTree(), dragTiles, inspected,
+                altOverlay, showStats(), statsItem, hotbarSlots, showBuildMenu(), searchQuery.toString(), categoryCycle,
+                scrollOffsetRows, statusMessage);
     }
 }

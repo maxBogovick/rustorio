@@ -1,6 +1,6 @@
 {
   "path": "furnace",
-  "label": "Furnace",
+  "label": { "en": "Furnace", "ru": "Печь" },
   "archetype": "FURNACE",
   "cost": { "item": "iron_plate", "amount": 5 },
   "placement": "NEEDS_PASSABLE_TERRAIN",

@@ -10,9 +10,10 @@ import java.util.Arrays;
 
 /**
  * Reads {@code content/items/*.json} — one item per file: {@code path} (this item's own {@link
- * ContentId} path, under the owning mod's namespace), {@code label}, {@code researchGrade}
- * (defaults to {@code false}), {@code colorRgb} as {@code "#RRGGBB"}, {@code shape} (an {@link
- * ItemShape} constant name).
+ * ContentId} path, under the owning mod's namespace), {@code label} (a plain string, or an object
+ * of {@code {"en": "...", "ru": "..."}} — see {@link JsonNodes#requireLocalizedText}), {@code
+ * researchGrade} (defaults to {@code false}), {@code colorRgb} as {@code "#RRGGBB"}, {@code shape}
+ * (an {@link ItemShape} constant name).
  */
 final class ItemJsonLoader {
 
@@ -23,12 +24,12 @@ final class ItemJsonLoader {
         for (Path file : JsonNodes.listJsonFilesSorted(itemsDir)) {
             JsonNode root = JsonNodes.readTree(file);
             String path = JsonNodes.requireText(root, "path", file);
-            String label = JsonNodes.requireText(root, "label", file);
+            ContentId id = new ContentId(modId.value(), path);
+            String label = JsonNodes.requireLocalizedText(root, "label", file, id.toString(), ContentLocale.current());
             boolean researchGrade = JsonNodes.optionalBoolean(root, "researchGrade", false);
             int colorRgb = parseColor(JsonNodes.requireText(root, "colorRgb", file), file);
             ItemShape shape = parseShape(JsonNodes.requireText(root, "shape", file), file);
 
-            ContentId id = new ContentId(modId.value(), path);
             items.register(id, new ItemType(id, label, researchGrade, colorRgb, shape));
         }
     }

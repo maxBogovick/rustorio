@@ -53,6 +53,10 @@ final class Palette {
     static final Color SLOT_BG = new Color(1f, 1f, 1f, 0.06f);
     static final Color SLOT_BORDER = new Color(1f, 1f, 1f, 0.25f);
     static final Color SLOT_SELECTED = rgb(255, 200, 60);
+    // Build menu tile under the cursor, but not (yet) the equipped building — brighter than
+    // SLOT_BORDER so hovering gives visible feedback before the click commits to anything, distinct
+    // from SLOT_SELECTED's amber so "about to pick" never reads as "already equipped".
+    static final Color TILE_HOVER = new Color(1f, 1f, 1f, 0.6f);
 
     // Стрелка направления поверх здания (см. OverlayRenderer) — яркая и нейтральная, чтобы
     // читаться на любом спрайте под ней, а не сливаться с конкретным цветом конкретного здания.

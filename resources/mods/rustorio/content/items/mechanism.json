@@ -1,1 +1,1 @@
-{ "path": "mechanism", "label": "Mechanism", "researchGrade": true, "colorRgb": "#A34428", "shape": "TRIANGLE" }
+{ "path": "mechanism", "label": { "en": "Mechanism", "ru": "Механизм" }, "researchGrade": true, "colorRgb": "#A34428", "shape": "TRIANGLE" }

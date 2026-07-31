@@ -36,7 +36,8 @@ final class BuildingJsonLoader {
         for (Path file : JsonNodes.listJsonFilesSorted(buildingsDir)) {
             JsonNode root = JsonNodes.readTree(file);
             String path = JsonNodes.requireText(root, "path", file);
-            String label = JsonNodes.requireText(root, "label", file);
+            ContentId id = new ContentId(modId.value(), path);
+            String label = JsonNodes.requireLocalizedText(root, "label", file, id.toString(), ContentLocale.current());
             BuildingType archetype = parseArchetype(JsonNodes.requireText(root, "archetype", file), file);
             BuildingPrototype archetypePrototype = VanillaBuildings.frozen().get(VanillaBuildings.idFor(archetype));
 
@@ -56,7 +57,6 @@ final class BuildingJsonLoader {
             int speedMultiplier = root.has("speedMultiplier") ? JsonNodes.requireInt(root, "speedMultiplier", file) : 1;
             boolean acceptsSpeedEffects = JsonNodes.optionalBoolean(root, "acceptsSpeedEffects", false);
 
-            ContentId id = new ContentId(modId.value(), path);
             context.buildings().register(id, new BuildingPrototype(id, label, new BuildingCost(costItem, costAmount),
                     placement, texture, footprintWidth, footprintHeight, bufferMax, speedMultiplier, acceptsSpeedEffects,
                     archetypePrototype.behavior(), archetypePrototype.restoreBehavior(), archetypePrototype.codec()));

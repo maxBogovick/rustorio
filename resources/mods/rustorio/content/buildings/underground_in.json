@@ -1,6 +1,6 @@
 {
   "path": "underground_in",
-  "label": "Tunnel in",
+  "label": { "en": "Tunnel in", "ru": "Тоннель (вход)" },
   "archetype": "UNDERGROUND_IN",
   "cost": { "item": "iron_plate", "amount": 2 },
   "placement": "ALWAYS",

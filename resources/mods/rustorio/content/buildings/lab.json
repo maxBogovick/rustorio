@@ -1,6 +1,6 @@
 {
   "path": "lab",
-  "label": "Lab",
+  "label": { "en": "Lab", "ru": "Лаборатория" },
   "archetype": "LAB",
   "cost": { "item": "gear", "amount": 10 },
   "placement": "NEEDS_PASSABLE_TERRAIN",

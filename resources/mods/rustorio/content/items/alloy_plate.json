@@ -1,1 +1,1 @@
-{ "path": "alloy_plate", "label": "Alloy Plate", "researchGrade": false, "colorRgb": "#968C82", "shape": "SQUARE" }
+{ "path": "alloy_plate", "label": { "en": "Alloy Plate", "ru": "Пластина сплава" }, "researchGrade": false, "colorRgb": "#968C82", "shape": "SQUARE" }

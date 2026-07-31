@@ -1,6 +1,6 @@
 {
   "path": "belt",
-  "label": "Belt",
+  "label": { "en": "Belt", "ru": "Лента" },
   "archetype": "BELT",
   "cost": { "item": "iron_plate", "amount": 1 },
   "placement": "NEEDS_PASSABLE_TERRAIN",

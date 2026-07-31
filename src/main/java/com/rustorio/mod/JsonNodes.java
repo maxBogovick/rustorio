@@ -41,6 +41,39 @@ final class JsonNodes {
         return value.asText();
     }
 
+    /**
+     * Reads a display label that may be either a plain string (used as-is, any locale) or an
+     * object of {@code {"en": "...", "ru": "..."}} — resolved against {@code locale} (callers pass
+     * {@link ContentLocale#current()}; taken as a parameter, not read internally, so this stays a
+     * pure function of its arguments — easy to test at any locale without depending on a value
+     * fixed once at class-load time for the whole JVM), falling back to {@code "en"} if {@code
+     * locale} has no entry, and to {@code idFallback} (the content's own {@link
+     * com.rustorio.api.content.ContentId}, as text) if even THAT is missing. The plain-string form
+     * is untouched by locale entirely — existing content written before this format existed keeps
+     * reading exactly the same regardless of {@code locale}.
+     */
+    static String requireLocalizedText(JsonNode node, String field, Path file, String idFallback, String locale) {
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull()) {
+            throw new ModLoadException(file + ": missing required field '" + field + "'");
+        }
+        if (value.isTextual()) {
+            return value.asText();
+        }
+        if (value.isObject()) {
+            JsonNode localized = value.get(locale);
+            if (localized != null && localized.isTextual()) {
+                return localized.asText();
+            }
+            JsonNode english = value.get("en");
+            if (english != null && english.isTextual()) {
+                return english.asText();
+            }
+            return idFallback;
+        }
+        throw new ModLoadException(file + ": field '" + field + "' must be a string or an object of locale -> string");
+    }
+
     static int requireInt(JsonNode node, String field, Path file) {
         JsonNode value = node.get(field);
         if (value == null || value.isNull() || !value.isIntegralNumber()) {

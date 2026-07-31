@@ -1,6 +1,6 @@
 {
   "path": "miner",
-  "label": "Miner",
+  "label": { "en": "Miner", "ru": "Бур" },
   "archetype": "MINER",
   "cost": { "item": "iron_plate", "amount": 5 },
   "placement": "NEEDS_ORE",

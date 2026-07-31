@@ -1,6 +1,6 @@
 {
   "path": "chest",
-  "label": "Chest",
+  "label": { "en": "Chest", "ru": "Сундук" },
   "archetype": "CHEST",
   "cost": { "item": "iron_plate", "amount": 5 },
   "placement": "NEEDS_PASSABLE_TERRAIN",

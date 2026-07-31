@@ -1,6 +1,6 @@
 {
   "path": "assembler",
-  "label": "Assembler",
+  "label": { "en": "Assembler", "ru": "Сборщик" },
   "archetype": "ASSEMBLER",
   "footprintWidth": 2,
   "footprintHeight": 2,

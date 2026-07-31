@@ -1,6 +1,6 @@
 {
   "path": "splitter",
-  "label": "Splitter",
+  "label": { "en": "Splitter", "ru": "Разветвитель" },
   "archetype": "SPLITTER",
   "cost": { "item": "iron_plate", "amount": 3 },
   "placement": "NEEDS_PASSABLE_TERRAIN",

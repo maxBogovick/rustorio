@@ -1,1 +1,1 @@
-{ "path": "alloy_gear", "label": "Alloy Gear", "researchGrade": true, "colorRgb": "#BEAA5A", "shape": "TRIANGLE" }
+{ "path": "alloy_gear", "label": { "en": "Alloy Gear", "ru": "Шестерня сплава" }, "researchGrade": true, "colorRgb": "#BEAA5A", "shape": "TRIANGLE" }

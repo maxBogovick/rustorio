@@ -1,1 +1,1 @@
-{ "path": "engine", "label": "Engine", "researchGrade": true, "colorRgb": "#5AAA5A", "shape": "TRIANGLE" }
+{ "path": "engine", "label": { "en": "Engine", "ru": "Двигатель" }, "researchGrade": true, "colorRgb": "#5AAA5A", "shape": "TRIANGLE" }

@@ -53,9 +53,9 @@ public final class InputHandler {
     private final CameraController cameraController;
     private final SimulationControls simulationControls = new SimulationControls();
     /**
-     * Настраиваемый хотбар (Фаза 8) — по умолчанию 12 ванильных прототипов, тем же порядком, что
+     * Настраиваемый хотбар — по умолчанию 12 ванильных прототипов, тем же порядком, что
      * {@code BuildingType.values()} раньше давал напрямую, чтобы клавиши 1-9 ощущались как прежде.
-     * Закрепление в слот (меню построек, E8-05) заменяет элемент этого списка, не сам список.
+     * Закрепление в слот (клик по меню построек) заменяет элемент этого списка, не сам список.
      */
     private final List<ContentId> hotbarSlots = defaultHotbarSlots();
     private ContentId selected = hotbarSlots.get(0); // строим это; клавиши 1-9/клик по хотбару меняют
@@ -67,6 +67,15 @@ public final class InputHandler {
     /** Протяжка ЛКМ/ПКМ копится в одно {@link CompositeAction} на отпускание — см. {@link #handleDrag}. */
     private final DragCollector buildDrag = new DragCollector(Input.Buttons.LEFT);
     private final DragCollector removeDrag = new DragCollector(Input.Buttons.RIGHT);
+    /**
+     * Сколько секунд ещё показывать {@link #statusMessage} на HUD — живой баг-репорт: F5/F9 не
+     * давали игроку вообще НИКАКОЙ обратной связи на экране, ни при успехе, ни при неудаче (только
+     * строка в {@link #LOGGER}, которую не видно в оконном запуске не из терминала). {@code 0}
+     * значит «сообщения нет» — {@link #hudState()} тогда отдаёт {@code null}.
+     */
+    private static final float STATUS_MESSAGE_SECONDS = 3f;
+    private @Nullable String statusMessage;
+    private float statusMessageTimeLeft;
 
     public InputHandler(GameCamera camera, SaveRepository saveRepository) {
         this.camera = camera;
@@ -97,15 +106,21 @@ public final class InputHandler {
     public HudState hudState() {
         boolean altOverlay = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
         return simulationControls.hudState(selected, facing, buildDrag.inProgressTiles(), inspected, altOverlay,
-                statsItem, hotbarSlots);
+                statsItem, hotbarSlots, statusMessage);
     }
 
     public void handle(World world, float delta) {
+        if (statusMessageTimeLeft > 0f) {
+            statusMessageTimeLeft -= delta;
+            if (statusMessageTimeLeft <= 0f) {
+                statusMessage = null;
+            }
+        }
         cameraController.handle(delta);
         simulationControls.handle();
         if (simulationControls.showBuildMenu()) {
-            // Меню построек открыто (B) — клик по строке списка закрепляет прототип в хотбар
-            // (Фаза 8), а не выбор здания цифрами/кликом по самому хотбару — то же самое
+            // Меню построек открыто (B) — клик по строке списка закрепляет прототип в хотбар,
+            // а не выбор здания цифрами/кликом по самому хотбару — то же самое
             // разделение, что уже даёт дерево техов ниже.
             handleBuildMenuClick(world);
         } else if (simulationControls.showTechTree()) {
@@ -170,7 +185,12 @@ public final class InputHandler {
             }
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            // Живой баг-репорт: раньше ESC закрывал только панель инспекции — книга рецептов,
+            // дерево техов, статистика и меню построек не реагировали на него вовсе, каждую нужно
+            // было помнить закрывать своей собственной клавишей (TAB/T/V/B). Один ключ, который
+            // всегда выводит из ЛЮБОЙ открытой панели, — то, что ожидает почти каждый игрок.
             inspected = null;
+            simulationControls.closeAnyOpenPanel();
         }
         if (simulationControls.showStats() && Gdx.input.isKeyJustPressed(Input.Keys.N)) {
             // Экран статистики открыт (V, P-03, DEV_TASKS.md) — N листает, какой предмет
@@ -186,17 +206,34 @@ public final class InputHandler {
         if (ctrl && Gdx.input.isKeyJustPressed(Input.Keys.Y)) {
             history.redo(world);
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.F5)
-                && saveRepository.save(world) instanceof SaveResult.Failure failure) {
-            LOGGER.log(System.Logger.Level.WARNING, "Save failed: {0}", failure.reason());
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F5)) {
+            if (saveRepository.save(world) instanceof SaveResult.Failure failure) {
+                LOGGER.log(System.Logger.Level.WARNING, "Save failed: {0}", failure.reason());
+                showStatus("Save failed: " + failure.reason());
+            } else {
+                showStatus("Saved");
+            }
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.F9)) {
             if (saveRepository.load(world) instanceof SaveResult.Failure failure) {
                 LOGGER.log(System.Logger.Level.WARNING, "Load failed: {0}", failure.reason());
+                showStatus("Load failed: " + failure.reason());
             } else {
                 history.clear(); // новый мир — старая история недействительна (P1-05)
+                showStatus("Loaded");
             }
         }
+    }
+
+    /**
+     * Живой баг-репорт: F5/F9 раньше не давали игроку вообще никакой обратной связи на экране —
+     * ни при успехе, ни при неудаче ({@link #LOGGER} видно только из терминала, не из окна игры).
+     * {@code message} держится {@link #STATUS_MESSAGE_SECONDS} секунд на HUD ({@link #hudState()}),
+     * потом сам гаснет — не нужно отдельного действия, чтобы его убрать.
+     */
+    private void showStatus(String message) {
+        statusMessage = message;
+        statusMessageTimeLeft = STATUS_MESSAGE_SECONDS;
     }
 
     /**
@@ -224,10 +261,12 @@ public final class InputHandler {
     }
 
     /**
-     * ЛКМ по строке меню построек (Фаза 8) закрепляет её прототип в текущий выбранный слот
-     * хотбара и делает его выбранным — то же самое разрешение "какой именно слот", что и любой
-     * другой момент выбора здания. Клик мимо всех строк (но по самой панели) молча ничего не
-     * делает — не должен провалиться в мир под меню, см. {@link #modalOpen()}.
+     * ЛКМ по меню построек: сперва проверяет вкладки категорий (клик выставляет категорию
+     * напрямую — см. {@link SimulationControls#setCategoryIndex}), потом — сетку иконок (клик
+     * закрепляет прототип в текущий выбранный слот хотбара и делает его выбранным, то же самое
+     * разрешение "какой именно слот", что и любой другой момент выбора здания). Клик мимо и вкладок,
+     * и плиток (но по самой панели) молча ничего не делает — не должен провалиться в мир под меню,
+     * см. {@link #modalOpen()}.
      */
     private void handleBuildMenuClick(World world) {
         if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
@@ -238,14 +277,34 @@ public final class InputHandler {
         List<String> categories = BuildMenuLayout.categories(all);
         String activeCategory = BuildMenuLayout.activeCategory(categories, simulationControls.buildMenuCategoryCycle());
         List<BuildingPrototype> matches = BuildMenuLayout.filter(all, activeCategory, simulationControls.buildMenuQuery());
-        List<BuildingPrototype> visible = BuildMenuLayout.visibleRows(matches);
+        int clampedScroll = BuildMenuLayout.clampScrollRows(matches.size(), simulationControls.buildMenuScrollOffset());
+        List<BuildingPrototype> visible = BuildMenuLayout.visibleTiles(matches, clampedScroll);
 
         int screenW = Gdx.graphics.getWidth();
         int screenH = Gdx.graphics.getHeight();
-        int row = BuildMenuLayout.hitTestRow(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, visible.size());
-        if (row >= 0) {
-            pinSelectedIntoHotbar(visible.get(row).id());
+        int tabCount = categories.size() + 1;
+        int tab = BuildMenuLayout.hitTestTab(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, visible.size(), tabCount);
+        if (tab >= 0) {
+            simulationControls.setCategoryIndex(tab);
+            return;
         }
+        int tile = BuildMenuLayout.hitTestTile(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, visible.size());
+        if (tile >= 0) {
+            pinSelectedIntoHotbar(visible.get(tile).id());
+        }
+    }
+
+    /**
+     * Колесо мыши, пока меню построек открыто, — страница вперёд/назад по сетке иконок вместо зума
+     * камеры ({@code com.graphics.screen.GameScreen}'s own scroll listener зовёт это ПЕРВЫМ и зумит
+     * камеру, только если меню не открыто и вернулось {@code false} — см. тот вызов).
+     */
+    public boolean handleScroll(float amountY) {
+        if (!simulationControls.showBuildMenu()) {
+            return false;
+        }
+        simulationControls.scrollBuildMenu((int) Math.signum(amountY));
+        return true;
     }
 
     /** Заменяет прототип в слоте, где СЕЙЧАС выбрано что-то, на {@code prototypeId}, и делает его выбранным — см. {@link #handleBuildMenuClick}. */
@@ -328,7 +387,7 @@ public final class InputHandler {
 
     /**
      * Клавиши 1..N выбирают ЗАКРЕПЛЁННЫЙ в слоте хотбара прототип — {@code NUM_1 + индекс слота},
-     * {@link #hotbarSlots} задаёт порядок (Фаза 8, было — {@code BuildingType} напрямую).
+     * {@link #hotbarSlots} задаёт порядок (было — {@code BuildingType} напрямую).
      * Ограничено девятью (P4-08, BUG_FIX_PROGRESS.md) — {@code NUM_1..NUM_9} в libGDX кончаются на
      * девятой клавише; десятый и далее слоты выбираются только мышью по хотбару.
      */

@@ -1,6 +1,6 @@
 {
   "path": "press",
-  "label": "Press",
+  "label": { "en": "Press", "ru": "Пресс" },
   "archetype": "PRESS",
   "cost": { "item": "iron_plate", "amount": 8 },
   "placement": "NEEDS_PASSABLE_TERRAIN",

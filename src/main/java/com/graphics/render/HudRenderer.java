@@ -110,7 +110,7 @@ final class HudRenderer {
 
     void render(HudState hud, World world, TileRange visible, ProductionStatsView stats, ResearchView research,
             PlayerInventoryView inventory, ProductionLogView log, int ups) {
-        renderInfoPanel(world, stats, research, inventory, log, hud.paused(), hud.speed(), ups);
+        renderInfoPanel(world, stats, research, inventory, log, hud.paused(), hud.speed(), ups, hud.statusMessage());
         renderHotbar(hud.hotbarSlots(), hud.selected(), hud.facing(), world.buildingFactory());
         renderMinimap(world, visible);
         renderInspectionPanel(world, hud.inspected());
@@ -133,7 +133,8 @@ final class HudRenderer {
      * and recipe icons, several times narrower per item than the old {@code "NAME count"} text.
      */
     private void renderInfoPanel(World world, ProductionStatsView stats, ResearchView research,
-            PlayerInventoryView inventory, ProductionLogView log, boolean paused, int speed, int ups) {
+            PlayerInventoryView inventory, ProductionLogView log, boolean paused, int speed, int ups,
+            @Nullable String statusMessage) {
         Registry<ItemType> items = world.buildingFactory().items();
         int screenW = Gdx.graphics.getWidth();
         float top = Gdx.graphics.getHeight();
@@ -173,6 +174,15 @@ final class HudRenderer {
         font.setColor(Palette.HINT);
         font.draw(batch, "FPS: " + Gdx.graphics.getFramesPerSecond() + "  UPS: " + ups, 380, top - 14);
         font.setColor(Color.WHITE);
+
+        // Живой баг-репорт: F5/F9 раньше не показывали НИЧЕГО на экране — ни "сохранено", ни
+        // "не вышло, вот почему" — см. HudState/InputHandler#showStatus. Гаснет сама через
+        // InputHandler.STATUS_MESSAGE_SECONDS, отдельного "закрыть" не нужно.
+        if (statusMessage != null) {
+            font.setColor(Palette.HINT);
+            font.draw(batch, statusMessage, 560, top - 14);
+            font.setColor(Color.WHITE);
+        }
 
         font.draw(batch, "Produced", 16, top - 36);
         drawChipNumbers(producedLayout, top - 36);
@@ -308,7 +318,7 @@ final class HudRenderer {
     }
 
     /**
-     * Нижняя панель построек: слот на каждый закреплённый в хотбаре прототип (Фаза 8 — настраиваемый
+     * Нижняя панель построек: слот на каждый закреплённый в хотбаре прототип (настраиваемый
      * список, был {@code BuildingType.values()} напрямую), выбранный — обведён ярко. Высота —
      * {@link GfxConfig#HUD_BOTTOM_HEIGHT}, та же, на которую камера сузила вьюпорт снизу (см.
      * {@link #renderInfoPanel} — тот же приём для верхней панели).

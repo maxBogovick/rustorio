@@ -6,29 +6,42 @@ import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Geometry AND filtering logic for the build menu (Phase 8) — one formula shared by drawing
+ * Geometry AND filtering logic for the build menu — one formula shared by drawing
  * ({@link BuildMenuRenderer}) and hit-testing ({@code com.graphics.input.InputHandler}, a
  * different package — same reason {@link HotbarLayout} is public).
  *
- * <p>No scrolling — {@link #MAX_VISIBLE_ROWS} simply truncates a match list longer than that; a
- * real "300 buildings, no way to see the rest" problem would need pagination or a scrollbar, but
- * search + per-mod category already narrows a large registry to a handful in practice, and
- * building a scroll widget nothing else in this project has is exactly the "abstraction for a
- * future that isn't this card's job" the design checklist warns against.
+ * <p>An icon grid with tabs, not a text list: category tabs are drawn as actual clickable buttons
+ * (fixed-width cells, no font measurement needed here — this class stays libGDX-free so a JUnit
+ * test can pin it down without a window), and a match list longer than one page scrolls (mouse
+ * wheel, see {@code SimulationControls}'s own scroll offset) instead of being silently cut off.
  */
 public final class BuildMenuLayout {
 
     static final float PADDING = 24f;
-    static final float TITLE_HEIGHT = 56f;
-    static final float ROW_HEIGHT = 24f;
-    static final float PANEL_WIDTH = 560f;
-    /** How many match rows fit on the panel without scrolling — see the class javadoc. */
-    public static final int MAX_VISIBLE_ROWS = 16;
+    static final float TITLE_HEIGHT = 28f;
+    static final float TABS_HEIGHT = 28f;
+    static final float SEARCH_HEIGHT = 22f;
+    static final float HINT_HEIGHT = 20f;
+    static final float DETAIL_HEIGHT = 22f;
+    static final float TAB_MAX_WIDTH = 96f;
+
+    /** One grid cell: icon plus its label line underneath. */
+    public static final float TILE_SIZE = 64f;
+    static final float TILE_GAP = 10f;
+
+    /** Fixed column count — the grid never reflows into more or fewer columns. */
+    public static final int COLUMNS = 6;
+    /** How many tile ROWS fit on the panel before the rest needs a scroll. */
+    public static final int VISIBLE_TILE_ROWS = 4;
+    /** One page's worth of tiles — {@link #VISIBLE_TILE_ROWS} scrolls further, see {@link #clampScrollRows}. */
+    public static final int MAX_VISIBLE_TILES = COLUMNS * VISIBLE_TILE_ROWS;
+
+    public static final float PANEL_WIDTH = PADDING * 2 + COLUMNS * TILE_SIZE + (COLUMNS - 1) * TILE_GAP;
 
     private BuildMenuLayout() {
     }
 
-    /** Category = the prototype's own {@link com.rustorio.api.content.ContentId} namespace (which mod registered it) — sorted for determinism, no duplicates. See the Phase 8 intro in ENGINE_TASKS.md for why not a hand-picked taxonomy. */
+    /** Category = the prototype's own {@link com.rustorio.api.content.ContentId} namespace (which mod registered it), not a hand-picked taxonomy nothing in the domain actually defines — sorted for determinism, no duplicates. */
     public static List<String> categories(List<BuildingPrototype> all) {
         return all.stream().map(p -> p.id().namespace()).distinct().sorted().toList();
     }
@@ -38,7 +51,8 @@ public final class BuildMenuLayout {
      * field) into an actual category: {@code null} ("all") at cycle 0, then each of {@code
      * categories} in turn, wrapping — {@link Math#floorMod} so a stray negative cycle (shouldn't
      * happen, but see no reason to crash on one) still resolves to a valid index instead of
-     * throwing.
+     * throwing. A tab click sets this same counter directly to the tab's own index, so TAB and
+     * clicking a tab agree on what index N means.
      */
     public static @Nullable String activeCategory(List<String> categories, int categoryCycle) {
         if (categories.isEmpty()) {
@@ -57,57 +71,139 @@ public final class BuildMenuLayout {
                 .toList();
     }
 
-    /** The visible slice of {@code matches} — truncated to {@link #MAX_VISIBLE_ROWS}, never longer. */
-    public static List<BuildingPrototype> visibleRows(List<BuildingPrototype> matches) {
-        return matches.size() > MAX_VISIBLE_ROWS ? matches.subList(0, MAX_VISIBLE_ROWS) : matches;
+    /**
+     * Clamps a raw scroll offset (rows) to what {@code matchCount} tiles actually has to scroll
+     * through — {@code rawScrollRows} comes from {@code SimulationControls}, which only counts
+     * wheel notches and has no idea how many matches exist right now (same split of
+     * responsibility as {@link #activeCategory}: the counter is raw, this class alone resolves it
+     * against the current registry).
+     */
+    public static int clampScrollRows(int matchCount, int rawScrollRows) {
+        int totalRows = (matchCount + COLUMNS - 1) / COLUMNS;
+        int maxScroll = Math.max(0, totalRows - VISIBLE_TILE_ROWS);
+        return Math.max(0, Math.min(rawScrollRows, maxScroll));
+    }
+
+    /** The one page of {@code matches} visible at {@code scrollRows} — {@code scrollRows} must already be {@link #clampScrollRows} output. */
+    public static List<BuildingPrototype> visibleTiles(List<BuildingPrototype> matches, int scrollRows) {
+        int start = Math.min(matches.size(), scrollRows * COLUMNS);
+        int end = Math.min(matches.size(), start + MAX_VISIBLE_TILES);
+        return matches.subList(start, end);
+    }
+
+    /** How many tile rows {@code visibleTileCount} tiles actually occupy — 0 for an empty page, never more than {@link #VISIBLE_TILE_ROWS}. */
+    static int visibleTileRows(int visibleTileCount) {
+        return (visibleTileCount + COLUMNS - 1) / COLUMNS;
     }
 
     static float panelX(int screenWidth) {
         return (screenWidth - PANEL_WIDTH) / 2f;
     }
 
-    static float panelHeight(int visibleRowCount) {
-        return PADDING * 2 + TITLE_HEIGHT + ROW_HEIGHT * Math.max(1, visibleRowCount);
+    static float panelHeight(int visibleTileRowCount) {
+        int rows = Math.max(1, visibleTileRowCount);
+        return PADDING * 2 + TITLE_HEIGHT + TABS_HEIGHT + SEARCH_HEIGHT + HINT_HEIGHT + DETAIL_HEIGHT
+                + TILE_SIZE * rows + TILE_GAP * (rows - 1);
     }
 
-    static float panelY(int screenHeight, int visibleRowCount) {
-        return (screenHeight - panelHeight(visibleRowCount)) / 2f;
+    static float panelY(int screenHeight, int visibleTileRowCount) {
+        return (screenHeight - panelHeight(visibleTileRowCount)) / 2f;
     }
 
-    /** Baseline Y (HUD coordinates, from the bottom) for row {@code index} — {@code -1} is the "showing first N" hint line just above row 0. */
-    static float rowY(float panelY, float panelH, int index) {
-        return panelY + panelH - PADDING - TITLE_HEIGHT - ROW_HEIGHT * (index + 1);
+    /** Bottom edge (HUD Y) of the tabs row — {@code + TABS_HEIGHT} is its top edge. */
+    static float tabsY(float panelY, float panelH) {
+        return panelY + panelH - PADDING - TITLE_HEIGHT - TABS_HEIGHT;
+    }
+
+    /** Every tab is the same width, shrunk to fit {@code tabCount} of them if {@link #TAB_MAX_WIDTH} each would overflow the panel. */
+    static float tabWidth(int tabCount) {
+        float available = PANEL_WIDTH - PADDING * 2;
+        return Math.min(TAB_MAX_WIDTH, available / Math.max(1, tabCount));
+    }
+
+    static float tabX(int index, float panelX, int tabCount) {
+        return panelX + PADDING + index * tabWidth(tabCount);
     }
 
     /**
-     * Which currently-visible row (0-based, top to bottom) sits under {@code (screenX, screenY)} —
-     * screen coordinates as {@code Gdx.input} gives them (Y from the TOP), same flip {@link
-     * HotbarLayout#hitTest} already does — or {@code -1} if the click missed every row (including
-     * "inside the panel but on the title/search text, not a row").
+     * Which tab (0 = "all", 1..N = {@code categories.get(index - 1)}) sits under {@code (screenX,
+     * screenY)}, or {@code -1} — same screen-coordinate convention as {@link #hitTestTile}.
+     * {@code visibleTileCount} (not rows) so every public hit-test here shares the one number a
+     * caller already has to track — how many tiles are on screen right now — rather than each
+     * demanding its own derived form of it.
      */
-    public static int hitTestRow(float screenX, float screenY, int screenWidth, int screenHeight, int visibleRowCount) {
+    public static int hitTestTab(float screenX, float screenY, int screenWidth, int screenHeight,
+            int visibleTileCount, int tabCount) {
+        int visibleRows = visibleTileRows(visibleTileCount);
         float panelX = panelX(screenWidth);
-        float panelH = panelHeight(visibleRowCount);
-        float panelY = panelY(screenHeight, visibleRowCount);
+        float panelH = panelHeight(visibleRows);
+        float panelY = panelY(screenHeight, visibleRows);
         float hudY = screenHeight - screenY;
-        if (screenX < panelX || screenX > panelX + PANEL_WIDTH) {
+        float bottom = tabsY(panelY, panelH);
+        if (hudY < bottom || hudY > bottom + TABS_HEIGHT) {
             return -1;
         }
-        for (int i = 0; i < visibleRowCount; i++) {
-            float top = rowY(panelY, panelH, i) + ROW_HEIGHT * 0.7f;
-            float bottom = top - ROW_HEIGHT;
-            if (hudY <= top && hudY >= bottom) {
-                return i;
-            }
-        }
-        return -1;
+        float tabW = tabWidth(tabCount);
+        // Math.floor — same reason as hitTestTile: a bare (int) cast truncates toward zero and
+        // would map a point just left of the first tab to index 0 instead of a negative index.
+        int index = (int) Math.floor((screenX - (panelX + PADDING)) / tabW);
+        return index >= 0 && index < tabCount ? index : -1;
     }
 
-    /** Whether {@code (screenX, screenY)} lands anywhere inside the panel at all — used to swallow a click that hit the panel but no specific row, so it doesn't leak into the world underneath. */
-    public static boolean isOverPanel(float screenX, float screenY, int screenWidth, int screenHeight, int visibleRowCount) {
+    /** Top edge (HUD Y) of the tile grid — everything below the tabs/search/hint lines. */
+    static float gridTop(float panelY, float panelH) {
+        return tabsY(panelY, panelH) - SEARCH_HEIGHT - HINT_HEIGHT;
+    }
+
+    static float tileX(int col, float panelX) {
+        return panelX + PADDING + col * (TILE_SIZE + TILE_GAP);
+    }
+
+    /** Bottom edge (HUD Y) of the tile at grid row {@code row} — libGDX draws rects from this corner up. */
+    static float tileY(float panelY, float panelH, int row) {
+        return gridTop(panelY, panelH) - TILE_SIZE - row * (TILE_SIZE + TILE_GAP);
+    }
+
+    /**
+     * Which currently-visible tile (0-based, row-major: {@code row * COLUMNS + col}) sits under
+     * {@code (screenX, screenY)} — screen coordinates as {@code Gdx.input} gives them (Y from the
+     * TOP), same flip {@link HotbarLayout#hitTest} already does — or {@code -1} if the click missed
+     * every tile, including a point in the gap between tiles.
+     */
+    public static int hitTestTile(float screenX, float screenY, int screenWidth, int screenHeight, int visibleTileCount) {
+        if (visibleTileCount <= 0) {
+            return -1;
+        }
+        int visibleRows = visibleTileRows(visibleTileCount);
         float panelX = panelX(screenWidth);
-        float panelH = panelHeight(visibleRowCount);
-        float panelY = panelY(screenHeight, visibleRowCount);
+        float panelH = panelHeight(visibleRows);
+        float panelY = panelY(screenHeight, visibleRows);
+        float hudY = screenHeight - screenY;
+
+        // Math.floor, not a bare (int) cast: a cast truncates TOWARD ZERO, which would map a point
+        // less than one tile-step to the left of/above the grid to column/row 0 instead of a
+        // negative (and therefore correctly rejected) index.
+        int col = (int) Math.floor((screenX - (panelX + PADDING)) / (TILE_SIZE + TILE_GAP));
+        if (col < 0 || col >= COLUMNS || screenX > tileX(col, panelX) + TILE_SIZE) {
+            return -1; // left of the grid, right of it, or in the gap after this column's tile
+        }
+
+        float top = gridTop(panelY, panelH);
+        int row = (int) Math.floor((top - hudY) / (TILE_SIZE + TILE_GAP));
+        if (row < 0 || row >= visibleRows || hudY < tileY(panelY, panelH, row)) {
+            return -1; // above the grid, below it, or in the gap under this row's tile
+        }
+
+        int index = row * COLUMNS + col;
+        return index < visibleTileCount ? index : -1;
+    }
+
+    /** Whether {@code (screenX, screenY)} lands anywhere inside the panel at all — used to swallow a click that hit the panel but no specific tab/tile, so it doesn't leak into the world underneath. {@code visibleTileCount}, same reason as {@link #hitTestTab}. */
+    public static boolean isOverPanel(float screenX, float screenY, int screenWidth, int screenHeight, int visibleTileCount) {
+        int visibleRows = visibleTileRows(visibleTileCount);
+        float panelX = panelX(screenWidth);
+        float panelH = panelHeight(visibleRows);
+        float panelY = panelY(screenHeight, visibleRows);
         float hudY = screenHeight - screenY;
         return screenX >= panelX && screenX <= panelX + PANEL_WIDTH && hudY >= panelY && hudY <= panelY + panelH;
     }
