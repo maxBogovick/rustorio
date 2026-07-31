@@ -147,6 +147,16 @@ final class SimulationControls {
         return showBuildMenu;
     }
 
+    /** Current search text, pending menu click handling in {@code InputHandler} — same value {@link #hudState} hands the renderer. */
+    String buildMenuQuery() {
+        return searchQuery.toString();
+    }
+
+    /** Current raw category cycle, for {@code InputHandler}'s own click handling — see the field's own javadoc for why it's raw. */
+    int buildMenuCategoryCycle() {
+        return categoryCycle;
+    }
+
     /**
      * {@link InputHandler} supplies {@code selected}/{@code facing}/{@code dragTiles}/{@code
      * inspected}/{@code altOverlay}/{@code statsItem}/{@code hotbarSlots} — those are its own

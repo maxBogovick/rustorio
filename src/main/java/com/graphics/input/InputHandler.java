@@ -3,6 +3,7 @@ package com.graphics.input;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.graphics.GfxConfig;
+import com.graphics.render.BuildMenuLayout;
 import com.graphics.render.GameCamera;
 import com.graphics.render.HotbarLayout;
 import com.graphics.render.HudState;
@@ -22,6 +23,7 @@ import com.rustorio.domain.action.PlayerAction;
 import com.rustorio.domain.action.RemoveAction;
 import com.rustorio.domain.action.RotateAction;
 import com.rustorio.domain.action.UpgradeSpeedAction;
+import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Filter;
 import com.rustorio.domain.building.Furnace;
 import com.rustorio.domain.building.VanillaBuildings;
@@ -101,7 +103,12 @@ public final class InputHandler {
     public void handle(World world, float delta) {
         cameraController.handle(delta);
         simulationControls.handle();
-        if (simulationControls.showTechTree()) {
+        if (simulationControls.showBuildMenu()) {
+            // Меню построек открыто (B) — клик по строке списка закрепляет прототип в хотбар
+            // (Фаза 8), а не выбор здания цифрами/кликом по самому хотбару — то же самое
+            // разделение, что уже даёт дерево техов ниже.
+            handleBuildMenuClick(world);
+        } else if (simulationControls.showTechTree()) {
             // Дерево техов открыто (T) — цифры 1-9 выбирают тех для разблокировки (P-02,
             // DEV_TASKS.md), а не здание в хотбаре; иначе один и тот же нажатый «1» тихо делал бы
             // оба сразу.
