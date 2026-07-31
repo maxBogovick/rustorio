@@ -1,12 +1,16 @@
 package com.graphics.render;
 
-import com.rustorio.domain.BuildingType;
-
 /**
  * Геометрия панели построек: где на экране каждый слот, — И для отрисовки ({@link HudRenderer}),
  * И для попадания мышью ({@code com.graphics.input.InputHandler}, другой пакет — поэтому класс
  * публичный). Одна формула на оба потребителя: подвинь слот на экране в этом файле — клик и
  * картинка не разъедутся, потому что второго места с той же арифметикой просто нет.
+ *
+ * <p>С Фазы 8 число слотов — параметр каждого метода, а не {@code BuildingType.values().length}:
+ * хотбар теперь несёт НАСТРАИВАЕМЫЙ список закреплённых прототипов ({@code
+ * com.graphics.input.InputHandler}'s собственное состояние), а не фиксированную панель на все
+ * зарегистрированные здания сразу — при 60+ прототипах она физически не влезла бы. Полный список
+ * — в {@link BuildMenuRenderer}.
  */
 public final class HotbarLayout {
 
@@ -17,31 +21,17 @@ public final class HotbarLayout {
     /** Отступ панели от нижнего края экрана. */
     public static final float MARGIN_BOTTOM = 14f;
 
-    /**
-     * Число слотов, посчитанное один раз, не на каждый вызов {@link #count()} (P4-02,
-     * BUG_FIX_PROGRESS.md) — {@code BuildingType.values()} клонирует внутренний массив энума,
-     * а {@link #slotX} (через {@link #totalWidth}) зовёт {@code count()} дважды и сама
-     * вызывается до 27 раз за кадр из {@code HudRenderer} — 54 лишних клона на пустом месте.
-     */
-    private static final int COUNT = BuildingType.values().length;
-    private static final float TOTAL_WIDTH = COUNT * SLOT_SIZE + (COUNT - 1) * SLOT_GAP;
-
     private HotbarLayout() {
     }
 
-    /** Сколько слотов — по числу сортов построек. */
-    public static int count() {
-        return COUNT;
-    }
-
-    /** Суммарная ширина всей панели (слоты + зазоры между ними, без зазора по краям). */
-    public static float totalWidth() {
-        return TOTAL_WIDTH;
+    /** Суммарная ширина всей панели (слоты + зазоры между ними, без зазора по краям) при {@code slotCount} слотах. */
+    public static float totalWidth(int slotCount) {
+        return slotCount * SLOT_SIZE + (slotCount - 1) * SLOT_GAP;
     }
 
     /** X левого края слота {@code index} — панель отцентрована по ширине окна. */
-    public static float slotX(int index, int screenWidth) {
-        float startX = (screenWidth - totalWidth()) / 2f;
+    public static float slotX(int index, int screenWidth, int slotCount) {
+        float startX = (screenWidth - totalWidth(slotCount)) / 2f;
         return startX + index * (SLOT_SIZE + SLOT_GAP);
     }
 
@@ -55,15 +45,15 @@ public final class HotbarLayout {
      * {@code Gdx.input} (Y считается от ВЕРХА окна), а слоты рисуются в HUD-координатах (Y от
      * низа) — переворот сделан здесь, чтобы вызывающему не пришлось об этом помнить.
      *
-     * @return индекс в {@link BuildingType#values()}, или {@code -1}, если мимо всех слотов
+     * @return индекс слота (0..{@code slotCount}-1), или {@code -1}, если мимо всех слотов
      */
-    public static int hitTest(float screenX, float screenY, int screenWidth, int screenHeight) {
+    public static int hitTest(float screenX, float screenY, int screenWidth, int screenHeight, int slotCount) {
         float hudY = screenHeight - screenY;
         if (hudY < slotY() || hudY > slotY() + SLOT_SIZE) {
             return -1;
         }
-        for (int i = 0; i < count(); i++) {
-            float x = slotX(i, screenWidth);
+        for (int i = 0; i < slotCount; i++) {
+            float x = slotX(i, screenWidth, slotCount);
             if (screenX >= x && screenX <= x + SLOT_SIZE) {
                 return i;
             }

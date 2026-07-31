@@ -72,6 +72,17 @@ import org.jspecify.annotations.Nullable;
  * has. An incompatible shape change, not a gracefully-defaultable missing field (a pre-bump save's
  * two counts don't parse as a list at all) — the same "reject the whole snapshot" case the
  * {@code SplitterState} rename above already used this mechanism for.
+ *
+ * <p><b>Bumped an eighth time — the single format break the codec-based save design allows.</b> Every {@code
+ * PlacedBuilding} row changes shape completely: {@code speedLevel}/{@code BuildingMemento} (a
+ * sealed, Jackson-polymorphic type keyed by class name) are replaced by an explicit {@code
+ * prototypeId} plus a plain {@code state} value written by that prototype's own {@code Codec}.
+ * Not remotely gracefully-defaultable (an old save's building rows don't even have a {@code
+ * prototypeId} field, and its {@code state} was a type-tagged object, not a plain value) — exactly
+ * the "reject the whole snapshot" case this version check exists for. Per ADR-4's own rule, this
+ * is meant to be the LAST such break: any future change to a prototype's state SHAPE is supposed
+ * to travel as a migration function on that prototype (a later card), not another version bump
+ * here.
  */
 record WorldSnapshot(
         int version,
@@ -84,5 +95,5 @@ record WorldSnapshot(
         long tickCount) {
 
     /** Bump this whenever the save format changes — see the class javadoc's bump history. */
-    static final int CURRENT_VERSION = 7;
+    static final int CURRENT_VERSION = 8;
 }

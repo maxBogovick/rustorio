@@ -38,10 +38,10 @@ public final class Chest implements Building {
 
     private final Direction direction;
     // HashMap, not TreeMap: tick() below sorts a snapshot of the keys itself (deterministic
-    // output order without needing the map's own iteration order to be), and memento() hands
-    // this to BuildingMemento.ChestState, whose own compact constructor already re-sorts into a
-    // TreeMap for the canonical dump — sorting twice would be pure waste on Chest's own much
-    // hotter accept()/tick() path (a TreeMap here measurably regressed the benchmark).
+    // output order without needing the map's own iteration order to be), and state() hands this
+    // to ChestState, whose own compact constructor already re-sorts into a TreeMap for the
+    // canonical dump — sorting twice would be pure waste on Chest's own much hotter
+    // accept()/tick() path (a TreeMap here measurably regressed the benchmark).
     private final Map<ItemType, Integer> contents = new HashMap<>();
     /**
      * Running total across every kind in {@link #contents}, kept in step with it rather than summed
@@ -54,6 +54,8 @@ public final class Chest implements Building {
     private int storedCount;
     /** Recomputed once per {@link #tick}, not once per render frame — see {@link BuildingStatus}'s own javadoc for why (F-01, DEV_TASKS.md). */
     private BuildingStatus status = BuildingStatus.WORKING;
+    /** {@code UpgradeSpeedAction}'s upgrade count — see {@link #tick}'s own note on how it's applied. */
+    private int speedLevel;
 
     /** Convenience for call sites that only care about {@link #accept}, not output direction — same reasoning as {@code PlaceAction}'s no-direction overload. */
     public Chest() {
@@ -65,30 +67,34 @@ public final class Chest implements Building {
     }
 
     /**
-     * Package-private restore constructor used by {@link BuildingFactory#restore} — status isn't
-     * part of {@link BuildingMemento.ChestState} (it's ephemeral, recomputed on the next {@link
-     * #tick}, same call already made for every other building's status), so this always starts
-     * fresh at the default {@code WORKING}.
+     * Package-private restore constructor used by {@link BuildingFactory#restore} (via this
+     * prototype's own registered {@code RestoreFactory}) — status isn't part of {@link
+     * ChestState} (it's ephemeral, recomputed on the next {@link #tick}, same call already made
+     * for every other building's status), so this always starts fresh at the default {@code
+     * WORKING}. {@code speedLevel} IS part of {@link ChestState} (a plain field, since this
+     * phase's own flattening) — the caller reads it off the decoded state and passes it here.
      */
-    Chest(Direction direction, Map<ItemType, Integer> contents) {
-        this(direction, contents, BuildingStatus.WORKING);
+    Chest(Direction direction, Map<ItemType, Integer> contents, int speedLevel) {
+        this(direction, contents, BuildingStatus.WORKING, speedLevel);
     }
 
     /**
-     * The general form both the restore constructor above and {@link #rotatedClockwise} use —
-     * {@code rotatedClockwise} passes the CURRENT {@link #status} through (code review finding):
-     * unlike a save/load restore, a rotation doesn't create a new logical chest, so a chest that
-     * was actually {@code OUTPUT_FULL} must not flash back to {@code WORKING} — even for one tick
-     * — just because the player rotated it. {@code HudRenderer.alerts()} reads {@code
-     * World.statusCounts()} directly now, so a stale reset here is directly visible on the HUD.
+     * The general form the restore constructor above, {@link #rotatedClockwise} and {@link
+     * #withSpeedLevel} all use — the latter two pass the CURRENT {@link #status}/{@code speedLevel}
+     * through (code review finding): unlike a save/load restore, neither creates a new logical
+     * chest, so a chest that was actually {@code OUTPUT_FULL} must not flash back to {@code WORKING}
+     * — even for one tick — just because the player rotated or upgraded it. {@code
+     * HudRenderer.alerts()} reads {@code World.statusCounts()} directly now, so a stale reset here
+     * is directly visible on the HUD.
      */
-    private Chest(Direction direction, Map<ItemType, Integer> contents, BuildingStatus status) {
+    private Chest(Direction direction, Map<ItemType, Integer> contents, BuildingStatus status, int speedLevel) {
         this.direction = direction;
         this.contents.putAll(contents);
         for (int quantity : this.contents.values()) {
             storedCount += quantity;
         }
         this.status = status;
+        this.speedLevel = speedLevel;
     }
 
     @Override
@@ -101,9 +107,21 @@ public final class Chest implements Building {
         return true;
     }
 
-    /** Push one stored item (whichever kind comes first in {@code rawId} order) out through {@link #direction}. */
+    /**
+     * Runs {@link #tickOnce} {@code 1 << speedLevel} times — the same multiplier {@code
+     * SpeedModule} used to produce by nesting {@code speedLevel} independent wrapper layers, each
+     * doubling whatever it wrapped (owner decision: preserve the exact ×2^N stacking, not switch to
+     * a linear ×(1+N) just because the mechanism moved from a decorator to a field).
+     */
     @Override
     public void tick(TickContext world, int x, int y) {
+        for (int i = 0, repeats = 1 << speedLevel; i < repeats; i++) {
+            tickOnce(world, x, y);
+        }
+    }
+
+    /** Push one stored item (whichever kind comes first in {@code rawId} order) out through {@link #direction}. */
+    private void tickOnce(TickContext world, int x, int y) {
         // At capacity is a real problem worth surfacing (F-01, DEV_TASKS.md, §2.5 of the audit's
         // own "заполненный ящик — тоже OUTPUT_FULL" note) — computed here, not in accept()/appearance(),
         // since only tick() has both the current contents AND TickContext (for BIG_BUFFER) at once.
@@ -216,7 +234,17 @@ public final class Chest implements Building {
 
     @Override
     public Optional<Building> rotatedClockwise() {
-        return Optional.of(new Chest(direction.rotate(), contents, status));
+        return Optional.of(new Chest(direction.rotate(), contents, status, speedLevel));
+    }
+
+    @Override
+    public int speedLevel() {
+        return speedLevel;
+    }
+
+    @Override
+    public Building withSpeedLevel(int newSpeedLevel) {
+        return new Chest(direction, contents, status, newSpeedLevel);
     }
 
     @Override
@@ -225,7 +253,7 @@ public final class Chest implements Building {
     }
 
     @Override
-    public BuildingMemento memento() {
-        return new BuildingMemento.ChestState(direction, contents);
+    public ChestState state() {
+        return new ChestState(direction, contents, speedLevel);
     }
 }

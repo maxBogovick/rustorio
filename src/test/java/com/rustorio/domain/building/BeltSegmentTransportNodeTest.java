@@ -18,14 +18,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * a class that is NOT {@link Belt} — and does not even implement {@link Building} — cascades cargo
  * through the SAME segment as a real {@link Belt}, tile for tile.
  *
- * <p>Deliberately does NOT go through {@code World}/{@code BuildingFactory.create}: {@link
- * Building} is still {@code sealed} at this point in the plan (opening it is a later card), so no
- * class outside its {@code permits} list can implement {@link Building} yet — a full "placed and
- * ticked through the real world" proof, with a genuinely new {@link Building}, has to wait for that.
- * {@link BeltSegment} itself, though, only ever asks for {@link TransportNode} — it doesn't care
- * whether a tile is a {@link Building} at all — so this test exercises exactly the part of the
- * mechanism this card actually generalizes, without waiting on the unrelated card that opens
- * {@link Building} up.
+ * <p>Deliberately does NOT go through {@code World}/{@code BuildingFactory.create}: at the time
+ * this test was written, {@link Building} was still {@code sealed}, so no class outside its {@code
+ * permits} list could implement it at all — this test predates {@code Building} opening up (a
+ * later card in the same phase). {@link BeltSegment} itself only ever asks for {@link
+ * TransportNode} — it doesn't care whether a tile is a {@link Building} at all — so this test
+ * exercises exactly the part of the mechanism this card generalizes, without depending on the
+ * unrelated card that opens {@link Building} up.
  */
 class BeltSegmentTransportNodeTest {
 

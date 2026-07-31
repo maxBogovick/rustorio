@@ -1,0 +1,9 @@
+{
+  "path": "belt",
+  "label": "Belt",
+  "archetype": "BELT",
+  "cost": { "item": "iron_plate", "amount": 1 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:belt_empty",
+  "acceptsSpeedEffects": false
+}

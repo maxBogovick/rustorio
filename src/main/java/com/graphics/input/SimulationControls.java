@@ -4,7 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.graphics.render.HudState;
 import com.graphics.render.TilePos;
-import com.rustorio.domain.BuildingType;
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import java.util.List;
@@ -48,6 +48,13 @@ final class SimulationControls {
      */
     private boolean showStats;
 
+    /**
+     * Открыто ли меню построек (Фаза 8) — {@code B} переключает. Тот же чистый показ-без-побочных-
+     * эффектов, что у остальных панелей; {@link InputHandler} перенаправляет ввод текста поиска и
+     * клики по списку, пока открыто.
+     */
+    private boolean showBuildMenu;
+
     void handle() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
             paused = !paused;
@@ -69,6 +76,10 @@ final class SimulationControls {
         // Экран статистики (V, P-03, DEV_TASKS.md): тот же чистый переключатель показа.
         if (Gdx.input.isKeyJustPressed(Input.Keys.V)) {
             showStats = !showStats;
+        }
+        // Меню построек (B, Фаза 8): тот же чистый переключатель показа.
+        if (Gdx.input.isKeyJustPressed(Input.Keys.B)) {
+            showBuildMenu = !showBuildMenu;
         }
     }
 
@@ -92,13 +103,18 @@ final class SimulationControls {
         return showStats;
     }
 
+    boolean showBuildMenu() {
+        return showBuildMenu;
+    }
+
     /**
      * {@link InputHandler} supplies {@code selected}/{@code facing}/{@code dragTiles}/{@code
-     * inspected}/{@code altOverlay}/{@code statsItem} — those are its own business, not ours.
+     * inspected}/{@code altOverlay}/{@code statsItem}/{@code hotbarSlots} — those are its own
+     * business, not ours.
      */
-    HudState hudState(BuildingType selected, Direction facing, List<TilePos> dragTiles, @Nullable TilePos inspected,
-            boolean altOverlay, ItemType statsItem) {
+    HudState hudState(ContentId selected, Direction facing, List<TilePos> dragTiles, @Nullable TilePos inspected,
+            boolean altOverlay, ItemType statsItem, List<ContentId> hotbarSlots) {
         return new HudState(selected, facing, paused, speed(), showRecipeBook, showTechTree, dragTiles, inspected,
-                altOverlay, showStats, statsItem);
+                altOverlay, showStats, statsItem, hotbarSlots, showBuildMenu);
     }
 }

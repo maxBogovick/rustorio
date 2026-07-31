@@ -1,0 +1,9 @@
+{
+  "path": "inserter",
+  "label": "Inserter",
+  "archetype": "INSERTER",
+  "cost": { "item": "iron_plate", "amount": 2 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:inserter",
+  "acceptsSpeedEffects": false
+}

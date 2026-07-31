@@ -44,9 +44,14 @@ class WorldStateHashDeterminismTest {
      *
      * <p>Updated again: same reason as {@link WorldReplayTest#EXPECTED_HASH}'s latest entry —
      * {@code bufferA}/{@code bufferB} became a {@code buffers} list. Format change, not behavior.
+     *
+     * <p>Updated again (E6-03, codec-based save format): same reason as {@link
+     * WorldReplayTest#EXPECTED_HASH}'s latest entry — {@code canonicalState} now prints each
+     * building's own state record directly instead of the old {@code BuildingMemento} wrapper.
+     * Format change, not a behavior one.
      */
     private static final String EXPECTED_HASH =
-            "5b0224f2838c4ddc5b828a9d24b5450da063dec1138473deccdd54b502fc294b";
+            "114e4b99d410d78aabe4e4e9467c55fb783827d97d28a47bb8df37d5b8b9eda7";
 
     @Test
     void sameSceneHashedTwiceInOneJvmLaunchProducesIdenticalHash() {

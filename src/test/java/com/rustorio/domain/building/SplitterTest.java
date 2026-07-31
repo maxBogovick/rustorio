@@ -169,8 +169,8 @@ class SplitterTest {
         Splitter original = new Splitter(Direction.UP);
         original.accept(null, VanillaItems.GEAR);
 
-        BuildingMemento.SplitterState memento = (BuildingMemento.SplitterState) original.memento();
-        Splitter reloaded = new Splitter(memento.facing(), memento.held(), memento.nextIsForward());
+        SplitterState state = (SplitterState) original.state();
+        Splitter reloaded = new Splitter(state.facing(), state.held(), state.nextIsForward());
 
         assertEquals(Optional.of(Direction.UP), reloaded.outputDirection());
         assertEquals(Optional.of(VanillaItems.GEAR), reloaded.heldItem());
@@ -180,8 +180,8 @@ class SplitterTest {
     void saveAndLoadRoundTripPreservesEmptyCargo() {
         Splitter original = new Splitter(Direction.LEFT);
 
-        BuildingMemento.SplitterState memento = (BuildingMemento.SplitterState) original.memento();
-        Splitter reloaded = new Splitter(memento.facing(), memento.held(), memento.nextIsForward());
+        SplitterState state = (SplitterState) original.state();
+        Splitter reloaded = new Splitter(state.facing(), state.held(), state.nextIsForward());
 
         assertEquals(Optional.of(Direction.LEFT), reloaded.outputDirection());
         assertEquals(Optional.empty(), reloaded.heldItem());
@@ -197,8 +197,8 @@ class SplitterTest {
         splitter.accept(world, VanillaItems.IRON_ORE);
         world.tick(); // delivers forward, flips nextIsForward to false
 
-        BuildingMemento.SplitterState memento = (BuildingMemento.SplitterState) splitter.memento();
+        SplitterState state = (SplitterState) splitter.state();
 
-        assertEquals(false, memento.nextIsForward(), "after one forward delivery, the NEXT item must be assigned to the secondary side");
+        assertEquals(false, state.nextIsForward(), "after one forward delivery, the NEXT item must be assigned to the secondary side");
     }
 }

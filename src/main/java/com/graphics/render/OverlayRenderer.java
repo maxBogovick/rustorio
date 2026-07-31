@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
+import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
@@ -15,7 +16,9 @@ import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingCost;
+import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Chest;
+import com.rustorio.domain.building.PlacementRule;
 import com.rustorio.domain.building.UndergroundBelt;
 import com.rustorio.domain.world.World;
 import java.util.List;
@@ -101,9 +104,6 @@ final class OverlayRenderer {
         world.forEachBuildingIn(minX, minY, maxX, maxY, (x, y, building) -> {
             float cx = grid.x(x) + tile / 2f;
             float cy = grid.yBottom(y) + tile / 2f;
-            // building.outputDirection(), не Building.unwrap(building).outputDirection(): метод
-            // интерфейсный, а SpeedModule обязан (и делегирует, см. его javadoc) отвечать за
-            // обёрнутое здание сам.
             building.outputDirection().ifPresent(direction -> drawArrow(cx, cy, direction, tile));
             building.secondaryOutputDirection().ifPresent(direction -> drawArrow(cx, cy, direction, tile));
         });
@@ -112,10 +112,7 @@ final class OverlayRenderer {
         shapes.begin(ShapeRenderer.ShapeType.Line);
         shapes.setColor(Palette.T_BAD);
         world.forEachBuildingIn(minX, minY, maxX, maxY, (x, y, building) -> {
-            // Building.unwrap: an upgraded entrance sits in the map as a SpeedModule — without
-            // unwrapping, this highlight would silently stop working on it (see the javadoc on
-            // UndergroundBelt#findPartner).
-            if (Building.unwrap(building) instanceof UndergroundBelt in
+            if (building instanceof UndergroundBelt in
                     && in.type() == BuildingType.UNDERGROUND_IN
                     && in.findPartner(world, x, y).isEmpty()) {
                 shapes.rect(grid.x(x), grid.yBottom(y), tile, tile);
@@ -156,7 +153,7 @@ final class OverlayRenderer {
         if (status != BuildingStatus.WORKING) {
             sb.append(status).append(' ');
         }
-        if (Building.unwrap(building) instanceof Chest chest) {
+        if (building instanceof Chest chest) {
             for (ItemType item : items.iterate()) {
                 int amount = chest.amount(item);
                 if (amount > 0) {
@@ -210,13 +207,14 @@ final class OverlayRenderer {
                 ? hud.dragTiles()
                 : List.of(camera.pickTile(Gdx.input.getX(), Gdx.input.getY()));
 
-        BuildingType type = hud.selected();
-        boolean[] afford = affordability(world, type, tiles);
+        ContentId type = hud.selected();
+        BuildingPrototype prototype = world.buildingFactory().prototype(type);
+        boolean[] afford = affordability(world, prototype, tiles);
 
         float tile = GfxConfig.TILE;
-        float footprintW = tile * type.footprintWidth();
-        float footprintH = tile * type.footprintHeight();
-        TextureRegion region = textures.forSprite(world.buildingFactory().prototype(type).texture());
+        float footprintW = tile * prototype.footprintWidth();
+        float footprintH = tile * prototype.footprintHeight();
+        TextureRegion region = textures.forSprite(prototype.texture());
         batch.begin();
         batch.setColor(1f, 1f, 1f, 0.55f);
         for (TilePos t : tiles) {
@@ -225,10 +223,10 @@ final class OverlayRenderer {
         batch.setColor(Color.WHITE);
         if (!dragging) {
             TilePos t = tiles.get(0);
-            if (!(canPlaceHere(world, type, t.x(), t.y()) && afford[0])) {
+            if (!(canPlaceHere(world, prototype, t.x(), t.y()) && afford[0])) {
                 font.getData().setScale(0.6f);
                 font.setColor(Palette.GHOST_INVALID);
-                font.draw(batch, reasonInvalid(world, type, t.x(), t.y()), grid.x(t.x()), grid.yBottom(t.y()) + footprintH + 14f);
+                font.draw(batch, reasonInvalid(world, prototype, t.x(), t.y()), grid.x(t.x()), grid.yBottom(t.y()) + footprintH + 14f);
                 font.getData().setScale(1f);
                 font.setColor(Color.WHITE);
             }
@@ -238,7 +236,7 @@ final class OverlayRenderer {
         shapes.begin(ShapeRenderer.ShapeType.Line);
         for (int i = 0; i < tiles.size(); i++) {
             TilePos t = tiles.get(i);
-            shapes.setColor(canPlaceHere(world, type, t.x(), t.y()) && afford[i]
+            shapes.setColor(canPlaceHere(world, prototype, t.x(), t.y()) && afford[i]
                     ? Palette.GHOST_VALID : Palette.GHOST_INVALID);
             shapes.rect(grid.x(t.x()), grid.yBottom(t.y()), footprintW, footprintH);
         }
@@ -246,15 +244,15 @@ final class OverlayRenderer {
     }
 
     /**
-     * The specific reason {@code type} can't go at {@code (x, y)} right now — a live bug report:
-     * the red outline alone couldn't tell "occupied" from "no ore here" from "can't afford it."
-     * Checked in the same order {@link #canPlaceHere}/{@code World.place} itself would fail — the
-     * first one that's actually wrong is the one reported, not every problem at once.
+     * The specific reason {@code prototype} can't go at {@code (x, y)} right now — a live bug
+     * report: the red outline alone couldn't tell "occupied" from "no ore here" from "can't afford
+     * it." Checked in the same order {@link #canPlaceHere}/{@code World.place} itself would fail —
+     * the first one that's actually wrong is the one reported, not every problem at once.
      */
     /** Package-private (not private) so a headless test can call it directly — pure logic, no libGDX, same reason as {@link #infoLine}. */
-    static String reasonInvalid(World world, BuildingType type, int x, int y) {
-        int w = type.footprintWidth();
-        int h = type.footprintHeight();
+    static String reasonInvalid(World world, BuildingPrototype prototype, int x, int y) {
+        int w = prototype.footprintWidth();
+        int h = prototype.footprintHeight();
         for (int dx = 0; dx < w; dx++) {
             for (int dy = 0; dy < h; dy++) {
                 int cx = x + dx;
@@ -271,10 +269,13 @@ final class OverlayRenderer {
         if (!oreLayout.isPassable(x, y)) {
             return "impassable terrain";
         }
-        if (type == BuildingType.MINER && !oreLayout.hasOre(x, y)) {
+        // Compares the RULE itself, not a BuildingType — any prototype (vanilla MINER or a modded
+        // one) registered with the "needs ore" rule gets the same specific message, not just the
+        // one closed constant this used to name explicitly.
+        if (prototype.placementRule() == PlacementRule.NEEDS_ORE && !oreLayout.hasOre(x, y)) {
             return "no ore here";
         }
-        BuildingCost cost = world.buildingFactory().prototype(type).cost();
+        BuildingCost cost = prototype.cost();
         int have = world.inventory().amount(cost.item());
         if (have < cost.amount()) {
             return "need " + cost.amount() + " " + cost.item().label() + " (have " + have + ")";
@@ -286,22 +287,23 @@ final class OverlayRenderer {
     }
 
     /**
-     * Whether {@code type} can afford to be placed at each of {@code tiles}, IN ORDER — a running
-     * balance, not each cell checked against the player's full current stock independently: {@code
-     * CompositeAction} spends one {@code PlaceAction} at a time as it walks the same list on
-     * release, so a five-tile belt line the player can only afford three of must show exactly the
-     * first three as buildable, not all five (each independently affordable) or none (the total
-     * unaffordable). A cell that fails the geometry check contributes nothing to the running
-     * balance — a failed {@code PlaceAction} refunds immediately, so it never actually spends.
+     * Whether {@code prototype} can afford to be placed at each of {@code tiles}, IN ORDER — a
+     * running balance, not each cell checked against the player's full current stock
+     * independently: {@code CompositeAction} spends one {@code PlaceAction} at a time as it walks
+     * the same list on release, so a five-tile belt line the player can only afford three of must
+     * show exactly the first three as buildable, not all five (each independently affordable) or
+     * none (the total unaffordable). A cell that fails the geometry check contributes nothing to
+     * the running balance — a failed {@code PlaceAction} refunds immediately, so it never actually
+     * spends.
      */
-    private static boolean[] affordability(World world, BuildingType type, List<TilePos> tiles) {
-        BuildingCost cost = world.buildingFactory().prototype(type).cost();
+    private static boolean[] affordability(World world, BuildingPrototype prototype, List<TilePos> tiles) {
+        BuildingCost cost = prototype.cost();
         ItemType item = cost.item();
         int remaining = world.inventory().amount(item);
         boolean[] afford = new boolean[tiles.size()];
         for (int i = 0; i < tiles.size(); i++) {
             TilePos t = tiles.get(i);
-            if (!canPlaceHere(world, type, t.x(), t.y())) {
+            if (!canPlaceHere(world, prototype, t.x(), t.y())) {
                 afford[i] = true; // a blocked cell doesn't itself cost anything — see the javadoc above
                 continue;
             }
@@ -321,19 +323,20 @@ final class OverlayRenderer {
      * do nothing, since {@code World.place} itself checks every cell.
      *
      * <p>Package-private, not {@code private} (A4, CODE_REVIEW_2026-07-28.md): this is the one
-     * piece of the ghost that's pure {@code World}/{@code BuildingType} arithmetic with no libGDX
-     * involved, so {@code OverlayRendererGhostTest} (same package) calls it directly to pin down
-     * that it never again drifts out of sync with {@link World#place}, without needing a windowed
-     * environment to construct an {@code OverlayRenderer} at all.
+     * piece of the ghost that's pure {@code World}/{@code BuildingPrototype} arithmetic with no
+     * libGDX involved, so {@code OverlayRendererGhostTest} (same package) calls it directly to pin
+     * down that it never again drifts out of sync with {@link World#place}, without needing a
+     * windowed environment to construct an {@code OverlayRenderer} at all.
      */
-    static boolean canPlaceHere(World world, BuildingType type, int x, int y) {
-        int w = type.footprintWidth();
-        int h = type.footprintHeight();
+    static boolean canPlaceHere(World world, BuildingPrototype prototype, int x, int y) {
+        int w = prototype.footprintWidth();
+        int h = prototype.footprintHeight();
         for (int dx = 0; dx < w; dx++) {
             for (int dy = 0; dy < h; dy++) {
                 int cx = x + dx;
                 int cy = y + dy;
-                if (!world.inBounds(cx, cy) || !world.isFree(cx, cy) || !world.buildingFactory().canPlace(type, cx, cy)) {
+                if (!world.inBounds(cx, cy) || !world.isFree(cx, cy)
+                        || !world.buildingFactory().canPlace(prototype.id(), cx, cy)) {
                     return false;
                 }
             }

@@ -3,6 +3,7 @@ package com.rustorio.persistence;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayoutId;
@@ -25,11 +26,14 @@ import java.util.Map;
  * {@link SaveRepository} backed by a human-readable JSON file, via the Jackson databind dependency
  * this project already declares.
  *
- * <p>Replaces the previous hand-rolled, position-based text format (one space-separated line per
- * building, each building parsing and re-parsing its own fields) with typed {@link
- * com.rustorio.domain.building.BuildingMemento} records that Jackson serializes directly — a
- * malformed save now fails with a precise Jackson exception naming the field and building index
- * that didn't match, instead of an {@code ArrayIndexOutOfBoundsException} from a hand-split line.
+ * <p>Each building's row is {@code {"x":.., "y":.., "prototypeId":.., "state": {...}}} — {@code
+ * state} is always a plain JSON-shaped value (a {@code Map}, ultimately), produced by that
+ * building's own governing {@code BuildingPrototype}'s {@code Codec}, so Jackson serializes it
+ * directly with no custom (de)serializer of its own needed, the same way it already handles any
+ * other {@code Map}. A malformed save fails with a precise Jackson exception naming the field and
+ * building index that didn't match, instead of an {@code ArrayIndexOutOfBoundsException} from a
+ * hand-split line — the property this format has had since it first replaced the old space-
+ * separated text one.
  */
 public final class JsonSaveRepository implements SaveRepository {
 
@@ -38,6 +42,7 @@ public final class JsonSaveRepository implements SaveRepository {
 
     private final Path path;
     private final ObjectMapper mapper;
+    private final Map<ContentId, ContentId> prototypeRenames;
 
     public JsonSaveRepository() {
         this(DEFAULT_PATH);
@@ -56,14 +61,31 @@ public final class JsonSaveRepository implements SaveRepository {
      * with additional registered content needs to pass a registry that includes it too.
      */
     public JsonSaveRepository(Path path, Registry<ItemType> items) {
+        this(path, items, Map.of());
+    }
+
+    /**
+     * {@code prototypeRenames} (E6-05, ADR-4) — {@code oldId -> newId}, for a prototype a mod
+     * renamed between the save being written and now. Applied to a save's own {@code prototypeId}
+     * exactly once per row, BEFORE the row is resolved against the current registry (so a renamed
+     * prototype never looks "missing" the way {@link SaveResult.PartialSuccess} would otherwise
+     * report it) — see {@link #load} for where. A single lookup, not a followed chain: a rule
+     * fires at most once per row per load, which is what makes "applied exactly once" true by
+     * construction rather than by a separately tracked mark. Empty ({@code Map.of()}, the other
+     * constructors' default) is exactly correct for a game applying no renames.
+     */
+    public JsonSaveRepository(Path path, Registry<ItemType> items, Map<ContentId, ContentId> prototypeRenames) {
         this.path = path;
         this.mapper = newMapper(items);
+        this.prototypeRenames = Map.copyOf(prototypeRenames);
     }
 
     private static ObjectMapper newMapper(Registry<ItemType> items) {
         ObjectMapper mapper = new ObjectMapper();
         mapper.enable(SerializationFeature.INDENT_OUTPUT);
-        mapper.addMixIn(com.rustorio.domain.building.BuildingMemento.class, BuildingMementoMixin.class);
+        // No mixin for building state anymore: PlacedBuilding.state is always a plain Map/List/
+        // String/number/Boolean (whatever a Codec produced), which Jackson already knows how to
+        // (de)serialize with zero custom code — that's the entire point of the Codec design.
         // ItemType replaced the Item enum — Jackson serialized an enum
         // both as a plain value and as a Map key via name() for free; a record needs both an
         // explicit (de)serializer AND a key (de)serializer instead (see ItemTypeSerializer's
@@ -83,9 +105,13 @@ public final class JsonSaveRepository implements SaveRepository {
      */
     @Override
     public SaveResult save(World world) {
+        BuildingFactory factory = world.buildingFactory();
         List<PlacedBuilding> placed = new ArrayList<>();
-        world.forEachBuilding((x, y, building) ->
-                placed.add(new PlacedBuilding(x, y, building.speedLevel(), building.memento())));
+        world.forEachBuilding((x, y, building) -> {
+            ContentId prototypeId = building.prototypeId();
+            Object encodedState = factory.prototype(prototypeId).encodeState(building.state());
+            placed.add(new PlacedBuilding(x, y, prototypeId, encodedState));
+        });
         WorldSnapshot snapshot = new WorldSnapshot(WorldSnapshot.CURRENT_VERSION,
                 world.stats().snapshot(), world.research().snapshot(), placed,
                 world.buildingFactory().oreLayout().id(),
@@ -152,6 +178,18 @@ public final class JsonSaveRepository implements SaveRepository {
      * WorldSnapshot#version()} must match {@link WorldSnapshot#CURRENT_VERSION} — see that
      * record's own javadoc for why a plain equality check replaces a growing pile of {@code
      * @Nullable} migration fields.
+     *
+     * <p>One deliberate exception to "phase 1 failures reject the whole save": a {@code
+     * prototypeId} absent from {@code world}'s own {@link BuildingFactory} registry (its mod was
+     * removed) doesn't fail phase 1 at all — that one row is skipped (its cell stays empty) and
+     * its id collected into the {@link SaveResult.PartialSuccess} phase 2 returns instead of a
+     * plain {@link SaveResult.Success}. This is content merely being ABSENT, not a save that's
+     * unreadable or self-contradictory — the two failure classes {@code BuildingFactory#restore}
+     * can still throw (bad recipe, corrupted state shape) stay hard failures exactly as before.
+     *
+     * <p>Checked first of all, before even that: {@link #prototypeRenames} rewrites a row's own
+     * {@code prototypeId} to whatever a mod renamed it to (E6-05, ADR-4) — so a prototype that's
+     * merely renamed, not gone, never gets reported as missing at all.
      */
     @Override
     public SaveResult load(World world) {
@@ -174,9 +212,28 @@ public final class JsonSaveRepository implements SaveRepository {
         }
 
         List<Map.Entry<PlacedBuilding, Building>> rebuilt = new ArrayList<>();
+        List<ContentId> missingPrototypeIds = new ArrayList<>();
+        int buildingsSkipped = 0;
         try {
             for (PlacedBuilding placed : snapshot.buildings()) {
-                Building building = factory.restore(placed.state(), placed.speedLevel());
+                // Renamed prototype (E6-05, ADR-4): a single table lookup, applied before the
+                // missing-prototype check below, so a prototype a mod renamed resolves under its
+                // NEW id instead of being reported as missing under the stale one.
+                ContentId resolvedId = prototypeRenames.getOrDefault(placed.prototypeId(), placed.prototypeId());
+
+                // A prototype absent from the CURRENT registry means its mod was removed since
+                // this save was written (E6-04, ADR-4) — not the same failure as a memento/state
+                // shape the codec can't parse, which still fails the whole load below. Skipped, not
+                // rejected: every OTHER building still loads, the cell just stays empty, and the
+                // loss is reported rather than silently dropped.
+                if (factory.prototypeOrUnknown(resolvedId).isEmpty()) {
+                    buildingsSkipped++;
+                    if (!missingPrototypeIds.contains(resolvedId)) {
+                        missingPrototypeIds.add(resolvedId);
+                    }
+                    continue;
+                }
+                Building building = factory.restore(resolvedId, placed.state());
                 rebuilt.add(new AbstractMap.SimpleEntry<>(placed, building));
             }
         } catch (RuntimeException e) {
@@ -230,7 +287,9 @@ public final class JsonSaveRepository implements SaveRepository {
         for (Map.Entry<PlacedBuilding, Building> entry : rebuilt) {
             world.restoreBuilding(entry.getKey().x(), entry.getKey().y(), entry.getValue());
         }
-        return new SaveResult.Success();
+        return missingPrototypeIds.isEmpty()
+                ? new SaveResult.Success()
+                : new SaveResult.PartialSuccess(List.copyOf(missingPrototypeIds), buildingsSkipped);
     }
 
     /**

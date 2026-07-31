@@ -100,8 +100,8 @@ class InserterTest {
         Inserter original = new Inserter(Direction.LEFT);
         original.accept(null, VanillaItems.CHASSIS);
 
-        BuildingMemento.InserterState memento = (BuildingMemento.InserterState) original.memento();
-        Inserter reloaded = new Inserter(memento.direction(), memento.held());
+        InserterState state = (InserterState) original.state();
+        Inserter reloaded = new Inserter(state.direction(), state.held());
 
         assertEquals(Optional.of(Direction.LEFT), reloaded.outputDirection());
         assertEquals(Optional.of(VanillaItems.CHASSIS), reloaded.heldItem());

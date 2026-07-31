@@ -58,13 +58,15 @@ public final class Lab implements Building {
     private final RecipeBook recipeBook;
     private final Deque<ItemType> buffer = new ArrayDeque<>();
     private @Nullable ProcessTimer timer;
+    /** {@code UpgradeSpeedAction}'s upgrade count — see {@link #tick}'s own note on how it's applied. */
+    private int speedLevel;
 
     public Lab(RecipeBook recipeBook) {
         this.recipeBook = recipeBook;
     }
 
-    /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Lab(RecipeBook recipeBook, List<ItemType> buffer, int cooldown) {
+    /** Package-private restore constructor used by {@link BuildingFactory#restore}. {@code speedLevel} lives outside the memento (see {@link BuildingFactory#restore}'s own javadoc) — passed in separately, not read from state. */
+    Lab(RecipeBook recipeBook, List<ItemType> buffer, int cooldown, int speedLevel) {
         this(recipeBook);
         this.buffer.addAll(buffer);
         if (!this.buffer.isEmpty()) {
@@ -74,6 +76,7 @@ public final class Lab implements Building {
             // reset picks the adjusted value up anyway (see tick).
             this.timer = new ProcessTimer(cooldown > 0 ? cooldown : RESEARCH_TIME);
         }
+        this.speedLevel = speedLevel;
     }
 
     @Override
@@ -88,8 +91,20 @@ public final class Lab implements Building {
         return true;
     }
 
+    /**
+     * Runs {@link #tickOnce} {@code 1 << speedLevel} times — the same multiplier {@code
+     * SpeedModule} used to produce by nesting {@code speedLevel} independent wrapper layers, each
+     * doubling whatever it wrapped (owner decision: preserve the exact ×2^N stacking, not switch to
+     * a linear ×(1+N) just because the mechanism moved from a decorator to a field).
+     */
     @Override
     public void tick(TickContext world, int x, int y) {
+        for (int i = 0, repeats = 1 << speedLevel; i < repeats; i++) {
+            tickOnce(world, x, y);
+        }
+    }
+
+    private void tickOnce(TickContext world, int x, int y) {
         ProcessTimer current = timer;
         if (buffer.isEmpty() || current == null) {
             return;
@@ -147,8 +162,19 @@ public final class Lab implements Building {
     }
 
     @Override
-    public BuildingMemento memento() {
+    public LabState state() {
         ProcessTimer current = timer;
-        return new BuildingMemento.LabState(List.copyOf(buffer), current == null ? 0 : current.cooldown());
+        return new LabState(List.copyOf(buffer), current == null ? 0 : current.cooldown(), speedLevel);
+    }
+
+    @Override
+    public int speedLevel() {
+        return speedLevel;
+    }
+
+    @Override
+    public Building withSpeedLevel(int newSpeedLevel) {
+        ProcessTimer current = timer;
+        return new Lab(recipeBook, List.copyOf(buffer), current == null ? 0 : current.cooldown(), newSpeedLevel);
     }
 }

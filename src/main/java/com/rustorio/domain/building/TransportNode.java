@@ -9,15 +9,21 @@ import org.jspecify.annotations.Nullable;
  * BeltSegment#tick} cascades cargo across several tiles in one pass, deliberately bypassing {@link
  * Building#accept}/{@link Building#heldItem()} (an intra-segment move must NOT count as "arrived
  * this tick", or the cross-segment double-move guard breaks — see {@link Belt#arrivedThisTick}).
- * Public (unlike {@link SettlesEachTick}) because {@code com.rustorio.domain.world.World} needs to
- * name this type at its own belt-neighbor lookup sites — not because it's meant as a general
- * public capability; see the cargo mutator methods' own javadoc below.
+ * Ordinary code still reads cargo through {@link Building#heldItem()} same as always — this
+ * interface exists only so {@link BeltSegment} can hold and cascade across tiles of a type other
+ * than {@link Belt} itself; {@link UndergroundBelt} does NOT implement it — it never joins a
+ * segment, each entrance finds its own exit by direct search instead (see {@link
+ * UndergroundBelt#findPartner}).
  *
- * <p>Not a general-purpose capability: ordinary code reads cargo through {@link
- * Building#heldItem()} same as always. This interface exists only so {@link BeltSegment} can hold
- * and cascade across tiles of a type other than {@link Belt} itself; {@link UndergroundBelt} does
- * NOT implement it — it never joins a segment, each entrance finds its own exit by direct search
- * instead (see {@link UndergroundBelt#findPartner}).
+ * <p>Genuinely a moddable capability — a class living outside this package can implement
+ * it, exactly like {@link Building} itself (see the phase's own acceptance capstone). That needed
+ * {@link BeltSegment} and {@link SettlesEachTick} to become {@code public} too: this interface's
+ * own methods reference {@link BeltSegment} in their signatures, and {@code TickScheduler} clears
+ * arrival marks by {@code instanceof SettlesEachTick} — a foreign implementer can't satisfy either
+ * without being able to name both types. Was originally public only incidentally (for {@code
+ * com.rustorio.domain.world.World}'s own belt-neighbor lookups, before mods implementing it was
+ * even possible) — that history is why the cargo mutator methods below still read "public only
+ * because the interface requires it," not "meant for general callers."
  */
 public interface TransportNode {
 
@@ -74,5 +80,27 @@ public interface TransportNode {
         } else {
             new BeltSegment(direction()).addHead(this); // no transport neighbors — a fresh one-tile segment
         }
+    }
+
+    /**
+     * Drive this tile's {@link Building#tick}: only the segment's TAIL does anything (every other
+     * tile's own call is a no-op), because the whole run advances together in one {@link
+     * BeltSegment#tick} pass rather than each tile pushing independently — see {@link BeltSegment}'s
+     * own javadoc for why. A {@code default} method, same reasoning as {@link #attachToNeighbors}:
+     * expressed entirely in terms of this interface's own {@link #direction()}/{@link #segment()},
+     * so {@link BeltSegment}'s own package-private {@code isTail}/{@code size}/{@code tick} methods
+     * never need to be public themselves — a {@link TransportNode} implementer living OUTSIDE this
+     * package (a mod) calls this from its own {@code Building.tick()} override instead of reaching
+     * into those internals directly, which it structurally can't do from another package. {@link
+     * Belt#tick} itself calls this too, rather than duplicating the logic.
+     */
+    default void tickSegment(TickContext world, int x, int y) {
+        BeltSegment mySegment = segment();
+        if (!mySegment.isTail(this)) {
+            return;
+        }
+        int exitX = x + direction().dx() * mySegment.size();
+        int exitY = y + direction().dy() * mySegment.size();
+        mySegment.tick(item -> world.offerForward(exitX, exitY, item));
     }
 }

@@ -169,4 +169,24 @@ class RegistryTest {
         assertFalse(registry.updateLog().contains(IRON_ORE));
         assertTrue(registry.updateLog().isEmpty());
     }
+
+    @Test
+    void peekWorksBeforeFreezeUnlikeGetOrUnknown() {
+        Registry<String> registry = new Registry<>();
+        registry.register(IRON_ORE, "Iron Ore");
+
+        assertEquals("Iron Ore", registry.peek(IRON_ORE).orElseThrow(),
+                "peek must answer while registration is still open, for a mod resolving another mod's content mid-round");
+        assertTrue(registry.peek(COAL).isEmpty());
+    }
+
+    @Test
+    void peekStillWorksAfterFreeze() {
+        Registry<String> registry = new Registry<>();
+        registry.register(IRON_ORE, "Iron Ore");
+        registry.freeze();
+
+        assertEquals("Iron Ore", registry.peek(IRON_ORE).orElseThrow());
+        assertTrue(registry.peek(COAL).isEmpty());
+    }
 }

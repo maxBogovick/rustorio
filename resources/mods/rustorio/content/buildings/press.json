@@ -1,0 +1,11 @@
+{
+  "path": "press",
+  "label": "Press",
+  "archetype": "PRESS",
+  "cost": { "item": "iron_plate", "amount": 8 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:furnace_cold",
+  "bufferMax": 5,
+  "speedMultiplier": 1,
+  "acceptsSpeedEffects": true
+}

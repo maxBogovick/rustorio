@@ -90,6 +90,27 @@ class MinerTest {
         }
     }
 
+    /**
+     * (E5-05, owner decision) {@code speedLevel} must still yield exactly 2^N real ticks per world
+     * tick — preserved from the old decorator's stacking multiplier, not weakened to a linear
+     * (1+N). At {@code speedLevel} 2 that's 4 internal cycles per world tick, enough to clear the
+     * miner's 3-tick mining cycle inside a SINGLE world tick.
+     */
+    @Test
+    void speedLevelTwoMinesABatchInASingleWorldTickInsteadOfThree() {
+        World world = new World(10, 10);
+        Building miner = new Miner(PatchOreLayout.standard(), Direction.RIGHT).withSpeedLevel(2);
+        world.restoreBuilding(6, 5, miner); // centre of the standard map's first iron patch
+        world.placeChest(7, 5); // forward neighbor
+
+        world.tick();
+
+        Chest forward = (Chest) world.peek(7, 5).orElseThrow();
+        assertEquals(1, forward.count(),
+                "speedLevel 2 (2^2 = 4 internal cycles) must clear the 3-tick mining cycle within one world tick");
+        assertEquals(2, miner.speedLevel());
+    }
+
     /** (F-01, DEV_TASKS.md) A miner sitting on a cell with no ore under it must report NO_ORE, not just idle silently. */
     @Test
     void minerReportsNoOreStatusWhenNoOreUnderIt() {

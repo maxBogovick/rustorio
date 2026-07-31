@@ -100,7 +100,7 @@ public final class Inserter implements Building, SettlesEachTick {
     }
 
     @Override
-    public BuildingMemento memento() {
-        return new BuildingMemento.InserterState(direction, held);
+    public InserterState state() {
+        return new InserterState(direction, held);
     }
 }

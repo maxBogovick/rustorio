@@ -26,8 +26,18 @@ import java.util.function.Predicate;
  * are short, and a plain scan is easier to verify with merge/split tests, which is the riskiest
  * part of this class. Upgrading to O(1) is a future milestone, gated on a benchmark actually
  * showing the need (see {@code Benchmark}), not on intuition.
+ *
+ * <p>Public since the phase's own acceptance capstone: {@link TransportNode#segment()}/{@link
+ * TransportNode#joinSegment} return/accept this type, so a mod's own {@link TransportNode}
+ * implementer — living outside this package — needs to be able to name it in its own method
+ * signatures, or it can't implement the interface at all. Every METHOD here stays package-private
+ * on purpose: a foreign implementer never calls into a segment directly, only through {@link
+ * TransportNode#attachToNeighbors}'s default method (compiled in this package, so it can still
+ * call {@link #addHead}/{@link #addTail}/etc. regardless of the tile's actual runtime class) and
+ * {@code BuildingFactory}'s own narrow doors — the class needed to be nameable, not its internals
+ * touchable.
  */
-final class BeltSegment {
+public final class BeltSegment {
 
     private final Direction direction;
 
@@ -101,8 +111,15 @@ final class BeltSegment {
      * Remove {@code node} from the segment (a building was demolished). Shrinks from an edge, or —
      * if the tile was in the middle — splits into two independent segments around the hole. Cargo
      * the removed tile was holding leaves with it, never duplicated onto a neighbor.
+     *
+     * <p>Public — unlike every other method here — because {@link TransportNode#leaveSegment()}
+     * has no {@code default} implementation (it must check its own {@code segment} field for
+     * {@code null} first, something only the implementing class itself can do) and so every
+     * implementer, including a foreign one outside this package, calls this directly from its own
+     * override. See {@link TransportNode#tickSegment} for how the OTHER package-private methods
+     * here (kept that way) stay reachable without needing the same treatment.
      */
-    void remove(TransportNode node) {
+    public void remove(TransportNode node) {
         List<TransportNode> ordered = new ArrayList<>(tiles);
         int index = ordered.indexOf(node);
         tiles.clear();

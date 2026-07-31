@@ -1,0 +1,8 @@
+{
+  "id": "examplemod",
+  "version": "1.0.0",
+  "entryPoint": "com.examplemod.jarmod.ExampleModEntryPoint",
+  "dependencies": [
+    { "modId": "rustorio", "range": ">=1.0.0" }
+  ]
+}

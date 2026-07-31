@@ -27,19 +27,19 @@ import java.util.regex.Pattern;
  * to an existing multi-label {@code case} therefore does not move this count — only a genuinely
  * new {@code switch} (or {@code instanceof}) does.
  *
- * <p><b>What counts as "content".</b> Reflected, not hardcoded, so the list this class needs can't
- * silently drift from what the domain actually declares:
+ * <p><b>What counts as "content".</b>
  * <ul>
  *   <li>Content constants — every name in {@link com.rustorio.domain.BuildingType#values()}
- *   (building kinds). {@link com.rustorio.domain.Direction}, {@code BuildingStatus} and {@code
- *   ItemShape} are deliberately excluded — geometry/runtime-state enums, not moddable content, so
- *   a {@code switch(direction)} doesn't count even though its cases are bare enum constants too.
- *   Neither items nor sprites have constants to list here anymore — {@code ItemType} is a
- *   registry-backed record and sprites are plain {@code ContentId} values, so a switch on either
- *   identity simply can't exist anymore, which is the point.</li>
- *   <li>Building subtypes — every {@linkplain Class#getPermittedSubclasses() permitted subclass}
- *   of the sealed {@code Building} interface (currently 10: Miner, Chest, Furnace, Belt, Splitter,
- *   Filter, Inserter, SpeedModule, Lab, UndergroundBelt).</li>
+ *   (building kinds), reflected so this list can't silently drift from what the domain actually
+ *   declares. {@link com.rustorio.domain.Direction}, {@code BuildingStatus} and {@code ItemShape}
+ *   are deliberately excluded — geometry/runtime-state enums, not moddable content, so a {@code
+ *   switch(direction)} doesn't count even though its cases are bare enum constants too. Neither
+ *   items nor sprites have constants to list here anymore — {@code ItemType} is a registry-backed
+ *   record and sprites are plain {@code ContentId} values, so a switch on either identity simply
+ *   can't exist anymore, which is the point.</li>
+ *   <li>Building subtypes — the nine vanilla {@code Building} implementations, hardcoded (see
+ *   {@link #buildingSubtypeNames()}'s own javadoc for why reflection stopped working here after
+ *   {@code Building} gave up {@code sealed}).</li>
  * </ul>
  *
  * <p><b>{@code instanceof} counting method.</b> Every {@code instanceof} KEYWORD against a
@@ -258,12 +258,19 @@ final class SourceCodeScanner {
         return Set.copyOf(names);
     }
 
-    /** Simple names of every concrete {@code Building} subtype, via the sealed interface's own permits list. */
+    /**
+     * Simple names of the nine vanilla {@code Building} implementations. Used to reflect this off
+     * {@code Building.class.getPermittedSubclasses()} — {@code Building} was {@code sealed} and
+     * this list was exactly its {@code permits} clause, so it couldn't drift from the domain by
+     * construction. {@code Building} stopped being {@code sealed} on purpose — the whole point is
+     * that a mod's own class can implement it too, so
+     * {@code getPermittedSubclasses()} now returns {@code null} (not sealed) and reflection has
+     * nothing left to read. Frozen here as a plain literal instead — this scanner only ever counts
+     * {@code instanceof}/{@code switch} sites against the CURRENT vanilla source tree, not against
+     * whatever a mod might add at runtime, so a static list is the correct scope, not a stopgap.
+     */
     static Set<String> buildingSubtypeNames() {
-        Set<String> names = new LinkedHashSet<>();
-        for (Class<?> subtype : com.rustorio.domain.building.Building.class.getPermittedSubclasses()) {
-            names.add(subtype.getSimpleName());
-        }
-        return Set.copyOf(names);
+        return Set.of("Miner", "Chest", "Furnace", "Belt", "Splitter", "Filter", "Inserter", "Lab",
+                "UndergroundBelt");
     }
 }

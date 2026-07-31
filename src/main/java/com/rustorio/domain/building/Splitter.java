@@ -125,7 +125,7 @@ public final class Splitter implements Building, SettlesEachTick {
     }
 
     @Override
-    public BuildingMemento memento() {
-        return new BuildingMemento.SplitterState(facing, held, nextIsForward);
+    public SplitterState state() {
+        return new SplitterState(facing, held, nextIsForward);
     }
 }

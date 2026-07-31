@@ -12,8 +12,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * {@link UpgradeSpeedAction}: wrap/unwrap a {@link com.rustorio.domain.building.SpeedModule}
- * without demolishing the underlying building.
+ * {@link UpgradeSpeedAction}: raise/lower a building's {@code speedLevel} in place, without
+ * demolishing it.
  */
 class UpgradeSpeedActionTest {
 
@@ -71,9 +71,9 @@ class UpgradeSpeedActionTest {
 
     /**
      * (Code review finding) {@code Inserter}/{@code Filter}/{@code Splitter} all share the belt's
-     * single-slot "held + arrivedThisTick" shape — a {@code SpeedModule}'s second {@code inner.tick}
-     * call in the same world tick always finds {@code held == null}, provably a no-op, same as the
-     * already-refused {@code Belt}/{@code UndergroundBelt}. Before this fix the player could pay for
+     * single-slot "held + arrivedThisTick" shape — a doubled {@code tick} call in the same world
+     * tick always finds {@code held == null}, provably a no-op, same as the already-refused {@code
+     * Belt}/{@code UndergroundBelt}. Before this fix the player could pay for
      * the upgrade and get nothing for it.
      */
     @Test

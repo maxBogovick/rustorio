@@ -1,11 +1,20 @@
 package com.rustorio.domain.action;
 
+import com.rustorio.api.content.ContentId;
+import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
+import com.rustorio.domain.PatchOreLayout;
+import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.VanillaItems;
+import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingCost;
+import com.rustorio.domain.building.BuildingFactory;
+import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Chest;
+import com.rustorio.domain.building.Furnace;
+import com.rustorio.domain.building.PlacementRule;
 import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.world.World;
 import java.util.Map;
@@ -13,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -177,5 +187,50 @@ class PlaceActionTest {
 
         assertEquals(VanillaItems.IRON_PLATE, pressCost.item());
         assertEquals(VanillaItems.GEAR, labCost.item());
+    }
+
+    private static final ContentId STEEL_PRESS_ID = ContentId.of("examplemod:steel_press");
+
+    private static BuildingFactory factoryWithSteelPress() {
+        BuildingPrototype steelPress = new BuildingPrototype(
+                STEEL_PRESS_ID, "Steel Press",
+                new BuildingCost(VanillaItems.IRON_PLATE, 20),
+                PlacementRule.NEEDS_PASSABLE_TERRAIN,
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.PRESS)).texture(),
+                10, 2, true,
+                (self, direction, factory) -> new Furnace(BuildingType.PRESS, direction, factory.recipeBook(), self),
+                (self, decodedState, factory) -> {
+                    throw new UnsupportedOperationException("not exercised by this test");
+                },
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.PRESS)).codec());
+        Registry<BuildingPrototype> prototypes = new Registry<>();
+        VanillaBuildings.registerAll(prototypes);
+        prototypes.register(STEEL_PRESS_ID, steelPress);
+        prototypes.freeze();
+        return new BuildingFactory(PatchOreLayout.standard(), RecipeBook.standard(), VanillaItems.frozen(), prototypes);
+    }
+
+    /**
+     * (E8-03) A {@link ContentId} constructor, not just {@link BuildingType} — a modded prototype
+     * with no {@code BuildingType} of its own must be placeable through the SAME action a player's
+     * real click goes through (cost charged, undo refunds it), not a bypass.
+     */
+    @Test
+    void contentIdConstructorChargesAndPlacesAModdedPrototype() {
+        World world = new World(4, 4, factoryWithSteelPress());
+        int before = world.inventory().amount(VanillaItems.IRON_PLATE);
+        PlaceAction action = new PlaceAction(STEEL_PRESS_ID, 1, 1, Direction.RIGHT);
+
+        assertTrue(action.apply(world));
+
+        assertEquals(before - 20, world.inventory().amount(VanillaItems.IRON_PLATE));
+        Building built = world.peek(1, 1).orElseThrow();
+        assertInstanceOf(Furnace.class, built);
+        assertEquals(STEEL_PRESS_ID, built.prototypeId());
+
+        action.undo(world);
+
+        assertFalse(world.peek(1, 1).isPresent());
+        assertEquals(before, world.inventory().amount(VanillaItems.IRON_PLATE), "undo must refund the modded prototype's own cost");
     }
 }

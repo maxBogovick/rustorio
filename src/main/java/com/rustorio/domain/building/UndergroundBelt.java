@@ -114,7 +114,7 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
         for (int step = 1; step <= effectiveRange(world); step++) {
             Optional<Building> candidate = world.peek(x + dx * step, y + dy * step);
             if (candidate.isPresent()
-                    && Building.unwrap(candidate.get()) instanceof UndergroundBelt other
+                    && candidate.get() instanceof UndergroundBelt other
                     && other.kind == Kind.OUT
                     && other.direction == direction) {
                 return Optional.of(other);
@@ -178,7 +178,7 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
     }
 
     @Override
-    public BuildingMemento memento() {
-        return new BuildingMemento.UndergroundBeltState(kind, direction, held);
+    public UndergroundBeltState state() {
+        return new UndergroundBeltState(kind, direction, held);
     }
 }

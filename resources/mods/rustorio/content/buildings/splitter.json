@@ -1,0 +1,9 @@
+{
+  "path": "splitter",
+  "label": "Splitter",
+  "archetype": "SPLITTER",
+  "cost": { "item": "iron_plate", "amount": 3 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:splitter",
+  "acceptsSpeedEffects": false
+}

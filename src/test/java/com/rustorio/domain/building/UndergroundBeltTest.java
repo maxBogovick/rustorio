@@ -20,16 +20,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UndergroundBeltTest {
 
     /**
-     * (N13, NEW_BUGS_PROGRESS.md — owner decision) A {@link SpeedModule} on a tunnel half is
-     * refused, the same way P2-03 already refuses one on a {@link Belt}. Not because it breaks
-     * anything — the external review claimed it desynchronizes the tick phases, and that turned out
-     * to be wrong: the module's second {@code inner.tick} call finds {@code held} already empty and
-     * returns immediately, so nothing moves twice in a tick. It's refused because it therefore does
-     * NOTHING while still charging the player for the upgrade, and "sold a module that can't
-     * possibly help" is the exact honesty argument P2-03 made for belts.
+     * (N13, NEW_BUGS_PROGRESS.md — owner decision) A speed upgrade on a tunnel half is refused, the
+     * same way P2-03 already refuses one on a {@link Belt}. Not because it breaks anything — the
+     * external review claimed it desynchronizes the tick phases, and that turned out to be wrong: a
+     * doubled {@code tick} call would find {@code held} already empty and return immediately, so
+     * nothing moves twice in a tick. It's refused because it therefore does NOTHING while still
+     * charging the player for the upgrade, and "sold a module that can't possibly help" is the
+     * exact honesty argument P2-03 made for belts.
      */
     @Test
-    void upgradingATunnelHalfWithASpeedModuleIsRefused() {
+    void upgradingATunnelHalfIsRefused() {
         World world = new World(10, 10);
         world.placeUndergroundIn(1, 0, Direction.RIGHT);
         world.placeUndergroundOut(3, 0, Direction.RIGHT);
@@ -78,27 +78,6 @@ class UndergroundBeltTest {
             world.tick();
         }
         assertEquals(Optional.of(VanillaItems.IRON_ORE), in.heldItem(), "пара вне дальности — груз остаётся ждать на входе");
-    }
-
-    @Test
-    void tunnelFindsPartnerEvenWhenOutIsUpgradedWithSpeedModule() {
-        World world = new World(10, 10);
-        world.placeUndergroundIn(0, 0, Direction.RIGHT);
-        world.placeUndergroundOut(3, 0, Direction.RIGHT);
-        // Апгрейд выхода (клавиша U) кладёт SpeedModule поверх — без Building.unwrap в
-        // findPartner вход решил бы, что пары больше нет вовсе, и туннель сломался бы НАВСЕГДА.
-        world.restoreBuilding(3, 0, new SpeedModule(world.removeBuilding(3, 0).orElseThrow()));
-        world.placeBelt(4, 0, Direction.RIGHT);
-        Chest chest = new Chest();
-        world.restoreBuilding(5, 0, chest);
-
-        UndergroundBelt in = (UndergroundBelt) world.peek(0, 0).orElseThrow();
-        assertTrue(in.accept(world, VanillaItems.IRON_ORE));
-
-        for (int i = 0; i < 8; i++) {
-            world.tick();
-        }
-        assertEquals(1, chest.count(), "апгрейженный выход туннеля всё ещё находится и работает");
     }
 
     /**

@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * (S-01, DEV_TASKS.md) Whole-game regression net for the domain rewrites in Phase 2 (D-01..D-07):
- * builds a small factory exercising every sealed {@code Building} subtype, runs it a fixed number
+ * builds a small factory exercising every vanilla {@code Building} implementation, runs it a fixed number
  * of deterministic ticks from a fixed seed, and hashes the resulting world state. Per-building unit
  * tests only ever exercise one building in isolation; this catches an unintended shift in tick
  * order, delivery rules, or balance across the whole simulation as a one-line hash mismatch,
@@ -158,7 +158,14 @@ class WorldReplayTest {
     // goes from a stuck "Iron Plate" to null (no longer backed up), and the Lab's buffer goes from
     // empty to mid-batch. Confirmed by diffing canonicalState before/after the fix with everything
     // else held fixed, per this constant's own javadoc above.
-    private static final String EXPECTED_HASH = "8d125327714245b4dbb6784bc7a02c17e0108977fabbcdb54da57fb9551b29f6";
+    //
+    // Updated again (E6-03, codec-based save format): canonicalState() now prints each building's
+    // own state record directly (e.g. FurnaceState[direction=..., buffers=[...], ...]) instead of
+    // the old BuildingMemento wrapper's toString(). Pure format change: the old memento's fields
+    // (kind/prototypeId included) either moved onto the new record unchanged or became genuinely
+    // redundant with the outer save envelope (see BuildingPrototype/VanillaBuildings javadoc) —
+    // no production/research/placement logic changed.
+    private static final String EXPECTED_HASH = "9e7651e659b2311d76e2e50e4861b719fecbb5b99455cf177a1009987d7c1825";
 
     @Test
     void factoryStateAfterFixedTicksMatchesRecordedBaseline() {
@@ -193,10 +200,11 @@ class WorldReplayTest {
     }
 
     /**
-     * Two small factory lines sharing one map, together touching every sealed {@code Building}
-     * subtype: {@code Miner}, {@code Belt}, {@code Furnace} (both the {@code FURNACE} and {@code
-     * PRESS} kinds), {@code Chest}, {@code Splitter}, {@code UndergroundBelt}, {@code Lab}, and
-     * {@code SpeedModule}. Ore cells are located by querying the same {@link OreLayout} instance
+     * Two small factory lines sharing one map, together touching every vanilla {@code Building}
+     * implementation: {@code Miner}, {@code Belt}, {@code Furnace} (both the {@code FURNACE} and {@code
+     * PRESS} kinds), {@code Chest}, {@code Splitter}, {@code UndergroundBelt}, {@code Lab} — plus a
+     * {@code speedLevel} upgrade on one line. Ore cells are located by querying the same {@link
+     * OreLayout} instance
      * the world itself uses, rather than coordinates guessed from today's output — this fixture
      * keeps working even if {@link RandomOreLayout}'s internal patch-rolling changes, as long as it
      * still hands out iron ore somewhere with room around it.
@@ -323,7 +331,7 @@ class WorldReplayTest {
 
         world.forEachBuildingIn(0, 0, world.width() - 1, world.height() - 1,
                 (x, y, building) -> state.append(x).append(',').append(y).append(':')
-                        .append(building.memento()).append('\n'));
+                        .append(building.state()).append('\n'));
 
         return state.toString();
     }

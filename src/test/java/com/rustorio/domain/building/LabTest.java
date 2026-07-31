@@ -43,6 +43,26 @@ class LabTest {
         assertEquals(10, world.research().points(), "GEAR — база пересчёта: ровно POINTS_PER_GEAR (N15)");
     }
 
+    /**
+     * (E5-05, owner decision) {@code speedLevel} must still yield exactly 2^N real ticks per world
+     * tick — preserved from the old decorator's stacking multiplier, not weakened to a linear
+     * (1+N). At {@code speedLevel} 4 that's 16 internal cycles, enough to clear the 10-tick
+     * research batch within a SINGLE call to {@link Lab#tick}.
+     */
+    @Test
+    void speedLevelFourAwardsAPointWithinASingleTickCall() {
+        World world = new World(4, 4);
+        Lab lab = new Lab(RECIPES);
+        assertTrue(lab.accept(world, VanillaItems.GEAR));
+        Lab sped = (Lab) lab.withSpeedLevel(4);
+
+        sped.tick(world, 0, 0);
+
+        assertEquals(10, world.research().points(),
+                "speedLevel 4 (2^4 = 16 cycles) must clear the 10-tick research batch within one tick() call");
+        assertEquals(4, sped.speedLevel());
+    }
+
     @Test
     void fastLabHalvesResearchTimeStartingFromTheFirstBatch() {
         World world = new World(4, 4);
@@ -133,7 +153,7 @@ class LabTest {
     @Test
     void aRestoredLabWithNoRecordedCooldownStartsAFullBatchInsteadOfAwardingPointsInstantly() {
         World world = new World(4, 4);
-        Lab lab = new Lab(RECIPES, java.util.List.of(VanillaItems.GEAR), 0);
+        Lab lab = new Lab(RECIPES, java.util.List.of(VanillaItems.GEAR), 0, 0);
 
         lab.tick(world, 0, 0);
         assertEquals(0, world.research().points(), "one tick must not finish a whole batch");

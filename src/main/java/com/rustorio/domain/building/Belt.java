@@ -66,9 +66,9 @@ public final class Belt implements Building, TransportNode, SettlesEachTick {
      * A fresh {@link Belt} facing the rotated direction, carrying the same cargo — segment
      * membership is NOT copied over: {@code com.rustorio.domain.action.RotateAction} reaches this
      * tile through {@code World.removeBuilding}/{@code restoreBuilding}, the same detach/reattach
-     * path a demolish or a {@link SpeedModule} upgrade already uses, which is what lets this tile
-     * leave its old segment (splitting it if this was a middle tile — see {@code
-     * BeltSegment#remove}) and join whatever matches its new direction.
+     * path a demolish already uses, which is what lets this tile leave its old segment (splitting
+     * it if this was a middle tile — see {@code BeltSegment#remove}) and join whatever matches its
+     * new direction.
      */
     @Override
     public Optional<Building> rotatedClockwise() {
@@ -147,13 +147,7 @@ public final class Belt implements Building, TransportNode, SettlesEachTick {
 
     @Override
     public void tick(TickContext world, int x, int y) {
-        BeltSegment mySegment = segment();
-        if (!mySegment.isTail(this)) {
-            return;
-        }
-        int exitX = x + direction.dx() * mySegment.size();
-        int exitY = y + direction.dy() * mySegment.size();
-        mySegment.tick(item -> world.offerForward(exitX, exitY, item));
+        tickSegment(world, x, y);
     }
 
     @Override
@@ -182,7 +176,7 @@ public final class Belt implements Building, TransportNode, SettlesEachTick {
     }
 
     @Override
-    public BuildingMemento memento() {
-        return new BuildingMemento.BeltState(direction, held);
+    public BeltState state() {
+        return new BeltState(direction, held);
     }
 }

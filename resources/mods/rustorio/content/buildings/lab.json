@@ -1,0 +1,9 @@
+{
+  "path": "lab",
+  "label": "Lab",
+  "archetype": "LAB",
+  "cost": { "item": "gear", "amount": 10 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:lab",
+  "acceptsSpeedEffects": true
+}

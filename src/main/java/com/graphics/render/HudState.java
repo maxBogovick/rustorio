@@ -1,6 +1,6 @@
 package com.graphics.render;
 
-import com.rustorio.domain.BuildingType;
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import java.util.List;
@@ -26,8 +26,14 @@ import org.jspecify.annotations.Nullable;
  * is being dragged, {@code inspected} null when no panel is open, {@code altOverlay} true only
  * while Alt is held down, {@code statsItem} which {@link ItemType} the {@code N} key has currently
  * selected to graph on the stats screen (meaningless while {@code showStats} is false).
+ *
+ * <p>{@code selected} is a {@link ContentId} — any registered building prototype, vanilla or
+ * modded, not just the closed {@code BuildingType} set (Phase 8). {@code hotbarSlots} is the
+ * player's own configurable hotbar — see {@code InputHandler}'s own field for what populates it —
+ * read here so {@code HudRenderer}/{@code OverlayRenderer} never need a second way to ask "what's
+ * pinned to slot N."
  */
-public record HudState(BuildingType selected, Direction facing, boolean paused, int speed, boolean showRecipeBook,
+public record HudState(ContentId selected, Direction facing, boolean paused, int speed, boolean showRecipeBook,
         boolean showTechTree, List<TilePos> dragTiles, @Nullable TilePos inspected, boolean altOverlay,
-        boolean showStats, ItemType statsItem) {
+        boolean showStats, ItemType statsItem, List<ContentId> hotbarSlots, boolean showBuildMenu) {
 }

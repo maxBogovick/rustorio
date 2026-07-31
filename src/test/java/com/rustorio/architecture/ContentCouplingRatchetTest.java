@@ -37,13 +37,19 @@ class ContentCouplingRatchetTest {
     // are gone, replaced by reading BuildingPrototype (a registered value, not a case label) —
     // the one remaining switch is BuildingFactory.create/restore's own dispatch (which Java class
     // to build), deliberately left closed until behavior itself opens up.
-    private static final int CONTENT_CONSTANT_SWITCH_BASELINE = 1;
+    // 1 -> 0: BuildingFactory.create/restore's own dispatch switch is gone too, replaced by
+    // BuildingPrototype.behavior()/restoreBehavior() (BehaviorFactory/RestoreFactory) — the last
+    // content-constant switch in src/main is gone.
+    private static final int CONTENT_CONSTANT_SWITCH_BASELINE = 0;
     // 2 -> 1: BuildingFactory.clearArrivalMark's switch over Building's sealed hierarchy is gone,
     // replaced by `instanceof SettlesEachTick` (a capability check, not an exhaustive case list) —
     // the one remaining type-pattern switch is BuildingFactory.create/restore's own dispatch
     // (BuildingFactory.java:129), the same one named above, deliberately left closed until
     // behavior itself opens up.
-    private static final int TYPE_PATTERN_SWITCH_BASELINE = 1;
+    // 1 -> 0: BuildingFactory.restore no longer pattern-matches a sealed BuildingMemento to find
+    // which prototype governs it (E6-03, codec-based save format) — the save's own envelope names
+    // prototypeId directly, so the last type-pattern switch in src/main is gone.
+    private static final int TYPE_PATTERN_SWITCH_BASELINE = 0;
     // 21 -> 17: World's four instanceof Belt sites (place, the belt-neighbor lookup, removeBuilding,
     // restoreBuilding) became instanceof TransportNode — a capability check, not a concrete-subtype
     // check the scanner's closed building-name list still recognizes, so these four drop out of
@@ -52,7 +58,13 @@ class ContentCouplingRatchetTest {
     // Filter/Splitter) is gone, replaced by reading BuildingPrototype.acceptsSpeedEffects() (a
     // registered value, not a case list) — the same move Phase 4 already made for cost/placement/
     // texture.
-    private static final int BUILDING_INSTANCEOF_BASELINE = 12;
+    // 12 -> 11: SpeedModule (the decorator) is deleted outright — speedLevel is now a plain field
+    // on the archetypes that accept it (Miner, Chest, Furnace, Lab), so Building.unwrap and its own
+    // `instanceof SpeedModule` loop have nothing left to do. Every OTHER instanceof-by-buildingtype
+    // site in this count stays exactly where it was (Chest/Furnace/UndergroundBelt/Filter/Splitter
+    // checks in HudRenderer/OverlayRenderer/RemoveAction/GrabChestAction/UndergroundBelt) — they
+    // just lost an unwrap() call in front of them, not the instanceof itself.
+    private static final int BUILDING_INSTANCEOF_BASELINE = 11;
 
     @Test
     void contentConstantSwitchCountMatchesRecordedBaseline() {

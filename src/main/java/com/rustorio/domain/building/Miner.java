@@ -42,6 +42,8 @@ public final class Miner implements Building {
     private @Nullable ItemType held;
     /** Recomputed once per {@link #tick}, not once per render frame — see {@link BuildingStatus}'s own javadoc for why (F-01, DEV_TASKS.md). */
     private BuildingStatus status = BuildingStatus.WORKING;
+    /** {@code UpgradeSpeedAction}'s upgrade count — see {@link #tick}'s own note on how it's applied. */
+    private int speedLevel;
 
     public Miner(OreLayout oreLayout, Direction direction) {
         this.oreLayout = oreLayout;
@@ -49,15 +51,28 @@ public final class Miner implements Building {
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Miner(OreLayout oreLayout, Direction direction, int cooldown, @Nullable ItemType held) {
+    Miner(OreLayout oreLayout, Direction direction, int cooldown, @Nullable ItemType held, int speedLevel) {
         this.oreLayout = oreLayout;
         this.direction = direction;
         this.cooldown = cooldown;
         this.held = held;
+        this.speedLevel = speedLevel;
     }
 
+    /**
+     * Runs {@link #tickOnce} {@code 1 << speedLevel} times — the same multiplier {@code
+     * SpeedModule} used to produce by nesting {@code speedLevel} independent wrapper layers, each
+     * doubling whatever it wrapped (owner decision: preserve the exact ×2^N stacking, not switch to
+     * a linear ×(1+N) just because the mechanism moved from a decorator to a field).
+     */
     @Override
     public void tick(TickContext world, int x, int y) {
+        for (int i = 0, repeats = 1 << speedLevel; i < repeats; i++) {
+            tickOnce(world, x, y);
+        }
+    }
+
+    private void tickOnce(TickContext world, int x, int y) {
         if (held == null) {
             if (--cooldown > 0) {
                 return;
@@ -108,7 +123,17 @@ public final class Miner implements Building {
 
     @Override
     public Optional<Building> rotatedClockwise() {
-        return Optional.of(new Miner(oreLayout, direction.rotate(), cooldown, held));
+        return Optional.of(new Miner(oreLayout, direction.rotate(), cooldown, held, speedLevel));
+    }
+
+    @Override
+    public int speedLevel() {
+        return speedLevel;
+    }
+
+    @Override
+    public Building withSpeedLevel(int newSpeedLevel) {
+        return new Miner(oreLayout, direction, cooldown, held, newSpeedLevel);
     }
 
     @Override
@@ -117,7 +142,7 @@ public final class Miner implements Building {
     }
 
     @Override
-    public BuildingMemento memento() {
-        return new BuildingMemento.MinerState(direction, cooldown, held);
+    public MinerState state() {
+        return new MinerState(direction, cooldown, held, speedLevel);
     }
 }

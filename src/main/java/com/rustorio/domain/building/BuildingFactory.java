@@ -9,15 +9,16 @@ import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.VanillaItems;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Factory Method: the one place that turns "build a {@link BuildingType} facing this way" or "here
- * is a captured {@link BuildingMemento}" into a live {@link Building} instance. Everything each
- * concrete building needs beyond its own state — the {@link OreLayout} a {@link Miner} reads, the
- * {@link RecipeBook} a {@link Furnace} searches, the {@link Registry} a {@link Filter} cycles
- * through — is injected here once, at construction, instead of every building reaching for
- * static, shared state on its own.
+ * is a decoded state" into a live {@link Building} instance. Everything each concrete building
+ * needs beyond its own state — the {@link OreLayout} a {@link Miner} reads, the {@link RecipeBook}
+ * a {@link Furnace} searches, the {@link Registry} a {@link Filter} cycles through — is injected
+ * here once, at construction, instead of every building reaching for static, shared state on its
+ * own.
  *
  * <p>Consolidates what used to be two separate hand-written {@code switch} statements living in
  * two different classes ({@code World}'s placement dispatch and the save/load file's loading
@@ -67,89 +68,78 @@ public final class BuildingFactory {
         return items;
     }
 
+    /** The building prototype registry this factory was built with — every registered prototype, vanilla or modded, for a UI that lists them all (a build menu) rather than looking one up by id. */
+    public Registry<BuildingPrototype> buildings() {
+        return prototypes;
+    }
+
     /** {@code type}'s data — cost, placement rule, texture — read from this factory's own registry instead of a switch. */
     public BuildingPrototype prototype(BuildingType type) {
         return prototypes.get(VanillaBuildings.idFor(type));
     }
 
+    /** {@code id}'s data, vanilla or modded — the {@link ContentId} counterpart to {@link #prototype(BuildingType)}, for content that has no {@link BuildingType} of its own at all. */
+    public BuildingPrototype prototype(ContentId id) {
+        return prototypes.get(id);
+    }
+
     /**
-     * Whether {@code type} satisfies its {@link PlacementRule} at {@code (x, y)} — the type-
-     * specific half of {@code World.place}'s check; the free+in-bounds half is {@code World}'s own
-     * business and stays there. See P3-04, BUG_FIX_PROGRESS.md.
+     * {@link #prototype(ContentId)}, but {@link Optional#empty()} instead of throwing when {@code
+     * id} isn't registered — the save-loading path needs to detect a save naming content whose mod
+     * was removed and report it, not crash (see {@code JsonSaveRepository#load}).
      */
+    public Optional<BuildingPrototype> prototypeOrUnknown(ContentId id) {
+        return prototypes.getOrUnknown(id);
+    }
+
+    /**
+     * Whether the prototype registered under {@code id} — vanilla or modded — satisfies its {@link
+     * PlacementRule} at {@code (x, y)}: the content-specific half of {@code World.place}'s check;
+     * the free+in-bounds half is {@code World}'s own business and stays there.
+     */
+    public boolean canPlace(ContentId id, int x, int y) {
+        return prototype(id).placementRule().test(x, y, oreLayout);
+    }
+
+    /** Convenience for the closed vanilla set — resolves {@code type}'s own prototype id and delegates to {@link #canPlace(ContentId, int, int)}. See P3-04, BUG_FIX_PROGRESS.md. */
     public boolean canPlace(BuildingType type, int x, int y) {
-        return prototype(type).placementRule().test(x, y, oreLayout);
+        return canPlace(VanillaBuildings.idFor(type), x, y);
     }
 
-    /** Build a brand-new building of {@code type}, facing {@code direction} where that matters. */
+    /**
+     * Build a brand-new building from any registered prototype — vanilla or modded, {@code id}
+     * doesn't need a corresponding {@link BuildingType} at all — facing {@code direction} where
+     * that matters. Delegates the actual construction to {@code id}'s own registered {@link
+     * BehaviorFactory} (see {@link VanillaBuildings#registerAll}): this class no longer contains a
+     * single {@code new Miner(...)}/{@code new Chest(...)} call anywhere.
+     */
+    public Building create(ContentId id, Direction direction) {
+        BuildingPrototype proto = prototypes.get(id);
+        return proto.behavior().create(proto, direction, this);
+    }
+
+    /** Convenience for the closed vanilla set — resolves {@code type}'s own prototype id and delegates to {@link #create(ContentId, Direction)}. */
     public Building create(BuildingType type, Direction direction) {
-        return switch (type) {
-            case MINER -> new Miner(oreLayout, direction);
-            case CHEST -> new Chest(direction);
-            case FURNACE -> new Furnace(BuildingType.FURNACE, direction, recipeBook, prototype(BuildingType.FURNACE));
-            case PRESS -> new Furnace(BuildingType.PRESS, direction, recipeBook, prototype(BuildingType.PRESS));
-            case BELT -> new Belt(direction);
-            case SPLITTER -> new Splitter(direction);
-            // Default filterItem is IRON_ORE — the more common ore, and a reasonable starting
-            // point for a newly-placed FILTER. NOT full parity with the old (deleted)
-            // SortRule.ORE_FORWARD, which forwarded BOTH IRON_ORE and BRONZE_ORE: Filter passes
-            // exactly ONE item identity by design (see Filter's own class javadoc — that's the
-            // whole point of replacing a fixed multi-item rule with player-cyclable data), so no
-            // single default can replicate a two-item rule. A default Filter on a bronze line will
-            // route bronze ore to the side lane until the player cycles it (F) to BRONZE_ORE —
-            // this comment previously overclaimed equivalence with ORE_FORWARD (code review
-            // finding); fixing the mismatch means fixing the CLAIM, since Filter's single-item
-            // design is deliberate, not a bug.
-            case FILTER -> new Filter(direction, VanillaItems.IRON_ORE, items);
-            case INSERTER -> new Inserter(direction);
-            case UNDERGROUND_IN -> new UndergroundBelt(UndergroundBelt.Kind.IN, direction);
-            case UNDERGROUND_OUT -> new UndergroundBelt(UndergroundBelt.Kind.OUT, direction);
-            case LAB -> new Lab(recipeBook);
-            // Reuses Furnace outright (X-03, DEV_TASKS.md) rather than a new Building
-            // implementation: a 2x2 footprint plus a dedicated ASSEMBLER-kind recipe (see
-            // RecipeBook) is the entire difference from PRESS — see Furnace#footprintWidth.
-            case ASSEMBLER -> new Furnace(BuildingType.ASSEMBLER, direction, recipeBook, prototype(BuildingType.ASSEMBLER));
-        };
+        return create(VanillaBuildings.idFor(type), direction);
     }
 
     /**
-     * Rebuild a building from a captured {@link BuildingMemento}, then re-apply {@code
-     * speedLevel} layers of {@link SpeedModule} — the wrapper's own state lives outside the
-     * memento entirely (see {@link Building#speedLevel()}), so the persistence layer tracks it
-     * separately and this method re-wraps rather than trying to recover it from the memento.
+     * Rebuild a building from a save's own explicit {@code prototypeId} and raw (still-encoded)
+     * state, delegating the actual construction to the governing prototype's own registered
+     * {@link RestoreFactory} (see {@link VanillaBuildings#registerAll}) — this class contains no
+     * {@code new Miner(...)}/{@code new Chest(...)} call anywhere, exactly like {@link #create}
+     * above. Decodes through {@code prototypeId}'s own {@link BuildingPrototype#codec()} first —
+     * callers hand this method exactly what a save file stores, not a pre-decoded value.
      *
-     * <p>The pattern-matching {@code switch} over the sealed {@link BuildingMemento} hierarchy is
-     * exhaustive by construction: adding a new building kind without a matching case here is a
-     * compile error, not a runtime surprise. Unlike {@link #create}, this takes no separate {@link
-     * BuildingType} — every memento variant already carries everything needed to rebuild its exact
-     * building, including {@link BuildingMemento.FurnaceState#kind()} for telling {@code FURNACE}
-     * apart from {@code PRESS}, so there is exactly one source of truth for "what kind is this."
+     * <p>No {@code switch} anywhere in this method: unlike the old {@code BuildingMemento}-based
+     * design (where the sealed memento's own TYPE had to be pattern-matched to find which
+     * prototype governed it), {@code prototypeId} names the governing prototype directly — the
+     * save's own envelope already says which one, nothing here needs to infer it.
      */
-    public Building restore(BuildingMemento memento, int speedLevel) {
-        Building building = switch (memento) {
-            case BuildingMemento.MinerState s -> new Miner(oreLayout, s.direction(), s.cooldown(), s.held());
-            case BuildingMemento.ChestState s -> new Chest(s.direction(), s.contents());
-            case BuildingMemento.FurnaceState s -> new Furnace(s, recipeBook, furnacePrototype(s));
-            case BuildingMemento.BeltState s -> new Belt(s.direction(), s.held());
-            case BuildingMemento.SplitterState s -> new Splitter(s.facing(), s.held(), s.nextIsForward());
-            case BuildingMemento.FilterState s -> new Filter(s.facing(), s.filterItem(), s.held(), items);
-            case BuildingMemento.InserterState s -> new Inserter(s.direction(), s.held());
-            case BuildingMemento.LabState s -> new Lab(recipeBook, s.buffer(), s.cooldown());
-            case BuildingMemento.UndergroundBeltState s -> new UndergroundBelt(s.kind(), s.direction(), s.held());
-        };
-        for (int i = 0; i < speedLevel; i++) {
-            building = new SpeedModule(building);
-        }
-        return building;
-    }
-
-    /**
-     * {@code state}'s own prototype from THIS factory's registry, or {@code state.kind()}'s
-     * default when {@code prototypeId} is {@code null} (a save written before that field existed).
-     */
-    private BuildingPrototype furnacePrototype(BuildingMemento.FurnaceState state) {
-        ContentId id = state.prototypeId();
-        return id != null ? prototypes.get(id) : prototype(state.kind());
+    public Building restore(ContentId prototypeId, Object rawEncodedState) {
+        BuildingPrototype proto = prototypes.get(prototypeId);
+        Object decodedState = proto.decodeState(rawEncodedState, items);
+        return proto.restoreBehavior().restore(proto, decodedState, this);
     }
 
     /**
@@ -182,11 +172,10 @@ public final class BuildingFactory {
      * <p>One method taking any {@link Building} rather than one overload per kind (N2,
      * NEW_BUGS_PROGRESS.md): a relay kind that needs a settle implements the capability interface
      * and is picked up here automatically, instead of this method (or {@code TickScheduler}) growing
-     * a new branch every time one is added. {@link Building#unwrap} first, so a {@link
-     * SpeedModule}-wrapped relay is marked-cleared exactly like a bare one.
+     * a new branch every time one is added.
      */
     public static void clearArrivalMark(Building building) {
-        if (Building.unwrap(building) instanceof SettlesEachTick settling) {
+        if (building instanceof SettlesEachTick settling) {
             settling.clearArrivalMark();
         }
     }

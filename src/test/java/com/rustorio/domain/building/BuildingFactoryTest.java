@@ -9,17 +9,22 @@ import com.rustorio.domain.ItemType;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.VanillaItems;
+import com.rustorio.domain.VanillaSprites;
+import com.rustorio.domain.world.World;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@link BuildingFactory}: the single dispatch point from {@link BuildingType} to a concrete
- * {@link Building}, for both fresh construction and memento-based restoration.
+ * {@link Building}, for both fresh construction and codec-based restoration.
  */
 class BuildingFactoryTest {
+
+    private static final ContentId STEEL_PRESS_ID = ContentId.of("examplemod:steel_press");
 
     private final BuildingFactory factory = BuildingFactory.standard();
 
@@ -55,37 +60,122 @@ class BuildingFactoryTest {
         assertEquals(BuildingType.PRESS, factory.create(BuildingType.PRESS, Direction.RIGHT).type());
     }
 
+    /** A belt never tracks a speedLevel (not eligible — see {@code BuildingPrototype#acceptsSpeedEffects}), so a restore round trip must not manufacture one out of nowhere. */
     @Test
-    void restoreRebuildsFromAMementoWithNoSpeedModuleWhenLevelIsZero() {
+    void restoreIgnoresSpeedLevelForAKindThatDoesNotTrackIt() {
         Building original = factory.create(BuildingType.BELT, Direction.UP);
-        Building restored = factory.restore(original.memento(), 0);
+        Building restored = roundTrip(factory, original);
 
         assertInstanceOf(Belt.class, restored);
         assertEquals(0, restored.speedLevel());
     }
 
+    /** A furnace DOES track speedLevel (E5-05) — a restore round trip must carry it straight through the archetype's own state record, no wrapper class involved. */
     @Test
-    void restoreReappliesTheExactNumberOfSpeedModuleLayers() {
-        Building original = factory.create(BuildingType.FURNACE, Direction.DOWN);
-        Building restored = factory.restore(original.memento(), 2);
+    void restoreThreadsSpeedLevelDirectlyIntoAnEligibleArchetype() {
+        Building original = factory.create(BuildingType.FURNACE, Direction.DOWN).withSpeedLevel(2);
+        Building restored = roundTrip(factory, original);
 
-        assertInstanceOf(SpeedModule.class, restored);
+        assertInstanceOf(Furnace.class, restored);
         assertEquals(2, restored.speedLevel());
-        assertEquals(BuildingType.FURNACE, restored.type()); // delegates through both layers
+        assertEquals(BuildingType.FURNACE, restored.type());
     }
 
     /** (X-01, DEV_TASKS.md) Splitter/Filter/Inserter through the actual factory door, not just their own direct constructors. */
     @Test
     void restoreRoundTripsSplitterFilterAndInserterThroughTheFactory() {
-        Building splitter = factory.restore(factory.create(BuildingType.SPLITTER, Direction.RIGHT).memento(), 0);
+        Building splitter = roundTrip(factory, factory.create(BuildingType.SPLITTER, Direction.RIGHT));
         assertInstanceOf(Splitter.class, splitter);
 
-        Building filter = factory.restore(factory.create(BuildingType.FILTER, Direction.RIGHT).memento(), 0);
+        Building filter = roundTrip(factory, factory.create(BuildingType.FILTER, Direction.RIGHT));
         assertInstanceOf(Filter.class, filter);
         assertEquals(VanillaItems.IRON_ORE, ((Filter) filter).filterItem());
 
-        Building inserter = factory.restore(factory.create(BuildingType.INSERTER, Direction.RIGHT).memento(), 0);
+        Building inserter = roundTrip(factory, factory.create(BuildingType.INSERTER, Direction.RIGHT));
         assertInstanceOf(Inserter.class, inserter);
+    }
+
+    /**
+     * (E5-07) A prototype with NO corresponding {@link BuildingType} at all, built through the
+     * REAL {@link BuildingFactory#create(ContentId, Direction)} — not a direct {@code new
+     * Furnace(...)} bypass (see {@code ModdedFurnaceAcceptanceTest}'s own note on this exact
+     * restriction, which this test proves lifted). Proven by BEHAVIOR, not just concrete class:
+     * the modded prototype's own {@code speedMultiplier} (2) must actually drive the built
+     * furnace's cooking speed, not silently fall back to any default.
+     */
+    @Test
+    void createBuildsAPrototypeWithNoCorrespondingBuildingType() {
+        BuildingFactory moddedFactory = factoryWithSteelPress();
+
+        Building built = moddedFactory.create(STEEL_PRESS_ID, Direction.RIGHT);
+        Furnace press = assertInstanceOf(Furnace.class, built);
+        assertEquals(BuildingType.PRESS, press.type());
+
+        World world = new World(4, 4);
+        Chest chest = new Chest();
+        world.restoreBuilding(1, 0, chest);
+        assertTrue(press.accept(world, VanillaItems.IRON_PLATE));
+
+        int gearTime = RecipeBook.standard().findByOutput(BuildingType.PRESS, VanillaItems.GEAR).orElseThrow().time();
+        int fastTime = Math.max(1, gearTime / 2); // steel press's own speedMultiplier — see factoryWithSteelPress()
+        for (int i = 0; i < fastTime - 1; i++) {
+            press.tick(world, 0, 0);
+            assertEquals(0, chest.count(), "must not finish before the sped-up time");
+        }
+        press.tick(world, 0, 0);
+        assertEquals(1, chest.amount(VanillaItems.GEAR),
+                "cooked in half the vanilla PRESS's time via the modded prototype's own speedMultiplier"
+                        + " — reached through the real factory.create, not a bypass");
+    }
+
+    /**
+     * (E5-07) {@code restore()} must resolve a modded prototype's OWN registered behavior too, not
+     * just {@code create()} — a {@code FurnaceState} naming a prototype absent from any vanilla
+     * enum must still restore through it when the SURROUNDING factory's own registry has it.
+     */
+    @Test
+    void restoreResolvesAPrototypeWithNoCorrespondingBuildingType() {
+        BuildingFactory moddedFactory = factoryWithSteelPress();
+        Building built = moddedFactory.create(STEEL_PRESS_ID, Direction.RIGHT);
+        assertEquals(STEEL_PRESS_ID, built.prototypeId());
+
+        Building restored = roundTrip(moddedFactory, built);
+        Furnace press = assertInstanceOf(Furnace.class, restored);
+        assertEquals(BuildingType.PRESS, press.type());
+
+        // Buffer 10, not the vanilla PRESS default of 5 — proves restore() resolved the MODDED
+        // prototype via its own registered behavior, not a hardcoded case that would silently
+        // fall back to the vanilla default the way a stale/naive implementation might.
+        World world = new World(4, 4);
+        world.restoreBuilding(1, 0, new Chest());
+        for (int i = 0; i < 6; i++) {
+            assertTrue(press.accept(world, VanillaItems.IRON_PLATE),
+                    "buffer 10 must hold more than the vanilla default of 5 — this is the 6th unit");
+        }
+    }
+
+    /** A "steel press" — bigger buffer, twice the speed — registered next to the 12 vanilla prototypes, under an id no {@link BuildingType} maps to. */
+    private static BuildingFactory factoryWithSteelPress() {
+        BuildingPrototype steelPress = new BuildingPrototype(
+                STEEL_PRESS_ID,
+                "Steel Press",
+                new BuildingCost(VanillaItems.IRON_PLATE, 20),
+                PlacementRule.NEEDS_PASSABLE_TERRAIN,
+                VanillaSprites.FURNACE_COLD,
+                10, // buffer — double the vanilla PRESS's 5
+                2, // speed multiplier — twice as fast
+                true,
+                (self, direction, factory) -> new Furnace(BuildingType.PRESS, direction, factory.recipeBook(), self),
+                (self, decodedState, factory) -> {
+                    FurnaceState state = (FurnaceState) decodedState;
+                    return new Furnace(BuildingType.PRESS, state, factory.recipeBook(), self);
+                },
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.PRESS)).codec());
+        Registry<BuildingPrototype> prototypes = new Registry<>();
+        VanillaBuildings.registerAll(prototypes);
+        prototypes.register(STEEL_PRESS_ID, steelPress);
+        prototypes.freeze();
+        return new BuildingFactory(PatchOreLayout.standard(), RecipeBook.standard(), VanillaItems.frozen(), prototypes);
     }
 
     /**
@@ -114,7 +204,15 @@ class BuildingFactoryTest {
         // copperOre would throw NoSuchElementException against VanillaItems.frozen() (which has
         // no idea "test:copper_ore" exists) if restore() fell back to the hardcoded vanilla
         // registry instead of the factory's own — exactly the bug the finding described.
-        Filter restored = (Filter) moddedFactory.restore(created.memento(), 0);
+        Filter restored = (Filter) roundTrip(moddedFactory, created);
         assertDoesNotThrow(restored::cycleFilterItem);
+    }
+
+    /** Encode-decode-restore round trip through a factory's own registered {@link Codec}, mirroring exactly what {@code JsonSaveRepository} does on save/load. */
+    private static Building roundTrip(BuildingFactory factory, Building building) {
+        ContentId prototypeId = building.prototypeId();
+        BuildingPrototype prototype = factory.prototype(prototypeId);
+        Object encoded = prototype.encodeState(building.state());
+        return factory.restore(prototypeId, encoded);
     }
 }

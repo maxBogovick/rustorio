@@ -1,5 +1,6 @@
 package com.rustorio.domain.world;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
@@ -13,9 +14,9 @@ import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingCost;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.PlacementRule;
-import com.rustorio.domain.building.SpeedModule;
 import com.rustorio.domain.building.TickContext;
 import com.rustorio.domain.building.TransportNode;
+import com.rustorio.domain.building.VanillaBuildings;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -134,6 +135,15 @@ public final class World implements TickContext {
      */
     private final List<ProductionListener> productionListeners = new ArrayList<>();
 
+    /** Who wants to hear about a building actually being placed by {@link #place} — see that method and {@link BuildingPlacedListener}'s own javadoc for what does and doesn't count. */
+    private final List<BuildingPlacedListener> buildingPlacedListeners = new ArrayList<>();
+
+    /** Who wants to hear that a world tick just finished — see {@link #tick()} and {@link TickListener}. */
+    private final List<TickListener> tickListeners = new ArrayList<>();
+
+    /** Who wants to hear that a technology was actually unlocked — see {@link #tryUnlockTech}. */
+    private final List<ResearchCompleteListener> researchCompleteListeners = new ArrayList<>();
+
     /**
      * The world's own clock (D-06, DEV_TASKS.md) — incremented once per {@link #tick()}, never
      * read from wall-clock time. This is the number handed to every {@link ProductionListener};
@@ -184,6 +194,16 @@ public final class World implements TickContext {
     /** Subscribe an independent listener to "item produced" — in addition to statistics, not instead of it. */
     public void addProductionListener(ProductionListener listener) {
         productionListeners.add(listener);
+    }
+
+    /** Subscribe a listener to "a building was placed" — see {@link BuildingPlacedListener}'s own javadoc for exactly which calls fire it. */
+    public void addBuildingPlacedListener(BuildingPlacedListener listener) {
+        buildingPlacedListeners.add(listener);
+    }
+
+    /** Subscribe a listener to "a world tick just finished" — called once, at the end of every {@link #tick()}. */
+    public void addTickListener(TickListener listener) {
+        tickListeners.add(listener);
     }
 
     public int width() {
@@ -286,19 +306,19 @@ public final class World implements TickContext {
      * separate {@code place*} methods and a {@code switch} dispatching between them (P3-04,
      * BUG_FIX_PROGRESS.md).
      */
-    public boolean place(BuildingType type, int x, int y, Direction direction) {
+    public boolean place(ContentId prototypeId, int x, int y, Direction direction) {
         // Constructed before the footprint check below can run at all: footprint size lives on
-        // the BUILDING instance (Building#footprintWidth/Height), not on BuildingType, and a
+        // the BUILDING instance (Building#footprintWidth/Height), not on the prototype id, and a
         // throwaway Furnace/Miner/etc. costs nothing to build-and-discard on a failed placement —
         // no shared mutable state, no I/O (X-03, DEV_TASKS.md).
-        Building building = buildingFactory.create(type, direction);
+        Building building = buildingFactory.create(prototypeId, direction);
         int w = building.footprintWidth();
         int h = building.footprintHeight();
         for (int dx = 0; dx < w; dx++) {
             for (int dy = 0; dy < h; dy++) {
                 int cx = x + dx;
                 int cy = y + dy;
-                if (!inBounds(cx, cy) || !isFree(cx, cy) || !buildingFactory.canPlace(type, cx, cy)) {
+                if (!inBounds(cx, cy) || !isFree(cx, cy) || !buildingFactory.canPlace(prototypeId, cx, cy)) {
                     return false;
                 }
             }
@@ -310,7 +330,15 @@ public final class World implements TickContext {
         if (building instanceof TransportNode node) {
             attachToSegment(node, x, y, direction);
         }
+        for (BuildingPlacedListener listener : buildingPlacedListeners) {
+            listener.onBuildingPlaced(building.prototypeId(), x, y);
+        }
         return true;
+    }
+
+    /** Convenience for the closed vanilla set — resolves {@code type}'s own prototype id and delegates to {@link #place(ContentId, int, int, Direction)}. */
+    public boolean place(BuildingType type, int x, int y, Direction direction) {
+        return place(VanillaBuildings.idFor(type), x, y, direction);
     }
 
     /**
@@ -367,7 +395,7 @@ public final class World implements TickContext {
         if (neighbor == null) {
             return Optional.empty();
         }
-        return (Building.unwrap(neighbor) instanceof TransportNode node && node.direction() == direction)
+        return (neighbor instanceof TransportNode node && node.direction() == direction)
                 ? Optional.of(node)
                 : Optional.empty();
     }
@@ -391,7 +419,7 @@ public final class World implements TickContext {
         if (lastKnown != null) {
             statusCounts.merge(lastKnown, -1, Integer::sum);
         }
-        if (Building.unwrap(removed) instanceof TransportNode node) {
+        if (removed instanceof TransportNode node) {
             BuildingFactory.detachTransportNode(node);
         }
         return Optional.of(removed);
@@ -403,17 +431,17 @@ public final class World implements TickContext {
      * building was first built (or first loaded); re-checking a past decision serves no purpose.
      *
      * <p>Idempotent with respect to belt segments: a belt is always detached from whatever segment
-     * it currently sits in before being reattached. Callers like {@code UpgradeSpeedAction.undo}
-     * pass back a {@link Belt} that was never removed from its segment in the first place (only
-     * wrapped in a {@link SpeedModule}); without this, {@code attachToSegment} would add it a
-     * second time, corrupting the segment's tile list.
+     * it currently sits in before being reattached. Callers like {@code RotateAction} pass back a
+     * {@link Belt} that was never removed from its segment in the first place (only demolished and
+     * immediately restored); without this, {@code attachToSegment} would add it a second time,
+     * corrupting the segment's tile list.
      */
     public void restoreBuilding(int x, int y, Building building) {
         Coord anchor = new Coord(x, y);
         buildings.put(anchor, building);
         occupyFootprint(anchor, building.footprintWidth(), building.footprintHeight());
         trackStatus(anchor, building);
-        if (Building.unwrap(building) instanceof TransportNode node) {
+        if (building instanceof TransportNode node) {
             BuildingFactory.detachTransportNode(node);
             attachToSegment(node, x, y, node.direction());
         }
@@ -456,6 +484,9 @@ public final class World implements TickContext {
     public void tick() {
         tickCount++;
         TickScheduler.tick(buildings, this, this::trackStatus);
+        for (TickListener listener : tickListeners) {
+            listener.onTick(tickCount);
+        }
     }
 
     /**
@@ -560,20 +591,30 @@ public final class World implements TickContext {
      * com.rustorio.domain.action.PlaceAction} reaches the inventory through to charge for a
      * placement, and {@code RemoveAction.undo} to re-charge an undone demolition.
      */
-    public boolean trySpendBuildingCost(BuildingType type) {
-        BuildingCost cost = buildingFactory.prototype(type).cost();
+    public boolean trySpendBuildingCost(ContentId prototypeId) {
+        BuildingCost cost = buildingFactory.prototype(prototypeId).cost();
         return inventory.trySpend(cost.item(), cost.amount());
     }
 
+    /** Convenience for the closed vanilla set — resolves {@code type}'s own prototype id and delegates to {@link #trySpendBuildingCost(ContentId)}. */
+    public boolean trySpendBuildingCost(BuildingType type) {
+        return trySpendBuildingCost(VanillaBuildings.idFor(type));
+    }
+
     /**
-     * Credit {@code type}'s {@link BuildingCost} back to the player's inventory — the inverse of
+     * Credit a prototype's {@link BuildingCost} back to the player's inventory — the inverse of
      * {@link #trySpendBuildingCost}, used by demolition, by undoing a placement, and (per D-03's
      * own acceptance criterion) never refused: crediting resources back can't fail the way spending
      * them can.
      */
-    public void refundBuildingCost(BuildingType type) {
-        BuildingCost cost = buildingFactory.prototype(type).cost();
+    public void refundBuildingCost(ContentId prototypeId) {
+        BuildingCost cost = buildingFactory.prototype(prototypeId).cost();
         inventory.add(cost.item(), cost.amount());
+    }
+
+    /** Convenience for the closed vanilla set — resolves {@code type}'s own prototype id and delegates to {@link #refundBuildingCost(ContentId)}. */
+    public void refundBuildingCost(BuildingType type) {
+        refundBuildingCost(VanillaBuildings.idFor(type));
     }
 
     /**
@@ -640,10 +681,22 @@ public final class World implements TickContext {
     /**
      * Spend {@code tech}'s cost to unlock it — the player's explicit choice (P-02, DEV_TASKS.md;
      * see {@link Research#unlock}). {@code false} (nothing spent, nothing unlocked) if the player
-     * can't afford it, already has it, or hasn't unlocked its prerequisites yet.
+     * can't afford it, already has it, or hasn't unlocked its prerequisites yet. Only a genuine
+     * unlock notifies {@link #researchCompleteListeners} — a refused attempt is not an event.
      */
     public boolean tryUnlockTech(Tech tech) {
-        return research.unlock(tech);
+        boolean unlocked = research.unlock(tech);
+        if (unlocked) {
+            for (ResearchCompleteListener listener : researchCompleteListeners) {
+                listener.onResearchComplete(tech);
+            }
+        }
+        return unlocked;
+    }
+
+    /** Subscribe a listener to "a technology was actually unlocked" — see {@link #tryUnlockTech}. */
+    public void addResearchCompleteListener(ResearchCompleteListener listener) {
+        researchCompleteListeners.add(listener);
     }
 
     /** Overwrite research progress wholesale from a save file — see {@code JsonSaveRepository}. */

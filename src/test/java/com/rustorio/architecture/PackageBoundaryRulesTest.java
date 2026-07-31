@@ -49,15 +49,19 @@ class PackageBoundaryRulesTest {
                     + "(package-info.java) — the world/building dependency is one-way, world -> building");
 
     /**
-     * {@code com.rustorio.persistence}'s own {@code package-info.java}: "This is the ONLY package
-     * allowed to import Jackson". {@link com.rustorio.persistence.BuildingMementoMixin} teaches
-     * Jackson to (de)serialize the sealed {@code BuildingMemento} hierarchy from the outside
-     * (mixins), so the domain module never carries a Jackson annotation itself.
+     * {@code com.rustorio.persistence}'s own {@code package-info.java}: "the only packages allowed
+     * to import Jackson are persistence and the mod loader". Every building's own {@code Codec}
+     * converts its state record to plain JDK types Jackson can serialize generically, so the domain
+     * module never carries a Jackson annotation itself. {@code com.rustorio.mod} joined this
+     * allowlist when the mod loader started reading arbitrary JSON off disk ({@code mod.json},
+     * {@code content/**}<!---->{@code .json}) — the same reason persistence needed it, for a
+     * different file format.
      */
     @ArchTest
-    static final ArchRule onlyPersistenceImportsJackson = noClasses()
+    static final ArchRule onlyPersistenceOrModImportJackson = noClasses()
             .that().resideOutsideOfPackage("com.rustorio.persistence..")
+            .and().resideOutsideOfPackage("com.rustorio.mod..")
             .should().dependOnClassesThat().resideInAPackage("com.fasterxml.jackson..")
-            .because("com.rustorio.persistence is the only package allowed to import Jackson "
-                    + "(package-info.java) — everywhere else stays a plain DTO");
+            .because("only com.rustorio.persistence and com.rustorio.mod may import Jackson "
+                    + "(package-info.java of each) — everywhere else stays a plain DTO");
 }

@@ -100,27 +100,10 @@ class BeltTest {
         assertTrue(head.segment().isTail(head));
     }
 
-    @Test
-    void upgradingATileWithSpeedModuleKeepsItRecognizableAsASegmentNeighbor() {
-        World world = new World(10, 10);
-        world.placeBelt(0, 0, Direction.RIGHT);
-        Belt original = beltAt(world, 0, 0);
-
-        // Апгрейд кладёт SpeedModule поверх ленты (см. UpgradeSpeedAction) — без Building.unwrap
-        // в World.restoreBuilding лента бы «потерялась» для соседей: их проверка instanceof Belt
-        // увидела бы SpeedModule и не признала бы тайл частью цепочки.
-        world.restoreBuilding(0, 0, new SpeedModule(world.removeBuilding(0, 0).orElseThrow()));
-        world.placeBelt(1, 0, Direction.RIGHT);
-
-        Belt neighbor = beltAt(world, 1, 0);
-        assertSame(original.segment(), neighbor.segment());
-        assertEquals(2, original.segment().size());
-    }
-
     /**
      * Originally exercised via {@code UpgradeSpeedAction} (a real trigger for {@code
      * World.restoreBuilding} re-attaching an already-attached belt — see P1-02). P2-03 later
-     * forbade {@code SpeedModule} on belts outright, which closes off that specific trigger — see
+     * forbade upgrading belts outright, which closes off that specific trigger — see
      * {@link #upgradingABeltTileIsAlwaysRefusedRegardlessOfItsPositionInTheSegment}. The
      * idempotency {@code World.restoreBuilding} itself relies on is still worth guarding directly,
      * so this test now drives it without going through an action that no longer applies to belts.

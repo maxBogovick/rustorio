@@ -1,6 +1,7 @@
 package com.graphics.render;
 
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.world.World;
 import org.junit.jupiter.api.Test;
 
@@ -21,7 +22,8 @@ class OverlayRendererReasonInvalidTest {
         // (BuildingCost.forType) — guaranteed unaffordable without placing/producing anything.
         World world = new World(4, 4);
 
-        String reason = OverlayRenderer.reasonInvalid(world, BuildingType.LAB, 1, 1);
+        String reason = OverlayRenderer.reasonInvalid(world,
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.LAB)), 1, 1);
 
         assertEquals("need 10 Gear (have 0)", reason);
     }

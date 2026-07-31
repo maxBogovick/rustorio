@@ -121,6 +121,31 @@ class ChestTest {
         assertEquals(1, sink.amount(VanillaItems.GEAR), "…and arrived at the neighbor in its output direction");
     }
 
+    /**
+     * (E5-05, owner decision) {@code speedLevel} must still yield exactly 2^N real ticks per world
+     * tick — preserved from the old decorator's stacking multiplier, not weakened to a linear
+     * (1+N). At {@code speedLevel} 2 that's 4 pushes in the single world tick this test runs,
+     * instead of the 1 an unupgraded chest manages (see {@link #pushesOneStoredItemPerTickOutThroughItsDirection}).
+     */
+    @Test
+    void speedLevelTwoPushesFourItemsInASingleWorldTick() {
+        World world = new World(4, 4);
+        Chest source = new Chest(Direction.RIGHT);
+        for (int i = 0; i < 5; i++) {
+            source.accept(world, VanillaItems.GEAR);
+        }
+        world.restoreBuilding(1, 1, source.withSpeedLevel(2));
+        Chest sink = new Chest(Direction.LEFT); // faces off the map — a passive receiver for this assertion
+        world.restoreBuilding(2, 1, sink);
+        Chest sped = (Chest) world.peek(1, 1).orElseThrow();
+
+        world.tick();
+
+        assertEquals(1, sped.count(), "5 stocked minus 4 pushed in this one tick");
+        assertEquals(4, sink.amount(VanillaItems.GEAR));
+        assertEquals(2, sped.speedLevel());
+    }
+
     @Test
     void rotatingChangesDirectionButKeepsContents() {
         World world = new World(4, 4);

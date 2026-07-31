@@ -1,0 +1,9 @@
+{
+  "path": "miner",
+  "label": "Miner",
+  "archetype": "MINER",
+  "cost": { "item": "iron_plate", "amount": 5 },
+  "placement": "NEEDS_ORE",
+  "texture": "rustorio:miner",
+  "acceptsSpeedEffects": true
+}

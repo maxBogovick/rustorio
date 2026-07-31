@@ -1,0 +1,9 @@
+{
+  "path": "underground_in",
+  "label": "Tunnel in",
+  "archetype": "UNDERGROUND_IN",
+  "cost": { "item": "iron_plate", "amount": 2 },
+  "placement": "ALWAYS",
+  "texture": "rustorio:underground_in",
+  "acceptsSpeedEffects": false
+}

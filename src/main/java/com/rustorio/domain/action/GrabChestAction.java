@@ -32,8 +32,8 @@ public final class GrabChestAction implements PlayerAction {
 
     @Override
     public boolean apply(World world) {
-        Building unwrapped = world.peek(x, y).map(Building::unwrap).orElse(null);
-        if (!(unwrapped instanceof Chest chest)) {
+        Building building = world.peek(x, y).orElse(null);
+        if (!(building instanceof Chest chest)) {
             return false;
         }
         Map<ItemType, Integer> drained = chest.drain();
@@ -63,8 +63,8 @@ public final class GrabChestAction implements PlayerAction {
         if (items == null) {
             return;
         }
-        Building unwrapped = world.peek(x, y).map(Building::unwrap).orElse(null);
-        if (!(unwrapped instanceof Chest chest) || !chest.canRestore(world, items) || !world.trySpendItems(items)) {
+        Building building = world.peek(x, y).orElse(null);
+        if (!(building instanceof Chest chest) || !chest.canRestore(world, items) || !world.trySpendItems(items)) {
             return;
         }
         chest.restore(items);

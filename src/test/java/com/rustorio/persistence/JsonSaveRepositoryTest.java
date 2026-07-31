@@ -1,5 +1,7 @@
 package com.rustorio.persistence;
 
+import com.rustorio.api.content.ContentId;
+import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
@@ -8,29 +10,38 @@ import com.rustorio.domain.RandomOreLayout;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.Tech;
 import com.rustorio.domain.VanillaItems;
+import com.rustorio.domain.VanillaSprites;
+import com.rustorio.domain.action.UpgradeSpeedAction;
 import com.rustorio.domain.building.Building;
+import com.rustorio.domain.building.BuildingCost;
 import com.rustorio.domain.building.BuildingFactory;
+import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.building.Filter;
 import com.rustorio.domain.building.Furnace;
+import com.rustorio.domain.building.FurnaceState;
 import com.rustorio.domain.building.Inserter;
-import com.rustorio.domain.building.SpeedModule;
+import com.rustorio.domain.building.PlacementRule;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.world.World;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Round-trip coverage for {@link JsonSaveRepository} — the riskiest part of the persistence
- * layer: every building kind, an in-progress furnace recipe, and an upgraded belt must all come
- * back exactly as they were saved.
+ * layer: every building kind, an in-progress furnace recipe, and a speed-upgraded building must
+ * all come back exactly as they were saved.
  */
 class JsonSaveRepositoryTest {
 
@@ -168,11 +179,11 @@ class JsonSaveRepositoryTest {
     }
 
     @Test
-    void upgradedBeltKeepsItsSpeedModuleLayerAfterReload(@TempDir Path dir) {
+    void upgradedChestKeepsItsSpeedLevelAfterReload(@TempDir Path dir) {
         SaveRepository repository = new JsonSaveRepository(dir.resolve("save.json"));
         World world = new World(6, 6);
-        world.placeBelt(0, 0, Direction.RIGHT);
-        world.restoreBuilding(0, 0, new SpeedModule(world.removeBuilding(0, 0).orElseThrow()));
+        world.placeChest(0, 0);
+        assertTrue(new UpgradeSpeedAction(0, 0).apply(world));
 
         assertTrue(repository.save(world).succeeded());
         World reloaded = new World(6, 6);
@@ -402,6 +413,116 @@ class JsonSaveRepositoryTest {
         World reloaded = new World(4, 4);
         assertTrue(repository.load(reloaded).succeeded());
         assertTrue(reloaded.peek(0, 0).isPresent());
+    }
+
+    /**
+     * (E6-04, ADR-4) A {@code prototypeId} absent from the loading world's own registry — its mod
+     * was removed since the save was written — must not fail the whole load: only that one cell
+     * stays empty, every other building loads normally, and the loss is reported, not silent.
+     */
+    @Test
+    void loadingASaveThatNamesAMissingModdedPrototypeSkipsItAndReportsTheLoss(@TempDir Path dir) {
+        ContentId moddedId = ContentId.of("examplemod:steel_press");
+        BuildingFactory moddedFactory = factoryWithModdedPress(moddedId);
+
+        World world = new World(4, 4, moddedFactory);
+        world.restoreBuilding(0, 0, moddedFactory.create(moddedId, Direction.RIGHT));
+        world.placeChest(1, 0);
+
+        SaveRepository repository = new JsonSaveRepository(dir.resolve("save.json"));
+        assertTrue(repository.save(world).succeeded());
+
+        // Reload into a world whose factory only knows the vanilla set — the mod that provided
+        // "examplemod:steel_press" is gone.
+        World reloaded = new World(4, 4);
+        SaveResult result = repository.load(reloaded);
+
+        assertTrue(result.succeeded(), "a missing prototype must not fail the whole load");
+        SaveResult.PartialSuccess partial = assertInstanceOf(SaveResult.PartialSuccess.class, result);
+        assertEquals(List.of(moddedId), partial.missingPrototypeIds());
+        assertEquals(1, partial.buildingsSkipped());
+
+        assertTrue(reloaded.peek(0, 0).isEmpty(), "the cell for the missing prototype must stay empty");
+        assertEquals(BuildingType.CHEST, reloaded.peek(1, 0).orElseThrow().type(),
+                "every other building must still load normally");
+    }
+
+    /**
+     * (E6-05, ADR-4) A prototype renamed since the save was written — the loading registry no
+     * longer has {@code oldId} at all, only {@code newId} — resolves under the NEW prototype via a
+     * single {@code oldId -> newId} table lookup, instead of being reported missing (E6-04) just
+     * because the stale name is gone.
+     */
+    @Test
+    void loadingASaveThatNamesARenamedPrototypeResolvesUnderTheNewOne(@TempDir Path dir) {
+        ContentId oldId = ContentId.of("mymod:crusher");
+        ContentId newId = ContentId.of("mymod:grinder");
+
+        World world = new World(4, 4, factoryWithModdedPress(oldId));
+        world.restoreBuilding(0, 0, world.buildingFactory().create(oldId, Direction.RIGHT));
+        SaveRepository writer = new JsonSaveRepository(dir.resolve("save.json"));
+        assertTrue(writer.save(world).succeeded());
+
+        // The loading factory only knows the NEW id — "mymod:crusher" isn't registered at all.
+        World reloaded = new World(4, 4, factoryWithModdedPress(newId));
+        SaveRepository reader = new JsonSaveRepository(
+                dir.resolve("save.json"), VanillaItems.frozen(), Map.of(oldId, newId));
+        SaveResult result = reader.load(reloaded);
+
+        assertTrue(result.succeeded(), "a renamed prototype must not be reported as missing");
+        Building restored = reloaded.peek(0, 0).orElseThrow();
+        assertEquals(newId, restored.prototypeId(),
+                "must resolve under the renamed prototype's own id, not the stale saved one");
+    }
+
+    /**
+     * (E6-05, ADR-4) The other half of the card's own acceptance criterion: a row that ALREADY
+     * names the current prototype directly must be completely unaffected by an unrelated rename
+     * rule for some other stale id sitting in the same table — proves the lookup targets exactly
+     * one row's own {@code prototypeId}, not something that could misfire across rows or reapply
+     * itself, rather than relying on this being accidentally true.
+     */
+    @Test
+    void aSaveThatAlreadyNamesTheCurrentPrototypeIsUnaffectedByAnUnrelatedRenameRule(@TempDir Path dir) {
+        ContentId currentId = ContentId.of("mymod:grinder");
+        BuildingFactory factory = factoryWithModdedPress(currentId);
+
+        World world = new World(4, 4, factory);
+        world.restoreBuilding(0, 0, factory.create(currentId, Direction.RIGHT));
+        SaveRepository writer = new JsonSaveRepository(dir.resolve("save.json"));
+        assertTrue(writer.save(world).succeeded());
+
+        Map<ContentId, ContentId> staleRenameForADifferentId =
+                Map.of(ContentId.of("mymod:crusher"), currentId);
+        World reloaded = new World(4, 4, factory);
+        SaveRepository reader = new JsonSaveRepository(
+                dir.resolve("save.json"), VanillaItems.frozen(), staleRenameForADifferentId);
+        SaveResult result = reader.load(reloaded);
+
+        assertTrue(result.succeeded());
+        assertEquals(currentId, reloaded.peek(0, 0).orElseThrow().prototypeId(),
+                "an unrelated rename rule must not touch a row that already names the current id");
+    }
+
+    /** A "steel press"-shaped modded prototype (bigger buffer, twice the speed) registered under {@code id}, next to the 12 vanilla ones. */
+    private static BuildingFactory factoryWithModdedPress(ContentId id) {
+        Registry<BuildingPrototype> prototypes = new Registry<>();
+        VanillaBuildings.registerAll(prototypes);
+        prototypes.register(id, new BuildingPrototype(
+                id,
+                id.path(),
+                new BuildingCost(VanillaItems.IRON_PLATE, 20),
+                PlacementRule.NEEDS_PASSABLE_TERRAIN,
+                VanillaSprites.FURNACE_COLD,
+                10, 2, true,
+                (self, direction, factory) -> new Furnace(BuildingType.PRESS, direction, factory.recipeBook(), self),
+                (self, decodedState, factory) -> {
+                    FurnaceState state = (FurnaceState) decodedState;
+                    return new Furnace(BuildingType.PRESS, state, factory.recipeBook(), self);
+                },
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.PRESS)).codec()));
+        prototypes.freeze();
+        return new BuildingFactory(PatchOreLayout.standard(), RecipeBook.standard(), VanillaItems.frozen(), prototypes);
     }
 
     private static BuildingType typeAt(World world, int x, int y) {

@@ -12,10 +12,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * {@link Building#outputDirection()}: only rendering (the direction arrow) reads this method, but
- * {@link SpeedModule} must delegate it, exactly like it already delegates {@code
- * prefersDescendingTick} — a forgotten line here would be the same bug already found twice in
- * this codebase's history (an upgrade hides the real building behind {@code SpeedModule}).
+ * {@link Building#outputDirection()}: only rendering (the direction arrow) reads this method.
  */
 class OutputDirectionTest {
 
@@ -39,19 +36,6 @@ class OutputDirectionTest {
         UndergroundBelt out = new UndergroundBelt(UndergroundBelt.Kind.OUT, Direction.UP);
         assertEquals(Optional.of(Direction.UP), in.outputDirection());
         assertEquals(Optional.of(Direction.UP), out.outputDirection());
-    }
-
-    @Test
-    void speedModuleDelegatesOutputDirectionToWhatItWraps() {
-        Building upgraded = new SpeedModule(new Belt(Direction.RIGHT));
-        assertEquals(Optional.of(Direction.RIGHT), upgraded.outputDirection());
-    }
-
-    @Test
-    void doublyWrappedSpeedModuleStillDelegatesThroughBothLayers() {
-        Building twiceUpgraded =
-                new SpeedModule(new SpeedModule(new Furnace(BuildingType.FURNACE, Direction.DOWN, RECIPES)));
-        assertEquals(Optional.of(Direction.DOWN), twiceUpgraded.outputDirection());
     }
 
     @Test
@@ -83,13 +67,6 @@ class OutputDirectionTest {
         assertEquals(Optional.empty(),
                 new UndergroundBelt(UndergroundBelt.Kind.OUT, Direction.RIGHT).secondaryOutputDirection());
         assertEquals(Optional.empty(), new Inserter(Direction.RIGHT).secondaryOutputDirection());
-    }
-
-    @Test
-    void speedModuleDelegatesSecondaryOutputDirectionToo() {
-        Building upgraded = new SpeedModule(new Splitter(Direction.LEFT));
-        // rotate(LEFT) = UP
-        assertEquals(Optional.of(Direction.UP), upgraded.secondaryOutputDirection());
     }
 
     @Test

@@ -54,6 +54,29 @@ class FurnaceTest {
         assertEquals(1, chest.count());
     }
 
+    /**
+     * (E5-05, owner decision) {@code speedLevel} must still yield exactly 2^N real ticks per world
+     * tick — preserved from the old decorator's stacking multiplier, not weakened to a linear
+     * (1+N). At {@code speedLevel} 3 that's 8 internal cycles, enough to clear IRON's 5-tick recipe
+     * within a SINGLE call to {@link Furnace#tick}.
+     */
+    @Test
+    void speedLevelThreeSmeltsABatchWithinASingleTickCall() {
+        World world = new World(4, 4);
+        Chest chest = new Chest();
+        world.restoreBuilding(1, 0, chest);
+
+        Furnace furnace = (Furnace) new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES).withSpeedLevel(3);
+        assertTrue(furnace.accept(world, VanillaItems.IRON_ORE));
+        assertTrue(furnace.accept(world, VanillaItems.COAL));
+
+        furnace.tick(world, 0, 0);
+
+        assertEquals(1, chest.count(),
+                "speedLevel 3 (2^3 = 8 cycles) must clear IRON's 5-tick recipe within one tick() call");
+        assertEquals(3, furnace.speedLevel());
+    }
+
     @Test
     void fastSmeltingHalvesTimeStartingFromTheFirstBatch() {
         World world = new World(4, 4);
@@ -287,9 +310,9 @@ class FurnaceTest {
         Chest chest = new Chest();
         world.restoreBuilding(1, 0, chest);
 
-        BuildingMemento.FurnaceState state = new BuildingMemento.FurnaceState(
-                BuildingType.PRESS, Direction.RIGHT, List.of(1), 0, VanillaItems.GEAR, null, 0, null, null);
-        Furnace press = new Furnace(state, RECIPES);
+        FurnaceState state = new FurnaceState(
+                Direction.RIGHT, List.of(1), 0, VanillaItems.GEAR, null, 0, null, 0);
+        Furnace press = new Furnace(BuildingType.PRESS, state, RECIPES);
 
         press.tick(world, 0, 0);
         assertEquals(0, chest.count(), "one tick must not finish a whole GEAR batch");
@@ -415,10 +438,9 @@ class FurnaceTest {
 
     /**
      * (F-03, DEV_TASKS.md) {@code Furnace#selectedRecipe}'s own javadoc used to say flatly "Not
-     * persisted" — this closes that gap: {@code BuildingMemento.FurnaceState} now carries it, so a
-     * save/load (here: a full {@code BuildingFactory.restore} round trip, not just {@code
-     * memento()} in isolation) must remember which recipe an otherwise-ambiguous item like GEAR
-     * commits to.
+     * persisted" — this closes that gap: {@link FurnaceState} carries it, so a save/load (here: a
+     * full {@code BuildingFactory.restore} round trip, not just {@code state()} in isolation) must
+     * remember which recipe an otherwise-ambiguous item like GEAR commits to.
      */
     @Test
     void selectedRecipeSurvivesAFactoryRestoreRoundTrip() {
@@ -428,14 +450,16 @@ class FurnaceTest {
         }
 
         BuildingFactory factory = BuildingFactory.standard();
-        Furnace restored = (Furnace) factory.restore(press.memento(), 0);
+        BuildingPrototype prototype = factory.prototype(press.prototypeId());
+        Object encoded = prototype.encodeState(press.state());
+        Furnace restored = (Furnace) factory.restore(press.prototypeId(), encoded);
 
         World world = new World(4, 4);
         assertTrue(restored.accept(world, VanillaItems.GEAR),
                 "restored furnace must still remember ENGINE was selected — GEAR alone is ambiguous otherwise");
     }
 
-    /** (F-03, DEV_TASKS.md) Same forgetfulness risk as every other field rotation must carry — see SpeedModule's own javadoc note on the pattern. */
+    /** (F-03, DEV_TASKS.md) Same forgetfulness risk as every other field rotation must carry — see {@code rotatedClockwise}'s own javadoc note on the pattern. */
     @Test
     void selectedRecipeSurvivesRotation() {
         Furnace press = new Furnace(BuildingType.PRESS, Direction.RIGHT, RECIPES);
@@ -568,7 +592,8 @@ class FurnaceTest {
 
         BuildingPrototype vanilla = VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.FURNACE));
         BuildingPrototype steelFurnace = new BuildingPrototype(
-                vanilla.id(), vanilla.cost(), vanilla.placementRule(), vanilla.texture(), 10, 2, true);
+                vanilla.id(), vanilla.label(), vanilla.cost(), vanilla.placementRule(), vanilla.texture(), 10, 2, true,
+                vanilla.behavior(), vanilla.restoreBehavior(), vanilla.codec());
         Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES, steelFurnace);
         assertTrue(furnace.accept(world, VanillaItems.COAL));
 

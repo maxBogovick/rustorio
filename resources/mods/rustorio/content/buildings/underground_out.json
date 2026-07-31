@@ -1,0 +1,9 @@
+{
+  "path": "underground_out",
+  "label": "Tunnel out",
+  "archetype": "UNDERGROUND_OUT",
+  "cost": { "item": "iron_plate", "amount": 2 },
+  "placement": "ALWAYS",
+  "texture": "rustorio:underground_out",
+  "acceptsSpeedEffects": false
+}

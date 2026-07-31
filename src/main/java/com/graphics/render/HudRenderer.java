@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
@@ -18,6 +19,7 @@ import com.rustorio.domain.ResearchView;
 import com.rustorio.domain.Tech;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingFactory;
+import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.building.Filter;
 import com.rustorio.domain.building.Furnace;
@@ -109,7 +111,7 @@ final class HudRenderer {
     void render(HudState hud, World world, TileRange visible, ProductionStatsView stats, ResearchView research,
             PlayerInventoryView inventory, ProductionLogView log, int ups) {
         renderInfoPanel(world, stats, research, inventory, log, hud.paused(), hud.speed(), ups);
-        renderHotbar(hud.selected(), hud.facing(), world.buildingFactory());
+        renderHotbar(hud.hotbarSlots(), hud.selected(), hud.facing(), world.buildingFactory());
         renderMinimap(world, visible);
         renderInspectionPanel(world, hud.inspected());
     }
@@ -306,32 +308,34 @@ final class HudRenderer {
     }
 
     /**
-     * Нижняя панель построек: слот на каждый {@link BuildingType}, выбранный — обведён ярко.
-     * Высота — {@link GfxConfig#HUD_BOTTOM_HEIGHT}, та же, на которую камера сузила вьюпорт
-     * снизу (см. {@link #renderInfoPanel} — тот же приём для верхней панели).
+     * Нижняя панель построек: слот на каждый закреплённый в хотбаре прототип (Фаза 8 — настраиваемый
+     * список, был {@code BuildingType.values()} напрямую), выбранный — обведён ярко. Высота —
+     * {@link GfxConfig#HUD_BOTTOM_HEIGHT}, та же, на которую камера сузила вьюпорт снизу (см.
+     * {@link #renderInfoPanel} — тот же приём для верхней панели).
      */
-    private void renderHotbar(BuildingType selected, Direction facing, BuildingFactory buildingFactory) {
+    private void renderHotbar(List<ContentId> hotbarSlots, ContentId selected, Direction facing, BuildingFactory buildingFactory) {
         int screenW = Gdx.graphics.getWidth();
-        BuildingType[] types = BuildingType.values();
+        int slotCount = hotbarSlots.size();
         float barH = GfxConfig.HUD_BOTTOM_HEIGHT;
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(Palette.PANEL_BG);
         shapes.rect(0, 0, screenW, barH);
-        for (int i = 0; i < types.length; i++) {
+        for (int i = 0; i < slotCount; i++) {
             shapes.setColor(Palette.SLOT_BG);
-            shapes.rect(HotbarLayout.slotX(i, screenW), HotbarLayout.slotY(),
+            shapes.rect(HotbarLayout.slotX(i, screenW, slotCount), HotbarLayout.slotY(),
                     HotbarLayout.SLOT_SIZE, HotbarLayout.SLOT_SIZE);
         }
         shapes.end();
 
         shapes.begin(ShapeRenderer.ShapeType.Line);
-        for (int i = 0; i < types.length; i++) {
-            shapes.setColor(types[i] == selected ? Palette.SLOT_SELECTED : Palette.SLOT_BORDER);
-            float x = HotbarLayout.slotX(i, screenW);
+        for (int i = 0; i < slotCount; i++) {
+            boolean isSelected = hotbarSlots.get(i).equals(selected);
+            shapes.setColor(isSelected ? Palette.SLOT_SELECTED : Palette.SLOT_BORDER);
+            float x = HotbarLayout.slotX(i, screenW, slotCount);
             float y = HotbarLayout.slotY();
             shapes.rect(x, y, HotbarLayout.SLOT_SIZE, HotbarLayout.SLOT_SIZE);
-            if (types[i] == selected) {
+            if (isSelected) {
                 // Обвести дважды со сдвигом в 1px — тонкая линия одним проходом на выделении
                 // теряется рядом с обычной рамкой соседних слотов, а лишний класс ради толщины
                 // линии заводить незачем.
@@ -343,20 +347,24 @@ final class HudRenderer {
         batch.begin();
         float iconPad = 8f;
         float iconSize = HotbarLayout.SLOT_SIZE - iconPad * 2;
-        for (int i = 0; i < types.length; i++) {
-            BuildingType type = types[i];
-            float x = HotbarLayout.slotX(i, screenW);
+        for (int i = 0; i < slotCount; i++) {
+            ContentId prototypeId = hotbarSlots.get(i);
+            BuildingPrototype prototype = buildingFactory.prototype(prototypeId);
+            boolean isSelected = prototypeId.equals(selected);
+            float x = HotbarLayout.slotX(i, screenW, slotCount);
             float y = HotbarLayout.slotY();
-            TextureRegion icon = textures.forSprite(buildingFactory.prototype(type).texture());
+            TextureRegion icon = textures.forSprite(prototype.texture());
             font.setColor(Color.WHITE);
             batch.draw(icon, x + iconPad, y + iconPad, iconSize, iconSize);
 
             font.getData().setScale(0.75f);
-            font.setColor(type == selected ? Palette.SLOT_SELECTED : Palette.HINT);
-            font.draw(batch, Integer.toString(i + 1), x + 4, y + HotbarLayout.SLOT_SIZE - 3);
+            font.setColor(isSelected ? Palette.SLOT_SELECTED : Palette.HINT);
+            if (i < 9) {
+                font.draw(batch, Integer.toString(i + 1), x + 4, y + HotbarLayout.SLOT_SIZE - 3);
+            }
             font.getData().setScale(0.62f);
             font.setColor(Palette.HINT);
-            font.draw(batch, type.label(), x, y - 3);
+            font.draw(batch, prototype.label(), x, y - 3);
         }
 
         font.getData().setScale(0.85f);
@@ -411,7 +419,7 @@ final class HudRenderer {
     /**
      * Inspection panel (F-03, DEV_TASKS.md): click any placed building ({@code InputHandler}) to
      * see its live internal state — a chest's contents by kind, a furnace/press's committed or
-     * selected recipe and remaining fuel, any building's {@code SpeedModule} level, a tunnel
+     * selected recipe and remaining fuel, any building's {@code speedLevel}, a tunnel
      * entrance's pairing. Reads straight off the actual {@link Building}, the same object {@code
      * World.tick} runs — nothing here is a separate copy that could drift from what's really
      * happening. {@code null}/an empty cell (the building got demolished since the click) simply
@@ -462,17 +470,16 @@ final class HudRenderer {
         }
         building.heldItem().ifPresent(item -> lines.add("Holding: " + item.label()));
 
-        Building real = Building.unwrap(building);
-        if (real instanceof Chest chest) {
+        if (building instanceof Chest chest) {
             appendChestContents(lines, items, chest);
-        } else if (real instanceof Furnace furnace) {
+        } else if (building instanceof Furnace furnace) {
             appendFurnaceDetails(lines, building, furnace);
-        } else if (real instanceof UndergroundBelt tunnel) {
+        } else if (building instanceof UndergroundBelt tunnel) {
             appendTunnelPairing(lines, world, at, building, tunnel);
-        } else if (real instanceof Filter filter) {
+        } else if (building instanceof Filter filter) {
             lines.add("Passes forward: " + filter.filterItem().label() + "  (F to change)");
             lines.add("Everything else -> secondary side");
-        } else if (real instanceof Splitter) {
+        } else if (building instanceof Splitter) {
             lines.add("Round-robin: alternates forward / secondary side");
         }
         return lines;

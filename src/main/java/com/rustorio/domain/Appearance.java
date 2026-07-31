@@ -25,9 +25,9 @@ import org.jspecify.annotations.Nullable;
  * <p>The two/three-argument {@link #of(ContentId)}/{@link #of(ContentId, int)}/{@link #of(ContentId,
  * BuildingStatus)} overloads default {@code status} to {@link BuildingStatus#WORKING} and {@code
  * recipeHint} to {@code null} — most buildings ({@code Belt}, {@code Splitter}, {@code
- * UndergroundBelt}, {@code Lab}, {@code SpeedModule}) have no meaningful "stuck" state or recipe
- * choice of their own to report and keep calling these unchanged; only {@code Miner}, {@code
- * Chest} needed a real status, and only {@code Furnace} needs both status and a recipe hint.
+ * UndergroundBelt}, {@code Lab}) have no meaningful "stuck" state or recipe choice of their own to
+ * report and keep calling these unchanged; only {@code Miner}, {@code Chest} needed a real status,
+ * and only {@code Furnace} needs both status and a recipe hint.
  */
 public record Appearance(ContentId sprite, int badge, BuildingStatus status, @Nullable ItemType recipeHint) {
 

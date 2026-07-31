@@ -74,7 +74,7 @@ public final class Furnace implements Building {
      * #cycleRecipe}. Consulted only while {@link #active} is {@code null} — once a batch commits,
      * this furnace runs it to completion regardless of what the player picks next. {@code null}
      * means "no preference": an unambiguous item still auto-commits, an ambiguous one is refused.
-     * Persisted since F-03, DEV_TASKS.md (see {@link #memento()}) — it used to not be.
+     * Persisted since F-03, DEV_TASKS.md (see {@link #state()}) — it used to not be.
      */
     private @Nullable Recipe selectedRecipe;
     /** Coal on hand, {@code FURNACE} kind only — see the class javadoc's D-05 note. Always 0 and unused for {@code PRESS}. */
@@ -88,6 +88,8 @@ public final class Furnace implements Building {
     private @Nullable ItemType pendingOutput;
     /** Recomputed once per {@link #tick}, not once per render frame — see {@link BuildingStatus}'s own javadoc for why (F-01, DEV_TASKS.md). */
     private BuildingStatus status = BuildingStatus.WORKING;
+    /** {@code UpgradeSpeedAction}'s upgrade count — see {@link #tick}'s own note on how it's applied. */
+    private int speedLevel;
 
     /** Convenience for callers that only care about {@code kind}'s vanilla prototype — see the 4-arg constructor for real injection (a modded "steel furnace" needs its own prototype here). */
     public Furnace(BuildingType kind, Direction direction, RecipeBook recipeBook) {
@@ -101,34 +103,32 @@ public final class Furnace implements Building {
         this.prototype = prototype;
     }
 
-    /**
-     * Convenience restore constructor used by {@link BuildingFactory#restore} for callers that
-     * only care about the vanilla prototype set — resolves {@link
-     * BuildingMemento.FurnaceState#prototypeId()} against {@link VanillaBuildings#frozen()}, or
-     * falls back to {@code state.kind()}'s vanilla default when it's {@code null} (a save written
-     * before this field existed). See the 3-arg restore constructor for real injection.
-     */
-    Furnace(BuildingMemento.FurnaceState state, RecipeBook recipeBook) {
-        this(state, recipeBook, resolvePrototype(state));
-    }
-
-    private static BuildingPrototype resolvePrototype(BuildingMemento.FurnaceState state) {
-        ContentId id = state.prototypeId() != null ? state.prototypeId() : VanillaBuildings.idFor(state.kind());
-        return VanillaBuildings.frozen().get(id);
+    /** Convenience restore constructor for callers that only care about the vanilla prototype set — see the 4-arg restore constructor for real injection. */
+    Furnace(BuildingType kind, FurnaceState state, RecipeBook recipeBook) {
+        this(kind, state, recipeBook, VanillaBuildings.frozen().get(VanillaBuildings.idFor(kind)));
     }
 
     /**
-     * Package-private restore constructor used by {@link BuildingFactory#restore} — takes the
-     * captured {@link BuildingMemento.FurnaceState} whole rather than its fields spread across
-     * many parameters, so there's one grouped state object to read instead of a long,
-     * easy-to-transpose parameter list.
+     * Restore constructor used by {@link BuildingFactory#restore} (via this prototype's own
+     * registered {@link RestoreFactory}) — takes the decoded {@link FurnaceState} whole rather
+     * than its fields spread across many parameters. {@code kind} is a separate parameter, not a
+     * field of {@code state} itself — see {@link FurnaceState}'s own javadoc for why; the
+     * registered restore lambda for each of the three furnace-kind prototypes supplies its own
+     * captured kind, the same way the CREATE lambda already does.
+     *
+     * <p>Public (was package-private, back when this took the old sealed {@code BuildingMemento}
+     * variant) — a mod that reuses {@link Furnace} for its own {@link BuildingPrototype} — no new
+     * Java class needed, only new data (see {@code ExampleMod} in the test tree) — registers its
+     * OWN {@code RestoreFactory} lambda, which lives outside this package and needs to call this
+     * constructor directly.
      */
-    Furnace(BuildingMemento.FurnaceState state, RecipeBook recipeBook, BuildingPrototype prototype) {
-        this(state.kind(), state.direction(), recipeBook, prototype);
+    public Furnace(BuildingType kind, FurnaceState state, RecipeBook recipeBook, BuildingPrototype prototype) {
+        this(kind, state.direction(), recipeBook, prototype);
+        this.speedLevel = state.speedLevel();
         this.fuelBuffer = state.fuelBuffer();
         ItemType recipeOutput = state.recipeOutput();
         if (recipeOutput != null) {
-            Recipe recipe = recipeBook.findByOutput(state.kind(), recipeOutput)
+            Recipe recipe = recipeBook.findByOutput(kind, recipeOutput)
                     .orElseThrow(() -> new IllegalStateException("Unknown recipe output: " + recipeOutput));
             // A non-positive cooldown means "no countdown was recorded", NOT "this batch is done"
             // (N10, NEW_BUGS_PROGRESS.md): ProcessTimer decrements before testing, so a timer
@@ -142,7 +142,7 @@ public final class Furnace implements Building {
         this.pendingOutput = state.pendingOutput();
         ItemType selectedOutput = state.selectedRecipeOutput();
         if (selectedOutput != null) {
-            this.selectedRecipe = recipeBook.findByOutput(state.kind(), selectedOutput)
+            this.selectedRecipe = recipeBook.findByOutput(kind, selectedOutput)
                     .orElseThrow(() -> new IllegalStateException("Unknown recipe output: " + selectedOutput));
         }
     }
@@ -217,8 +217,20 @@ public final class Furnace implements Building {
         return Optional.ofNullable(selectedRecipe).map(Recipe::output);
     }
 
+    /**
+     * Runs {@link #tickOnce} {@code 1 << speedLevel} times — the same multiplier {@code
+     * SpeedModule} used to produce by nesting {@code speedLevel} independent wrapper layers, each
+     * doubling whatever it wrapped (owner decision: preserve the exact ×2^N stacking, not switch to
+     * a linear ×(1+N) just because the mechanism moved from a decorator to a field).
+     */
     @Override
     public void tick(TickContext world, int x, int y) {
+        for (int i = 0, repeats = 1 << speedLevel; i < repeats; i++) {
+            tickOnce(world, x, y);
+        }
+    }
+
+    private void tickOnce(TickContext world, int x, int y) {
         if (pendingOutput == null) {
             ActiveRecipe current = active;
             if (current == null) {
@@ -305,16 +317,22 @@ public final class Furnace implements Building {
         return dy > 0 ? y + footprintHeight() : dy < 0 ? y - 1 : y;
     }
 
-    /** {@code 2} for {@code ASSEMBLER} (X-03, DEV_TASKS.md); {@code 1} for every other kind — delegates to {@link BuildingType#footprintWidth}, the single source of truth. */
+    /**
+     * {@code 2} for the vanilla {@code ASSEMBLER} prototype, {@code 1} for every other vanilla
+     * kind — read from {@link #prototype}, not {@link #kind}: a JSON-configured building reusing
+     * this archetype (see {@code BuildingJsonLoader}) supplies its OWN footprint on its own
+     * prototype, which would be unreachable if this read the closed {@link BuildingType} constant
+     * instead.
+     */
     @Override
     public int footprintWidth() {
-        return kind.footprintWidth();
+        return prototype.footprintWidth();
     }
 
-    /** Square footprint (see {@link #footprintWidth}) — kept equal so {@link #rotatedClockwise} never has to reshape the occupied cells, only the facing. */
+    /** The height counterpart to {@link #footprintWidth} — see its javadoc. Not necessarily square anymore (a modded prototype may differ), but {@link #rotatedClockwise} still only reshapes facing, never the occupied cells. */
     @Override
     public int footprintHeight() {
-        return kind.footprintHeight();
+        return prototype.footprintHeight();
     }
 
     /** {@code recipe.time()}, halved again by {@link #prototype}'s own {@code speedMultiplier} — the "twice as fast" a modded furnace variant asks for stacks with, not instead of, the {@code FAST_SMELTING} tech bonus. */
@@ -367,13 +385,13 @@ public final class Furnace implements Building {
     }
 
     /**
-     * Rebuilds through {@link #memento()} rather than a dedicated copy constructor: {@link
-     * BuildingMemento.FurnaceState} already carries every field this class has, so replaying it
-     * through the existing restore constructor with only {@code direction} swapped is the whole
+     * Rebuilds through {@link #state()} rather than a dedicated copy constructor: {@link
+     * FurnaceState} already carries every field this class has, so replaying it through the
+     * existing restore constructor with only {@code direction} swapped is the whole
      * implementation, instead of a second parameter list to keep in sync with the first.
      *
-     * <p>{@link #status} isn't part of {@link BuildingMemento.FurnaceState} (ephemeral, recomputed
-     * on the next {@link #tick} — same call made for every other building's status), so the restore
+     * <p>{@link #status} isn't part of {@link FurnaceState} (ephemeral, recomputed on the next
+     * {@link #tick} — same call made for every other building's status), so the restore
      * constructor alone would reset a rotated furnace back to {@code WORKING}. Unlike an actual
      * save/load, a rotation doesn't create a new logical furnace — set explicitly here (code review
      * finding) so a furnace that was actually blocked doesn't flash back to {@code WORKING} for one
@@ -382,18 +400,38 @@ public final class Furnace implements Building {
      */
     @Override
     public Optional<Building> rotatedClockwise() {
-        BuildingMemento.FurnaceState state = (BuildingMemento.FurnaceState) memento();
-        BuildingMemento.FurnaceState rotated = new BuildingMemento.FurnaceState(
-                state.kind(), direction.rotate(), state.buffers(),
+        FurnaceState state = state();
+        FurnaceState rotated = new FurnaceState(
+                direction.rotate(), state.buffers(),
                 state.cooldown(), state.recipeOutput(), state.pendingOutput(), state.fuelBuffer(),
-                state.selectedRecipeOutput(), state.prototypeId());
-        // The 3-arg restore constructor, with THIS instance's own prototype passed through
-        // directly — not re-resolved from state.prototypeId() via VanillaBuildings.frozen() (the
-        // 2-arg convenience) — a rotation must keep exactly the registry this furnace was already
-        // built with, not silently fall back to the vanilla default if it's running a modded one.
-        Furnace turned = new Furnace(rotated, recipeBook, prototype);
+                state.selectedRecipeOutput(), state.speedLevel());
+        // THIS instance's own prototype passed through directly, not re-resolved from a
+        // registry-default lookup — a rotation must keep exactly the prototype this furnace was
+        // already built with, not silently fall back to the vanilla default if it's running a
+        // modded one.
+        Furnace turned = new Furnace(kind, rotated, recipeBook, prototype);
         turned.status = status;
         return Optional.of(turned);
+    }
+
+    @Override
+    public int speedLevel() {
+        return speedLevel;
+    }
+
+    /**
+     * Rebuilds through {@link #state()}, same approach as {@link #rotatedClockwise} — see its
+     * own javadoc for why a copy constructor beats a dedicated one here.
+     */
+    @Override
+    public Building withSpeedLevel(int newSpeedLevel) {
+        FurnaceState current = state();
+        FurnaceState updated = new FurnaceState(
+                current.direction(), current.buffers(), current.cooldown(), current.recipeOutput(),
+                current.pendingOutput(), current.fuelBuffer(), current.selectedRecipeOutput(), newSpeedLevel);
+        Furnace copy = new Furnace(kind, updated, recipeBook, prototype);
+        copy.status = status;
+        return copy;
     }
 
     @Override
@@ -426,19 +464,26 @@ public final class Furnace implements Building {
         return kind;
     }
 
+    /** Not {@code prototype.id()} of the vanilla default for {@link #kind} — the exact prototype this instance was actually built/restored with, modded or not. */
     @Override
-    public BuildingMemento memento() {
+    public ContentId prototypeId() {
+        return prototype.id();
+    }
+
+    /** No {@code kind} here — see {@link FurnaceState}'s own javadoc for why it's redundant once the save envelope names the governing prototype directly (which archetype-specific restore lambda gets called already implies it). */
+    @Override
+    public FurnaceState state() {
         ActiveRecipe current = active;
         List<Integer> buffers = current == null
                 ? List.of()
                 : Arrays.stream(current.inputBuffers()).boxed().toList();
-        return new BuildingMemento.FurnaceState(
-                kind, direction, buffers,
+        return new FurnaceState(
+                direction, buffers,
                 current == null ? 0 : current.timer().cooldown(),
                 current == null ? null : current.recipe().output(),
                 pendingOutput, fuelBuffer,
                 selectedRecipe == null ? null : selectedRecipe.output(),
-                prototype.id());
+                speedLevel);
     }
 
     /** Coal on hand — {@code FURNACE} kind only; always 0 for {@code PRESS}. For the inspection panel (F-03), later. */

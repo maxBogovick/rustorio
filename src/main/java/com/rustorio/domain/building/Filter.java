@@ -122,7 +122,7 @@ public final class Filter implements Building, SettlesEachTick {
     }
 
     @Override
-    public BuildingMemento memento() {
-        return new BuildingMemento.FilterState(facing, held, filterItem);
+    public FilterState state() {
+        return new FilterState(facing, held, filterItem);
     }
 }

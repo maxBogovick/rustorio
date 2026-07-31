@@ -1,5 +1,6 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
@@ -9,20 +10,29 @@ import java.util.Optional;
 /**
  * Anything the world can hold in a cell and step forward one tick at a time.
  *
- * <p><b>Why {@code sealed}.</b> The set of building kinds is closed and known here, in one place
- * — {@link Miner}, {@link Chest}, {@link Furnace}, {@link Belt}, {@link Splitter}, {@link Filter},
- * {@link Inserter}, {@link SpeedModule}, {@link Lab} and {@link UndergroundBelt}. A stray class
- * can't quietly become a building outside this file, and the compiler can enforce exhaustiveness
- * anywhere code switches over a building's concrete type (see {@link BuildingFactory#restore}).
+ * <p><b>Open, not closed.</b> Used to be {@code sealed} with a fixed {@code permits} list — the
+ * ten vanilla kinds ({@link Miner}, {@link Chest}, {@link Furnace}, {@link Belt}, {@link Splitter},
+ * {@link Filter}, {@link Inserter}, {@link Lab}, {@link UndergroundBelt}) and nothing else. That
+ * closed the door on a mod ever adding its own building behavior: a third-party class can't be
+ * listed in someone else's {@code permits} clause. This interface has no implementation of its
+ * own to protect and nothing here relies on exhaustiveness over "every kind of building" anymore —
+ * capability interfaces ({@link SettlesEachTick}, {@link TransportNode}) are how code asks "can
+ * you do X", not a closed type switch. Any class, anywhere, can {@code implement Building} now.
+ * {@code BuildingFactory.create}/{@code restore} dispatch through registered data ({@link
+ * BuildingPrototype}) rather than a closed {@code switch}, so a genuinely new prototype — with no
+ * {@link BuildingType} of its own at all — is buildable/restorable too; what remains closed is the
+ * hotbar/UI (still a {@link BuildingType#values()} loop) and {@link BuildingType} itself as an
+ * enum, neither a consequence of this interface no longer being {@code sealed}.
  *
- * <p><b>The tax {@link SpeedModule} pays for that.</b> Decorator wants to wrap any object behind
- * an interface without asking the interface's author for permission; {@code sealed} is the
- * opposite idea — the set of wrappable types is closed and must know about the decorator ahead of
- * time. {@code SpeedModule} has to be listed in {@code permits} rather than simply implementing
- * {@code Building} from anywhere; that's real friction between the two patterns, not an oversight.
+ * <p><b>{@code speedLevel} used to be a decorator ({@code SpeedModule}), not anymore.</b> A
+ * decorator that wraps an unknown number of times conflicts with capability interfaces: every
+ * {@code instanceof SomeCapability} check would have to unwrap first, and that cost grows with
+ * every capability the engine adds. {@code speedLevel} is now plain data — a field on whichever
+ * archetypes ({@link Miner}, {@link Chest}, {@link Furnace}, {@link Lab}) actually accept the
+ * effect (see {@code BuildingPrototype#acceptsSpeedEffects}) — read directly by {@link
+ * #speedLevel()}, no unwrapping required anywhere.
  */
-public sealed interface Building
-        permits Miner, Chest, Furnace, Belt, Splitter, Filter, Inserter, SpeedModule, Lab, UndergroundBelt {
+public interface Building {
 
     /**
      * Live one tick. The world calls this once per building per step, passing the building's own
@@ -53,9 +63,22 @@ public sealed interface Building
         return Optional.empty();
     }
 
-    /** How many {@link SpeedModule} layers wrap this building — {@code 0} if none. */
+    /** How many times {@code UpgradeSpeedAction} has upgraded this building — {@code 0} if never. */
     default int speedLevel() {
         return 0;
+    }
+
+    /**
+     * A copy of this building with {@link #speedLevel()} set to {@code newSpeedLevel}, preserving
+     * every other bit of state — how {@code UpgradeSpeedAction} increments the level (and {@code
+     * undo} restores the previous instance wholesale, so this method's return value is only ever
+     * needed going forward, never backward). Default: return {@code this} unchanged — the buildings
+     * that don't track a {@code speedLevel} at all (see {@code BuildingPrototype#acceptsSpeedEffects})
+     * have nothing to change and {@code UpgradeSpeedAction} never calls this on them anyway (the
+     * prototype check refuses them first).
+     */
+    default Building withSpeedLevel(int newSpeedLevel) {
+        return this;
     }
 
     /**
@@ -78,11 +101,31 @@ public sealed interface Building
     /** How this building looks right now — sprite plus an optional numeric badge. */
     Appearance appearance();
 
-    /** This building's kind, as shown in the hotbar and stored by the save system. */
+    /** This building's kind, as shown in the hotbar. */
     BuildingType type();
 
-    /** Capture this building's entire internal state for persistence (Memento pattern). */
-    BuildingMemento memento();
+    /**
+     * Capture this building's entire internal state for persistence (Memento pattern) — this
+     * building's own state record (e.g. a {@code MinerState}), erased to {@code Object} here the
+     * same way {@link BuildingPrototype#behavior()} already erases its own return type. Paired
+     * with a {@link Codec} registered on this building's governing {@link BuildingPrototype} (see
+     * {@code VanillaBuildings}), which knows how to turn the returned record into a plain
+     * JSON-shaped value and back.
+     */
+    Object state();
+
+    /**
+     * This building's own governing {@link BuildingPrototype}'s id — what a save writes as
+     * {@code proto}, and what {@code BuildingFactory.restore} resolves against on load. Defaults
+     * to the vanilla id for this building's own {@link #type()}, which is correct for every
+     * archetype except one that can ALSO be built from a DIFFERENT (e.g. modded) prototype than
+     * its {@code type()} alone would suggest — {@link Furnace} is the only one today (a "steel
+     * press" still reports {@code type() == PRESS}, but was built from a different, non-vanilla
+     * prototype) — see its own override.
+     */
+    default ContentId prototypeId() {
+        return VanillaBuildings.idFor(type());
+    }
 
     /**
      * Whether this building doesn't care what order it's ticked in relative to its neighbors this
@@ -117,18 +160,9 @@ public sealed interface Building
      * construction and read by other code that assumes it never changes mid-lifetime (e.g. {@link
      * Belt}'s segment membership) — {@code com.rustorio.domain.action.RotateAction} is the one
      * caller, and it always goes through {@code World.removeBuilding}/{@code restoreBuilding}
-     * anyway, exactly like {@link SpeedModule} upgrading already does (D-01, DEV_TASKS.md).
+     * anyway, exactly like {@code UpgradeSpeedAction} does (D-01, DEV_TASKS.md).
      */
     default Optional<Building> rotatedClockwise() {
         return Optional.empty();
-    }
-
-    /** Strip away any {@link SpeedModule} layers and return the real building underneath. */
-    static Building unwrap(Building building) {
-        Building current = building;
-        while (current instanceof SpeedModule module) {
-            current = module.inner();
-        }
-        return current;
     }
 }

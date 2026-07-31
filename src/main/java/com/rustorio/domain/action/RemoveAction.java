@@ -59,12 +59,10 @@ public final class RemoveAction implements PlayerAction {
         anchorY = origin.y();
         removed = world.removeBuilding(anchorX, anchorY).orElse(null);
         if (removed != null) {
-            // removed.type(), not Building.unwrap(removed).type(): SpeedModule already delegates
-            // type() to what it wraps, so this refunds the real building's cost either way. The
-            // SpeedModule upgrade itself stays free either direction — a separate, already-known
+            // The speedLevel upgrade itself stays free either direction — a separate, already-known
             // audit finding (§3.8) this task doesn't touch.
             world.refundBuildingCost(removed.type());
-            if (Building.unwrap(removed) instanceof Chest chest) {
+            if (removed instanceof Chest chest) {
                 Map<ItemType, Integer> contents = chest.contents();
                 if (!contents.isEmpty()) {
                     reclaimedContents = contents;

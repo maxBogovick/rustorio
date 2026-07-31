@@ -7,6 +7,7 @@ import com.graphics.render.GameCamera;
 import com.graphics.render.HotbarLayout;
 import com.graphics.render.HudState;
 import com.graphics.render.TilePos;
+import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
@@ -21,9 +22,9 @@ import com.rustorio.domain.action.PlayerAction;
 import com.rustorio.domain.action.RemoveAction;
 import com.rustorio.domain.action.RotateAction;
 import com.rustorio.domain.action.UpgradeSpeedAction;
-import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.Filter;
 import com.rustorio.domain.building.Furnace;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.world.World;
 import com.rustorio.persistence.SaveRepository;
 import com.rustorio.persistence.SaveResult;
@@ -49,7 +50,13 @@ public final class InputHandler {
     private final SaveRepository saveRepository;
     private final CameraController cameraController;
     private final SimulationControls simulationControls = new SimulationControls();
-    private BuildingType selected = BuildingType.MINER; // строим это; клавиши 1-9 меняют
+    /**
+     * Настраиваемый хотбар (Фаза 8) — по умолчанию 12 ванильных прототипов, тем же порядком, что
+     * {@code BuildingType.values()} раньше давал напрямую, чтобы клавиши 1-9 ощущались как прежде.
+     * Закрепление в слот (меню построек, E8-05) заменяет элемент этого списка, не сам список.
+     */
+    private final List<ContentId> hotbarSlots = defaultHotbarSlots();
+    private ContentId selected = hotbarSlots.get(0); // строим это; клавиши 1-9/клик по хотбару меняют
     private Direction facing = Direction.RIGHT; // важно только ленте; клавиша R меняет
     /** Клетка под панелью инспекции (F-03, DEV_TASKS.md) — {@code null}, пока ничего не открыто. */
     private @Nullable TilePos inspected;
@@ -65,21 +72,30 @@ public final class InputHandler {
         this.cameraController = new CameraController(camera);
     }
 
+    /** 12 ванильных прототипов, тем же порядком, что {@code BuildingType.values()} — хотбар-слоты 1-9(+2 мышью) на новой игре. */
+    private static List<ContentId> defaultHotbarSlots() {
+        List<ContentId> slots = new ArrayList<>();
+        for (BuildingType type : BuildingType.values()) {
+            slots.add(VanillaBuildings.idFor(type));
+        }
+        return slots;
+    }
+
     // Геттеры для HUD/GameScreen — паузу/скорость/книгу рецептов отдаёт SimulationControls.
-    public BuildingType selected() { return selected; }
+    public ContentId selected() { return selected; }
     public Direction facing() { return facing; }
     public boolean isPaused() { return simulationControls.isPaused(); }
     public int speed() { return simulationControls.speed(); }
     public boolean showRecipeBook() { return simulationControls.showRecipeBook(); }
     /**
      * Снимок для {@code Renderer}: своё («что строим» + линия протяжки F-02 + инспекция F-03 +
-     * удержан ли Alt для F-04 + графикуемый предмет для P-03) плюс то, что знает {@link
-     * SimulationControls}.
+     * удержан ли Alt для F-04 + графикуемый предмет для P-03 + хотбар-слоты для Фазы 8) плюс то,
+     * что знает {@link SimulationControls}.
      */
     public HudState hudState() {
         boolean altOverlay = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
         return simulationControls.hudState(selected, facing, buildDrag.inProgressTiles(), inspected, altOverlay,
-                statsItem);
+                statsItem, hotbarSlots);
     }
 
     public void handle(World world, float delta) {
@@ -120,7 +136,6 @@ public final class InputHandler {
             if (Gdx.input.isKeyJustPressed(Input.Keys.C)) { // листнуть рецепт печи/пресса (P2-02)
                 TilePos tile = camera.pickTile(Gdx.input.getX(), Gdx.input.getY());
                 world.peek(tile.x(), tile.y())
-                        .map(Building::unwrap)
                         .filter(Furnace.class::isInstance)
                         .map(Furnace.class::cast)
                         .ifPresent(furnace -> {
@@ -132,7 +147,6 @@ public final class InputHandler {
             if (Gdx.input.isKeyJustPressed(Input.Keys.F)) { // листнуть предмет фильтра (X-01, DEV_TASKS.md) — тот же приём, что C для рецепта печи/пресса
                 TilePos tile = camera.pickTile(Gdx.input.getX(), Gdx.input.getY());
                 world.peek(tile.x(), tile.y())
-                        .map(Building::unwrap)
                         .filter(Filter.class::isInstance)
                         .map(Filter.class::cast)
                         .ifPresent(filter -> {
@@ -179,24 +193,26 @@ public final class InputHandler {
     }
 
     /**
-     * Whether any full-screen panel (recipe book / tech tree / stats — {@link
+     * Whether any full-screen panel (recipe book / tech tree / stats / build menu — {@link
      * SimulationControls#showRecipeBook()}/{@link SimulationControls#showTechTree()}/{@link
-     * SimulationControls#showStats()}) is covering the world viewport right now (C3, live bug
-     * report). See the call site in {@link #handle} for what this gates.
+     * SimulationControls#showStats()}/{@link SimulationControls#showBuildMenu()}) is covering the
+     * world viewport right now (C3, live bug report). See the call site in {@link #handle} for
+     * what this gates.
      */
     private boolean modalOpen() {
-        return simulationControls.showRecipeBook() || simulationControls.showTechTree() || simulationControls.showStats();
+        return simulationControls.showRecipeBook() || simulationControls.showTechTree() || simulationControls.showStats()
+                || simulationControls.showBuildMenu();
     }
 
-    /** ЛКМ по панели построек снизу выбирает здание — момент нажатия, не «зажато» (см. {@link DragCollector}). */
+    /** ЛКМ по панели построек снизу выбирает закреплённый в слоте прототип — момент нажатия, не «зажато» (см. {@link DragCollector}). */
     private void handleHotbarClick() {
         if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             return;
         }
         int index = HotbarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(),
-                Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+                Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), hotbarSlots.size());
         if (index >= 0) {
-            selected = BuildingType.values()[index];
+            selected = hotbarSlots.get(index);
         }
     }
 
@@ -215,7 +231,7 @@ public final class InputHandler {
         }
         int screenW = Gdx.graphics.getWidth();
         int screenH = Gdx.graphics.getHeight();
-        if (HotbarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH) >= 0
+        if (HotbarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, hotbarSlots.size()) >= 0
                 || !cursorOverWorld(screenH)) {
             return; // клик по хотбару или по одной из HUD-полос — не по карте
         }
@@ -231,7 +247,7 @@ public final class InputHandler {
 
     /** Общее для ЛКМ/ПКМ-протяжки: каждый задетый тайл — своё действие, все — в одном {@link CompositeAction}. */
     private void handleDrag(World world, DragCollector drag, Function<TilePos, PlayerAction> toAction) {
-        List<TilePos> tiles = drag.poll(camera);
+        List<TilePos> tiles = drag.poll(camera, hotbarSlots.size());
         if (tiles == null) {
             return;
         }
@@ -254,7 +270,7 @@ public final class InputHandler {
      * добываться вручную в том же самом жесте.
      */
     private void handleRemoveOrManualMineDrag(World world) {
-        List<TilePos> tiles = removeDrag.poll(camera);
+        List<TilePos> tiles = removeDrag.poll(camera, hotbarSlots.size());
         if (tiles == null) {
             return;
         }
@@ -272,14 +288,15 @@ public final class InputHandler {
     }
 
     /**
-     * Клавиши 1..N выбирают здание — {@code NUM_1 + ordinal}, {@link BuildingType} задаёт порядок.
+     * Клавиши 1..N выбирают ЗАКРЕПЛЁННЫЙ в слоте хотбара прототип — {@code NUM_1 + индекс слота},
+     * {@link #hotbarSlots} задаёт порядок (Фаза 8, было — {@code BuildingType} напрямую).
      * Ограничено девятью (P4-08, BUG_FIX_PROGRESS.md) — {@code NUM_1..NUM_9} в libGDX кончаются на
-     * девятой клавише; десятое здание (если появится) выбирается только мышью по хотбару.
+     * девятой клавише; десятый и далее слоты выбираются только мышью по хотбару.
      */
     private void handleBuildSelection() {
-        for (BuildingType type : BuildingType.values()) {
-            if (type.ordinal() < 9 && Gdx.input.isKeyJustPressed(Input.Keys.NUM_1 + type.ordinal())) {
-                selected = type;
+        for (int i = 0; i < hotbarSlots.size() && i < 9; i++) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1 + i)) {
+                selected = hotbarSlots.get(i);
             }
         }
     }

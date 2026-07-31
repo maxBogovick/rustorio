@@ -106,7 +106,7 @@ class RotateActionTest {
 
         Building rotated = world.peek(1, 1).orElseThrow();
         assertEquals(Optional.of(Direction.DOWN), rotated.outputDirection());
-        assertEquals(1, rotated.speedLevel(), "rotating must not strip the SpeedModule wrapper");
+        assertEquals(1, rotated.speedLevel(), "rotating must not reset the speedLevel");
     }
 
     /**

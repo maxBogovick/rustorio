@@ -1,20 +1,19 @@
 package com.rustorio.domain.action;
 
 import com.rustorio.domain.building.Building;
-import com.rustorio.domain.building.SpeedModule;
 import com.rustorio.domain.world.World;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Wrap the building on a cell in a {@link SpeedModule}; undo unwraps it back to exactly what it
- * was before (plain, or already wrapped some number of times if this isn't the first upgrade) —
- * the same "remember the object, don't reconstruct it" approach as {@link RemoveAction}.
+ * Raise the building on a cell's {@code speedLevel} by one (via {@link Building#withSpeedLevel});
+ * undo puts back the exact previous instance, whatever level it was at — the same "remember the
+ * object, don't reconstruct it" approach as {@link RemoveAction}.
  *
  * <p><b>Which kinds refuse the upgrade, and why.</b> Read from {@code
  * BuildingPrototype.acceptsSpeedEffects()} — a registered property of the kind, not an {@code
  * instanceof} chain over concrete classes. {@code false} for a belt, a tunnel half, an inserter, a
- * filter, and a splitter — all six share the same single-slot or segment-joining shape where a
- * {@link SpeedModule}'s second {@code inner.tick} call in the same world tick either does nothing
+ * filter, and a splitter — all six share the same single-slot or segment-joining shape where the
+ * doubled {@code tick} call the upgrade would apply either does nothing
  * (single-slot: {@code held} is already {@code null} after the first call relayed or found nothing)
  * or, for a belt specifically, doubles the WHOLE segment's move (however long) rather than just one
  * tile — unpredictable either way, and refusing it outright is honest about what this module can't
@@ -64,13 +63,12 @@ public final class UpgradeSpeedAction implements PlayerAction {
         if (removed == null) {
             return false;
         }
-        Building bare = Building.unwrap(removed);
-        if (!world.buildingFactory().prototype(bare.type()).acceptsSpeedEffects()) {
+        if (!world.buildingFactory().prototype(removed.type()).acceptsSpeedEffects()) {
             world.restoreBuilding(anchorX, anchorY, removed); // put it right back — see the class javadoc
             return false;
         }
         previous = removed;
-        world.restoreBuilding(anchorX, anchorY, new SpeedModule(removed));
+        world.restoreBuilding(anchorX, anchorY, removed.withSpeedLevel(removed.speedLevel() + 1));
         return true;
     }
 

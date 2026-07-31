@@ -16,18 +16,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Phase capstone: both halves of the phase's own acceptance example together — a "steel press"
+ * Phase 4 capstone: both halves of that phase's own acceptance example together — a "steel press"
  * (a real {@link BuildingPrototype}, not a new {@code BuildingType} constant: bigger buffer,
  * twice the speed, a different cost) running a genuinely three-ingredient {@link Recipe} — plus a
  * save/load round trip proving the prototype identity survives it.
  *
  * <p>Built by calling {@link Furnace}'s constructor directly, not through {@link BuildingFactory}
- * — an owner decision: {@code BuildingFactory.create/restore}'s own dispatch (which Java class a
- * {@code BuildingType} builds) stays closed until behavior itself opens up in a later phase, so a
- * genuinely new prototype isn't reachable through it yet. This proves the DATA half of
- * moddability (a new prototype's numbers actually drive a live building), not the discovery half
- * (placing it through the normal hotbar/save-load-by-{@code BuildingType} path) — a deliberate,
- * not accidental, scope line.
+ * — that was an owner decision AT THE TIME (Phase 4): {@code BuildingFactory.create/restore}'s own
+ * dispatch stayed closed until behavior itself opened up, so a genuinely new prototype wasn't
+ * reachable through it yet. It is now ({@code BuildingFactory.create(ContentId, Direction)} — see
+ * {@code BuildingFactoryTest} for the equivalent proof going through the real factory instead).
+ * This test predates that and still proves what it originally set out to: the DATA half of
+ * moddability (a new prototype's numbers actually drive a live building), not the discovery half —
+ * left as-is rather than rewritten, since it still passes and still documents Phase 4's own
+ * criterion honestly.
  */
 class ModdedFurnaceAcceptanceTest {
 
@@ -37,12 +39,21 @@ class ModdedFurnaceAcceptanceTest {
     void steelPressWithAThreeIngredientRecipeCooksFasterWithMoreBufferAndSurvivesSaveLoad() {
         BuildingPrototype steelPress = new BuildingPrototype(
                 STEEL_PRESS_ID,
+                "Steel Press",
                 new BuildingCost(VanillaItems.IRON_PLATE, 20),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN,
                 VanillaSprites.FURNACE_COLD,
                 10, // buffer — double the vanilla PRESS's 5
                 2, // speed multiplier — twice as fast
-                true);
+                true,
+                (self, direction, factory) -> new Furnace(BuildingType.PRESS, direction, factory.recipeBook(), self),
+                (self, decodedState, factory) -> {
+                    FurnaceState state = (FurnaceState) decodedState;
+                    return new Furnace(BuildingType.PRESS, state, factory.recipeBook(), self);
+                },
+                // Same Codec instance the vanilla PRESS prototype uses — FurnaceState's shape
+                // doesn't depend on which prototype governs it, only on the archetype (Furnace).
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.PRESS)).codec());
 
         Recipe tripleInput = new Recipe(
                 List.of(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.GEAR),
@@ -67,16 +78,16 @@ class ModdedFurnaceAcceptanceTest {
         press.tick(world, 0, 0);
         assertEquals(1, chest.amount(VanillaItems.CHASSIS), "must finish in half the recipe's own time");
 
-        // Save/load round trip: the memento must name this exact prototype, and restoring through
+        // Save/load round trip: the building must name this exact prototype, and restoring through
         // it (not the vanilla default for PRESS) must reproduce the same speed/buffer behavior.
-        BuildingMemento.FurnaceState state = (BuildingMemento.FurnaceState) press.memento();
-        assertEquals(STEEL_PRESS_ID, state.prototypeId(), "the memento must name the exact prototype this press was built with");
+        FurnaceState state = (FurnaceState) press.state();
+        assertEquals(STEEL_PRESS_ID, press.prototypeId(), "the building must name the exact prototype this press was built with");
 
         Registry<BuildingPrototype> moddedPrototypes = new Registry<>();
         moddedPrototypes.register(STEEL_PRESS_ID, steelPress);
         moddedPrototypes.freeze();
-        BuildingPrototype resolved = moddedPrototypes.get(state.prototypeId());
-        Furnace restored = new Furnace(state, recipeBook, resolved);
+        BuildingPrototype resolved = moddedPrototypes.get(press.prototypeId());
+        Furnace restored = new Furnace(BuildingType.PRESS, state, recipeBook, resolved);
 
         restored.accept(world, VanillaItems.IRON_PLATE);
         restored.accept(world, VanillaItems.BRONZE_PLATE);

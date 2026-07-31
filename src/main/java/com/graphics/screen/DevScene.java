@@ -6,7 +6,6 @@ import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.Chest;
-import com.rustorio.domain.building.SpeedModule;
 import com.rustorio.domain.world.World;
 
 /**
@@ -183,13 +182,13 @@ final class DevScene {
         stock(world, 6, 35, VanillaItems.GEAR);
     }
 
-    /** A belt wrapped in a {@link SpeedModule} — the same wrapping {@code UpgradeSpeedAction} does, just done directly — actually carrying cargo. */
+    /** A chest sped up via {@link Building#withSpeedLevel} — the same upgrade {@code UpgradeSpeedAction} applies, done directly — pushing cargo down the belt twice as fast as an unupgraded chest would. */
     private static void buildSpeedModuleShowcase(World world) {
         world.place(BuildingType.CHEST, 6, 38, Direction.RIGHT);
         world.place(BuildingType.BELT, 7, 38, Direction.RIGHT);
         world.place(BuildingType.CHEST, 8, 38);
-        Building belt = world.removeBuilding(7, 38).orElseThrow();
-        world.restoreBuilding(7, 38, new SpeedModule(belt));
+        Building source = world.removeBuilding(6, 38).orElseThrow();
+        world.restoreBuilding(6, 38, source.withSpeedLevel(1));
         stock(world, 6, 38, VanillaItems.IRON_ORE);
     }
 

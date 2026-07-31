@@ -133,6 +133,21 @@ public final class Registry<T> {
         return Optional.ofNullable(registered.get(id));
     }
 
+    /**
+     * {@code getOrUnknown(id)}, but legal at ANY point, including before {@link #freeze()} — unlike
+     * every other read method here, which needs the frozen {@code rawId} index and therefore
+     * refuses to answer early. Needed by the mod loader: resolving a JSON recipe's item reference,
+     * or checking whether an earlier-loaded mod already
+     * registered something, has to work WHILE registration is still open — {@code
+     * registerContent}/{@code modifyContent} run before anything freezes at all. Reads straight off
+     * {@link #registered}, which exists unconditionally, so there's nothing frozen-only about
+     * answering "is this id registered, and to what" specifically (only {@code rawId} itself is
+     * meaningless before freeze, and this method never returns one).
+     */
+    public Optional<T> peek(ContentId id) {
+        return Optional.ofNullable(registered.get(id));
+    }
+
     /** How many entries this registry holds. Only legal after {@link #freeze()} (the count isn't stable before then). */
     public int size() {
         requireFrozen("size");

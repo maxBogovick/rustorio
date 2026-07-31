@@ -1,22 +1,28 @@
 package com.rustorio.domain.action;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
-import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.Chest;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.world.World;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Place a building of the chosen kind facing a direction, paying its {@link
+ * Place a building of the chosen prototype facing a direction, paying its {@link
  * com.rustorio.domain.building.BuildingCost} from the player's inventory; undo demolishes exactly
  * that cell and refunds the cost (D-03, DEV_TASKS.md).
+ *
+ * <p>Holds a {@link ContentId}, not a {@link BuildingType} — any registered prototype, vanilla or
+ * modded, can be placed through this action now. The {@link BuildingType} constructors are a
+ * convenience for the closed vanilla set (resolves {@code type}'s own prototype id via {@link
+ * VanillaBuildings#idFor}), not a separate code path: both eventually build the same action.
  */
 public final class PlaceAction implements PlayerAction {
 
-    private final BuildingType type;
+    private final ContentId prototypeId;
     private final int x;
     private final int y;
     private final Direction direction;
@@ -34,11 +40,19 @@ public final class PlaceAction implements PlayerAction {
     private @Nullable Map<ItemType, Integer> savedChestContents;
 
     public PlaceAction(BuildingType type, int x, int y) {
-        this(type, x, y, Direction.RIGHT); // direction only matters to belts, furnaces, tunnels, splitters
+        this(VanillaBuildings.idFor(type), x, y);
     }
 
     public PlaceAction(BuildingType type, int x, int y, Direction direction) {
-        this.type = type;
+        this(VanillaBuildings.idFor(type), x, y, direction);
+    }
+
+    public PlaceAction(ContentId prototypeId, int x, int y) {
+        this(prototypeId, x, y, Direction.RIGHT); // direction only matters to belts, furnaces, tunnels, splitters
+    }
+
+    public PlaceAction(ContentId prototypeId, int x, int y, Direction direction) {
+        this.prototypeId = prototypeId;
         this.x = x;
         this.y = y;
         this.direction = direction;
@@ -59,19 +73,18 @@ public final class PlaceAction implements PlayerAction {
      */
     @Override
     public boolean apply(World world) {
-        if (!world.trySpendBuildingCost(type)) {
+        if (!world.trySpendBuildingCost(prototypeId)) {
             return false;
         }
-        boolean placed = world.place(type, x, y, direction);
+        boolean placed = world.place(prototypeId, x, y, direction);
         if (!placed) {
-            world.refundBuildingCost(type);
+            world.refundBuildingCost(prototypeId);
             return false;
         }
         Map<ItemType, Integer> contents = savedChestContents;
         if (contents != null) {
             if (world.trySpendItems(contents)) {
                 world.peek(x, y)
-                        .map(Building::unwrap)
                         .filter(Chest.class::isInstance)
                         .map(Chest.class::cast)
                         .ifPresent(chest -> chest.restore(contents));
@@ -101,7 +114,6 @@ public final class PlaceAction implements PlayerAction {
     @Override
     public void undo(World world) {
         world.peek(x, y)
-                .map(Building::unwrap)
                 .filter(Chest.class::isInstance)
                 .map(Chest.class::cast)
                 .ifPresent(chest -> {
@@ -112,6 +124,6 @@ public final class PlaceAction implements PlayerAction {
                     }
                 });
         world.removeBuilding(x, y);
-        world.refundBuildingCost(type);
+        world.refundBuildingCost(prototypeId);
     }
 }

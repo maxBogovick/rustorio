@@ -81,7 +81,11 @@ class ModdedItemAcceptanceTest {
     @Test
     void aBrandNewItemCanBeMinedStoredAndSurviveASaveLoadRoundTrip(@TempDir Path dir) {
         Registry<ItemType> items = gameItems();
-        BuildingFactory factory = new BuildingFactory(singleCopperCellLayout(), RecipeBook.standard());
+        // Same registry the JsonSaveRepository below is configured with: a building's own Codec
+        // resolves ItemType values (e.g. a Chest's contents map keys) through the BuildingFactory's
+        // own registry, not JsonSaveRepository's — a real game/mod runtime only ever has ONE
+        // registry, so the two must agree here too.
+        BuildingFactory factory = new BuildingFactory(singleCopperCellLayout(), RecipeBook.standard(), items);
         World world = new World(4, 4, factory);
 
         assertTrue(world.placeMiner(0, 0), "miner needs passable ground and ore under it");

@@ -77,6 +77,27 @@ class VanillaBuildingsTest {
         assertEquals(VanillaSprites.ASSEMBLER, prototypeFor(BuildingType.ASSEMBLER).texture());
     }
 
+    /** {@code label} is read straight off {@link BuildingType#label()} — see {@link VanillaBuildings#register}'s own comment on why. */
+    @Test
+    void labelMatchesBuildingTypesOwnLabel() {
+        for (BuildingType type : BuildingType.values()) {
+            assertEquals(type.label(), prototypeFor(type).label(), type + "'s prototype label must match its own BuildingType#label()");
+        }
+    }
+
+    /** {@code footprintWidth}/{@code footprintHeight} are read off {@link BuildingType#footprintWidth()}/{@link BuildingType#footprintHeight()} — 2x2 for ASSEMBLER, 1x1 for everything else. */
+    @Test
+    void footprintMatchesBuildingTypesOwnFootprint() {
+        for (BuildingType type : BuildingType.values()) {
+            assertEquals(type.footprintWidth(), prototypeFor(type).footprintWidth(), type + "'s prototype footprintWidth");
+            assertEquals(type.footprintHeight(), prototypeFor(type).footprintHeight(), type + "'s prototype footprintHeight");
+        }
+        assertEquals(2, prototypeFor(BuildingType.ASSEMBLER).footprintWidth());
+        assertEquals(2, prototypeFor(BuildingType.ASSEMBLER).footprintHeight());
+        assertEquals(1, prototypeFor(BuildingType.MINER).footprintWidth());
+        assertEquals(1, prototypeFor(BuildingType.MINER).footprintHeight());
+    }
+
     private static BuildingPrototype prototypeFor(BuildingType type) {
         return VanillaBuildings.frozen().get(VanillaBuildings.idFor(type));
     }

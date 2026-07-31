@@ -6,7 +6,7 @@ import java.util.Set;
 
 /**
  * A global technology: costs research points, once unlocked applies everywhere on the map (as
- * opposed to a per-building {@code SpeedModule}).
+ * opposed to a per-building {@code speedLevel} upgrade).
  *
  * <p><b>Owner decision (P-02, DEV_TASKS.md):</b> {@link #prerequisites} turns the tech list into an
  * actual tree — {@link Research#unlock} refuses a tech until every one of its prerequisites is

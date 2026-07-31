@@ -1,0 +1,9 @@
+{
+  "path": "chest",
+  "label": "Chest",
+  "archetype": "CHEST",
+  "cost": { "item": "iron_plate", "amount": 5 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:chest",
+  "acceptsSpeedEffects": true
+}

@@ -1,0 +1,9 @@
+{
+  "path": "filter",
+  "label": "Filter",
+  "archetype": "FILTER",
+  "cost": { "item": "iron_plate", "amount": 3 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:filter",
+  "acceptsSpeedEffects": false
+}

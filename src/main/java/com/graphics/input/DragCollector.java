@@ -31,12 +31,14 @@ final class DragCollector {
     /**
      * Feed one frame of input. Returns the tiles touched by the gesture exactly once — the frame
      * the button is released after a drag that didn't start on the hotbar — and {@code null}
-     * every other frame (still held, or nothing worth reporting).
+     * every other frame (still held, or nothing worth reporting). {@code hotbarSlotCount} is the
+     * CURRENT number of hotbar slots (Фаза 8 — configurable, not a fixed {@code BuildingType}
+     * count) — read only at the moment the button goes down, same as before.
      */
-    @Nullable List<TilePos> poll(GameCamera camera) {
+    @Nullable List<TilePos> poll(GameCamera camera, int hotbarSlotCount) {
         boolean pressed = Gdx.input.isButtonPressed(button);
         if (Gdx.input.isButtonJustPressed(button)) {
-            blockedByHotbar = isOverHotbar();
+            blockedByHotbar = isOverHotbar(hotbarSlotCount);
         }
         if (pressed && blockedByHotbar) {
             return null;
@@ -71,8 +73,8 @@ final class DragCollector {
         return dragging && !blockedByHotbar ? List.copyOf(tiles) : List.of();
     }
 
-    private static boolean isOverHotbar() {
+    private static boolean isOverHotbar(int hotbarSlotCount) {
         return HotbarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(),
-                Gdx.graphics.getWidth(), Gdx.graphics.getHeight()) >= 0;
+                Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), hotbarSlotCount) >= 0;
     }
 }

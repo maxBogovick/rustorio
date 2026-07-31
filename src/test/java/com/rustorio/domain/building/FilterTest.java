@@ -147,8 +147,8 @@ class FilterTest {
         Filter original = new Filter(Direction.UP, VanillaItems.BRONZE_PLATE);
         original.accept(null, VanillaItems.GEAR);
 
-        BuildingMemento.FilterState memento = (BuildingMemento.FilterState) original.memento();
-        Filter reloaded = new Filter(memento.facing(), memento.filterItem(), memento.held(), VanillaItems.frozen());
+        FilterState state = (FilterState) original.state();
+        Filter reloaded = new Filter(state.facing(), state.filterItem(), state.held(), VanillaItems.frozen());
 
         assertEquals(Optional.of(Direction.UP), reloaded.outputDirection());
         assertEquals(Optional.of(VanillaItems.GEAR), reloaded.heldItem());
