@@ -224,6 +224,38 @@ public final class InputHandler {
     }
 
     /**
+     * ЛКМ по строке меню построек (Фаза 8) закрепляет её прототип в текущий выбранный слот
+     * хотбара и делает его выбранным — то же самое разрешение "какой именно слот", что и любой
+     * другой момент выбора здания. Клик мимо всех строк (но по самой панели) молча ничего не
+     * делает — не должен провалиться в мир под меню, см. {@link #modalOpen()}.
+     */
+    private void handleBuildMenuClick(World world) {
+        if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            return;
+        }
+        Registry<BuildingPrototype> buildings = world.buildingFactory().buildings();
+        List<BuildingPrototype> all = buildings.iterate();
+        List<String> categories = BuildMenuLayout.categories(all);
+        String activeCategory = BuildMenuLayout.activeCategory(categories, simulationControls.buildMenuCategoryCycle());
+        List<BuildingPrototype> matches = BuildMenuLayout.filter(all, activeCategory, simulationControls.buildMenuQuery());
+        List<BuildingPrototype> visible = BuildMenuLayout.visibleRows(matches);
+
+        int screenW = Gdx.graphics.getWidth();
+        int screenH = Gdx.graphics.getHeight();
+        int row = BuildMenuLayout.hitTestRow(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, visible.size());
+        if (row >= 0) {
+            pinSelectedIntoHotbar(visible.get(row).id());
+        }
+    }
+
+    /** Заменяет прототип в слоте, где СЕЙЧАС выбрано что-то, на {@code prototypeId}, и делает его выбранным — см. {@link #handleBuildMenuClick}. */
+    private void pinSelectedIntoHotbar(ContentId prototypeId) {
+        int slot = hotbarSlots.indexOf(selected);
+        hotbarSlots.set(slot < 0 ? 0 : slot, prototypeId);
+        selected = prototypeId;
+    }
+
+    /**
      * ЛКМ по уже занятой клетке карты открывает панель инспекции (F-03, DEV_TASKS.md) — клик по той
      * же клетке снова закрывает, клик по пустой клетке или другому зданию переключает/закрывает.
      * Это тот же самый клик, что и {@link #handleDrag} для {@link #buildDrag} — постройка поверх
