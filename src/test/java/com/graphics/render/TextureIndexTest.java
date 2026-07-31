@@ -23,11 +23,10 @@ class TextureIndexTest {
     void vanillaHasAnEntryForEveryFileBackedSprite() {
         TextureIndex index = TextureIndex.vanilla();
 
-        // LAB is deliberately excluded — see TextureIndex's own javadoc: it has no drawn art yet,
-        // so Textures packs a placeholder for it instead of reading a file from this index.
-        assertEquals(12, index.sprites().size());
+        assertEquals(13, index.sprites().size());
         assertTrue(index.sprites().contains(VanillaSprites.MINER));
         assertTrue(index.sprites().contains(VanillaSprites.ASSEMBLER));
+        assertTrue(index.sprites().contains(VanillaSprites.LAB));
     }
 
     @Test
@@ -51,7 +50,7 @@ class TextureIndexTest {
         index.put(VanillaSprites.CHEST, "mods/example/chest.png");
 
         assertEquals("mods/example/chest.png", index.path(VanillaSprites.CHEST));
-        assertEquals(12, index.sprites().size(), "overwriting an existing sprite must not add a second entry");
+        assertEquals(13, index.sprites().size(), "overwriting an existing sprite must not add a second entry");
     }
 
     @Test

@@ -99,9 +99,20 @@ final class OverlayRenderer {
         // read as "facing a direction" on this placeholder art (nothing about it visually signals
         // an orientation), so hiding the arrow behind Alt left the map genuinely unreadable, not
         // just redundant. Back to always-on, exactly as before C-01.
+        //
+        // Art redesign exception: BELT's new sprite draws its own amber chevrons pointing the way
+        // cargo flows — the arrow here would just repeat what the belt already shows (live bug
+        // report). Every OTHER directional building still gets the arrow; their sprites don't
+        // (yet) make direction obvious on their own the way the belt's chevrons do. Compared by
+        // {@code type()}, not {@code instanceof Belt} — same convention this file already uses
+        // for UNDERGROUND_IN below, and the ArchUnit ratchet (E0-03, ENGINE_TASKS.md) caps
+        // instanceof-on-concrete-building-type specifically, not this.
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(Palette.DIRECTION_ARROW);
         world.forEachBuildingIn(minX, minY, maxX, maxY, (x, y, building) -> {
+            if (building.type() == BuildingType.BELT) {
+                return;
+            }
             float cx = grid.x(x) + tile / 2f;
             float cy = grid.yBottom(y) + tile / 2f;
             building.outputDirection().ifPresent(direction -> drawArrow(cx, cy, direction, tile));

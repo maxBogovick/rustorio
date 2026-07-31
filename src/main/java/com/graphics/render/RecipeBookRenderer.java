@@ -75,6 +75,11 @@ final class RecipeBookRenderer {
         }
         shapes.end();
 
+        shapes.begin(ShapeRenderer.ShapeType.Line);
+        shapes.setColor(Palette.PANEL_BORDER);
+        shapes.rect(panelX, panelY, PANEL_WIDTH, panelH);
+        shapes.end();
+
         batch.begin();
         font.setColor(Color.WHITE);
         font.getData().setScale(1.1f);

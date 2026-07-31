@@ -37,12 +37,11 @@ public final class GfxConfig {
      * меньше окно (см. {@link com.graphics.render.GameCamera#resize}), а панели рисуются в
      * освободившихся полосах — карта нигде не спрятана за интерфейсом.
      */
-    // 166, not 112: D-03 added an inventory line, F-01 added an alerts line, and a live bug report
-    // (right-click demolish/refund and hand-mining were completely undocumented in the hint text)
-    // added a third hint line — see HudRenderer's javadocs — three more 18px text rows than this
-    // constant originally budgeted for. Grown here, not by shrinking line spacing, so the same 4px
-    // bottom margin the original layout had stays.
-    public static final float HUD_TOP_HEIGHT = 166f;
+    // 206, not 166: art redesign — the panel used to cram nine rows into 18px steps with a 4px
+    // bottom margin (live bug report: "выглядит как debug-консоль", the hint text nearly touched
+    // the panel's own bottom edge). Grown to give every row real breathing room — see
+    // HudRenderer#renderInfoPanel for the actual row layout this backs.
+    public static final float HUD_TOP_HEIGHT = 206f;
     public static final float HUD_BOTTOM_HEIGHT = 106f;
 
     /** Скорость скролла камеры (пикселей окна в секунду). */

@@ -43,6 +43,10 @@ public final class Textures implements Disposable {
     private final Map<ContentId, TextureRegion> regions = new HashMap<>();
     /** Уголь на земле (D-05, DEV_TASKS.md) — единственный спрайт ПРЕДМЕТА, который реально упакован в атлас, см. {@link WorldRenderer}. */
     private TextureRegion coalOre;
+    /** Тайлы ландшафта (арт-редизайн) — читает {@link WorldRenderer} вместо плоской заливки {@code ShapeRenderer}-прямоугольником. */
+    private TextureRegion terrainGround;
+    private TextureRegion terrainWater;
+    private TextureRegion terrainRock;
 
     public static Textures vanilla() {
         return new Textures(TextureIndex.vanilla());
@@ -69,10 +73,11 @@ public final class Textures implements Disposable {
         for (ContentId sprite : index.sprites()) {
             packFile(packer, regionName(sprite), index.path(sprite));
         }
-        // Спрайты сплиттера и подземки в resources/ лежат (остались от Rust-версии), а
-        // лаборатории — нет. Честнее упаковать заметную заглушку, чем подсунуть чужую картинку.
-        // Только если индекс сам не назвал файл для LAB (мод или будущий ванильный арт) — иначе
-        // packer.pack() позвался бы дважды под одним именем региона (code review finding S4).
+        // Ванильный LAB теперь тоже имеет свой файл (resources/lab.png) — эта ветка остаётся как
+        // запасной вариант для любого ДРУГОГО индекса, который его не назвал (например, мод,
+        // добавляющий здание без собственной художки). Честнее упаковать заметную заглушку, чем
+        // подсунуть чужую картинку. packer.pack() не позовётся дважды под одним именем региона
+        // (code review finding S4) именно из-за этой проверки.
         if (!index.sprites().contains(VanillaSprites.LAB)) {
             packLabPlaceholder(packer, regionName(VanillaSprites.LAB));
         }
@@ -83,6 +88,13 @@ public final class Textures implements Disposable {
         // именно этот файл в рендере, а не только цвет земли (см. WorldRenderer) — единственное
         // исключение из правила выше.
         packFile(packer, "coal_ore", "resources/coal_ore.png");
+        // Тайлы ландшафта (арт-редизайн) — та же логика: земля/вода/камень были плоской заливкой
+        // цветом, теперь у каждой лёгкая бесшовная спекл-текстура, ore-оверлей поверх неё рисует
+        // {@link WorldRenderer} по-прежнему цветом (D-02/X-02, DEV_TASKS.md — та функциональная
+        // роль не менялась, только фон под ней перестал быть голым прямоугольником).
+        packFile(packer, "terrain_ground", "resources/terrain_ground.png");
+        packFile(packer, "terrain_water", "resources/terrain_water.png");
+        packFile(packer, "terrain_rock", "resources/terrain_rock.png");
 
         // Пока всё уместилось в одну страницу 1024×1024, атлас — это ровно ОДНА
         // текстура: все регионы делят её, и SpriteBatch не сбрасывает пачку.
@@ -98,6 +110,9 @@ public final class Textures implements Disposable {
             regions.put(VanillaSprites.LAB, region(regionName(VanillaSprites.LAB)));
         }
         coalOre = region("coal_ore");
+        terrainGround = region("terrain_ground");
+        terrainWater = region("terrain_water");
+        terrainRock = region("terrain_rock");
     }
 
     /** Имя запакованного региона для {@code sprite} — сам {@link ContentId#toString()}: уникально, без хвостовых цифр. */
@@ -123,6 +138,21 @@ public final class Textures implements Disposable {
     /** Спрайт угля на земле (D-05, DEV_TASKS.md) — читает {@link WorldRenderer}, рисуя его поверх клеток с углём. */
     TextureRegion coalOre() {
         return coalOre;
+    }
+
+    /** Базовый тайл земли — читает {@link WorldRenderer} вместо плоской заливки цветом. */
+    TextureRegion terrainGround() {
+        return terrainGround;
+    }
+
+    /** Базовый тайл воды — см. {@link #terrainGround}. */
+    TextureRegion terrainWater() {
+        return terrainWater;
+    }
+
+    /** Базовый тайл камня — см. {@link #terrainGround}. */
+    TextureRegion terrainRock() {
+        return terrainRock;
     }
 
     /** Регион атласа по имени; отсутствие — ошибка сборки атласа, а не тихий null. */

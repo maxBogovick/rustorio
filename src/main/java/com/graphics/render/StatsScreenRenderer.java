@@ -80,6 +80,11 @@ final class StatsScreenRenderer {
         shapes.rect(panelX, panelY, PANEL_WIDTH, panelH);
         shapes.end();
 
+        shapes.begin(ShapeRenderer.ShapeType.Line);
+        shapes.setColor(Palette.PANEL_BORDER);
+        shapes.rect(panelX, panelY, PANEL_WIDTH, panelH);
+        shapes.end();
+
         float graphY = panelY + PADDING;
         float graphX = panelX + PADDING;
         float graphW = PANEL_WIDTH - PADDING * 2;

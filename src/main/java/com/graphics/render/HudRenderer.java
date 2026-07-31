@@ -56,8 +56,6 @@ import org.jspecify.annotations.Nullable;
  */
 final class HudRenderer {
 
-    private static final String NO_ALERTS = "Alerts: none";
-
     /** One nonzero item's worth of chip: a {@link Palette#itemColor} dot plus its count as text — see {@link #layoutChips}. */
     private record ItemChip(ItemType item, String text) {
     }
@@ -71,11 +69,20 @@ final class HudRenderer {
             String text) {
     }
 
+    /** One nonzero status count's worth of alert chip — a friendly label, not the raw enum name. */
+    private record AlertChip(BuildingStatus status, String text) {
+    }
+
+    /** An alert chip's resolved screen position — square marker (not a circle, unlike {@link ChipLayout}) plus its label. */
+    private record AlertChipLayout(float squareX, float squareY, Color color, float textX, float textY, String text) {
+    }
+
     private static final float CHIP_ROW_X = 120f;
     private static final float CHIP_RADIUS = 6f;
     private static final float CHIP_GAP = 16f;
     /** A few extra pixels around the dot itself — hitting the exact 6px circle with a mouse cursor is unreasonably precise. */
     private static final float CHIP_HOVER_RADIUS = CHIP_RADIUS + 4f;
+    private static final float ALERT_SQUARE = 9f;
 
     private final SpriteBatch batch;
     private final ShapeRenderer shapes;
@@ -99,7 +106,7 @@ final class HudRenderer {
     private long inventorySignature = -1;
     private List<ItemChip> inventoryChipsCache = List.of();
     private long alertsSignature = -1;
-    private String alertsCache = "";
+    private List<AlertChip> alertChipsCache = List.of();
 
     HudRenderer(SpriteBatch batch, ShapeRenderer shapes, BitmapFont font, Textures textures) {
         this.batch = batch;
@@ -132,6 +139,28 @@ final class HudRenderer {
      * the same color language {@code ItemRenderer}/{@code RecipeBookRenderer} already use for cargo
      * and recipe icons, several times narrower per item than the old {@code "NAME count"} text.
      */
+    // Строки верхней панели (арт-редизайн) — раньше это были плотные 18px шаги без разделения на
+    // смысловые группы, отчего вся панель читалась одной стеной текста (live bug report: "выглядит
+    // как debug-консоль"). Теперь у каждой строки больше воздуха.
+    //
+    // <p>Полупрозрачные подложки под строками и линии-разделители были в первой версии этой
+    // правки и убраны live bug report'ом следующим же кадром — на реальном экране едва заметный
+    // по задумке {@code Color(1,1,1,0.045f)} рисовался практически непрозрачным белым и убивал
+    // читаемость текста поверх себя, а не разгружал панель, как задумывалось. Причина не
+    // выяснена (похоже на особенность блендинга в этом окружении, а не логическая ошибка в
+    // координатах — сами прямоугольники стояли на правильных местах), так что вместо попытки
+    // угадать битую альфу решено вообще не полагаться на полупрозрачные подложки для структуры:
+    // разделение строк — это только межстрочный интервал.
+    private static final float ROW_HEADER = 24f;
+    private static final float ROW_PRODUCED = 56f;
+    private static final float ROW_INVENTORY = 76f;
+    private static final float ROW_RESEARCH = 98f;
+    private static final float ROW_RECENT = 116f;
+    private static final float ROW_ALERTS = 140f;
+    private static final float ROW_HINT_1 = 164f;
+    private static final float ROW_HINT_2 = 178f;
+    private static final float ROW_HINT_3 = 192f;
+
     private void renderInfoPanel(World world, ProductionStatsView stats, ResearchView research,
             PlayerInventoryView inventory, ProductionLogView log, boolean paused, int speed, int ups,
             @Nullable String statusMessage) {
@@ -148,22 +177,32 @@ final class HudRenderer {
         shapes.rect(0, top - panelH, screenW, panelH);
         shapes.end();
 
+        // Тонкая грань по нижнему краю (арт-редизайн) — отделяет панель от мира визуально, не
+        // только полупрозрачностью подложки; полный прямоугольник тут не нужен, верх/бока и так
+        // упираются в край окна.
+        shapes.begin(ShapeRenderer.ShapeType.Line);
+        shapes.setColor(Palette.PANEL_BORDER);
+        shapes.line(0, top - panelH, screenW, top - panelH);
+        shapes.end();
+
         font.getData().setScale(1f); // layout measures glyph widths at THIS scale — fix it before laying out
-        List<ChipLayout> producedLayout = layoutChips(producedChips(items, stats), top - 36, maxX);
-        List<ChipLayout> inventoryLayout = layoutChips(inventoryChips(items, inventory), top - 54, maxX);
+        List<ChipLayout> producedLayout = layoutChips(producedChips(items, stats), top - ROW_PRODUCED, maxX);
+        List<ChipLayout> inventoryLayout = layoutChips(inventoryChips(items, inventory), top - ROW_INVENTORY, maxX);
+        List<AlertChipLayout> alertsLayout = layoutAlertChips(alertChips(world), top - ROW_ALERTS, maxX);
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         drawChipCircles(producedLayout);
         drawChipCircles(inventoryLayout);
+        drawAlertSquares(alertsLayout);
         shapes.end();
 
         batch.begin();
         font.setColor(Color.WHITE);
         font.getData().setScale(1.2f);
-        font.draw(batch, "Rustorio", 16, top - 14);
+        font.draw(batch, "Rustorio", 16, top - ROW_HEADER);
 
         font.setColor(paused ? Palette.IDLE : Palette.WORKING);
-        font.draw(batch, paused ? "PAUSED" : ("Speed: " + speed + "x"), 220, top - 14);
+        font.draw(batch, paused ? "PAUSED" : ("Speed: " + speed + "x"), 220, top - ROW_HEADER);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
 
@@ -172,7 +211,7 @@ final class HudRenderer {
         // the same thing: at 2x/4x speed UPS climbs past FPS, and the gap between them is itself
         // a useful signal if the simulation ever falls behind the requested multiplier).
         font.setColor(Palette.HINT);
-        font.draw(batch, "FPS: " + Gdx.graphics.getFramesPerSecond() + "  UPS: " + ups, 380, top - 14);
+        font.draw(batch, "FPS: " + Gdx.graphics.getFramesPerSecond() + "  UPS: " + ups, 380, top - ROW_HEADER);
         font.setColor(Color.WHITE);
 
         // Живой баг-репорт: F5/F9 раньше не показывали НИЧЕГО на экране — ни "сохранено", ни
@@ -180,35 +219,33 @@ final class HudRenderer {
         // InputHandler.STATUS_MESSAGE_SECONDS, отдельного "закрыть" не нужно.
         if (statusMessage != null) {
             font.setColor(Palette.HINT);
-            font.draw(batch, statusMessage, 560, top - 14);
+            font.draw(batch, statusMessage, 560, top - ROW_HEADER);
             font.setColor(Color.WHITE);
         }
 
-        font.draw(batch, "Produced", 16, top - 36);
-        drawChipNumbers(producedLayout, top - 36);
-        font.draw(batch, "Inventory", 16, top - 54);
-        drawChipNumbers(inventoryLayout, top - 54);
+        font.draw(batch, "Produced", 16, top - ROW_PRODUCED);
+        drawChipNumbers(producedLayout, top - ROW_PRODUCED);
+        font.draw(batch, "Inventory", 16, top - ROW_INVENTORY);
+        drawChipNumbers(inventoryLayout, top - ROW_INVENTORY);
 
-        font.draw(batch, research(research), 16, top - 72);
-        font.draw(batch, recent(log), 16, top - 90);
+        font.draw(batch, research(research), 16, top - ROW_RESEARCH);
+        font.draw(batch, recent(log), 16, top - ROW_RECENT);
 
-        String alertsLine = alerts(world);
-        font.setColor(alertsLine.equals(NO_ALERTS) ? Palette.WORKING : Palette.IDLE);
-        font.draw(batch, alertsLine, 16, top - 108);
-        font.setColor(Color.WHITE);
+        font.draw(batch, "Alerts", 16, top - ROW_ALERTS);
+        drawAlertChipsText(alertsLayout, top - ROW_ALERTS);
 
         font.setColor(Palette.HINT);
         font.getData().setScale(0.8f);
         font.draw(batch, "R rotate   U upgrade   C recipe   F filter item   G grab chest   Ctrl+Z undo   Ctrl+Y redo   F5 save   F9 load   TAB recipes   T techs   V stats",
-                16, top - 126);
+                16, top - ROW_HINT_1);
         font.draw(batch, "WASD pan   wheel zoom   Space pause   [ ] speed   click or 1-9 to build",
-                16, top - 142);
+                16, top - ROW_HINT_2);
         // A live bug report: a player stuck with zero spendable resources had no idea right-click
         // refunds a demolished building's cost, or that an empty ore cell can be mined by hand —
         // both already existed (D-03; the manual-mine follow-up above) but were never documented
         // anywhere on screen.
         font.draw(batch, "right-click: demolish (refunds cost) / hand-mine an empty ore cell",
-                16, top - 158);
+                16, top - ROW_HINT_3);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -339,6 +376,8 @@ final class HudRenderer {
         shapes.end();
 
         shapes.begin(ShapeRenderer.ShapeType.Line);
+        shapes.setColor(Palette.PANEL_BORDER);
+        shapes.line(0, barH, screenW, barH); // грань по верхнему краю — см. renderInfoPanel's нижняя
         for (int i = 0; i < slotCount; i++) {
             boolean isSelected = hotbarSlots.get(i).equals(selected);
             shapes.setColor(isSelected ? Palette.SLOT_SELECTED : Palette.SLOT_BORDER);
@@ -455,6 +494,11 @@ final class HudRenderer {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(Palette.PANEL_BG);
+        shapes.rect(panelX, panelY, panelW, panelH);
+        shapes.end();
+
+        shapes.begin(ShapeRenderer.ShapeType.Line);
+        shapes.setColor(Palette.PANEL_BORDER);
         shapes.rect(panelX, panelY, panelW, panelH);
         shapes.end();
 
@@ -607,18 +651,23 @@ final class HudRenderer {
     }
 
     /**
-     * Global alerts line (F-01, DEV_TASKS.md): «Alerts: NO_ORE x2   OUTPUT_FULL x1» — the card's
-     * "aggregated list of problems, visible without clicking each building individually." Reads
-     * {@link World#statusCounts()}, which {@code World} keeps current incrementally as buildings
-     * tick/place/demolish — not a per-frame walk of the whole map (S1, CODE_REVIEW_2026-07-28.md:
-     * this used to call {@link World#forEachBuilding} and allocate an {@link
-     * com.rustorio.domain.Appearance} per building, every render frame, regardless of whether
-     * anything had changed since the last one).
+     * Global alerts row (F-01, DEV_TASKS.md) — the card's "aggregated list of problems, visible
+     * without clicking each building individually." Reads {@link World#statusCounts()}, which
+     * {@code World} keeps current incrementally as buildings tick/place/demolish — not a per-frame
+     * walk of the whole map (S1, CODE_REVIEW_2026-07-28.md: this used to call {@link
+     * World#forEachBuilding} and allocate an {@link com.rustorio.domain.Appearance} per building,
+     * every render frame, regardless of whether anything had changed since the last one).
+     *
+     * <p>Art redesign: used to be one plain-text line («Alerts: NO_ORE x2   OUTPUT_FULL x1»,
+     * shouting raw enum names). Now a chip row — same {@link Palette#statusColor} square each
+     * building already draws as its own on-map marker, so an alert's color here matches the color
+     * of the actual building it's about, plus a friendly label ({@link #alertLabel}) instead of
+     * the bare enum constant.
      *
      * <p>Signature is weighted like {@link #inventoryChips} (counts can rise AND fall as buildings
      * recover), not summed like {@link #producedChips} (whose totals only ever grow).
      */
-    private String alerts(World world) {
+    private List<AlertChip> alertChips(World world) {
         Map<BuildingStatus, Integer> counts = world.statusCounts();
 
         long signature = 0;
@@ -626,23 +675,72 @@ final class HudRenderer {
             signature += (long) (status.ordinal() + 1) * counts.getOrDefault(status, 0);
         }
         if (signature == alertsSignature) {
-            return alertsCache;
+            return alertChipsCache;
         }
         alertsSignature = signature;
 
-        StringBuilder sb = new StringBuilder("Alerts:   ");
-        boolean any = false;
+        List<AlertChip> chips = new ArrayList<>();
         for (BuildingStatus status : BuildingStatus.values()) {
             if (status == BuildingStatus.WORKING) {
                 continue;
             }
             int count = counts.getOrDefault(status, 0);
             if (count > 0) {
-                sb.append(status.name()).append(" x").append(count).append("    ");
-                any = true;
+                // "x", not the "×" multiplication sign — the built-in BitmapFont (Renderer's
+                // "built-in 15px Arial") has no glyph for U+00D7 at all, so it rendered as a tofu
+                // box (live bug report, screenshot showed literal "□" next to every alert count).
+                chips.add(new AlertChip(status, alertLabel(status) + " x" + count));
             }
         }
-        return alertsCache = any ? sb.toString() : NO_ALERTS;
+        return alertChipsCache = chips;
+    }
+
+    private static String alertLabel(BuildingStatus status) {
+        return switch (status) {
+            case NO_ORE -> "no ore";
+            case NO_FUEL -> "no fuel";
+            case NO_INPUT -> "no input";
+            case OUTPUT_FULL -> "output full";
+            case WORKING -> throw new IllegalArgumentException("WORKING never reaches an alert chip");
+        };
+    }
+
+    /** Same left-to-right, stop-not-wrap layout as {@link #layoutChips} — a square marker instead of a dot. */
+    private List<AlertChipLayout> layoutAlertChips(List<AlertChip> chips, float rowY, float maxX) {
+        List<AlertChipLayout> layout = new ArrayList<>();
+        float x = CHIP_ROW_X;
+        for (AlertChip chip : chips) {
+            glyphLayout.setText(font, chip.text());
+            float width = ALERT_SQUARE + 4 + glyphLayout.width;
+            if (x + width > maxX) {
+                break;
+            }
+            layout.add(new AlertChipLayout(x, rowY - ALERT_SQUARE + 3,
+                    Palette.statusColor(chip.status()).orElseThrow(), x + ALERT_SQUARE + 4, rowY, chip.text()));
+            x += width + CHIP_GAP;
+        }
+        return layout;
+    }
+
+    private void drawAlertSquares(List<AlertChipLayout> layout) {
+        for (AlertChipLayout chip : layout) {
+            shapes.setColor(chip.color());
+            shapes.rect(chip.squareX(), chip.squareY(), ALERT_SQUARE, ALERT_SQUARE);
+        }
+    }
+
+    private void drawAlertChipsText(List<AlertChipLayout> layout, float rowY) {
+        if (layout.isEmpty()) {
+            font.setColor(Palette.WORKING);
+            font.draw(batch, "none", CHIP_ROW_X, rowY);
+            font.setColor(Color.WHITE);
+            return;
+        }
+        for (AlertChipLayout chip : layout) {
+            font.setColor(chip.color());
+            font.draw(batch, chip.text(), chip.textX(), chip.textY());
+        }
+        font.setColor(Color.WHITE);
     }
 
     /**

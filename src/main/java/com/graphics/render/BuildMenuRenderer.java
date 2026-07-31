@@ -79,6 +79,10 @@ final class BuildMenuRenderer {
         shapes.end();
 
         shapes.begin(ShapeRenderer.ShapeType.Line);
+        // Тонкая грань вокруг всей панели (арт-редизайн) — раньше подложка была голым
+        // прямоугольником без края и «плавала» поверх сцены без визуальной опоры.
+        shapes.setColor(Palette.PANEL_BORDER);
+        shapes.rect(panelX, panelY, BuildMenuLayout.PANEL_WIDTH, panelH);
         for (int i = 0; i < tabCount; i++) {
             boolean active = i == activeTabIndex;
             shapes.setColor(active ? Palette.SLOT_SELECTED : Palette.SLOT_BORDER);

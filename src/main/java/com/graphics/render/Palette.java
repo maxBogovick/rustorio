@@ -11,32 +11,36 @@ import java.util.Optional;
 /** Все цвета отрисовки в одном месте (перенесены из render.rs Rust-версии). */
 final class Palette {
 
-    static final Color BG = rgb(26, 26, 31);
-    static final Color GROUND = rgb(42, 46, 54);
-    static final Color ORE = rgb(51, 71, 115);        // железная руда — синий
-    static final Color ORE_BRONZE = rgb(122, 78, 39);  // бронзовая руда — тёплый коричневый
-    static final Color ORE_COAL = rgb(35, 33, 32);     // уголь — почти чёрный (D-05, DEV_TASKS.md)
-    static final Color GRID = rgb(90, 96, 110);
+    // Индустриальная палитра «сталь/янтарь/тил/ржавчина» (арт-редизайн, см. approved mockup
+    // rustorio_art_direction_proposal): раньше BG/GROUND/GRID были случайным нейтральным серым без
+    // единой идеи — теперь всё в файле собрано вокруг пяти опорных тонов: тёмная сталь (фон/панели),
+    // тёплая земля, янтарь (работает/выбрано), тил (руда/наука), ржавчина (тревога/пауза).
+    static final Color BG = rgb(28, 31, 38);       // сталь
+    static final Color GROUND = rgb(58, 64, 72);   // земля — заметно светлее стали, читается как «пол»
+    static final Color ORE = rgb(53, 116, 122);        // железная руда — тил (роднит с наукой/технологиями)
+    static final Color ORE_BRONZE = rgb(138, 106, 60);  // бронзовая руда — тёплая медь
+    static final Color ORE_COAL = rgb(24, 22, 21);     // уголь — почти чёрный (D-05, DEV_TASKS.md)
+    static final Color GRID = rgb(78, 84, 94);
 
     // Рельеф (X-02, DEV_TASKS.md): непроходимые клетки должны читаться на глаз ДО первого клика
     // по ним, а не только через отказ World.place. Вода — синяя, но заметно ярче/голубее ORE
     // (руда и вода на одном экране не должны путаться); скала — нейтральный тёмно-серый камень,
     // темнее GROUND, чтобы отличаться и от земли, и от воды одним взглядом.
-    static final Color TERRAIN_WATER = rgb(40, 90, 140);
-    static final Color TERRAIN_ROCK = rgb(60, 58, 55);
+    static final Color TERRAIN_WATER = rgb(42, 98, 148);
+    static final Color TERRAIN_ROCK = rgb(40, 38, 36);
 
-    static final Color HINT = rgb(179, 179, 199);
-    static final Color WORKING = Color.GREEN;
-    static final Color IDLE = Color.RED;
+    static final Color HINT = rgb(196, 190, 172);
+    static final Color WORKING = rgb(224, 161, 54);  // янтарь — «работает» (был чистый зелёный)
+    static final Color IDLE = rgb(201, 80, 47);      // ржавчина — «пауза/тревога» (был чистый красный)
 
     // Индикатор статуса здания (F-01, DEV_TASKS.md, §6.5 аудита): четыре разных цвета, чтобы
     // причины отличались друг от друга с одного взгляда, не только от «всё в порядке» (для
     // WORKING индикатор вообще не рисуется — см. BuildingRenderer). Подобраны не пересекающимися
     // с ORE/TERRAIN_* — руда и статус здания на одной клетке не должны читаться как одно и то же.
-    static final Color STATUS_NO_ORE = rgb(210, 70, 70);      // красный — ресурс кончился
-    static final Color STATUS_NO_FUEL = rgb(235, 150, 40);    // оранжевый — нужен уголь
-    static final Color STATUS_NO_INPUT = rgb(235, 215, 60);   // жёлтый — ждёт материал
-    static final Color STATUS_OUTPUT_FULL = rgb(150, 90, 210); // фиолетовый — некуда сдать
+    static final Color STATUS_NO_ORE = rgb(214, 64, 64);      // красный — ресурс кончился
+    static final Color STATUS_NO_FUEL = rgb(201, 80, 47);     // ржавчина — нужен уголь (тот же тон, что IDLE)
+    static final Color STATUS_NO_INPUT = rgb(232, 196, 90);   // светлый янтарь — ждёт материал
+    static final Color STATUS_OUTPUT_FULL = rgb(158, 100, 199); // фиолетовый — некуда сдать
 
     // Подсветка непарного входа подземки (см. OverlayRenderer).
     static final Color T_BAD = new Color(1.00f, 0.30f, 0.30f, 0.35f);
@@ -44,15 +48,18 @@ final class Palette {
     // Рамка призрака постройки под курсором (F-02, DEV_TASKS.md) — зелёная, если клетка свободна,
     // проходима и по карману; красная, если хоть одно из этого не так. Полупрозрачные, не сплошные
     // WORKING/IDLE выше: рамка рисуется ПОВЕРХ реальной карты, а не вместо текста HUD.
-    static final Color GHOST_VALID = new Color(0.25f, 0.85f, 0.35f, 0.9f);
+    static final Color GHOST_VALID = new Color(0.35f, 0.78f, 0.45f, 0.9f);
     static final Color GHOST_INVALID = new Color(0.90f, 0.25f, 0.25f, 0.9f);
 
     // Панели HUD (см. HudRenderer): тёмная полупрозрачная подложка под текстом/иконками, чтобы
     // они читались поверх ЛЮБОГО фона мира, а не сливались с ним, как голый текст без подложки.
-    static final Color PANEL_BG = new Color(0.05f, 0.05f, 0.08f, 0.72f);
+    static final Color PANEL_BG = new Color(0.11f, 0.12f, 0.15f, 0.88f);
+    // Тонкая грань, отделяющая панель от мира за ней (мокап HUD) — раньше панель была плоским
+    // прямоугольником без края и «плавала» поверх сцены без визуальной опоры.
+    static final Color PANEL_BORDER = new Color(1f, 1f, 1f, 0.08f);
     static final Color SLOT_BG = new Color(1f, 1f, 1f, 0.06f);
     static final Color SLOT_BORDER = new Color(1f, 1f, 1f, 0.25f);
-    static final Color SLOT_SELECTED = rgb(255, 200, 60);
+    static final Color SLOT_SELECTED = rgb(224, 161, 54); // янтарь — тот же тон, что WORKING
     // Build menu tile under the cursor, but not (yet) the equipped building — brighter than
     // SLOT_BORDER so hovering gives visible feedback before the click commits to anything, distinct
     // from SLOT_SELECTED's amber so "about to pick" never reads as "already equipped".

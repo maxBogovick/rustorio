@@ -17,9 +17,9 @@ import java.util.stream.Stream;
  * Splitting the two means the mapping itself (does every sprite have an entry? do names collide?)
  * is unit-testable without a GL context, unlike the packing it feeds.
  *
- * <p>{@link VanillaSprites#LAB} deliberately has no entry here — there's no drawn art for it yet,
- * so {@link Textures} packs a placeholder for it directly instead of reading a file this index
- * would have to lie about.
+ * <p>{@link VanillaSprites#LAB} now has a real file ({@code resources/lab.png}) like every other
+ * vanilla sprite; {@link Textures} still falls back to a placeholder for any index that omits it
+ * (e.g. a mod that adds a building without shipping its own art) — see that class's javadoc.
  */
 final class TextureIndex {
 
@@ -39,6 +39,7 @@ final class TextureIndex {
         index.put(VanillaSprites.UNDERGROUND_IN, "resources/underground_in.png");
         index.put(VanillaSprites.UNDERGROUND_OUT, "resources/underground_out.png");
         index.put(VanillaSprites.ASSEMBLER, "resources/assembler.png");
+        index.put(VanillaSprites.LAB, "resources/lab.png");
         return index;
     }
 
