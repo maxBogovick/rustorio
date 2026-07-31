@@ -49,6 +49,7 @@ public final class Renderer implements Disposable {
     private final RecipeBookRenderer recipeBookRenderer;
     private final TechTreeRenderer techTreeRenderer;
     private final StatsScreenRenderer statsScreenRenderer;
+    private final BuildMenuRenderer buildMenuRenderer;
 
     /**
      * {@code gridW}/{@code gridH} come from whoever built the {@link World} this renderer will be
@@ -74,6 +75,7 @@ public final class Renderer implements Disposable {
         this.recipeBookRenderer = new RecipeBookRenderer(batch, shapes, font);
         this.techTreeRenderer = new TechTreeRenderer(batch, shapes, font);
         this.statsScreenRenderer = new StatsScreenRenderer(batch, shapes, font);
+        this.buildMenuRenderer = new BuildMenuRenderer(batch, shapes, font);
     }
 
     /**
@@ -130,6 +132,10 @@ public final class Renderer implements Disposable {
         // 8. экран статистики (P-03, DEV_TASKS.md) — поверх всего, только если игрок открыл его (V).
         if (hud.showStats()) {
             statsScreenRenderer.render(world.stats(), world.currentTick(), hud.statsItem(), world.buildingFactory().items());
+        }
+        // 9. меню построек (Фаза 8) — поверх всего, только если игрок открыл его (B).
+        if (hud.showBuildMenu()) {
+            buildMenuRenderer.render(world.buildingFactory().buildings(), hud.buildMenuQuery(), hud.buildMenuCategoryCycle());
         }
     }
 

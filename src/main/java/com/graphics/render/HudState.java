@@ -32,8 +32,14 @@ import org.jspecify.annotations.Nullable;
  * player's own configurable hotbar — see {@code InputHandler}'s own field for what populates it —
  * read here so {@code HudRenderer}/{@code OverlayRenderer} never need a second way to ask "what's
  * pinned to slot N."
+ *
+ * <p>{@code buildMenuQuery}/{@code buildMenuCategoryCycle} (Phase 8) are meaningless while {@code
+ * showBuildMenu} is {@code false} — {@code BuildMenuRenderer} owns turning the raw cycle counter
+ * into an actual category (it's the one place that knows how many namespaces are registered right
+ * now; see {@code SimulationControls}'s own field for why the counter itself doesn't know).
  */
 public record HudState(ContentId selected, Direction facing, boolean paused, int speed, boolean showRecipeBook,
         boolean showTechTree, List<TilePos> dragTiles, @Nullable TilePos inspected, boolean altOverlay,
-        boolean showStats, ItemType statsItem, List<ContentId> hotbarSlots, boolean showBuildMenu) {
+        boolean showStats, ItemType statsItem, List<ContentId> hotbarSlots, boolean showBuildMenu,
+        String buildMenuQuery, int buildMenuCategoryCycle) {
 }

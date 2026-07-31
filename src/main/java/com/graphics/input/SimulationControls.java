@@ -49,11 +49,22 @@ final class SimulationControls {
     private boolean showStats;
 
     /**
-     * Открыто ли меню построек (Фаза 8) — {@code B} переключает. Тот же чистый показ-без-побочных-
-     * эффектов, что у остальных панелей; {@link InputHandler} перенаправляет ввод текста поиска и
-     * клики по списку, пока открыто.
+     * Открыто ли меню построек (Фаза 8) — {@code B} переключает. Пока открыто, буквы A-Z идут в
+     * {@link #searchQuery}, а не в свои обычные однобуквенные горячие клавиши (TAB/T/V/B сами) —
+     * см. {@link #handle()}, единственная панель, что перехватывает ввод целиком, а не просто
+     * добавляет свой собственный переключатель показа.
      */
     private boolean showBuildMenu;
+
+    /** Текст поиска по подписи здания, накапливается посимвольно, пока меню открыто — очищается при закрытии. */
+    private final StringBuilder searchQuery = new StringBuilder();
+
+    /**
+     * Сырой счётчик TAB-нажатий, пока меню открыто — во ЧТО он превращается (номер категории)
+     * решает {@code BuildMenuRenderer}, который один знает, сколько категорий сейчас реально
+     * зарегистрировано (namespace'ов); этот класс о реестре построек ничего не знает и не должен.
+     */
+    private int categoryCycle;
 
     void handle() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
@@ -64,6 +75,21 @@ final class SimulationControls {
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT_BRACKET)) {
             speedIndex = Math.min(SPEEDS.length - 1, speedIndex + 1);
+        }
+        if (showBuildMenu) {
+            // Меню — единственная панель с текстовым вводом: пока оно открыто, буквы/TAB/BACKSPACE
+            // управляют ИМ целиком, не своими обычными значениями (книга рецептов/дерево техов
+            // тоже висели бы на T/TAB, которые здесь заняты поиском/категорией).
+            handleSearchInput();
+            if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
+                categoryCycle++;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.B)) {
+                showBuildMenu = false;
+                searchQuery.setLength(0);
+                categoryCycle = 0;
+            }
+            return;
         }
         // Книга рецептов (TAB): чистый переключатель показа, мира не касается вовсе.
         if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
@@ -79,7 +105,21 @@ final class SimulationControls {
         }
         // Меню построек (B, Фаза 8): тот же чистый переключатель показа.
         if (Gdx.input.isKeyJustPressed(Input.Keys.B)) {
-            showBuildMenu = !showBuildMenu;
+            showBuildMenu = true;
+        }
+    }
+
+    /** Буквы A-Z дописывают строку поиска, BACKSPACE стирает последний символ — единственный текстовый ввод в этом проекте, см. класс-javadoc. */
+    private void handleSearchInput() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE) && searchQuery.length() > 0) {
+            searchQuery.setLength(searchQuery.length() - 1);
+        }
+        for (int key = Input.Keys.A; key <= Input.Keys.Z; key++) {
+            if (Gdx.input.isKeyJustPressed(key)) {
+                // Input.Keys.toString даёт "A".."Z" для этого диапазона — не полагаемся на то, что
+                // числовые коды идут в алфавитном порядке без пропусков, даже если сегодня так и есть.
+                searchQuery.append(Input.Keys.toString(key).toLowerCase(java.util.Locale.ROOT));
+            }
         }
     }
 
@@ -115,6 +155,6 @@ final class SimulationControls {
     HudState hudState(ContentId selected, Direction facing, List<TilePos> dragTiles, @Nullable TilePos inspected,
             boolean altOverlay, ItemType statsItem, List<ContentId> hotbarSlots) {
         return new HudState(selected, facing, paused, speed(), showRecipeBook, showTechTree, dragTiles, inspected,
-                altOverlay, showStats, statsItem, hotbarSlots, showBuildMenu);
+                altOverlay, showStats, statsItem, hotbarSlots, showBuildMenu, searchQuery.toString(), categoryCycle);
     }
 }
