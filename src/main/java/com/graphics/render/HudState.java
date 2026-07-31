@@ -44,9 +44,20 @@ import org.jspecify.annotations.Nullable;
  * (only a {@code System.Logger} line {@code InputHandler} wrote on failure, invisible in a
  * windowed run started any way other than from a terminal); a player had no way to tell whether F5
  * had actually done anything.
+ *
+ * <p>{@code showInfo} (I key) is a fifth {@code SimulationControls.OverlayPanel}, same mutual
+ * exclusivity as recipe book/tech tree/stats/build menu — everything the compact top strip used to
+ * cram into eight permanent rows (produced totals, inventory, research, recent log, full alert
+ * breakdown) now lives here instead, on demand (HUD redesign, live design feedback: the always-on
+ * panel read as a cluttered debug console). {@code showHints}/{@code showFpsUps} (H/P) are NOT
+ * panels — independent booleans, since neither is full-screen and either can be on alongside any
+ * panel or the other: {@code showHints} swaps the top strip's one-line hotkey reminder for the old
+ * full three-line legend, {@code showFpsUps} shows the FPS/UPS line at all (previously always on,
+ * now opt-in — most players never need it).
  */
 public record HudState(ContentId selected, Direction facing, boolean paused, int speed, boolean showRecipeBook,
         boolean showTechTree, List<TilePos> dragTiles, @Nullable TilePos inspected, boolean altOverlay,
         boolean showStats, ItemType statsItem, List<ContentId> hotbarSlots, boolean showBuildMenu,
-        String buildMenuQuery, int buildMenuCategoryCycle, int buildMenuScrollOffset, @Nullable String statusMessage) {
+        String buildMenuQuery, int buildMenuCategoryCycle, int buildMenuScrollOffset, @Nullable String statusMessage,
+        boolean showInfo, boolean showHints, boolean showFpsUps) {
 }

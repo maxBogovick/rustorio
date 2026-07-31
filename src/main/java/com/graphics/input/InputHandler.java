@@ -237,15 +237,15 @@ public final class InputHandler {
     }
 
     /**
-     * Whether any full-screen panel (recipe book / tech tree / stats / build menu — {@link
+     * Whether any full-screen panel (recipe book / tech tree / stats / build menu / info — {@link
      * SimulationControls#showRecipeBook()}/{@link SimulationControls#showTechTree()}/{@link
-     * SimulationControls#showStats()}/{@link SimulationControls#showBuildMenu()}) is covering the
-     * world viewport right now (C3, live bug report). See the call site in {@link #handle} for
-     * what this gates.
+     * SimulationControls#showStats()}/{@link SimulationControls#showBuildMenu()}/{@link
+     * SimulationControls#showInfo()}) is covering the world viewport right now (C3, live bug
+     * report). See the call site in {@link #handle} for what this gates.
      */
     private boolean modalOpen() {
         return simulationControls.showRecipeBook() || simulationControls.showTechTree() || simulationControls.showStats()
-                || simulationControls.showBuildMenu();
+                || simulationControls.showBuildMenu() || simulationControls.showInfo();
     }
 
     /** ЛКМ по панели построек снизу выбирает закреплённый в слоте прототип — момент нажатия, не «зажато» (см. {@link DragCollector}). */

@@ -50,6 +50,7 @@ public final class Renderer implements Disposable {
     private final TechTreeRenderer techTreeRenderer;
     private final StatsScreenRenderer statsScreenRenderer;
     private final BuildMenuRenderer buildMenuRenderer;
+    private final InfoOverlayRenderer infoOverlayRenderer;
 
     /**
      * {@code gridW}/{@code gridH} come from whoever built the {@link World} this renderer will be
@@ -76,6 +77,7 @@ public final class Renderer implements Disposable {
         this.techTreeRenderer = new TechTreeRenderer(batch, shapes, font);
         this.statsScreenRenderer = new StatsScreenRenderer(batch, shapes, font);
         this.buildMenuRenderer = new BuildMenuRenderer(batch, shapes, font, textures);
+        this.infoOverlayRenderer = new InfoOverlayRenderer(batch, shapes, font);
     }
 
     /**
@@ -119,8 +121,8 @@ public final class Renderer implements Disposable {
         Gdx.gl.glViewport(0, 0, bbW, bbH);
         batch.setProjectionMatrix(camera.hudMatrix());
         shapes.setProjectionMatrix(camera.hudMatrix());
-        // 5. заголовок + панель + статистика + исследования + инвентарь + лог + пауза/скорость + подсказки
-        hudRenderer.render(hud, world, visible, world.stats(), world.research(), world.inventory(), log, ups);
+        // 5. заголовок + компактная панель (пауза/скорость, алерты, превью produced, подсказки) + хотбар
+        hudRenderer.render(hud, world, visible, world.stats(), ups);
         // 6. книга рецептов — поверх всего остального, только если игрок её открыл (TAB).
         if (hud.showRecipeBook()) {
             recipeBookRenderer.render(world.buildingFactory().recipeBook());
@@ -137,6 +139,11 @@ public final class Renderer implements Disposable {
         if (hud.showBuildMenu()) {
             buildMenuRenderer.render(world.buildingFactory().buildings(), hud.selected(), hud.buildMenuQuery(),
                     hud.buildMenuCategoryCycle(), hud.buildMenuScrollOffset());
+        }
+        // 10. экран Info — поверх всего, только если игрок открыл его (I): produced/inventory/
+        // research/recent/полный список алертов, которые верхняя полоса больше не держит постоянно.
+        if (hud.showInfo()) {
+            infoOverlayRenderer.render(world, world.stats(), world.research(), world.inventory(), log);
         }
     }
 

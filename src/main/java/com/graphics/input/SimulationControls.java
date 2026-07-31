@@ -35,7 +35,7 @@ final class SimulationControls {
      * #toggleOrSwitch} либо закрывает уже открытую панель, либо ПЕРЕКЛЮЧАЕТ на другую вместо того,
      * чтобы открыть её поверх.
      */
-    enum OverlayPanel { NONE, RECIPE_BOOK, TECH_TREE, STATS, BUILD_MENU }
+    enum OverlayPanel { NONE, RECIPE_BOOK, TECH_TREE, STATS, BUILD_MENU, INFO }
 
     /**
      * Мир при любой открытой панели продолжает тикать как обычно: все четыре — справочник/меню, а
@@ -62,6 +62,16 @@ final class SimulationControls {
      * единственный, кто знает текущий список совпадений.
      */
     private int scrollOffsetRows;
+
+    /**
+     * Full hotkey legend (was three permanent HUD rows, now hidden by default) and FPS/UPS
+     * (was an always-on debug line) — both independent of {@link #openPanel}: neither is a
+     * full-screen panel, and either can be on at the same time as any panel or as each other.
+     * HUD redesign, live design feedback ("выглядит громоздко") — see {@code HudRenderer}'s own
+     * javadoc for the row layout these gate.
+     */
+    private boolean showHints;
+    private boolean showFpsUps;
 
     void handle() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
@@ -110,6 +120,20 @@ final class SimulationControls {
         // открыто (см. проверку openPanel в начале метода), так что здесь он всегда именно открывает.
         if (Gdx.input.isKeyJustPressed(Input.Keys.B)) {
             toggleOrSwitch(OverlayPanel.BUILD_MENU);
+        }
+        // Экран Info (I) — то, во что теперь переехали Produced/Inventory/Research/Recent/полный
+        // список алертов с постоянной верхней панели (HUD-редизайн): тот же переключатель-панель,
+        // что TAB/T/V/B, просто ещё один вариант в openPanel.
+        if (Gdx.input.isKeyJustPressed(Input.Keys.I)) {
+            toggleOrSwitch(OverlayPanel.INFO);
+        }
+        // H/P — не панели, независимые флаги (см. их собственный javadoc): работают одинаково,
+        // открыта ли сейчас какая-то из панелей выше или нет.
+        if (Gdx.input.isKeyJustPressed(Input.Keys.H)) {
+            showHints = !showHints;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
+            showFpsUps = !showFpsUps;
         }
     }
 
@@ -202,6 +226,18 @@ final class SimulationControls {
         return openPanel == OverlayPanel.BUILD_MENU;
     }
 
+    boolean showInfo() {
+        return openPanel == OverlayPanel.INFO;
+    }
+
+    boolean showHints() {
+        return showHints;
+    }
+
+    boolean showFpsUps() {
+        return showFpsUps;
+    }
+
     /** Current search text, pending menu click handling in {@code InputHandler} — same value {@link #hudState} hands the renderer. */
     String buildMenuQuery() {
         return searchQuery.toString();
@@ -247,6 +283,6 @@ final class SimulationControls {
             boolean altOverlay, ItemType statsItem, List<ContentId> hotbarSlots, @Nullable String statusMessage) {
         return new HudState(selected, facing, paused, speed(), showRecipeBook(), showTechTree(), dragTiles, inspected,
                 altOverlay, showStats(), statsItem, hotbarSlots, showBuildMenu(), searchQuery.toString(), categoryCycle,
-                scrollOffsetRows, statusMessage);
+                scrollOffsetRows, statusMessage, showInfo(), showHints, showFpsUps);
     }
 }

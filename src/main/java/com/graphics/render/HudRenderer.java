@@ -15,8 +15,6 @@ import com.rustorio.domain.Direction;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
-import com.rustorio.domain.ResearchView;
-import com.rustorio.domain.Tech;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.BuildingPrototype;
@@ -25,12 +23,10 @@ import com.rustorio.domain.building.Filter;
 import com.rustorio.domain.building.Furnace;
 import com.rustorio.domain.building.Splitter;
 import com.rustorio.domain.building.UndergroundBelt;
-import com.rustorio.domain.world.PlayerInventoryView;
-import com.rustorio.domain.world.ProductionLogView;
-import com.rustorio.domain.world.ProductionStats;
 import com.rustorio.domain.world.ProductionStatsView;
 import com.rustorio.domain.world.World;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,51 +34,63 @@ import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /**
- * HUD — информационная панель сверху (заголовок, статистика, исследования, лог, подсказки) и
- * панель построек снизу (кликабельные слоты — та же роль, что кнопки 1-9, только видно ГЛАЗАМИ,
- * что выбрано и чем можно строить, а не запоминать номера).
+ * HUD — a slim, always-on top strip (title, pause/speed, an alerts badge, a produced preview, a
+ * one-line hotkey reminder) and the buildings panel at the bottom — plus the inspection panel for
+ * whatever's clicked. Everything the top strip used to carry as eight permanent rows (full
+ * produced/inventory lists, research, the recent log, the full alert breakdown, the three-line
+ * hotkey legend, FPS/UPS) now lives on demand instead: {@link InfoOverlayRenderer} (I key) for the
+ * lists, {@code showHints}/{@code showFpsUps} ({@link HudState}, H/P keys) for the rest.
  *
- * <p>Раньше вся панель была голым текстом без подложки — читалась плохо на светлом фоне мира, а
- * выбор постройки был виден только цифрой в скобках посреди строки. Теперь обе панели рисуются
- * на тёмной полупрозрачной подложке ({@link Palette#PANEL_BG}) на всю ширину окна: текст не
- * теряется, какой бы ни была земля под ним, а слот выбранного здания обведён ярко
- * ({@link Palette#SLOT_SELECTED}).
+ * <p>HUD redesign, live design feedback: the always-on version read as a cluttered debug console —
+ * every one of those eight rows drawn every single frame whether or not the player had any reason
+ * to look at it right then. A player who wants the full picture still gets it, just one keypress
+ * away rather than permanently eating screen space (and reserved world-view height — see {@link
+ * GfxConfig#HUD_TOP_HEIGHT}'s own note).
  *
- * <p>Строка статистики и строка лога читают РАЗНЫХ, ничего не знающих друг о друге слушателей
- * одного и того же события «предмет произведён» ({@link ProductionStats}, {@code ProductionLog}
- * — урок 14). HUD дальше про них ничего не знает: просто читает и показывает через {@link
- * ProductionLogView} (P3-08, BUG_FIX_PROGRESS.md) — ту же дисциплину read-only вида, что уже
- * применена к {@link ProductionStatsView} и {@link ResearchView}.
+ * <p>Slot selection in the bottom panel is still obvious — the same bright outline ({@link
+ * Palette#SLOT_SELECTED}) this had before the redesign.
  */
 final class HudRenderer {
 
-    /** One nonzero item's worth of chip: a {@link Palette#itemColor} dot plus its count as text — see {@link #layoutChips}. */
+    /** One nonzero item's worth of chip: an item plus its count as text — see {@link #producedChips}. */
     private record ItemChip(ItemType item, String text) {
     }
 
     /**
-     * A chip's fully resolved screen position — computed once, drawn twice (a {@link
-     * ShapeRenderer} circle, a {@link SpriteBatch} number), and hit-tested a third time for
-     * {@link #renderChipTooltip} (live bug report: color alone doesn't say which item is which).
+     * A chip's fully resolved screen position — computed once, drawn three times (an {@link
+     * ItemIcon} fill/outline pair, a count number), and hit-tested a third time for {@link
+     * #renderChipTooltip} (live bug report: color alone doesn't say which item is which).
      */
     private record ChipLayout(ItemType item, float circleX, float circleY, Color color, float textX, float textY,
             String text) {
     }
 
-    /** One nonzero status count's worth of alert chip — a friendly label, not the raw enum name. */
-    private record AlertChip(BuildingStatus status, String text) {
+    /** {@link #summarizeAlerts}'s result — how many buildings have a problem, and which color best represents the worst one present. */
+    private record AlertSummary(int total, Color color) {
     }
 
-    /** An alert chip's resolved screen position — square marker (not a circle, unlike {@link ChipLayout}) plus its label. */
-    private record AlertChipLayout(float squareX, float squareY, Color color, float textX, float textY, String text) {
-    }
+    private static final float COL_TITLE_X = 16f;
+    private static final float COL_STATUS_X = 140f;
+    private static final float COL_ALERTS_X = 250f;
+    private static final float COL_FPS_X = 470f;
+    private static final float COL_STATUS_MSG_X = 620f;
 
-    private static final float CHIP_ROW_X = 120f;
-    private static final float CHIP_RADIUS = 6f;
-    private static final float CHIP_GAP = 16f;
-    /** A few extra pixels around the dot itself — hitting the exact 6px circle with a mouse cursor is unreasonably precise. */
-    private static final float CHIP_HOVER_RADIUS = CHIP_RADIUS + 4f;
-    private static final float ALERT_SQUARE = 9f;
+    private static final float ROW_HEADER = 22f;
+    private static final float ROW_PRODUCED_PREVIEW = 48f;
+    private static final float ROW_HINT_1 = 74f;
+    private static final float ROW_HINT_2 = 90f;
+    private static final float ROW_HINT_3 = 106f;
+
+    /** Right after the "Produced" label — see {@link #layoutPreview}. */
+    private static final float PREVIEW_ICON_X = 110f;
+    private static final float PREVIEW_ICON_RADIUS = 7f;
+    /** Breathing room between one chip's count text and the next chip's icon — see {@link #layoutPreview}. */
+    private static final float PREVIEW_CHIP_GAP = 16f;
+    /** How many of the produced-preview's top items get an icon on the strip before it just says "+N more". */
+    private static final int PREVIEW_COUNT = 3;
+    /** A few extra pixels around the icon itself — hitting the exact icon with a mouse cursor is unreasonably precise. */
+    private static final float CHIP_HOVER_RADIUS = PREVIEW_ICON_RADIUS + 4f;
+    private static final float ALERT_MARKER_SIZE = 10f;
 
     private final SpriteBatch batch;
     private final ShapeRenderer shapes;
@@ -91,22 +99,16 @@ final class HudRenderer {
     private final GlyphLayout glyphLayout = new GlyphLayout();
 
     /**
-     * Cached HUD content and the cheap signature it was built from (P4-05, BUG_FIX_PROGRESS.md):
-     * {@link #producedChips}/{@link #research}/{@link #recent} rebuilt their output every single
-     * frame regardless of whether production, research or the log had actually changed since the
-     * last one. {@code -1} never matches a real total/points value, so the first call always
-     * (correctly) rebuilds.
+     * Cached produced-preview chips and the cheap signature they were built from (P4-05,
+     * BUG_FIX_PROGRESS.md): rebuilding by walking every {@link ItemType} in the registry every
+     * single frame is wasted work on the (overwhelming majority of) frames where production hasn't
+     * changed since the last one. This is the only row {@link #renderInfoPanel} still draws on
+     * every frame regardless of what the player has open — everything else moved to {@link
+     * InfoOverlayRenderer}, which only ever runs while the player has that screen open, so it
+     * doesn't need this same caching (see that class's own javadoc).
      */
     private long producedSignature = -1;
     private List<ItemChip> producedChipsCache = List.of();
-    private long researchSignature = -1;
-    private String researchCache = "";
-    private List<ItemType> recentSignature = List.of();
-    private String recentCache = "";
-    private long inventorySignature = -1;
-    private List<ItemChip> inventoryChipsCache = List.of();
-    private long alertsSignature = -1;
-    private List<AlertChip> alertChipsCache = List.of();
 
     HudRenderer(SpriteBatch batch, ShapeRenderer shapes, BitmapFont font, Textures textures) {
         this.batch = batch;
@@ -115,61 +117,30 @@ final class HudRenderer {
         this.textures = textures;
     }
 
-    void render(HudState hud, World world, TileRange visible, ProductionStatsView stats, ResearchView research,
-            PlayerInventoryView inventory, ProductionLogView log, int ups) {
-        renderInfoPanel(world, stats, research, inventory, log, hud.paused(), hud.speed(), ups, hud.statusMessage());
+    void render(HudState hud, World world, TileRange visible, ProductionStatsView stats, int ups) {
+        renderInfoPanel(world, stats, hud.paused(), hud.speed(), ups, hud.showHints(), hud.showFpsUps(),
+                hud.statusMessage());
         renderHotbar(hud.hotbarSlots(), hud.selected(), hud.facing(), world.buildingFactory());
         renderMinimap(world, visible);
         renderInspectionPanel(world, hud.inspected());
     }
 
     /**
-     * Верхняя панель: заголовок, пауза/скорость, статистика, исследования, лог, подсказки.
-     *
-     * <p>Высота панели — {@link GfxConfig#HUD_TOP_HEIGHT}, ТА ЖЕ константа, на которую камера
-     * сузила свой вьюпорт ({@link GameCamera#resize}): подложка и «дыра» в мире, которую она
-     * закрывает, всегда совпадают по построению, не по совпадению двух чисел в разных файлах.
-     *
-     * <p><b>Produced/Inventory as icon chips, not names (live bug report).</b> The old version
-     * printed EVERY {@link ItemType}, including the zero ones — mostly noise once more than two or
-     * three item kinds exist — as bare text ({@code "IRON_ORE 12    IRON_PLATE 4    ...""}), which
-     * ran off the right edge of the window with all eleven kinds unlocked (nothing wrapped, nothing
-     * was cut for space). {@link #producedChips}/{@link #inventoryChips} now filter to nonzero only,
-     * and {@link #layoutChips} draws each as a small {@link Palette#itemColor} dot plus a number —
-     * the same color language {@code ItemRenderer}/{@code RecipeBookRenderer} already use for cargo
-     * and recipe icons, several times narrower per item than the old {@code "NAME count"} text.
+     * Top strip: title, pause/speed, an alerts badge, a produced preview (top {@link
+     * #PREVIEW_COUNT} items), and a hotkey reminder — one line by default, the full legend when
+     * {@code showHints} is on. Height is {@link GfxConfig#HUD_TOP_HEIGHT}, the same constant the
+     * camera narrowed its viewport by ({@code GameCamera#resize}) — the panel and the "hole" in the
+     * world it covers always agree by construction, not by two numbers in different files matching
+     * by coincidence.
      */
-    // Строки верхней панели (арт-редизайн) — раньше это были плотные 18px шаги без разделения на
-    // смысловые группы, отчего вся панель читалась одной стеной текста (live bug report: "выглядит
-    // как debug-консоль"). Теперь у каждой строки больше воздуха.
-    //
-    // <p>Полупрозрачные подложки под строками и линии-разделители были в первой версии этой
-    // правки и убраны live bug report'ом следующим же кадром — на реальном экране едва заметный
-    // по задумке {@code Color(1,1,1,0.045f)} рисовался практически непрозрачным белым и убивал
-    // читаемость текста поверх себя, а не разгружал панель, как задумывалось. Причина не
-    // выяснена (похоже на особенность блендинга в этом окружении, а не логическая ошибка в
-    // координатах — сами прямоугольники стояли на правильных местах), так что вместо попытки
-    // угадать битую альфу решено вообще не полагаться на полупрозрачные подложки для структуры:
-    // разделение строк — это только межстрочный интервал.
-    private static final float ROW_HEADER = 24f;
-    private static final float ROW_PRODUCED = 56f;
-    private static final float ROW_INVENTORY = 76f;
-    private static final float ROW_RESEARCH = 98f;
-    private static final float ROW_RECENT = 116f;
-    private static final float ROW_ALERTS = 140f;
-    private static final float ROW_HINT_1 = 164f;
-    private static final float ROW_HINT_2 = 178f;
-    private static final float ROW_HINT_3 = 192f;
-
-    private void renderInfoPanel(World world, ProductionStatsView stats, ResearchView research,
-            PlayerInventoryView inventory, ProductionLogView log, boolean paused, int speed, int ups,
-            @Nullable String statusMessage) {
+    private void renderInfoPanel(World world, ProductionStatsView stats, boolean paused, int speed, int ups,
+            boolean showHints, boolean showFpsUps, @Nullable String statusMessage) {
         Registry<ItemType> items = world.buildingFactory().items();
         int screenW = Gdx.graphics.getWidth();
         float top = Gdx.graphics.getHeight();
         float panelH = GfxConfig.HUD_TOP_HEIGHT;
         // Stop chips short of the minimap (100px square + 16px margin) in the top-right corner —
-        // see renderMinimap — so a long chip row can never be drawn under/behind it.
+        // see renderMinimap — so a long preview row can never be drawn under/behind it.
         float maxX = screenW - 132f;
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -177,103 +148,133 @@ final class HudRenderer {
         shapes.rect(0, top - panelH, screenW, panelH);
         shapes.end();
 
-        // Тонкая грань по нижнему краю (арт-редизайн) — отделяет панель от мира визуально, не
-        // только полупрозрачностью подложки; полный прямоугольник тут не нужен, верх/бока и так
-        // упираются в край окна.
+        // Тонкая грань по нижнему краю — отделяет панель от мира визуально, не только
+        // полупрозрачностью подложки.
         shapes.begin(ShapeRenderer.ShapeType.Line);
         shapes.setColor(Palette.PANEL_BORDER);
         shapes.line(0, top - panelH, screenW, top - panelH);
         shapes.end();
 
-        font.getData().setScale(1f); // layout measures glyph widths at THIS scale — fix it before laying out
-        List<ChipLayout> producedLayout = layoutChips(producedChips(items, stats), top - ROW_PRODUCED, maxX);
-        List<ChipLayout> inventoryLayout = layoutChips(inventoryChips(items, inventory), top - ROW_INVENTORY, maxX);
-        List<AlertChipLayout> alertsLayout = layoutAlertChips(alertChips(world), top - ROW_ALERTS, maxX);
+        font.getData().setScale(1f); // layout below measures at THIS scale — fix it before laying out
+        List<ItemChip> produced = producedChips(items, stats);
+        List<ChipLayout> previewLayout = layoutPreview(topChips(produced, PREVIEW_COUNT), top - ROW_PRODUCED_PREVIEW, maxX);
+        AlertSummary alerts = summarizeAlerts(world.statusCounts());
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        drawChipCircles(producedLayout);
-        drawChipCircles(inventoryLayout);
-        drawAlertSquares(alertsLayout);
+        for (ChipLayout chip : previewLayout) {
+            ItemIcon.fill(shapes, chip.item(), chip.circleX(), chip.circleY(), PREVIEW_ICON_RADIUS);
+        }
+        shapes.setColor(alerts.color());
+        shapes.rect(COL_ALERTS_X - ALERT_MARKER_SIZE - 6f, top - ROW_HEADER - 8f, ALERT_MARKER_SIZE, ALERT_MARKER_SIZE);
+        shapes.end();
+
+        shapes.begin(ShapeRenderer.ShapeType.Line);
+        for (ChipLayout chip : previewLayout) {
+            ItemIcon.outline(shapes, chip.item(), chip.circleX(), chip.circleY(), PREVIEW_ICON_RADIUS);
+        }
         shapes.end();
 
         batch.begin();
         font.setColor(Color.WHITE);
         font.getData().setScale(1.2f);
-        font.draw(batch, "Rustorio", 16, top - ROW_HEADER);
+        font.draw(batch, "Rustorio", COL_TITLE_X, top - ROW_HEADER);
 
         font.setColor(paused ? Palette.IDLE : Palette.WORKING);
-        font.draw(batch, paused ? "PAUSED" : ("Speed: " + speed + "x"), 220, top - ROW_HEADER);
+        font.draw(batch, paused ? "PAUSED" : ("Speed: " + speed + "x"), COL_STATUS_X, top - ROW_HEADER);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
 
-        // S-04, DEV_TASKS.md: FPS is libGDX's own already-smoothed measurement, read straight —
-        // UPS is GameScreen's own count of real World.tick() calls in the last full second (not
-        // the same thing: at 2x/4x speed UPS climbs past FPS, and the gap between them is itself
-        // a useful signal if the simulation ever falls behind the requested multiplier).
-        font.setColor(Palette.HINT);
-        font.draw(batch, "FPS: " + Gdx.graphics.getFramesPerSecond() + "  UPS: " + ups, 380, top - ROW_HEADER);
+        // Alerts badge (art redesign, point 7 of the HUD review): a colored marker plus count, not
+        // just another same-weight text row — the worst status currently present picks the color
+        // (see summarizeAlerts), green "OK" when nothing's wrong.
+        font.setColor(alerts.color());
+        font.draw(batch, alerts.total() == 0 ? "Alerts: OK" : "Alerts: " + alerts.total(), COL_ALERTS_X, top - ROW_HEADER);
         font.setColor(Color.WHITE);
+
+        // FPS/UPS — opt-in (P key) now, not a permanent debug line most players never asked for.
+        if (showFpsUps) {
+            font.setColor(Palette.HINT);
+            font.draw(batch, "FPS: " + Gdx.graphics.getFramesPerSecond() + "  UPS: " + ups, COL_FPS_X, top - ROW_HEADER);
+            font.setColor(Color.WHITE);
+        }
 
         // Живой баг-репорт: F5/F9 раньше не показывали НИЧЕГО на экране — ни "сохранено", ни
         // "не вышло, вот почему" — см. HudState/InputHandler#showStatus. Гаснет сама через
         // InputHandler.STATUS_MESSAGE_SECONDS, отдельного "закрыть" не нужно.
         if (statusMessage != null) {
             font.setColor(Palette.HINT);
-            font.draw(batch, statusMessage, 560, top - ROW_HEADER);
+            font.draw(batch, statusMessage, COL_STATUS_MSG_X, top - ROW_HEADER);
             font.setColor(Color.WHITE);
         }
 
-        font.draw(batch, "Produced", 16, top - ROW_PRODUCED);
-        drawChipNumbers(producedLayout, top - ROW_PRODUCED);
-        font.draw(batch, "Inventory", 16, top - ROW_INVENTORY);
-        drawChipNumbers(inventoryLayout, top - ROW_INVENTORY);
+        // Produced preview — top PREVIEW_COUNT items by volume, not the full (mod-length) list;
+        // the full list, with real labels instead of a one-letter icon, lives in InfoOverlayRenderer
+        // (I key) now (point 3/4 of the HUD review).
+        font.setColor(Palette.HINT);
+        font.draw(batch, "Produced", COL_TITLE_X, top - ROW_PRODUCED_PREVIEW);
+        if (previewLayout.isEmpty()) {
+            font.draw(batch, "-", PREVIEW_ICON_X, top - ROW_PRODUCED_PREVIEW);
+        } else {
+            font.getData().setScale(0.5f);
+            for (ChipLayout chip : previewLayout) {
+                ItemIcon.letter(batch, font, chip.item(), chip.circleX(), chip.circleY(), PREVIEW_ICON_RADIUS);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            for (ChipLayout chip : previewLayout) {
+                font.draw(batch, chip.text(), chip.textX(), chip.textY());
+            }
+            if (produced.size() > previewLayout.size()) {
+                ChipLayout last = previewLayout.get(previewLayout.size() - 1);
+                glyphLayout.setText(font, last.text());
+                float hintX = last.textX() + glyphLayout.width + PREVIEW_CHIP_GAP;
+                font.setColor(Palette.HINT);
+                font.draw(batch, "+" + (produced.size() - previewLayout.size()) + " more — I for full list",
+                        hintX, top - ROW_PRODUCED_PREVIEW);
+                font.setColor(Color.WHITE);
+            }
+        }
 
-        font.draw(batch, research(research), 16, top - ROW_RESEARCH);
-        font.draw(batch, recent(log), 16, top - ROW_RECENT);
-
-        font.draw(batch, "Alerts", 16, top - ROW_ALERTS);
-        drawAlertChipsText(alertsLayout, top - ROW_ALERTS);
-
+        // Hotkey reminder — one line by default, the old three-line legend only while H is held
+        // toggled on (point 1 of the HUD review: this used to be three permanent rows).
         font.setColor(Palette.HINT);
         font.getData().setScale(0.8f);
-        font.draw(batch, "R rotate   U upgrade   C recipe   F filter item   G grab chest   Ctrl+Z undo   Ctrl+Y redo   F5 save   F9 load   TAB recipes   T techs   V stats",
-                16, top - ROW_HINT_1);
-        font.draw(batch, "WASD pan   wheel zoom   Space pause   [ ] speed   click or 1-9 to build",
-                16, top - ROW_HINT_2);
-        // A live bug report: a player stuck with zero spendable resources had no idea right-click
-        // refunds a demolished building's cost, or that an empty ore cell can be mined by hand —
-        // both already existed (D-03; the manual-mine follow-up above) but were never documented
-        // anywhere on screen.
-        font.draw(batch, "right-click: demolish (refunds cost) / hand-mine an empty ore cell",
-                16, top - ROW_HINT_3);
+        if (showHints) {
+            font.draw(batch,
+                    "R rotate   U upgrade   C recipe   F filter item   G grab chest   Ctrl+Z undo   Ctrl+Y redo   F5 save   F9 load   TAB recipes   B build menu   T techs   V stats   I info",
+                    COL_TITLE_X, top - ROW_HINT_1);
+            font.draw(batch, "WASD pan   wheel zoom   Space pause   [ ] speed   click or 1-9 to build",
+                    COL_TITLE_X, top - ROW_HINT_2);
+            font.draw(batch,
+                    "right-click: demolish (refunds cost) / hand-mine an empty ore cell   H hide this   P fps/ups",
+                    COL_TITLE_X, top - ROW_HINT_3);
+        } else {
+            font.draw(batch, "H: hotkeys   I: info   V: stats   T: techs   B: build menu   P: fps/ups",
+                    COL_TITLE_X, top - ROW_HINT_1);
+        }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
 
-        renderChipTooltip(producedLayout, inventoryLayout);
+        renderChipTooltip(previewLayout);
     }
 
     /**
-     * A small floating box naming whichever chip the mouse is currently over — the color dot alone
-     * doesn't say which {@link ItemType} it is (live bug report). Checks {@code producedLayout} first,
-     * then {@code inventoryLayout}; draws nothing at all when the cursor isn't over either row's
-     * dots, so this costs nothing on every other frame.
+     * A small floating box naming whichever preview icon the mouse is currently over — the icon
+     * alone (shape + letter + color) can still be ambiguous between two items sharing a first
+     * letter (live bug report). Draws nothing when the cursor isn't over one of the {@link
+     * #PREVIEW_COUNT} icons, so this costs nothing on every other frame.
      */
-    private void renderChipTooltip(List<ChipLayout> producedLayout, List<ChipLayout> inventoryLayout) {
+    private void renderChipTooltip(List<ChipLayout> layout) {
         float mouseX = Gdx.input.getX();
         float mouseY = Gdx.graphics.getHeight() - Gdx.input.getY(); // Gdx.input is top-down; this panel's own coordinates are bottom-up
 
-        ChipLayout hovered = findHoveredChip(producedLayout, mouseX, mouseY);
-        String rowLabel = "Produced";
-        if (hovered == null) {
-            hovered = findHoveredChip(inventoryLayout, mouseX, mouseY);
-            rowLabel = "Inventory";
-        }
+        ChipLayout hovered = findHoveredChip(layout, mouseX, mouseY);
         if (hovered == null) {
             return;
         }
 
-        String text = rowLabel + ": " + hovered.item().label() + "  " + hovered.text();
+        String text = "Produced: " + hovered.item().label() + "  " + hovered.text();
         glyphLayout.setText(font, text);
         float boxW = glyphLayout.width + 16f;
         float boxH = glyphLayout.height + 14f;
@@ -302,56 +303,34 @@ final class HudRenderer {
         return null;
     }
 
+    /** The {@code n} highest-count chips, most-produced first — what the strip's preview shows instead of registry order. */
+    private static List<ItemChip> topChips(List<ItemChip> chips, int n) {
+        return chips.stream()
+                .sorted(Comparator.comparingLong((ItemChip c) -> Long.parseLong(c.text())).reversed())
+                .limit(n)
+                .collect(Collectors.toList());
+    }
+
     /**
-     * Positions one row of chips left to right from {@link #CHIP_ROW_X}, stopping (not wrapping)
-     * once the next chip would cross {@code maxX} — with the color-dot format, even all eleven
-     * {@link ItemType} kinds nonzero at once comfortably fits one row at the default window width,
-     * so this is a defensive cap for unusually narrow windows, not an expected everyday case; a
-     * wrapped second row would need every fixed-position line below it (research/recent/alerts/
-     * hints) to shift down too, which isn't worth the complexity for a case this rare.
+     * Positions the (already-trimmed-to-{@link #PREVIEW_COUNT}) preview chips left to right from
+     * {@link #PREVIEW_ICON_X}, each chip's own width measured from its actual count text (live bug
+     * report: a fixed per-chip gap let a wide count — three/four digits — run straight into the
+     * next chip's icon; production totals only ever grow, so any fixed gap eventually collides).
      */
-    private List<ChipLayout> layoutChips(List<ItemChip> chips, float rowY, float maxX) {
+    private List<ChipLayout> layoutPreview(List<ItemChip> chips, float rowY, float maxX) {
         List<ChipLayout> layout = new ArrayList<>();
-        float x = CHIP_ROW_X;
+        float x = PREVIEW_ICON_X;
         for (ItemChip chip : chips) {
             glyphLayout.setText(font, chip.text());
-            float width = CHIP_RADIUS * 2 + 4 + glyphLayout.width;
+            float width = PREVIEW_ICON_RADIUS * 2 + 8f + glyphLayout.width;
             if (x + width > maxX) {
                 break;
             }
-            layout.add(new ChipLayout(chip.item(), x + CHIP_RADIUS, rowY - CHIP_RADIUS + 3,
-                    Palette.itemColor(chip.item()), x + CHIP_RADIUS * 2 + 4, rowY, chip.text()));
-            x += width + CHIP_GAP;
+            layout.add(new ChipLayout(chip.item(), x + PREVIEW_ICON_RADIUS, rowY - 2f, Palette.itemColor(chip.item()),
+                    x + PREVIEW_ICON_RADIUS * 2 + 8f, rowY, chip.text()));
+            x += width + PREVIEW_CHIP_GAP;
         }
         return layout;
-    }
-
-    /**
-     * A light ring behind each dot, THEN the item's own color on top — a live bug report:
-     * {@link Palette#itemColor} was picked for contrast against cargo on a belt or ore on the
-     * ground, never against this panel's own near-black background ({@link Palette#PANEL_BG}).
-     * {@code COAL}/{@code IRON_ORE} are themselves dark grays close to that background — without
-     * the ring, their chips were nearly invisible, exactly what was reported.
-     */
-    private void drawChipCircles(List<ChipLayout> layout) {
-        for (ChipLayout chip : layout) {
-            shapes.setColor(Palette.HINT);
-            shapes.circle(chip.circleX(), chip.circleY(), CHIP_RADIUS + 1.5f, 12);
-        }
-        for (ChipLayout chip : layout) {
-            shapes.setColor(chip.color());
-            shapes.circle(chip.circleX(), chip.circleY(), CHIP_RADIUS, 12);
-        }
-    }
-
-    private void drawChipNumbers(List<ChipLayout> layout, float rowY) {
-        if (layout.isEmpty()) {
-            font.draw(batch, "-", CHIP_ROW_X, rowY);
-            return;
-        }
-        for (ChipLayout chip : layout) {
-            font.draw(batch, chip.text(), chip.textX(), chip.textY());
-        }
     }
 
     /**
@@ -597,9 +576,9 @@ final class HudRenderer {
     }
 
     /**
-     * Chips for the «Produced» row — nonzero items only (live bug report; see {@link
-     * #renderInfoPanel}'s own note). Rebuilt only if the sum of all counters changed (P4-05,
-     * BUG_FIX_PROGRESS.md) — a cheap signature: totals only ever grow over {@code
+     * Chips for the produced preview — nonzero items only (live bug report; the old panel printed
+     * every {@link ItemType} including the zero ones). Rebuilt only if the sum of all counters
+     * changed (P4-05, BUG_FIX_PROGRESS.md) — a cheap signature: totals only ever grow over {@code
      * ProductionStats}'s lifetime (barring {@code restore}), so a matching sum reliably means
      * "nothing happened."
      */
@@ -623,183 +602,34 @@ final class HudRenderer {
     }
 
     /**
-     * Chips for the «Inventory» row (D-03, DEV_TASKS.md) — nonzero items only, same as {@link
-     * #producedChips} (live bug report).
+     * Alerts badge summary (F-01, DEV_TASKS.md) — total count across every non-{@code WORKING}
+     * {@link BuildingStatus}, plus the color of the first (by enum declaration order — the same
+     * priority {@code BuildingStatus} itself documents, ore/fuel shortages before a full output)
+     * nonzero status present, or {@link Palette#OK} when nothing's wrong. Reads {@link
+     * World#statusCounts()}, which {@code World} keeps current incrementally as buildings
+     * tick/place/demolish, not a per-frame walk of the whole map.
      *
-     * <p>Signature is a weighted sum (weight = {@code rawId+1}), not a bare sum like
-     * {@link #producedChips}: there, the total only ever grows; here amounts can fall (spending) or
-     * rise (refunds), so "nothing changed" can't be told apart from "two items changed and the sum
-     * happened to match" without a weight that distinguishes which item moved, not just by how much.
+     * <p>Not cached (unlike {@link #producedChips}): {@code BuildingStatus} only has four
+     * non-{@code WORKING} values, so summing them is already cheaper than the cache-signature
+     * bookkeeping would be.
      */
-    private List<ItemChip> inventoryChips(Registry<ItemType> items, PlayerInventoryView inventory) {
-        long signature = 0;
-        for (ItemType item : items.iterate()) {
-            signature += (long) (items.rawId(item.id()) + 1) * inventory.amount(item);
-        }
-        if (signature == inventorySignature) {
-            return inventoryChipsCache;
-        }
-        inventorySignature = signature;
-        List<ItemChip> chips = new ArrayList<>();
-        for (ItemType item : items.iterate()) {
-            int amount = inventory.amount(item);
-            if (amount > 0) {
-                chips.add(new ItemChip(item, Integer.toString(amount)));
-            }
-        }
-        return inventoryChipsCache = chips;
-    }
-
-    /**
-     * Global alerts row (F-01, DEV_TASKS.md) — the card's "aggregated list of problems, visible
-     * without clicking each building individually." Reads {@link World#statusCounts()}, which
-     * {@code World} keeps current incrementally as buildings tick/place/demolish — not a per-frame
-     * walk of the whole map (S1, CODE_REVIEW_2026-07-28.md: this used to call {@link
-     * World#forEachBuilding} and allocate an {@link com.rustorio.domain.Appearance} per building,
-     * every render frame, regardless of whether anything had changed since the last one).
-     *
-     * <p>Art redesign: used to be one plain-text line («Alerts: NO_ORE x2   OUTPUT_FULL x1»,
-     * shouting raw enum names). Now a chip row — same {@link Palette#statusColor} square each
-     * building already draws as its own on-map marker, so an alert's color here matches the color
-     * of the actual building it's about, plus a friendly label ({@link #alertLabel}) instead of
-     * the bare enum constant.
-     *
-     * <p>Signature is weighted like {@link #inventoryChips} (counts can rise AND fall as buildings
-     * recover), not summed like {@link #producedChips} (whose totals only ever grow).
-     */
-    private List<AlertChip> alertChips(World world) {
-        Map<BuildingStatus, Integer> counts = world.statusCounts();
-
-        long signature = 0;
-        for (BuildingStatus status : BuildingStatus.values()) {
-            signature += (long) (status.ordinal() + 1) * counts.getOrDefault(status, 0);
-        }
-        if (signature == alertsSignature) {
-            return alertChipsCache;
-        }
-        alertsSignature = signature;
-
-        List<AlertChip> chips = new ArrayList<>();
+    private static AlertSummary summarizeAlerts(Map<BuildingStatus, Integer> counts) {
+        int total = 0;
+        Color worst = Palette.OK;
+        boolean sawOne = false;
         for (BuildingStatus status : BuildingStatus.values()) {
             if (status == BuildingStatus.WORKING) {
                 continue;
             }
             int count = counts.getOrDefault(status, 0);
             if (count > 0) {
-                // "x", not the "×" multiplication sign — the built-in BitmapFont (Renderer's
-                // "built-in 15px Arial") has no glyph for U+00D7 at all, so it rendered as a tofu
-                // box (live bug report, screenshot showed literal "□" next to every alert count).
-                chips.add(new AlertChip(status, alertLabel(status) + " x" + count));
-            }
-        }
-        return alertChipsCache = chips;
-    }
-
-    private static String alertLabel(BuildingStatus status) {
-        return switch (status) {
-            case NO_ORE -> "no ore";
-            case NO_FUEL -> "no fuel";
-            case NO_INPUT -> "no input";
-            case OUTPUT_FULL -> "output full";
-            case WORKING -> throw new IllegalArgumentException("WORKING never reaches an alert chip");
-        };
-    }
-
-    /** Same left-to-right, stop-not-wrap layout as {@link #layoutChips} — a square marker instead of a dot. */
-    private List<AlertChipLayout> layoutAlertChips(List<AlertChip> chips, float rowY, float maxX) {
-        List<AlertChipLayout> layout = new ArrayList<>();
-        float x = CHIP_ROW_X;
-        for (AlertChip chip : chips) {
-            glyphLayout.setText(font, chip.text());
-            float width = ALERT_SQUARE + 4 + glyphLayout.width;
-            if (x + width > maxX) {
-                break;
-            }
-            layout.add(new AlertChipLayout(x, rowY - ALERT_SQUARE + 3,
-                    Palette.statusColor(chip.status()).orElseThrow(), x + ALERT_SQUARE + 4, rowY, chip.text()));
-            x += width + CHIP_GAP;
-        }
-        return layout;
-    }
-
-    private void drawAlertSquares(List<AlertChipLayout> layout) {
-        for (AlertChipLayout chip : layout) {
-            shapes.setColor(chip.color());
-            shapes.rect(chip.squareX(), chip.squareY(), ALERT_SQUARE, ALERT_SQUARE);
-        }
-    }
-
-    private void drawAlertChipsText(List<AlertChipLayout> layout, float rowY) {
-        if (layout.isEmpty()) {
-            font.setColor(Palette.WORKING);
-            font.draw(batch, "none", CHIP_ROW_X, rowY);
-            font.setColor(Color.WHITE);
-            return;
-        }
-        for (AlertChipLayout chip : layout) {
-            font.setColor(chip.color());
-            font.draw(batch, chip.text(), chip.textX(), chip.textY());
-        }
-        font.setColor(Color.WHITE);
-    }
-
-    /**
-     * Строка исследований: «Research: 12 pts (T for tech tree)   Unlocked: Fast mining». Больше не
-     * показывает «Next» (P-02, DEV_TASKS.md) — с ветвящимся деревом и явным выбором «следующий по
-     * порядку» ничего не значит; подробности (цены, предпосылки, что можно открыть прямо сейчас)
-     * теперь в {@link TechTreeRenderer}, эта строка — только беглый итог.
-     *
-     * <p>Признак смены — {@code points}, упакованные вместе с битовой маской разблокированного
-     * (P4-05, идея сохранена, но не просто {@code points} сам по себе): раньше очки только росли,
-     * так что их одних хватало как признака. Теперь {@link Research#unlock} их тратит — значит
-     * {@code points} может пройти 20 → 0 → снова 20, а разблокированный набор при этом отличается;
-     * без маски кэш ошибочно счёл бы такую смену «ничего не изменилось».
-     */
-    private String research(ResearchView research) {
-        int unlockedMask = 0;
-        for (Tech tech : Tech.values()) {
-            if (research.isUnlocked(tech)) {
-                unlockedMask |= 1 << tech.ordinal();
-            }
-        }
-        long signature = ((long) unlockedMask << 32) | (research.points() & 0xFFFFFFFFL);
-        if (signature == researchSignature) {
-            return researchCache;
-        }
-        researchSignature = signature;
-        StringBuilder sb = new StringBuilder("Research: ").append(research.points()).append(" pts (T for tech tree)   ");
-        sb.append("Unlocked: ");
-        if (research.unlocked().isEmpty()) {
-            sb.append('-');
-        } else {
-            for (Tech tech : Tech.values()) {
-                if (research.isUnlocked(tech)) {
-                    sb.append(tech.label()).append("  ");
+                total += count;
+                if (!sawOne) {
+                    worst = Palette.statusColor(status).orElseThrow();
+                    sawOne = true;
                 }
             }
         }
-        return researchCache = sb.toString();
-    }
-
-    /**
-     * Строка лога: «Recent:   Iron Ore  Iron Plate  Iron Ore» — самый свежий слева. {@code
-     * ProductionLogView} не отдаёт ничего дешевле самого списка (P4-05), так что {@code
-     * log.recent()} всё равно копируется каждый кадр — кеш здесь экономит только пересборку
-     * строки, не саму копию.
-     */
-    private String recent(ProductionLogView log) {
-        List<ItemType> current = log.recent();
-        if (current.equals(recentSignature)) {
-            return recentCache;
-        }
-        recentSignature = current;
-        StringBuilder sb = new StringBuilder("Recent:   ");
-        if (current.isEmpty()) {
-            return recentCache = sb.append('-').toString();
-        }
-        for (ItemType item : current) {
-            sb.append(item.label()).append("  ");
-        }
-        return recentCache = sb.toString();
+        return new AlertSummary(total, worst);
     }
 }

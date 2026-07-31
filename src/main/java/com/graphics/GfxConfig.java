@@ -37,11 +37,14 @@ public final class GfxConfig {
      * меньше окно (см. {@link com.graphics.render.GameCamera#resize}), а панели рисуются в
      * освободившихся полосах — карта нигде не спрятана за интерфейсом.
      */
-    // 206, not 166: art redesign — the panel used to cram nine rows into 18px steps with a 4px
-    // bottom margin (live bug report: "выглядит как debug-консоль", the hint text nearly touched
-    // the panel's own bottom edge). Grown to give every row real breathing room — see
-    // HudRenderer#renderInfoPanel for the actual row layout this backs.
-    public static final float HUD_TOP_HEIGHT = 206f;
+    // 132, not 206: HUD redesign (live design feedback — the always-on panel read as a cluttered
+    // debug console). The old 206 gave every one of eight permanent rows its own breathing room;
+    // now only three rows are ever on screen at once (title/status, a produced preview, a hotkey
+    // reminder) — the rest moved into the on-demand Info overlay (I key, see InfoOverlayRenderer)
+    // — so the reserved strip shrinks too, handing the reclaimed height back to the world view.
+    // 132 is still tall enough for the 100px minimap square plus its own margins — see
+    // HudRenderer#renderMinimap.
+    public static final float HUD_TOP_HEIGHT = 132f;
     public static final float HUD_BOTTOM_HEIGHT = 106f;
 
     /** Скорость скролла камеры (пикселей окна в секунду). */

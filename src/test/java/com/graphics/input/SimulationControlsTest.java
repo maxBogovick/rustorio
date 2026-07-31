@@ -28,6 +28,7 @@ class SimulationControlsTest {
         assertFalse(controls.showTechTree());
         assertFalse(controls.showStats());
         assertFalse(controls.showBuildMenu());
+        assertFalse(controls.showInfo());
     }
 
     @Test
@@ -56,7 +57,8 @@ class SimulationControlsTest {
 
     @Test
     void everyPanelIsMutuallyExclusiveWithEveryOther() {
-        OverlayPanel[] panels = {OverlayPanel.RECIPE_BOOK, OverlayPanel.TECH_TREE, OverlayPanel.STATS, OverlayPanel.BUILD_MENU};
+        OverlayPanel[] panels = {OverlayPanel.RECIPE_BOOK, OverlayPanel.TECH_TREE, OverlayPanel.STATS, OverlayPanel.BUILD_MENU,
+                OverlayPanel.INFO};
         for (OverlayPanel first : panels) {
             for (OverlayPanel second : panels) {
                 if (first == second) {
@@ -93,6 +95,7 @@ class SimulationControlsTest {
         assertFalse(controls.showTechTree());
         assertFalse(controls.showStats());
         assertFalse(controls.showBuildMenu());
+        assertFalse(controls.showInfo());
     }
 
     private static boolean isOpen(SimulationControls controls, OverlayPanel panel) {
@@ -101,6 +104,7 @@ class SimulationControlsTest {
             case TECH_TREE -> controls.showTechTree();
             case STATS -> controls.showStats();
             case BUILD_MENU -> controls.showBuildMenu();
+            case INFO -> controls.showInfo();
             case NONE -> throw new IllegalArgumentException("NONE isn't a panel to check");
         };
     }
