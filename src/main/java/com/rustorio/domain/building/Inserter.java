@@ -4,7 +4,6 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaSprites;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -33,14 +32,27 @@ public final class Inserter implements Building, SettlesEachTick {
     private @Nullable ItemType held;
     /** Same one-tick settle every other relay carries — see {@link Splitter#arrivedThisTick} (N2, NEW_BUGS_PROGRESS.md). */
     private boolean arrivedThisTick;
+    /** Which sprite {@link #appearance} draws — see {@link Furnace}'s own field javadoc for why this is injected rather than a hardcoded sprite constant. */
+    private final BuildingPrototype prototype;
 
+    /** Convenience for callers that only care about the vanilla prototype — see the 2-arg constructor for real injection (a modded inserter needs its own prototype here). */
     public Inserter(Direction direction) {
+        this(direction, VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.INSERTER)));
+    }
+
+    public Inserter(Direction direction, BuildingPrototype prototype) {
         this.direction = direction;
+        this.prototype = prototype;
+    }
+
+    /** Convenience restore constructor for callers that only care about the vanilla prototype — see the 3-arg restore constructor for real injection. */
+    Inserter(Direction direction, @Nullable ItemType held) {
+        this(direction, held, VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.INSERTER)));
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Inserter(Direction direction, @Nullable ItemType held) {
-        this(direction);
+    Inserter(Direction direction, @Nullable ItemType held, BuildingPrototype prototype) {
+        this(direction, prototype);
         this.held = held;
     }
 
@@ -81,7 +93,7 @@ public final class Inserter implements Building, SettlesEachTick {
 
     @Override
     public Appearance appearance() {
-        return Appearance.of(VanillaSprites.INSERTER);
+        return Appearance.of(prototype.texture());
     }
 
     @Override
@@ -96,7 +108,7 @@ public final class Inserter implements Building, SettlesEachTick {
 
     @Override
     public Optional<Building> rotatedClockwise() {
-        return Optional.of(new Inserter(direction.rotate(), held));
+        return Optional.of(new Inserter(direction.rotate(), held, prototype));
     }
 
     @Override

@@ -21,8 +21,8 @@ final class DragCollector {
     private final int button;
     private final List<TilePos> tiles = new ArrayList<>();
     private boolean dragging;
-    /** True if THIS press started on the hotbar — a click there must never leak into the world. */
-    private boolean blockedByHotbar;
+    /** True if THIS press started over the hotbar (or another UI overlay the caller named) — a click there must never leak into the world. */
+    private boolean blocked;
 
     DragCollector(int button) {
         this.button = button;
@@ -30,17 +30,19 @@ final class DragCollector {
 
     /**
      * Feed one frame of input. Returns the tiles touched by the gesture exactly once — the frame
-     * the button is released after a drag that didn't start on the hotbar — and {@code null}
-     * every other frame (still held, or nothing worth reporting). {@code hotbarSlotCount} is the
-     * CURRENT number of hotbar slots (configurable, not a fixed {@code BuildingType}
-     * count) — read only at the moment the button goes down, same as before.
+     * the button is released after a drag that didn't start on the hotbar (or {@code alsoBlocked}
+     * UI) — and {@code null} every other frame (still held, or nothing worth reporting). {@code
+     * hotbarSlotCount} is the CURRENT number of hotbar slots (configurable, not a fixed {@code
+     * BuildingType} count); {@code alsoBlocked} lets the caller name one more excluded region (the
+     * inspection panel's recipe picker, say) without this class needing to know what it is — both
+     * read only at the moment the button goes down, same as the hotbar check always was.
      */
-    @Nullable List<TilePos> poll(GameCamera camera, int hotbarSlotCount) {
+    @Nullable List<TilePos> poll(GameCamera camera, int hotbarSlotCount, boolean alsoBlocked) {
         boolean pressed = Gdx.input.isButtonPressed(button);
         if (Gdx.input.isButtonJustPressed(button)) {
-            blockedByHotbar = isOverHotbar(hotbarSlotCount);
+            blocked = isOverHotbar(hotbarSlotCount) || alsoBlocked;
         }
-        if (pressed && blockedByHotbar) {
+        if (pressed && blocked) {
             return null;
         }
         if (pressed) {
@@ -70,7 +72,7 @@ final class DragCollector {
      * whole planned line before release, not just the single cell under the cursor.
      */
     List<TilePos> inProgressTiles() {
-        return dragging && !blockedByHotbar ? List.copyOf(tiles) : List.of();
+        return dragging && !blocked ? List.copyOf(tiles) : List.of();
     }
 
     private static boolean isOverHotbar(int hotbarSlotCount) {

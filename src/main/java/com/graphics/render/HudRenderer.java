@@ -10,7 +10,6 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.graphics.GfxConfig;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingStatus;
-import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.ItemType;
@@ -18,11 +17,8 @@ import com.rustorio.domain.Recipe;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.BuildingPrototype;
-import com.rustorio.domain.building.Chest;
-import com.rustorio.domain.building.Filter;
 import com.rustorio.domain.building.Furnace;
-import com.rustorio.domain.building.Splitter;
-import com.rustorio.domain.building.UndergroundBelt;
+import com.rustorio.domain.building.RecipeSelectable;
 import com.rustorio.domain.world.ProductionStatsView;
 import com.rustorio.domain.world.World;
 import java.util.ArrayList;
@@ -452,6 +448,12 @@ final class HudRenderer {
      * World.tick} runs — nothing here is a separate copy that could drift from what's really
      * happening. {@code null}/an empty cell (the building got demolished since the click) simply
      * draws nothing — the panel just isn't there anymore, no explicit "close" needed.
+     *
+     * <p>A {@link Furnace}-archetype building's recipe list (the trailing rows, colored via {@link
+     * InspectionPanelLayout#clickableRecipes}) doubles as a picker — {@code InputHandler} hit-tests
+     * a click against the exact same geometry this method draws with and calls {@code
+     * Furnace#selectRecipe} directly, no separate keypress (C) needed anymore, though it still
+     * works too.
      */
     private void renderInspectionPanel(World world, @Nullable TilePos at) {
         if (at == null) {
@@ -461,15 +463,19 @@ final class HudRenderer {
         if (found.isEmpty()) {
             return;
         }
-        List<String> lines = inspectionLines(world, world.buildingFactory().items(), at, found.get());
+        Building building = found.get();
+        List<String> lines = InspectionPanelLayout.inspectionLines(world, world.buildingFactory().items(), at, building);
+        List<Recipe> clickableRecipes = InspectionPanelLayout.clickableRecipes(building);
+        int recipeSectionStart = lines.size() - clickableRecipes.size();
+        Optional<Recipe> selected = building instanceof RecipeSelectable selectable
+                ? selectable.selectedRecipeChoice() : Optional.empty();
 
-        float lineH = 18f;
-        float panelW = 340f; // wide enough for a two-input recipe line ("IRON_ORE + BRONZE_PLATE -> ALLOY_PLATE")
-        float panelH = 20f + lines.size() * lineH;
-        float screenW = Gdx.graphics.getWidth();
-        float top = Gdx.graphics.getHeight();
-        float panelX = screenW - panelW - 16f;
-        float panelY = top - GfxConfig.HUD_TOP_HEIGHT - 16f - panelH;
+        float panelW = InspectionPanelLayout.PANEL_WIDTH;
+        float panelH = InspectionPanelLayout.panelHeight(lines.size());
+        int screenW = Gdx.graphics.getWidth();
+        int screenH = Gdx.graphics.getHeight();
+        float panelX = InspectionPanelLayout.panelX(screenW);
+        float panelY = InspectionPanelLayout.panelY(screenH, lines.size());
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(Palette.PANEL_BG);
@@ -483,96 +489,22 @@ final class HudRenderer {
 
         batch.begin();
         font.getData().setScale(0.85f);
-        font.setColor(Color.WHITE);
         float ty = panelY + panelH - 14f;
-        for (String line : lines) {
-            font.draw(batch, line, panelX + 12f, ty);
-            ty -= lineH;
+        for (int i = 0; i < lines.size(); i++) {
+            // Clickable recipe rows (the trailing ones, when this is a Furnace-archetype building)
+            // get their own color — amber for the one actually selected/cooking right now, a dim
+            // hint tone for every other pickable option, so "these respond to a click" reads at a
+            // glance instead of looking like the same plain status text above them.
+            boolean recipeRow = i >= recipeSectionStart;
+            Recipe rowRecipe = recipeRow ? clickableRecipes.get(i - recipeSectionStart) : null;
+            font.setColor(rowRecipe != null && rowRecipe.equals(selected.orElse(null))
+                    ? Palette.SLOT_SELECTED
+                    : recipeRow ? Palette.HINT : Color.WHITE);
+            font.draw(batch, lines.get(i), panelX + 12f, ty);
+            ty -= InspectionPanelLayout.LINE_HEIGHT;
         }
         font.getData().setScale(1f);
         batch.end();
-    }
-
-    /** One line per fact — kind-specific extras appended after the facts every building shares. */
-    private static List<String> inspectionLines(World world, Registry<ItemType> items, TilePos at, Building building) {
-        List<String> lines = new ArrayList<>();
-        lines.add(building.type().label() + "  (" + at.x() + ", " + at.y() + ")");
-        lines.add("Status: " + building.appearance().status());
-        if (building.speedLevel() > 0) {
-            lines.add("Speed modules: x" + building.speedLevel());
-        }
-        building.heldItem().ifPresent(item -> lines.add("Holding: " + item.label()));
-
-        if (building instanceof Chest chest) {
-            appendChestContents(lines, items, chest);
-        } else if (building instanceof Furnace furnace) {
-            appendFurnaceDetails(lines, building, furnace);
-        } else if (building instanceof UndergroundBelt tunnel) {
-            appendTunnelPairing(lines, world, at, building, tunnel);
-        } else if (building instanceof Filter filter) {
-            lines.add("Passes forward: " + filter.filterItem().label() + "  (F to change)");
-            lines.add("Everything else -> secondary side");
-        } else if (building instanceof Splitter) {
-            lines.add("Round-robin: alternates forward / secondary side");
-        }
-        return lines;
-    }
-
-    private static void appendChestContents(List<String> lines, Registry<ItemType> items, Chest chest) {
-        boolean any = false;
-        for (ItemType item : items.iterate()) {
-            int amount = chest.amount(item);
-            if (amount > 0) {
-                lines.add("  " + item.label() + ": " + amount);
-                any = true;
-            }
-        }
-        if (!any) {
-            lines.add("  (empty)");
-        }
-    }
-
-    /**
-     * The full recipe — input(s) AND output, not just the output {@link Recipe#output()} —
-     * because that's the actual live bug report: the old panel showed "-> IRON_PLATE" and nothing
-     * about what to feed it. A furnace with nothing committed yet lists EVERY recipe its kind can
-     * run at all, same reason: "не понятно что может производить" (unclear what it can even make)
-     * when nothing's been fed to narrow it down to one.
-     */
-    private static void appendFurnaceDetails(List<String> lines, Building building, Furnace furnace) {
-        Optional<Recipe> active = furnace.activeRecipe();
-        if (active.isPresent()) {
-            lines.add("Recipe: " + recipeLine(active.get()) + "  (cooking)");
-        } else {
-            Optional<Recipe> selected = furnace.selectedRecipeChoice();
-            if (selected.isPresent()) {
-                lines.add("Recipe: " + recipeLine(selected.get()) + "  (selected — C to change)");
-            } else {
-                lines.add("Recipe: none committed yet — can make:");
-                for (Recipe recipe : furnace.possibleRecipes()) {
-                    lines.add("  " + recipeLine(recipe));
-                }
-            }
-        }
-        lines.add("Ore buffer: " + furnace.oreBuffer());
-        if (building.type() == BuildingType.FURNACE) {
-            lines.add("Fuel: " + furnace.fuelBuffer());
-        }
-    }
-
-    private static String recipeLine(Recipe recipe) {
-        String inputs = recipe.ingredients().stream().map(ItemType::label).collect(Collectors.joining(" + "));
-        return inputs + " -> " + recipe.output().label();
-    }
-
-    private static void appendTunnelPairing(List<String> lines, World world, TilePos at, Building building,
-            UndergroundBelt tunnel) {
-        if (building.type() != BuildingType.UNDERGROUND_IN) {
-            lines.add("(exit — pairing shown at its entrance)");
-            return;
-        }
-        boolean paired = tunnel.findPartner(world, at.x(), at.y()).isPresent();
-        lines.add("Paired: " + (paired ? "yes" : "NO — out of range or no matching exit"));
     }
 
     /**

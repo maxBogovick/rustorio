@@ -4,7 +4,6 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.Tech;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -27,6 +26,8 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
     private final Kind kind;
     private final Direction direction;
     private @Nullable ItemType held;
+    /** Which sprite {@link #appearance} draws — see {@link Furnace}'s own field javadoc for why this is injected rather than a hardcoded sprite constant. */
+    private final BuildingPrototype prototype;
     /**
      * True for the rest of the CURRENT world tick if this {@code IN} tile received cargo via
      * {@link #accept} earlier in the same tick — the tunnel analogue of {@link Belt#arrivedThisTick}
@@ -39,15 +40,32 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
      */
     private boolean arrivedThisTick;
 
+    /** Convenience for callers that only care about the vanilla prototype matching {@code kind} — see the 3-arg constructor for real injection (a modded tunnel needs its own prototype here). */
     public UndergroundBelt(Kind kind, Direction direction) {
+        this(kind, direction, vanillaPrototype(kind));
+    }
+
+    public UndergroundBelt(Kind kind, Direction direction, BuildingPrototype prototype) {
         this.kind = kind;
         this.direction = direction;
+        this.prototype = prototype;
+    }
+
+    /** Convenience restore constructor for callers that only care about the vanilla prototype matching {@code kind} — see the 4-arg restore constructor for real injection. */
+    UndergroundBelt(Kind kind, Direction direction, @Nullable ItemType held) {
+        this(kind, direction, held, vanillaPrototype(kind));
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    UndergroundBelt(Kind kind, Direction direction, @Nullable ItemType held) {
-        this(kind, direction);
+    UndergroundBelt(Kind kind, Direction direction, @Nullable ItemType held, BuildingPrototype prototype) {
+        this(kind, direction, prototype);
         this.held = held;
+    }
+
+    /** {@link Kind#IN}/{@link Kind#OUT} back two separate {@link BuildingType}s (unlike every other archetype except {@link Furnace}'s three) — the vanilla default a convenience constructor falls back to must match whichever one {@code kind} names. */
+    private static BuildingPrototype vanillaPrototype(Kind kind) {
+        BuildingType type = kind == Kind.IN ? BuildingType.UNDERGROUND_IN : BuildingType.UNDERGROUND_OUT;
+        return VanillaBuildings.frozen().get(VanillaBuildings.idFor(type));
     }
 
     @Override
@@ -144,7 +162,7 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
 
     @Override
     public Appearance appearance() {
-        return Appearance.of(kind == Kind.IN ? VanillaSprites.UNDERGROUND_IN : VanillaSprites.UNDERGROUND_OUT);
+        return Appearance.of(prototype.texture());
     }
 
     @Override
@@ -154,7 +172,7 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
 
     @Override
     public Optional<Building> rotatedClockwise() {
-        return Optional.of(new UndergroundBelt(kind, direction.rotate(), held));
+        return Optional.of(new UndergroundBelt(kind, direction.rotate(), held, prototype));
     }
 
     @Override

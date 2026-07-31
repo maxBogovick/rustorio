@@ -4,7 +4,6 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.Tech;
 import com.rustorio.domain.VanillaItems;
 import java.util.ArrayDeque;
@@ -60,14 +59,28 @@ public final class Lab implements Building {
     private @Nullable ProcessTimer timer;
     /** {@code UpgradeSpeedAction}'s upgrade count — see {@link #tick}'s own note on how it's applied. */
     private int speedLevel;
+    /** Which sprite {@link #appearance} draws — see {@link Furnace}'s own field javadoc for why this is injected rather than a hardcoded sprite constant. */
+    private final BuildingPrototype prototype;
 
+    /** Convenience for callers that only care about the vanilla prototype — see the 2-arg constructor for real injection (a modded lab needs its own prototype here). */
     public Lab(RecipeBook recipeBook) {
+        this(recipeBook, VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.LAB)));
+    }
+
+    public Lab(RecipeBook recipeBook, BuildingPrototype prototype) {
         this.recipeBook = recipeBook;
+        this.prototype = prototype;
+    }
+
+    /** Convenience restore constructor for callers that only care about the vanilla prototype — see the 5-arg restore constructor for real injection. */
+    Lab(RecipeBook recipeBook, List<ItemType> buffer, int cooldown, int speedLevel) {
+        this(recipeBook, buffer, cooldown, speedLevel,
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.LAB)));
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. {@code speedLevel} lives outside the memento (see {@link BuildingFactory#restore}'s own javadoc) — passed in separately, not read from state. */
-    Lab(RecipeBook recipeBook, List<ItemType> buffer, int cooldown, int speedLevel) {
-        this(recipeBook);
+    Lab(RecipeBook recipeBook, List<ItemType> buffer, int cooldown, int speedLevel, BuildingPrototype prototype) {
+        this(recipeBook, prototype);
         this.buffer.addAll(buffer);
         if (!this.buffer.isEmpty()) {
             // Non-positive means "nothing recorded", not "ready now" — see the same guard in
@@ -153,7 +166,7 @@ public final class Lab implements Building {
 
     @Override
     public Appearance appearance() {
-        return buffer.isEmpty() ? Appearance.of(VanillaSprites.LAB) : Appearance.of(VanillaSprites.LAB, buffer.size());
+        return buffer.isEmpty() ? Appearance.of(prototype.texture()) : Appearance.of(prototype.texture(), buffer.size());
     }
 
     @Override
@@ -175,6 +188,6 @@ public final class Lab implements Building {
     @Override
     public Building withSpeedLevel(int newSpeedLevel) {
         ProcessTimer current = timer;
-        return new Lab(recipeBook, List.copyOf(buffer), current == null ? 0 : current.cooldown(), newSpeedLevel);
+        return new Lab(recipeBook, List.copyOf(buffer), current == null ? 0 : current.cooldown(), newSpeedLevel, prototype);
     }
 }

@@ -1,0 +1,6 @@
+{
+  "ingredients" : [ "gear" ],
+  "output" : "banana_ore",
+  "time" : 5,
+  "kind" : "FURNACE"
+}

@@ -9,7 +9,10 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Disposable;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.VanillaSprites;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -50,6 +53,26 @@ public final class Textures implements Disposable {
 
     public static Textures vanilla() {
         return new Textures(TextureIndex.vanilla());
+    }
+
+    /**
+     * Vanilla sprites plus, for every directory in {@code modDirectories} that has a {@code
+     * textures/} subdirectory, every {@code .png} in it — under that mod directory's own name as
+     * namespace (the same name {@link com.rustorio.mod.ModDirectories#discover} returned it by, and
+     * the same name its {@code mod.json}'s own {@code id} is expected to match, exactly like {@code
+     * resources/mods/rustorio} already does today). A mod with no {@code textures/} directory at
+     * all just contributes nothing here — same "absence isn't an error" rule the JSON content
+     * loaders already follow for a missing {@code content/} subdirectory.
+     */
+    public static Textures loadFrom(List<Path> modDirectories) {
+        TextureIndex index = TextureIndex.vanilla();
+        for (Path modDirectory : modDirectories) {
+            Path texturesDir = modDirectory.resolve("textures");
+            if (Files.isDirectory(texturesDir)) {
+                index.addDirectory(modDirectory.getFileName().toString(), texturesDir);
+            }
+        }
+        return new Textures(index);
     }
 
     Textures(TextureIndex index) {

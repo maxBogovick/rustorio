@@ -46,7 +46,7 @@ import org.jspecify.annotations.Nullable;
  * before a {@code FURNACE} may even start a batch — the same "hold until delivered" discipline, one
  * more gate.
  */
-public final class Furnace implements Building {
+public final class Furnace implements Building, RecipeSelectable {
 
     /** Same cap as {@link BuildingPrototype#bufferMax()} — fuel is stored the same way any other buffered input is. */
     private static final int FUEL_MAX = 5;
@@ -218,6 +218,22 @@ public final class Furnace implements Building {
     }
 
     /**
+     * Jump {@link #selectedRecipe} straight to {@code recipe} — the click-a-row counterpart to
+     * {@link #cycleRecipe}'s step-by-step version (inspection panel recipe picker). {@code recipe}
+     * must be one of {@link #possibleRecipes} for this furnace's own {@link #kind} — the only way a
+     * caller could have gotten a {@link Recipe} reference to pass here in the first place, since
+     * that's the exact list any picker UI is drawn from.
+     */
+    @Override
+    public void selectRecipe(Recipe recipe) {
+        if (!possibleRecipes().contains(recipe)) {
+            throw new IllegalArgumentException(
+                    "Recipe " + recipe + " is not one this " + kind + " can run");
+        }
+        selectedRecipe = recipe;
+    }
+
+    /**
      * Runs {@link #tickOnce} {@code 1 << speedLevel} times — the same multiplier {@code
      * SpeedModule} used to produce by nesting {@code speedLevel} independent wrapper layers, each
      * doubling whatever it wrapped (owner decision: preserve the exact ×2^N stacking, not switch to
@@ -370,11 +386,13 @@ public final class Furnace implements Building {
     }
 
     /** The player's standing preference (see {@link #cycleRecipe}) — consulted only while {@link #activeRecipe} is empty. */
+    @Override
     public Optional<Recipe> selectedRecipeChoice() {
         return Optional.ofNullable(selectedRecipe);
     }
 
     /** Every recipe this furnace's {@link #kind} can run at all — "what could this produce" when nothing is committed yet. */
+    @Override
     public List<Recipe> possibleRecipes() {
         return recipeBook.forKind(kind);
     }
@@ -447,16 +465,25 @@ public final class Furnace implements Building {
         ActiveRecipe current = active;
         ItemType recipeHint = current != null ? current.recipe().output()
                 : selectedRecipe != null ? selectedRecipe.output() : null;
-        // ASSEMBLER (X-03, DEV_TASKS.md) has exactly one drawn sprite — resources/assembler.png,
-        // via VanillaSprites.ASSEMBLER — unlike FURNACE/PRESS's hot/cold pair, since there's no second
-        // assembler sprite to distinguish "actively cooking" from "idle" with.
         int buffered = oreBuffer();
+        // ASSEMBLER (X-03, DEV_TASKS.md) has exactly one drawn sprite — there's no second assembler
+        // sprite to distinguish "actively cooking" from "idle" with — so it always draws whatever
+        // this prototype's own texture is, badge shown unconditionally.
         if (kind == BuildingType.ASSEMBLER) {
-            return Appearance.of(VanillaSprites.ASSEMBLER, buffered, status, recipeHint);
+            return Appearance.of(prototype.texture(), buffered, status, recipeHint);
         }
+        // FURNACE/PRESS ship a matching hot/cold sprite pair (VanillaBuildings) — but a mod
+        // reusing this archetype (BuildingJsonLoader, e.g. a modded furnace) supplies only ONE
+        // texture, so the hot swap only applies while this prototype is still running the vanilla
+        // cold texture; anything else is drawn as-is regardless of buffered state, since there's no
+        // second sprite for it to swap to.
+        ContentId texture = prototype.texture();
+        ContentId sprite = buffered > 0 && texture.equals(VanillaSprites.FURNACE_COLD)
+                ? VanillaSprites.FURNACE_HOT
+                : texture;
         return buffered > 0
-                ? Appearance.of(VanillaSprites.FURNACE_HOT, buffered, status, recipeHint)
-                : Appearance.of(VanillaSprites.FURNACE_COLD, status, recipeHint);
+                ? Appearance.of(sprite, buffered, status, recipeHint)
+                : Appearance.of(sprite, status, recipeHint);
     }
 
     @Override

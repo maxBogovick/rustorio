@@ -7,12 +7,14 @@ import com.graphics.render.BuildMenuLayout;
 import com.graphics.render.GameCamera;
 import com.graphics.render.HotbarLayout;
 import com.graphics.render.HudState;
+import com.graphics.render.InspectionPanelLayout;
 import com.graphics.render.TilePos;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
+import com.rustorio.domain.Recipe;
 import com.rustorio.domain.Tech;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.action.ActionHistory;
@@ -23,9 +25,11 @@ import com.rustorio.domain.action.PlayerAction;
 import com.rustorio.domain.action.RemoveAction;
 import com.rustorio.domain.action.RotateAction;
 import com.rustorio.domain.action.UpgradeSpeedAction;
+import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Filter;
 import com.rustorio.domain.building.Furnace;
+import com.rustorio.domain.building.RecipeSelectable;
 import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.world.World;
 import com.rustorio.persistence.SaveRepository;
@@ -138,9 +142,18 @@ public final class InputHandler {
         // may fire while a modal panel covers that cell, or a click meant for the panel silently
         // builds/mines/rotates in the world the player can't even see.
         if (!modalOpen()) {
-            handleDrag(world, buildDrag, tile -> new PlaceAction(selected, tile.x(), tile.y(), facing));
-            handleRemoveOrManualMineDrag(world);
-            handleInspectClick(world);
+            // A click that lands on the open inspection panel (bottom-right, over whatever part of
+            // the map happens to be scrolled under it) must never ALSO build/demolish/re-inspect
+            // the world tile visually behind it — same "modal panel swallows its own click" rule
+            // C3 already enforces for the recipe book/tech tree/stats/build menu above, just for a
+            // panel that isn't full-screen and isn't gated by modalOpen().
+            boolean swallowedByInspectionPanel = handleRecipePickClick(world);
+            handleDrag(world, buildDrag, tile -> new PlaceAction(selected, tile.x(), tile.y(), facing),
+                    swallowedByInspectionPanel);
+            handleRemoveOrManualMineDrag(world, swallowedByInspectionPanel);
+            if (!swallowedByInspectionPanel) {
+                handleInspectClick(world);
+            }
             if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
                 TilePos tile = camera.pickTile(Gdx.input.getX(), Gdx.input.getY());
                 if (world.peek(tile.x(), tile.y()).isPresent()) {
@@ -315,6 +328,38 @@ public final class InputHandler {
     }
 
     /**
+     * ЛКМ по строке рецепта в уже открытой панели инспекции выбирает ЕЁ рецепт напрямую —
+     * {@link Furnace#selectRecipe}, тот же {@code selectedRecipe}, что и клавиша {@code C} листает
+     * по одному, только сразу нужный, без пролистывания. Возвращает {@code true}, если клик вообще
+     * попал в панель (неважно, в конкретную строку рецепта или нет) — такой клик {@link #handle}
+     * не должен пускать дальше в {@link #handleDrag}/{@link #handleRemoveOrManualMineDrag}/{@link
+     * #handleInspectClick}, иначе он бы ещё и что-то построил/снёс/переключил на клетке карты, что
+     * визуально оказалась ПОД панелью в правом нижнем углу.
+     */
+    private boolean handleRecipePickClick(World world) {
+        if (inspected == null || !Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            return false;
+        }
+        Optional<Building> building = world.peek(inspected.x(), inspected.y());
+        if (building.isEmpty()) {
+            return false;
+        }
+        int screenW = Gdx.graphics.getWidth();
+        int screenH = Gdx.graphics.getHeight();
+        List<String> lines = InspectionPanelLayout.inspectionLines(world, world.buildingFactory().items(), inspected, building.get());
+        if (!InspectionPanelLayout.isOverPanel(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, lines.size())) {
+            return false;
+        }
+        List<Recipe> recipes = InspectionPanelLayout.clickableRecipes(building.get());
+        InspectionPanelLayout.hitTestRecipe(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, lines.size(), recipes)
+                .ifPresent(recipe -> {
+                    ((RecipeSelectable) building.get()).selectRecipe(recipe);
+                    LOGGER.log(System.Logger.Level.INFO, "Recipe selected: {0}", recipe.output());
+                });
+        return true;
+    }
+
+    /**
      * ЛКМ по уже занятой клетке карты открывает панель инспекции (F-03, DEV_TASKS.md) — клик по той
      * же клетке снова закрывает, клик по пустой клетке или другому зданию переключает/закрывает.
      * Это тот же самый клик, что и {@link #handleDrag} для {@link #buildDrag} — постройка поверх
@@ -343,9 +388,9 @@ public final class InputHandler {
         return screenY > GfxConfig.HUD_TOP_HEIGHT && screenY < screenH - GfxConfig.HUD_BOTTOM_HEIGHT;
     }
 
-    /** Общее для ЛКМ/ПКМ-протяжки: каждый задетый тайл — своё действие, все — в одном {@link CompositeAction}. */
-    private void handleDrag(World world, DragCollector drag, Function<TilePos, PlayerAction> toAction) {
-        List<TilePos> tiles = drag.poll(camera, hotbarSlots.size());
+    /** Общее для ЛКМ/ПКМ-протяжки: каждый задетый тайл — своё действие, все — в одном {@link CompositeAction}. {@code alsoBlocked} — этот жест начался поверх открытой панели инспекции, см. {@link #handleRecipePickClick}. */
+    private void handleDrag(World world, DragCollector drag, Function<TilePos, PlayerAction> toAction, boolean alsoBlocked) {
+        List<TilePos> tiles = drag.poll(camera, hotbarSlots.size(), alsoBlocked);
         if (tiles == null) {
             return;
         }
@@ -367,8 +412,8 @@ public final class InputHandler {
      * {@code RemoveAction} этой же протяжки — снесённая только что клетка не должна тут же
      * добываться вручную в том же самом жесте.
      */
-    private void handleRemoveOrManualMineDrag(World world) {
-        List<TilePos> tiles = removeDrag.poll(camera, hotbarSlots.size());
+    private void handleRemoveOrManualMineDrag(World world, boolean alsoBlocked) {
+        List<TilePos> tiles = removeDrag.poll(camera, hotbarSlots.size(), alsoBlocked);
         if (tiles == null) {
             return;
         }

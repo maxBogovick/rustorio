@@ -4,7 +4,6 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaSprites;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -41,14 +40,28 @@ public final class Splitter implements Building, SettlesEachTick {
      * very same frame. {@code TickScheduler} clears the mark once, before either pass runs.
      */
     private boolean arrivedThisTick;
+    /** Which sprite {@link #appearance} draws — see {@link Furnace}'s own field javadoc for why this is injected rather than a hardcoded sprite constant. */
+    private final BuildingPrototype prototype;
 
+    /** Convenience for callers that only care about the vanilla prototype — see the 2-arg constructor for real injection (a modded splitter needs its own prototype here). */
     public Splitter(Direction facing) {
+        this(facing, VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.SPLITTER)));
+    }
+
+    public Splitter(Direction facing, BuildingPrototype prototype) {
         this.facing = facing;
+        this.prototype = prototype;
+    }
+
+    /** Convenience restore constructor for callers that only care about the vanilla prototype — see the 4-arg restore constructor for real injection. */
+    Splitter(Direction facing, @Nullable ItemType held, boolean nextIsForward) {
+        this(facing, held, nextIsForward,
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.SPLITTER)));
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Splitter(Direction facing, @Nullable ItemType held, boolean nextIsForward) {
-        this(facing);
+    Splitter(Direction facing, @Nullable ItemType held, boolean nextIsForward, BuildingPrototype prototype) {
+        this(facing, prototype);
         this.held = held;
         this.nextIsForward = nextIsForward;
     }
@@ -101,7 +114,7 @@ public final class Splitter implements Building, SettlesEachTick {
 
     @Override
     public Appearance appearance() {
-        return Appearance.of(VanillaSprites.SPLITTER);
+        return Appearance.of(prototype.texture());
     }
 
     @Override
@@ -121,7 +134,7 @@ public final class Splitter implements Building, SettlesEachTick {
 
     @Override
     public Optional<Building> rotatedClockwise() {
-        return Optional.of(new Splitter(facing.rotate(), held, nextIsForward));
+        return Optional.of(new Splitter(facing.rotate(), held, nextIsForward, prototype));
     }
 
     @Override

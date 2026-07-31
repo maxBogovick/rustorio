@@ -1,5 +1,6 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
@@ -41,15 +42,29 @@ public final class Belt implements Building, TransportNode, SettlesEachTick {
      * same frame — move that same item a second tile. See P2-07/P3-03, BUG_FIX_PROGRESS.md.
      */
     private boolean arrivedThisTick;
+    /** Which sprite {@link #appearance} draws — see {@link Furnace}'s own field javadoc for why this is injected rather than a hardcoded sprite constant. */
+    private final BuildingPrototype prototype;
 
+    /** Convenience for callers that only care about the vanilla prototype — see the 2-arg constructor for real injection (a modded belt needs its own prototype here). */
     public Belt(Direction direction) {
+        this(direction, VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.BELT)));
+    }
+
+    public Belt(Direction direction, BuildingPrototype prototype) {
         this.direction = direction;
+        this.prototype = prototype;
+    }
+
+    /** Convenience restore constructor for callers that only care about the vanilla prototype — see the 3-arg restore constructor for real injection. */
+    Belt(Direction direction, @Nullable ItemType held) {
+        this(direction, held, VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.BELT)));
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Belt(Direction direction, @Nullable ItemType held) {
+    Belt(Direction direction, @Nullable ItemType held, BuildingPrototype prototype) {
         this.direction = direction;
         this.held = held;
+        this.prototype = prototype;
     }
 
     @Override
@@ -72,7 +87,7 @@ public final class Belt implements Building, TransportNode, SettlesEachTick {
      */
     @Override
     public Optional<Building> rotatedClockwise() {
-        return Optional.of(new Belt(direction.rotate(), held));
+        return Optional.of(new Belt(direction.rotate(), held, prototype));
     }
 
     /**
@@ -155,8 +170,21 @@ public final class Belt implements Building, TransportNode, SettlesEachTick {
         return Optional.ofNullable(held);
     }
 
+    /**
+     * Empty/full is a real state distinction ({@link #held}) that vanilla draws as two different
+     * sprites, further swapped by tick for the belt's "moving" animation ({@code
+     * BuildingRenderer#animatedBeltSprite}). A mod reusing this archetype (via {@code
+     * BuildingJsonLoader}) supplies only ONE texture, so that swap only applies while this
+     * prototype is still running the vanilla empty texture; anything else is drawn as-is regardless
+     * of cargo, since there's no second sprite for it to swap to (and no animation — {@code
+     * animatedBeltSprite}'s own guard already leaves any other sprite untouched).
+     */
     @Override
     public Appearance appearance() {
+        ContentId texture = prototype.texture();
+        if (!texture.equals(VanillaSprites.BELT_EMPTY)) {
+            return Appearance.of(texture);
+        }
         return held == null ? Appearance.of(VanillaSprites.BELT_EMPTY) : Appearance.of(VanillaSprites.BELT_FULL);
     }
 

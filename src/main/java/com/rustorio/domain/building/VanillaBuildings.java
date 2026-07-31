@@ -41,7 +41,7 @@ public final class VanillaBuildings {
      */
     private static final RestoreFactory UNDERGROUND_BELT_RESTORE = (self, decodedState, factory) -> {
         UndergroundBeltState state = (UndergroundBeltState) decodedState;
-        return new UndergroundBelt(state.kind(), state.direction(), state.held());
+        return new UndergroundBelt(state.kind(), state.direction(), state.held(), self);
     };
 
     private static final Codec<MinerState> MINER_CODEC = new Codec<>() {
@@ -280,56 +280,56 @@ public final class VanillaBuildings {
     public static void registerAll(Registry<BuildingPrototype> prototypes) {
         register(prototypes, BuildingType.MINER, new BuildingCost(VanillaItems.IRON_PLATE, 5),
                 PlacementRule.NEEDS_ORE, VanillaSprites.MINER, true,
-                (self, direction, factory) -> new Miner(factory.oreLayout(), direction),
+                (self, direction, factory) -> new Miner(factory.oreLayout(), direction, self),
                 (self, decodedState, factory) -> {
                     MinerState state = (MinerState) decodedState;
-                    return new Miner(factory.oreLayout(), state.direction(), state.cooldown(), state.held(), state.speedLevel());
+                    return new Miner(factory.oreLayout(), state.direction(), state.cooldown(), state.held(), state.speedLevel(), self);
                 },
                 MINER_CODEC);
         register(prototypes, BuildingType.CHEST, new BuildingCost(VanillaItems.IRON_PLATE, 5),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.CHEST, true,
-                (self, direction, factory) -> new Chest(direction),
+                (self, direction, factory) -> new Chest(direction, self),
                 (self, decodedState, factory) -> {
                     ChestState state = (ChestState) decodedState;
-                    return new Chest(state.direction(), state.contents(), state.speedLevel());
+                    return new Chest(state.direction(), state.contents(), state.speedLevel(), self);
                 },
                 CHEST_CODEC);
         registerFurnaceLike(prototypes, BuildingType.FURNACE, new BuildingCost(VanillaItems.IRON_PLATE, 5),
                 VanillaSprites.FURNACE_COLD, 5, 1);
         register(prototypes, BuildingType.BELT, new BuildingCost(VanillaItems.IRON_PLATE, 1),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.BELT_EMPTY, false,
-                (self, direction, factory) -> new Belt(direction),
+                (self, direction, factory) -> new Belt(direction, self),
                 (self, decodedState, factory) -> {
                     BeltState state = (BeltState) decodedState;
-                    return new Belt(state.direction(), state.held());
+                    return new Belt(state.direction(), state.held(), self);
                 },
                 BELT_CODEC);
         register(prototypes, BuildingType.SPLITTER, new BuildingCost(VanillaItems.IRON_PLATE, 3),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.SPLITTER, false,
-                (self, direction, factory) -> new Splitter(direction),
+                (self, direction, factory) -> new Splitter(direction, self),
                 (self, decodedState, factory) -> {
                     SplitterState state = (SplitterState) decodedState;
-                    return new Splitter(state.facing(), state.held(), state.nextIsForward());
+                    return new Splitter(state.facing(), state.held(), state.nextIsForward(), self);
                 },
                 SPLITTER_CODEC);
         registerFurnaceLike(prototypes, BuildingType.PRESS, new BuildingCost(VanillaItems.IRON_PLATE, 8),
                 VanillaSprites.FURNACE_COLD, 5, 1);
         register(prototypes, BuildingType.UNDERGROUND_IN, new BuildingCost(VanillaItems.IRON_PLATE, 2),
                 PlacementRule.ALWAYS, VanillaSprites.UNDERGROUND_IN, false,
-                (self, direction, factory) -> new UndergroundBelt(UndergroundBelt.Kind.IN, direction),
+                (self, direction, factory) -> new UndergroundBelt(UndergroundBelt.Kind.IN, direction, self),
                 UNDERGROUND_BELT_RESTORE,
                 UNDERGROUND_BELT_CODEC);
         register(prototypes, BuildingType.UNDERGROUND_OUT, new BuildingCost(VanillaItems.IRON_PLATE, 2),
                 PlacementRule.ALWAYS, VanillaSprites.UNDERGROUND_OUT, false,
-                (self, direction, factory) -> new UndergroundBelt(UndergroundBelt.Kind.OUT, direction),
+                (self, direction, factory) -> new UndergroundBelt(UndergroundBelt.Kind.OUT, direction, self),
                 UNDERGROUND_BELT_RESTORE,
                 UNDERGROUND_BELT_CODEC);
         register(prototypes, BuildingType.LAB, new BuildingCost(VanillaItems.GEAR, 10),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.LAB, true,
-                (self, direction, factory) -> new Lab(factory.recipeBook()),
+                (self, direction, factory) -> new Lab(factory.recipeBook(), self),
                 (self, decodedState, factory) -> {
                     LabState state = (LabState) decodedState;
-                    return new Lab(factory.recipeBook(), state.buffer(), state.cooldown(), state.speedLevel());
+                    return new Lab(factory.recipeBook(), state.buffer(), state.cooldown(), state.speedLevel(), self);
                 },
                 LAB_CODEC);
         register(prototypes, BuildingType.FILTER, new BuildingCost(VanillaItems.IRON_PLATE, 3),
@@ -342,18 +342,18 @@ public final class VanillaBuildings {
                 // single default can replicate a two-item rule. A default Filter on a bronze line
                 // will route bronze ore to the side lane until the player cycles it (F) to
                 // BRONZE_ORE.
-                (self, direction, factory) -> new Filter(direction, VanillaItems.IRON_ORE, factory.items()),
+                (self, direction, factory) -> new Filter(direction, VanillaItems.IRON_ORE, factory.items(), self),
                 (self, decodedState, factory) -> {
                     FilterState state = (FilterState) decodedState;
-                    return new Filter(state.facing(), state.filterItem(), state.held(), factory.items());
+                    return new Filter(state.facing(), state.filterItem(), state.held(), factory.items(), self);
                 },
                 FILTER_CODEC);
         register(prototypes, BuildingType.INSERTER, new BuildingCost(VanillaItems.IRON_PLATE, 2),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.INSERTER, false,
-                (self, direction, factory) -> new Inserter(direction),
+                (self, direction, factory) -> new Inserter(direction, self),
                 (self, decodedState, factory) -> {
                     InserterState state = (InserterState) decodedState;
-                    return new Inserter(state.direction(), state.held());
+                    return new Inserter(state.direction(), state.held(), self);
                 },
                 INSERTER_CODEC);
         registerFurnaceLike(prototypes, BuildingType.ASSEMBLER, new BuildingCost(VanillaItems.GEAR, 15),

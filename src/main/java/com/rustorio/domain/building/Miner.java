@@ -6,7 +6,6 @@ import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
-import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.Tech;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -37,6 +36,8 @@ public final class Miner implements Building {
 
     private final OreLayout oreLayout;
     private final Direction direction;
+    /** Which sprite {@link #appearance} draws — see {@link Furnace}'s own field javadoc for why this is injected rather than a hardcoded sprite constant. */
+    private final BuildingPrototype prototype;
 
     private int cooldown = MINE_TIME;
     private @Nullable ItemType held;
@@ -45,18 +46,32 @@ public final class Miner implements Building {
     /** {@code UpgradeSpeedAction}'s upgrade count — see {@link #tick}'s own note on how it's applied. */
     private int speedLevel;
 
+    /** Convenience for callers that only care about the vanilla prototype — see the 3-arg constructor for real injection (a modded "deep miner" needs its own prototype here). */
     public Miner(OreLayout oreLayout, Direction direction) {
+        this(oreLayout, direction, VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.MINER)));
+    }
+
+    public Miner(OreLayout oreLayout, Direction direction, BuildingPrototype prototype) {
         this.oreLayout = oreLayout;
         this.direction = direction;
+        this.prototype = prototype;
+    }
+
+    /** Convenience restore constructor for callers that only care about the vanilla prototype — see the 6-arg restore constructor for real injection. */
+    Miner(OreLayout oreLayout, Direction direction, int cooldown, @Nullable ItemType held, int speedLevel) {
+        this(oreLayout, direction, cooldown, held, speedLevel,
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.MINER)));
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Miner(OreLayout oreLayout, Direction direction, int cooldown, @Nullable ItemType held, int speedLevel) {
+    Miner(OreLayout oreLayout, Direction direction, int cooldown, @Nullable ItemType held, int speedLevel,
+            BuildingPrototype prototype) {
         this.oreLayout = oreLayout;
         this.direction = direction;
         this.cooldown = cooldown;
         this.held = held;
         this.speedLevel = speedLevel;
+        this.prototype = prototype;
     }
 
     /**
@@ -108,7 +123,7 @@ public final class Miner implements Building {
 
     @Override
     public Appearance appearance() {
-        return Appearance.of(VanillaSprites.MINER, status);
+        return Appearance.of(prototype.texture(), status);
     }
 
     @Override
@@ -123,7 +138,7 @@ public final class Miner implements Building {
 
     @Override
     public Optional<Building> rotatedClockwise() {
-        return Optional.of(new Miner(oreLayout, direction.rotate(), cooldown, held, speedLevel));
+        return Optional.of(new Miner(oreLayout, direction.rotate(), cooldown, held, speedLevel, prototype));
     }
 
     @Override
@@ -133,7 +148,7 @@ public final class Miner implements Building {
 
     @Override
     public Building withSpeedLevel(int newSpeedLevel) {
-        return new Miner(oreLayout, direction, cooldown, held, newSpeedLevel);
+        return new Miner(oreLayout, direction, cooldown, held, newSpeedLevel, prototype);
     }
 
     @Override

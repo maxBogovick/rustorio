@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -216,6 +217,43 @@ class FurnaceTest {
         }
         press.tick(world, 0, 0);
         assertEquals(1, chest.count());
+    }
+
+    /**
+     * The click-a-row counterpart to {@link #pressFedGearFirstDoesNotDeadlockForever}'s
+     * cycle-by-key test — {@link Furnace#selectRecipe} jumps straight to the recipe named,
+     * skipping the cycling, for the inspection panel's recipe picker.
+     */
+    @Test
+    void selectRecipeJumpsDirectlyToTheChosenCandidate() {
+        World world = new World(4, 4);
+        Chest chest = new Chest();
+        world.restoreBuilding(1, 0, chest);
+
+        Furnace press = new Furnace(BuildingType.PRESS, Direction.RIGHT, RECIPES);
+        Recipe engineRecipe = RECIPES.findByOutput(BuildingType.PRESS, VanillaItems.ENGINE).orElseThrow();
+
+        assertFalse(press.accept(world, VanillaItems.GEAR), "still ambiguous before any selection");
+
+        press.selectRecipe(engineRecipe);
+        assertEquals(Optional.of(engineRecipe), press.selectedRecipeChoice());
+
+        assertTrue(press.accept(world, VanillaItems.GEAR), "now unambiguous — ENGINE was picked directly");
+        assertTrue(press.accept(world, VanillaItems.MECHANISM));
+
+        for (int i = 0; i < ENGINE_TIME; i++) {
+            press.tick(world, 0, 0);
+        }
+        assertEquals(1, chest.count());
+    }
+
+    /** A recipe belonging to a DIFFERENT kind (or an entirely unrelated one) is never a valid choice — see {@link Furnace#selectRecipe}'s own javadoc. */
+    @Test
+    void selectRecipeRejectsARecipeFromAnotherKind() {
+        Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES);
+        Recipe pressOnlyRecipe = RECIPES.findByOutput(BuildingType.PRESS, VanillaItems.GEAR).orElseThrow();
+
+        assertThrows(IllegalArgumentException.class, () -> furnace.selectRecipe(pressOnlyRecipe));
     }
 
     /**

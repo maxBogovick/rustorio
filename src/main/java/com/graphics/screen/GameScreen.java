@@ -9,12 +9,18 @@ import com.graphics.input.InputHandler;
 import com.graphics.render.GameCamera;
 import com.graphics.render.Renderer;
 import com.graphics.render.Textures;
+import com.rustorio.domain.OreLayout;
+import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RandomOreLayout;
-import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.world.ProductionLog;
 import com.rustorio.domain.world.World;
+import com.rustorio.mod.LoadedGame;
+import com.rustorio.mod.ModDirectories;
+import com.rustorio.mod.ModLoader;
 import com.rustorio.persistence.JsonSaveRepository;
+import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Экран игры: держит мир и каждый кадр гоняет связку ввод → тик → рендер.
@@ -61,15 +67,17 @@ public final class GameScreen extends ScreenAdapter {
      */
     private final InputProcessor inputProcessor;
 
-    /** Фиксированная карта руды ({@link com.rustorio.domain.PatchOreLayout#standard()}). */
+    /** Where every mod (including the built-in {@code rustorio} one) lives — see {@link ModDirectories#discover}. */
+    private static final Path MODS_ROOT = Path.of("resources", "mods");
+
+    /** Фиксированная карта руды ({@link PatchOreLayout#standard()}). */
     public GameScreen() {
-        this(BuildingFactory.standard(), false);
+        this(PatchOreLayout.standard(), false);
     }
 
     /** Карта руды сгенерирована из {@code oreSeed} — см. {@link RandomOreLayout}. */
     public GameScreen(long oreSeed) {
-        this(new BuildingFactory(
-                new RandomOreLayout(oreSeed, GfxConfig.GRID_W, GfxConfig.GRID_H), RecipeBook.standard()), false);
+        this(new RandomOreLayout(oreSeed, GfxConfig.GRID_W, GfxConfig.GRID_H), false);
     }
 
     /**
@@ -78,10 +86,24 @@ public final class GameScreen extends ScreenAdapter {
      * patches, so this can't be combined with {@link #GameScreen(long)}'s random seed.
      */
     public GameScreen(boolean devMode) {
-        this(BuildingFactory.standard(), devMode);
+        this(PatchOreLayout.standard(), devMode);
     }
 
-    private GameScreen(BuildingFactory buildingFactory, boolean devMode) {
+    /**
+     * Every real content set (items, recipes, buildings — vanilla AND modded) is loaded here,
+     * through the same {@link ModLoader#loadAll} the mod system's own acceptance tests already
+     * exercise end to end, instead of the {@code VanillaItems.frozen()}/{@code
+     * VanillaBuildings.frozen()}/{@code RecipeBook.standard()} shortcut {@link
+     * BuildingFactory#standard()} takes. {@code resources/mods/rustorio}'s JSON mirrors vanilla
+     * 1:1 (see {@code VanillaAsModParityTest}), so on a stock checkout this looks identical — the
+     * difference only shows once a mod (or the local content editor, {@code com.rustorio.editor})
+     * adds or changes a {@code content/*.json} file under {@link #MODS_ROOT}.
+     */
+    private GameScreen(OreLayout oreLayout, boolean devMode) {
+        List<Path> modDirectories = ModDirectories.discover(MODS_ROOT);
+        LoadedGame loadedGame = ModLoader.loadAll(modDirectories);
+        BuildingFactory buildingFactory = new BuildingFactory(
+                oreLayout, loadedGame.recipes(), loadedGame.items(), loadedGame.buildings());
         this.world = new World(GfxConfig.GRID_W, GfxConfig.GRID_H, buildingFactory);
         world.addProductionListener(productionLog);
         if (devMode) {
@@ -89,7 +111,7 @@ public final class GameScreen extends ScreenAdapter {
         }
         this.camera = new GameCamera(GfxConfig.GRID_W, GfxConfig.GRID_H);
         this.input = new InputHandler(camera, new JsonSaveRepository());
-        this.textures = Textures.vanilla();
+        this.textures = Textures.loadFrom(modDirectories);
         this.renderer = new Renderer(textures, camera, world.buildingFactory().oreLayout(), world.width(), world.height());
         // Колесо мыши в libGDX — событие, опросом его не поймать: подписываемся.
         this.inputProcessor = new InputAdapter() {

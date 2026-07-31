@@ -5,7 +5,6 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.VanillaItems;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -30,21 +29,36 @@ public final class Filter implements Building, SettlesEachTick {
     private boolean arrivedThisTick;
     /** What {@link #cycleFilterItem} cycles through — the registry this filter was actually built with, not always the vanilla one (code review finding S2). */
     private final Registry<ItemType> items;
+    /** Which sprite {@link #appearance} draws — see {@link Furnace}'s own field javadoc for why this is injected rather than a hardcoded sprite constant. */
+    private final BuildingPrototype prototype;
 
-    /** Convenience for callers that only care about the vanilla item set — see the 3-arg constructor for real injection. */
+    /** Convenience for callers that only care about the vanilla item set and prototype — see the 4-arg constructor for real injection. */
     public Filter(Direction facing, ItemType filterItem) {
         this(facing, filterItem, VanillaItems.frozen());
     }
 
+    /** Convenience for callers that only care about the vanilla prototype — see the 4-arg constructor for real injection (a modded filter needs its own prototype here). */
     public Filter(Direction facing, ItemType filterItem, Registry<ItemType> items) {
+        this(facing, filterItem, items, VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.FILTER)));
+    }
+
+    public Filter(Direction facing, ItemType filterItem, Registry<ItemType> items, BuildingPrototype prototype) {
         this.facing = facing;
         this.filterItem = filterItem;
         this.items = items;
+        this.prototype = prototype;
+    }
+
+    /** Convenience restore constructor for callers that only care about the vanilla prototype — see the 5-arg restore constructor for real injection. */
+    Filter(Direction facing, ItemType filterItem, @Nullable ItemType held, Registry<ItemType> items) {
+        this(facing, filterItem, held, items,
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.FILTER)));
     }
 
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
-    Filter(Direction facing, ItemType filterItem, @Nullable ItemType held, Registry<ItemType> items) {
-        this(facing, filterItem, items);
+    Filter(Direction facing, ItemType filterItem, @Nullable ItemType held, Registry<ItemType> items,
+            BuildingPrototype prototype) {
+        this(facing, filterItem, items, prototype);
         this.held = held;
     }
 
@@ -98,7 +112,7 @@ public final class Filter implements Building, SettlesEachTick {
 
     @Override
     public Appearance appearance() {
-        return Appearance.of(VanillaSprites.FILTER);
+        return Appearance.of(prototype.texture());
     }
 
     @Override
@@ -118,7 +132,7 @@ public final class Filter implements Building, SettlesEachTick {
 
     @Override
     public Optional<Building> rotatedClockwise() {
-        return Optional.of(new Filter(facing.rotate(), filterItem, held, items));
+        return Optional.of(new Filter(facing.rotate(), filterItem, held, items, prototype));
     }
 
     @Override

@@ -35,6 +35,13 @@ sourceSets {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
         runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
     }
+    // Local content-editor web server (com.rustorio.editor) — dev tooling, same reasoning as
+    // `tools` above: not part of the jar the player runs, just built against it.
+    editor {
+        java.srcDirs = ['src/editor/java']
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
 }
 
 // Исходники в UTF-8 (комментарии/строки на кириллице). Без явной кодировки javac берёт
@@ -114,6 +121,11 @@ tasks.named('compileToolsJava', JavaCompile).configure {
     options.errorprone.enabled = false
 }
 
+// src/editor (local content-editor web server) — same reasoning as compileToolsJava above.
+tasks.named('compileEditorJava', JavaCompile).configure {
+    options.errorprone.enabled = false
+}
+
 application {
     // `./gradlew run` открывает окно графики (движок libGDX).
     mainClass = 'com.graphics.Main'
@@ -158,6 +170,18 @@ tasks.register('devRun', JavaExec) {
     if (System.getProperty('os.name').toLowerCase().contains('mac')) {
         jvmArgs('-XstartOnFirstThread')
     }
+}
+
+// `./gradlew editor` — локальный веб-редактор контента (items/recipes/buildings/textures из
+// resources/mods/rustorio) с кнопкой «Играть», которая пересобирает JSON и перезапускает
+// `./gradlew run` отдельным процессом. Свой sourceSet (см. sourceSets.editor выше), потому что
+// это dev-инструмент разработчика мода, а не часть того, что ставится игроку.
+tasks.register('editor', JavaExec) {
+    group = 'application'
+    description = 'Run the local content-editor web server (create/edit mod JSON content, then Play to try it in the game)'
+    workingDir = rootProject.projectDir
+    classpath = sourceSets.editor.runtimeClasspath
+    mainClass = 'com.rustorio.editor.EditorMain'
 }
 
 // `./gradlew benchmark` — headless-замер мс/тик на большой сцене, без окна графики. `com.rustorio.Benchmark`

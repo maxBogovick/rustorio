@@ -5,7 +5,6 @@ import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.Tech;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,6 +36,8 @@ public final class Chest implements Building {
     private static final int CAPACITY = 100;
 
     private final Direction direction;
+    /** Which sprite {@link #appearance} draws — see {@link Furnace}'s own field javadoc for why this is injected rather than a hardcoded sprite constant. */
+    private final BuildingPrototype prototype;
     // HashMap, not TreeMap: tick() below sorts a snapshot of the keys itself (deterministic
     // output order without needing the map's own iteration order to be), and state() hands this
     // to ChestState, whose own compact constructor already re-sorts into a TreeMap for the
@@ -62,8 +63,19 @@ public final class Chest implements Building {
         this(Direction.RIGHT);
     }
 
+    /** Convenience for callers that only care about the vanilla prototype — see the 2-arg constructor for real injection (a modded "big chest" needs its own prototype here). */
     public Chest(Direction direction) {
+        this(direction, VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.CHEST)));
+    }
+
+    public Chest(Direction direction, BuildingPrototype prototype) {
         this.direction = direction;
+        this.prototype = prototype;
+    }
+
+    /** Convenience restore constructor for callers that only care about the vanilla prototype — see the 4-arg restore constructor for real injection. */
+    Chest(Direction direction, Map<ItemType, Integer> contents, int speedLevel) {
+        this(direction, contents, speedLevel, VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.CHEST)));
     }
 
     /**
@@ -74,8 +86,8 @@ public final class Chest implements Building {
      * WORKING}. {@code speedLevel} IS part of {@link ChestState} (a plain field, since this
      * phase's own flattening) — the caller reads it off the decoded state and passes it here.
      */
-    Chest(Direction direction, Map<ItemType, Integer> contents, int speedLevel) {
-        this(direction, contents, BuildingStatus.WORKING, speedLevel);
+    Chest(Direction direction, Map<ItemType, Integer> contents, int speedLevel, BuildingPrototype prototype) {
+        this(direction, contents, BuildingStatus.WORKING, speedLevel, prototype);
     }
 
     /**
@@ -87,7 +99,8 @@ public final class Chest implements Building {
      * HudRenderer.alerts()} reads {@code World.statusCounts()} directly now, so a stale reset here
      * is directly visible on the HUD.
      */
-    private Chest(Direction direction, Map<ItemType, Integer> contents, BuildingStatus status, int speedLevel) {
+    private Chest(Direction direction, Map<ItemType, Integer> contents, BuildingStatus status, int speedLevel,
+            BuildingPrototype prototype) {
         this.direction = direction;
         this.contents.putAll(contents);
         for (int quantity : this.contents.values()) {
@@ -95,6 +108,7 @@ public final class Chest implements Building {
         }
         this.status = status;
         this.speedLevel = speedLevel;
+        this.prototype = prototype;
     }
 
     @Override
@@ -224,7 +238,7 @@ public final class Chest implements Building {
     @Override
     public Appearance appearance() {
         int total = totalCount();
-        return total > 0 ? Appearance.of(VanillaSprites.CHEST, total, status) : Appearance.of(VanillaSprites.CHEST, status);
+        return total > 0 ? Appearance.of(prototype.texture(), total, status) : Appearance.of(prototype.texture(), status);
     }
 
     @Override
@@ -234,7 +248,7 @@ public final class Chest implements Building {
 
     @Override
     public Optional<Building> rotatedClockwise() {
-        return Optional.of(new Chest(direction.rotate(), contents, status, speedLevel));
+        return Optional.of(new Chest(direction.rotate(), contents, status, speedLevel, prototype));
     }
 
     @Override
@@ -244,7 +258,7 @@ public final class Chest implements Building {
 
     @Override
     public Building withSpeedLevel(int newSpeedLevel) {
-        return new Chest(direction, contents, status, newSpeedLevel);
+        return new Chest(direction, contents, status, newSpeedLevel, prototype);
     }
 
     @Override

@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rustorio — Content Editor</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="loading-overlay" class="loading-overlay">
+  <div class="spinner"></div>
+</div>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">R</div>
+      <div class="brand-text">Rustorio<span>content editor</span></div>
+    </div>
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-tab="items" id="nav-items"></button>
+      <button class="nav-item" data-tab="recipes" id="nav-recipes"></button>
+      <button class="nav-item" data-tab="buildings" id="nav-buildings"></button>
+      <button class="nav-item" data-tab="textures" id="nav-textures"></button>
+    </nav>
+    <div class="sidebar-footer" id="content-status">
+      <span class="status-dot" id="content-status-dot"></span>
+      <span id="content-status-text">Checking content&hellip;</span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="search-box">
+        <span id="topbar-search-icon"></span>
+        <input id="global-search" placeholder="Jump to anything&hellip; ( / )" autocomplete="off">
+        <div class="search-results hidden" id="search-results"></div>
+      </div>
+      <div class="topbar-right">
+        <span id="status-pill" class="pill pill-stopped">stopped</span>
+        <button id="stop-btn" class="stop-btn" disabled title="Stop the running game"></button>
+        <button id="play-btn" class="play-btn"></button>
+      </div>
+    </header>
+
+    <!-- ITEMS -->
+    <section class="workspace active" id="panel-items">
+      <div class="list-panel">
+        <div class="list-toolbar">
+          <div class="mini-search"><span class="mini-search-icon"></span><input placeholder="Filter items&hellip;" id="filter-items"></div>
+          <button class="icon-btn" data-new="items" title="New item"></button>
+        </div>
+        <ul class="entry-list" id="items-list"></ul>
+        <div class="empty-state hidden" id="items-empty"></div>
+      </div>
+      <div class="detail-panel">
+        <div class="detail-header">
+          <h2 id="items-form-title">New item</h2>
+          <div class="detail-header-actions">
+            <span class="dirty-flag hidden" id="items-dirty">unsaved</span>
+            <button type="button" class="view-toggle" data-view-toggle="items">JSON</button>
+          </div>
+        </div>
+        <form id="items-form" class="detail-form">
+          <div class="field-row">
+            <div class="glyph-preview" id="items-glyph-preview"></div>
+            <div class="field-col">
+              <label>Path (id)<input name="path" required pattern="[a-z0-9_]+" placeholder="copper_ore" autocomplete="off"></label>
+              <label>Label<input name="label" required placeholder="Copper Ore" autocomplete="off"></label>
+            </div>
+          </div>
+          <div class="grid2">
+            <label>Color<input name="colorRgb" type="color" value="#aaaaaa"></label>
+            <label>Shape
+              <select name="shape">
+                <option>CIRCLE</option>
+                <option>SQUARE</option>
+                <option>TRIANGLE</option>
+              </select>
+            </label>
+          </div>
+          <label class="checkbox"><input type="checkbox" name="researchGrade"> Research grade (science pack)</label>
+          <div class="form-error" id="items-form-error"></div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Save<kbd>&#8984;S</kbd></button>
+            <button type="button" class="btn-danger" data-delete="items">Delete</button>
+          </div>
+        </form>
+        <textarea class="json-view hidden" id="items-json" spellcheck="false"></textarea>
+      </div>
+    </section>
+
+    <!-- RECIPES -->
+    <section class="workspace" id="panel-recipes">
+      <div class="list-panel">
+        <div class="list-toolbar">
+          <div class="mini-search"><span class="mini-search-icon"></span><input placeholder="Filter recipes&hellip;" id="filter-recipes"></div>
+          <button class="icon-btn" data-new="recipes" title="New recipe"></button>
+        </div>
+        <ul class="entry-list" id="recipes-list"></ul>
+        <div class="empty-state hidden" id="recipes-empty"></div>
+      </div>
+      <div class="detail-panel">
+        <div class="detail-header">
+          <h2 id="recipes-form-title">New recipe</h2>
+          <div class="detail-header-actions">
+            <span class="dirty-flag hidden" id="recipes-dirty">unsaved</span>
+            <button type="button" class="view-toggle" data-view-toggle="recipes">JSON</button>
+          </div>
+        </div>
+        <form id="recipes-form" class="detail-form">
+          <label>File name (id)<input name="file" required pattern="[a-z0-9_]+" placeholder="copper_plate" autocomplete="off"></label>
+
+          <div class="picker-field">
+            <span class="picker-label">Ingredients</span>
+            <div class="chip-list" id="recipe-ingredients-chips"></div>
+            <div class="chip-picker" id="recipe-ingredients-picker"></div>
+          </div>
+
+          <label>Output<div class="chip-picker single" id="recipe-output-picker"></div>
+            <input type="hidden" name="output" id="recipe-output-value">
+          </label>
+
+          <div class="grid2">
+            <label>Time (ticks)<input name="time" type="number" min="1" value="5"></label>
+            <label>Made in (kind)
+              <select name="kind">
+                <option>FURNACE</option>
+                <option>ASSEMBLER</option>
+                <option>PRESS</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-error" id="recipes-form-error"></div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Save<kbd>&#8984;S</kbd></button>
+            <button type="button" class="btn-danger" data-delete="recipes">Delete</button>
+          </div>
+        </form>
+        <textarea class="json-view hidden" id="recipes-json" spellcheck="false"></textarea>
+      </div>
+    </section>
+
+    <!-- BUILDINGS -->
+    <section class="workspace" id="panel-buildings">
+      <div class="list-panel">
+        <div class="list-toolbar">
+          <div class="mini-search"><span class="mini-search-icon"></span><input placeholder="Filter buildings&hellip;" id="filter-buildings"></div>
+          <button class="icon-btn" data-new="buildings" title="New building"></button>
+        </div>
+        <ul class="entry-list" id="buildings-list"></ul>
+        <div class="empty-state hidden" id="buildings-empty"></div>
+      </div>
+      <div class="detail-panel">
+        <div class="detail-header">
+          <h2 id="buildings-form-title">New building</h2>
+          <div class="detail-header-actions">
+            <span class="dirty-flag hidden" id="buildings-dirty">unsaved</span>
+            <button type="button" class="view-toggle" data-view-toggle="buildings">JSON</button>
+          </div>
+        </div>
+        <form id="buildings-form" class="detail-form">
+          <div class="field-row">
+            <div class="glyph-preview" id="buildings-glyph-preview"><span id="buildings-glyph-fallback"></span></div>
+            <div class="field-col">
+              <label>Path (id)<input name="path" required pattern="[a-z0-9_]+" placeholder="steel_furnace" autocomplete="off"></label>
+              <label>Label<input name="label" required placeholder="Steel Furnace" autocomplete="off"></label>
+            </div>
+          </div>
+          <div class="grid2">
+            <label>Archetype (behavior it reuses)
+              <select name="archetype">
+                <option>MINER</option><option>CHEST</option><option>FURNACE</option><option>BELT</option>
+                <option>SPLITTER</option><option>PRESS</option><option>UNDERGROUND_IN</option><option>UNDERGROUND_OUT</option>
+                <option>LAB</option><option>FILTER</option><option>INSERTER</option><option>ASSEMBLER</option>
+              </select>
+            </label>
+            <label>Placement rule
+              <select name="placement">
+                <option>ALWAYS</option>
+                <option>NEEDS_ORE</option>
+                <option>NEEDS_PASSABLE_TERRAIN</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="picker-field">
+            <span class="picker-label">Cost</span>
+            <div class="cost-row">
+              <div class="chip-picker single" id="building-cost-picker"></div>
+              <input type="hidden" name="costItem" id="building-cost-item-value">
+              <input name="costAmount" type="number" min="1" value="1" class="cost-amount">
+            </div>
+          </div>
+
+          <div class="picker-field">
+            <span class="picker-label">Texture</span>
+            <div class="texture-picker" id="building-texture-picker"></div>
+            <input type="hidden" name="texture" id="building-texture-value">
+          </div>
+
+          <div class="grid2">
+            <label>Footprint W&times;H
+              <span class="grid2 tight">
+                <input name="footprintWidth" type="number" min="1" value="1">
+                <input name="footprintHeight" type="number" min="1" value="1">
+              </span>
+            </label>
+            <label>Buffer / Speed&times;
+              <span class="grid2 tight">
+                <input name="bufferMax" type="number" min="0" value="0">
+                <input name="speedMultiplier" type="number" min="1" value="1">
+              </span>
+            </label>
+          </div>
+          <label class="checkbox"><input type="checkbox" name="acceptsSpeedEffects"> Accepts speed modules</label>
+          <div class="form-error" id="buildings-form-error"></div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Save<kbd>&#8984;S</kbd></button>
+            <button type="button" class="btn-danger" data-delete="buildings">Delete</button>
+          </div>
+        </form>
+        <textarea class="json-view hidden" id="buildings-json" spellcheck="false"></textarea>
+      </div>
+    </section>
+
+    <!-- TEXTURES -->
+    <section class="workspace" id="panel-textures">
+      <div class="textures-full">
+        <div class="upload-card">
+          <h2>Upload a sprite</h2>
+          <form id="texture-upload-form">
+            <label>Name<input name="name" required pattern="[a-z0-9_]+" placeholder="copper_ore" autocomplete="off"></label>
+            <label class="dropzone" id="texture-dropzone">
+              <input name="file" type="file" accept="image/png" required id="texture-file-input">
+              <span id="texture-dropzone-label">Drop a PNG here or click to choose</span>
+            </label>
+            <button type="submit" class="btn-primary"></button>
+            <div class="form-error" id="texture-form-error"></div>
+          </form>
+        </div>
+        <h2>Vanilla sprites</h2>
+        <div class="texture-grid" id="vanilla-texture-grid"></div>
+        <h2>Mod sprites <span class="muted-inline">resources/mods/rustorio/textures</span></h2>
+        <div class="texture-grid" id="mod-texture-grid"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="toast-stack" id="toast-stack"></div>
+
+<div class="modal-backdrop hidden" id="modal-backdrop">
+  <div class="modal">
+    <h3 id="modal-title">Delete?</h3>
+    <p id="modal-body"></p>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="modal-cancel">Cancel</button>
+      <button class="btn-danger" id="modal-confirm">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script src="/icons.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
