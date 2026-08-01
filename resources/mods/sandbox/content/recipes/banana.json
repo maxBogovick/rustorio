@@ -1,0 +1,8 @@
+{
+  "ingredients": [
+    "rustorio:iron_plate"
+  ],
+  "output": "banana_ore",
+  "time": 5,
+  "kind": "voron"
+}

@@ -1,0 +1,18 @@
+{
+  "path": "voron",
+  "label": "Vorona",
+  "archetype": "FURNACE",
+  "kind": "voron",
+  "fuel": "rustorio:coal",
+  "cost": {
+    "item": "rustorio:coal",
+    "amount": 1
+  },
+  "placement": "ALWAYS",
+  "texture": "sandbox:voron",
+  "footprintWidth": 1,
+  "footprintHeight": 1,
+  "bufferMax": 10,
+  "speedMultiplier": 1,
+  "acceptsSpeedEffects": false
+}

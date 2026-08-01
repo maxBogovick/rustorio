@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * End-to-end reproduction of the live bug report: placing {@code voron} (a modded {@code FURNACE}
- * archetype building, {@code resources/mods/rustorio/content/buildings/voron.json}), feeding it
+ * archetype building, {@code resources/mods/sandbox/content/buildings/voron.json}), feeding it
  * coal (fuel) plus its recipe's own ingredient, must actually cook and push out {@code banana_ore}
  * — not just fail to crash on load ({@code VanillaAsModParityTest}) or resolve the right sprite
  * ({@code com.rustorio.domain.building.ModdedBuildingTextureTest}).
@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * own {@code [iron_plate, bronze_plate]} — both lived in the SAME shared FURNACE pool, so {@link
  * Furnace#accept} refused to guess between them. (3) The actual fix ("создание своего архетипа" —
  * a private recipe pool a custom building can name via JSON, no Java): {@code voron.json} has no
- * {@code "kind"} of its own, defaulting to its own private pool ({@code rustorio:voron}, its own
+ * {@code "kind"} of its own, defaulting to its own private pool ({@code sandbox:voron}, its own
  * id — see {@code BuildingJsonLoader}), and {@code banana.json} explicitly joins THAT pool ({@code
  * "kind": "voron"}) instead of the shared vanilla one. {@code iron_plate} is now unambiguous for
  * voron — its private pool has exactly one recipe — even though the SAME item is still ambiguous
@@ -41,21 +41,32 @@ class VoronBananaAcceptanceTest {
 
     private static final Path RUSTORIO_MOD_DIR = Path.of("resources", "mods", "rustorio");
 
+    /**
+     * {@code voron}/{@code banana} live in their own mod, not in the vanilla one: vanilla's
+     * {@code content/} is a mirror of what {@code VanillaItems}/{@code VanillaBuildings}/{@code
+     * RecipeBook.standard()} register in Java ({@link VanillaAsModParityTest} holds the two
+     * number-for-number), so content that exists only as JSON cannot live there. Loading both
+     * directories also makes this test a stronger claim than it was: the private pool is proven
+     * for a genuine third-party mod reaching across into vanilla items, which is the case the
+     * feature exists for.
+     */
+    private static final Path SANDBOX_MOD_DIR = Path.of("resources", "mods", "sandbox");
+
     @Test
     void voronCooksBananaOreFromCoalAndIronPlateInItsOwnPrivatePoolWithNoAmbiguity() {
-        LoadedGame game = ModLoader.loadAll(List.of(RUSTORIO_MOD_DIR));
+        LoadedGame game = ModLoader.loadAll(List.of(RUSTORIO_MOD_DIR, SANDBOX_MOD_DIR));
         BuildingFactory factory = new BuildingFactory(
                 com.rustorio.domain.PatchOreLayout.standard(), game.recipes(), game.items(), game.buildings());
 
         World world = new World(4, 4, factory);
         world.restoreBuilding(1, 0, new Chest());
 
-        Furnace voron = (Furnace) factory.create(ContentId.of("rustorio:voron"), Direction.RIGHT);
+        Furnace voron = (Furnace) factory.create(ContentId.of("sandbox:voron"), Direction.RIGHT);
         world.restoreBuilding(0, 0, voron);
 
         ItemType coal = game.items().get(ContentId.of("rustorio:coal"));
         ItemType ironPlate = game.items().get(ContentId.of("rustorio:iron_plate"));
-        ItemType bananaOre = game.items().get(ContentId.of("rustorio:banana_ore"));
+        ItemType bananaOre = game.items().get(ContentId.of("sandbox:banana_ore"));
 
         assertTrue(voron.accept(world, coal), "voron must accept coal as fuel");
         // The actual bug this whole feature exists to fix: iron_plate is ALSO one of alloy_plate's
@@ -82,14 +93,14 @@ class VoronBananaAcceptanceTest {
      */
     @Test
     void aVanillaFurnaceInTheSameGameNeverReachesBananaOreAndVoronNeverReachesAlloyPlate() {
-        LoadedGame game = ModLoader.loadAll(List.of(RUSTORIO_MOD_DIR));
+        LoadedGame game = ModLoader.loadAll(List.of(RUSTORIO_MOD_DIR, SANDBOX_MOD_DIR));
         BuildingFactory factory = new BuildingFactory(
                 com.rustorio.domain.PatchOreLayout.standard(), game.recipes(), game.items(), game.buildings());
 
         Furnace vanillaFurnace = (Furnace) factory.create(BuildingType.FURNACE, Direction.RIGHT);
-        Furnace voron = (Furnace) factory.create(ContentId.of("rustorio:voron"), Direction.RIGHT);
+        Furnace voron = (Furnace) factory.create(ContentId.of("sandbox:voron"), Direction.RIGHT);
 
-        ItemType bananaOre = game.items().get(ContentId.of("rustorio:banana_ore"));
+        ItemType bananaOre = game.items().get(ContentId.of("sandbox:banana_ore"));
         ItemType alloyPlate = game.items().get(ContentId.of("rustorio:alloy_plate"));
 
         assertTrue(vanillaFurnace.possibleRecipes().stream().anyMatch(r -> r.output().equals(alloyPlate)),

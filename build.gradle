@@ -195,9 +195,31 @@ tasks.register('benchmark', JavaExec) {
     mainClass = 'com.rustorio.Benchmark'
 }
 
+// `build` собирает и проверяет только main+test: задачи `tools`/`editor` в его граф не входят,
+// потому что их sourceSet'ы не участвуют в `assemble` (в jar они не попадают) и в `check`
+// (тестов у них нет). До этой строки главный гейт проекта пропускал поломку в `com.rustorio.Main`,
+// `Benchmark` и веб-редакторе целиком: `./gradlew build` оставался зелёным, а `./gradlew game`,
+// `benchmark` и `editor` падали при запуске. Оба dev-sourceSet'а компилируются против `src/main`,
+// поэтому ломает их обычно правка домена — то есть ровно то, что `build` и должен ловить.
+tasks.named('check') {
+    dependsOn tasks.named('compileToolsJava'), tasks.named('compileEditorJava')
+}
+
 tasks.named('test') {
     useJUnitPlatform()
     finalizedBy tasks.named('jacocoTestReport')
+
+    // Тесты читают `resources/mods` НАПРЯМУЮ с диска (VanillaAsModParityTest, VoronBananaAcceptanceTest,
+    // ModDirectories/ModLoader-тесты) — это рабочий каталог, а не classpath: `processResources`
+    // здесь NO-SOURCE, потому что `src/main/resources` не существует. Gradle про такое чтение не
+    // знает, поэтому без этой строки правка контента мода не делала задачу устаревшей: можно было
+    // добавить предмет в ванильный мод, получить `> Task :test UP-TO-DATE` и BUILD SUCCESSFUL,
+    // хотя `VanillaAsModParityTest` на этом контенте падает. Проверено 01.08.2026.
+    // Каталог, а не весь `resources/`: спрайты в корне и фронтенд редактора тесты не читают,
+    // и перезапускать из-за них весь набор незачем.
+    inputs.dir('resources/mods')
+            .withPropertyName('modContent')
+            .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 tasks.named('jacocoTestReport') {
@@ -206,3 +228,19 @@ tasks.named('jacocoTestReport') {
         xml.required = true
     }
 }
+
+// Мутационное тестирование (PIT) — ПРОБОВАЛИ 01.08.2026, НЕ ПОДКЛЮЧАЕТСЯ. Оставлено здесь, чтобы
+// не проходить этот путь второй раз.
+//
+// Зачем оно нужно: jacoco говорит, что строка ИСПОЛНИЛАСЬ, а не что её поведение ПРОВЕРЕНО.
+// PIT вносит в байт-код мелкие правки и смотрит, покраснеет ли хоть один тест — это машинная
+// версия здешнего правила «правка закрывается тестом, падающим на старом коде».
+//
+// Почему не вышло: последний PIT на Maven Central (1.19.1) отвергает класс-файлы Java 25
+// (major 69) — «Unsupported class file major version 69» из DefaultBuildVerifier, ещё до начала
+// работы. Это не настройка: подмена ASM на 9.10.1 в конфигурации `pitest` (проверено, ASM
+// действительно попадал на classpath) ничего не меняет — версию байт-кода PIT проверяет сам.
+//
+// Что делать, когда понадобится: следить за релизами PIT на предмет поддержки major 69. Второй
+// путь — собирать `src/main` с `options.release = 24` ради инструмента — сознательно отвергнут:
+// это меняет то, что уезжает игроку, ради dev-проверки.

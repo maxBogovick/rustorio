@@ -57,6 +57,38 @@ class PackageBoundaryRulesTest {
      * {@code content/**}<!---->{@code .json}) — the same reason persistence needed it, for a
      * different file format.
      */
+    /**
+     * The headline boundary of the whole codebase: {@code com.graphics} knows about the game,
+     * the game knows nothing about rendering or input. The two rules above already forbid this for
+     * {@code com.rustorio.domain} and {@code com.rustorio.domain.building}, which left the other
+     * six game packages ({@code domain.world}, {@code domain.action}, {@code api..}, {@code mod},
+     * {@code persistence}) checked by nothing but prose — a renderer type could have reached any of
+     * them without a single test turning red. Stated once here for the whole {@code com.rustorio}
+     * tree so a new package inherits it by existing, rather than needing its own rule.
+     */
+    @ArchTest
+    static final ArchRule nothingInTheGameDependsOnRendering = noClasses()
+            .that().resideInAPackage("com.rustorio..")
+            .should().dependOnClassesThat().resideInAPackage("com.graphics..")
+            .because("the dependency runs one way, com.graphics -> com.rustorio: the game has to be "
+                    + "runnable, testable and moddable without a window");
+
+    /**
+     * The same boundary one level lower, and the part prose couldn't express: the game must not
+     * touch libGDX itself either. Without this, a domain class could take a {@code Vector2} or a
+     * {@code TextureRegion} in a signature and still satisfy the rule above — the type would come
+     * from the engine, not from {@code com.graphics}. This is what "the domain doesn't accept
+     * render types in signatures, plain {@code int} instead" means in bytecode, and it's also what
+     * keeps the headless paths ({@code World.tick}, the mod loader, every domain test) free of a
+     * dependency that needs a GL context to initialize.
+     */
+    @ArchTest
+    static final ArchRule nothingInTheGameDependsOnLibGdx = noClasses()
+            .that().resideInAPackage("com.rustorio..")
+            .should().dependOnClassesThat().resideInAPackage("com.badlogic..")
+            .because("libGDX types belong to the rendering layer; a domain that imports them can no "
+                    + "longer run headless, and its signatures start leaking engine types to mods");
+
     @ArchTest
     static final ArchRule onlyPersistenceOrModImportJackson = noClasses()
             .that().resideOutsideOfPackage("com.rustorio.persistence..")

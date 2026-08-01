@@ -1,0 +1,7 @@
+{
+  "id": "sandbox",
+  "version": "1.0.0",
+  "dependencies": [
+    { "modId": "rustorio", "range": ">=1.0.0" }
+  ]
+}

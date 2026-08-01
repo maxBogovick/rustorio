@@ -1,9 +1,8 @@
-# Непрерывная интеграция: на каждый push/PR автоматически проверяем
-# форматирование, линты и тесты. Это автоматизирует «ритуал» из LESSONS (Урок 9).
+# Непрерывная интеграция: на каждый push/PR собираем проект и гоняем все тесты.
 #
-# Инструменты — современный стандарт 2025 для Rust:
-#   • dtolnay/rust-toolchain  — быстрая установка тулчейна;
-#   • Swatinem/rust-cache     — кэш зависимостей/сборки (работает «из коробки»).
+# До 01.08.2026 здесь стоял workflow от Rust-версии проекта (cargo fmt/clippy/test).
+# Java-сборка не запускалась в CI ни разу, а сам cargo падал на `no targets specified
+# in the manifest` — файлов .rs в репозитории нет.
 name: CI
 
 on:
@@ -11,28 +10,35 @@ on:
   pull_request:
 
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # macroquad/miniquad на Linux требует системных библиотек для сборки.
-      - name: Установить системные зависимости (Linux)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev
-
-      - uses: dtolnay/rust-toolchain@stable
+      # JDK ставим явно, хотя toolchain в build.gradle умеет докачать его сам:
+      # так сборка не тратит время на скачивание JDK на каждом прогоне.
+      - name: Установить JDK 25
+        uses: actions/setup-java@v4
         with:
-          components: rustfmt, clippy
+          distribution: temurin
+          java-version: '25'
 
-      - uses: Swatinem/rust-cache@v2
+      # Кэш зависимостей и Gradle-артефактов между прогонами.
+      - name: Настроить Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Проверка форматирования
-        run: cargo fmt --all --check
+      # Главный гейт: компиляция + NullAway + все тесты + jacoco. Отдельно перечислять
+      # `compileToolsJava`/`compileEditorJava` не нужно — от них зависит `check` (build.gradle).
+      - name: Сборка и тесты
+        run: ./gradlew build --console=plain
 
-      - name: Линты (предупреждения = ошибки)
-        run: cargo clippy --all-targets --locked -- -D warnings
-
-      - name: Тесты
-        run: cargo test --locked
+      # Отчёты тестов и покрытия — чтобы разбирать падение, не воспроизводя его локально.
+      - name: Сохранить отчёты
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            build/reports/tests/test
+            build/reports/jacoco
+          if-no-files-found: ignore
