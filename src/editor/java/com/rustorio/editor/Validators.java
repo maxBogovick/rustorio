@@ -29,7 +29,7 @@ final class Validators {
     static void item(ObjectNode body) {
         String path = EditorJson.requireText(body, "path");
         validateContentIdPath(path);
-        EditorJson.requireText(body, "label");
+        EditorJson.requireLabel(body, "label");
         String colorRgb = EditorJson.requireText(body, "colorRgb");
         if (!colorRgb.matches("#[0-9A-Fa-f]{6}")) {
             throw new ApiException(400, "colorRgb must be \"#RRGGBB\": \"" + colorRgb + "\"");
@@ -48,7 +48,7 @@ final class Validators {
     static void building(ObjectNode body) {
         String path = EditorJson.requireText(body, "path");
         validateContentIdPath(path);
-        EditorJson.requireText(body, "label");
+        EditorJson.requireLabel(body, "label");
         String archetype = EditorJson.requireText(body, "archetype");
         if (!isValidEnum(BuildingType.class, archetype)) {
             throw new ApiException(400, "unknown archetype \"" + archetype + "\" (expected one of "
@@ -90,7 +90,7 @@ final class Validators {
     static void kind(ObjectNode body) {
         String path = EditorJson.requireText(body, "path");
         validateContentIdPath(path);
-        EditorJson.requireText(body, "label");
+        EditorJson.requireLabel(body, "label");
     }
 
     private static void validateContentIdPath(String path) {

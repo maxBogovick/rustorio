@@ -257,7 +257,7 @@
             <button type="button" class="view-toggle" data-view-toggle="kinds">JSON</button>
           </div>
         </div>
-        <p class="field-hint">A Kind is just a named recipe pool — declare one here ONLY if you want several different buildings to deliberately share the exact same set of recipes. Most buildings don't need this at all: leaving a building's own "Recipe kind" (Buildings tab) as "— private —" already gives it an isolated pool with zero setup. Once declared, this kind's own path shows up as a pickable option on both the Recipes and Buildings forms.</p>
+        <p class="field-hint">A Kind is just a named recipe pool — declare one here ONLY if you want several different buildings to deliberately share the exact same set of recipes. Most buildings don't need this at all: leaving a building's own "Recipe kind" (Buildings tab) as "— private —" already gives it an isolated pool with zero setup. Once declared, this kind's own path shows up as a pickable option on both the Recipes and Buildings forms. This list also shows every building's own private pool that's actually in use (like a FURNACE-family building's default id) — click one to see what points at it, even though it has no separate file to edit here.</p>
         <form id="kinds-form" class="detail-form">
           <label>Path (id)<input name="path" required pattern="[a-z0-9_]+" placeholder="steel_smelting" autocomplete="off"></label>
           <label>Label<input name="label" required placeholder="Steel Smelting" autocomplete="off"></label>
@@ -268,6 +268,25 @@
           </div>
         </form>
         <textarea class="json-view hidden" id="kinds-json" spellcheck="false"></textarea>
+        <div class="kind-implicit-info hidden" id="kinds-implicit-info">
+          <p class="field-hint" id="kinds-implicit-text"></p>
+          <button type="button" class="btn-ghost" id="kinds-implicit-goto-building"></button>
+        </div>
+        <div class="kind-usage hidden" id="kinds-usage-panel">
+          <h3>Used by</h3>
+          <div class="usage-group">
+            <h4>Buildings</h4>
+            <ul class="usage-list" id="kind-usage-buildings"></ul>
+          </div>
+          <div class="usage-group">
+            <h4>Recipes</h4>
+            <ul class="usage-list" id="kind-usage-recipes"></ul>
+          </div>
+          <div class="usage-group">
+            <h4>Items produced here</h4>
+            <ul class="usage-list" id="kind-usage-items"></ul>
+          </div>
+        </div>
       </div>
     </section>
 

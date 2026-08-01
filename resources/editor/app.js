@@ -270,7 +270,7 @@ function emptyMessage(kind) {
     items: "No items yet — click + New item to add the game's first custom item.",
     recipes: "No recipes yet — add ingredients and an output above.",
     buildings: "No buildings yet — every one reuses an existing archetype's behavior.",
-    kinds: "No declared kinds yet — most buildings don't need one (see the hint above).",
+    kinds: "No recipe pools in use yet — a FURNACE/PRESS/ASSEMBLER building's own pool shows up here automatically once it has a recipe, no declaring needed (see the hint above).",
   }[kind];
 }
 
@@ -853,27 +853,145 @@ function formError(kind, message) {
 
 /* ================= KINDS ================= */
 
-function kindRowInfo(k) {
-  const label = labelText(k.label);
+/**
+ * One row per recipe pool actually in play — not just the declared ones. A pool "exists" here if
+ * ANY of these is true: (a) it has its own {@code content/kinds/*.json} file, (b) it's a
+ * FURNACE/PRESS/ASSEMBLER building's own path (its default/self-referencing private pool — kind is
+ * inert on every other archetype, see {@code updateBuildingRecipeFieldsVisibility}), or (c) some
+ * recipe/building explicitly points at it, even if that target turns out not to exist (an
+ * "orphaned" reference — surfaced here deliberately instead of hidden, since spotting exactly this
+ * kind of broken reference is the whole point of this tab; {@code /api/validate} catches it too,
+ * but this is where a modder would come looking to understand WHY).
+ */
+function computeKindUsageIndex() {
+  const byId = new Map();
+  function entryFor(id) {
+    if (!byId.has(id)) byId.set(id, { id, label: id, declared: null, buildings: [], recipes: [] });
+    return byId.get(id);
+  }
+
+  for (const k of state.kinds) {
+    const e = entryFor(k.path);
+    e.declared = k;
+    e.label = labelText(k.label);
+  }
+  for (const b of state.buildings) {
+    if (!RECIPE_ARCHETYPES.has(b.archetype)) continue; // kind is never read outside these 3
+    const poolId = normalizeLegacyKind(b.kind || "") || b.path;
+    const e = entryFor(poolId);
+    e.buildings.push(b);
+    if (poolId === b.path && !e.declared) e.label = labelText(b.label);
+  }
+  for (const r of state.recipes) {
+    const poolId = normalizeLegacyKind(r.kind || "");
+    if (poolId) entryFor(poolId).recipes.push(r);
+  }
+
+  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/** "declared" has its own kinds/*.json file; "owned" is a real building's own default pool with no file; "orphaned" is referenced by something but backed by neither — a broken reference. */
+function kindEntryStatus(e) {
+  if (e.declared) return "declared";
+  if (e.buildings.some((b) => b.path === e.id)) return "owned";
+  return "orphaned";
+}
+
+function kindRowInfo(e) {
+  const status = kindEntryStatus(e);
+  const badge = status === "declared" ? "" : status === "owned" ? " (implicit)" : " (broken)";
+  const count = `${e.recipes.length} recipe${e.recipes.length === 1 ? "" : "s"}, ${e.buildings.length} building${e.buildings.length === 1 ? "" : "s"}`;
   return {
-    key: k.path,
-    title: label,
-    sub: `rustorio:${k.path}`,
-    search: `${label} ${k.path}`,
-    thumb: icon("flask", 16),
+    key: e.id,
+    title: e.label + badge,
+    sub: `rustorio:${e.id} · ${count}`,
+    search: `${e.label} ${e.id}`,
+    thumb: icon(status === "orphaned" ? "alert" : "flask", 16),
   };
 }
 
 function renderKindsList() {
-  renderList("kinds", state.kinds, kindRowInfo, selectKind);
+  state.kindsIndex = computeKindUsageIndex();
+  renderList("kinds", state.kindsIndex, kindRowInfo, selectKindEntry);
 }
 
-function selectKind(k) {
-  fillKind(k);
-  document.getElementById("kinds-form-title").textContent = `Edit "${k.path}"`;
+function renderUsageList(elementId, rows, describe, onOpen) {
+  const el = document.getElementById(elementId);
+  el.innerHTML = "";
+  if (rows.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "— none —";
+    el.appendChild(li);
+    return;
+  }
+  for (const row of rows) {
+    const li = document.createElement("li");
+    li.textContent = describe(row);
+    li.addEventListener("click", () => onOpen(row));
+    el.appendChild(li);
+  }
+}
+
+function renderKindUsagePanel(e) {
+  document.getElementById("kinds-usage-panel").classList.remove("hidden");
+  renderUsageList("kind-usage-buildings", e.buildings,
+      (b) => `${labelText(b.label)} (${b.path})${b.path === e.id ? " — own pool" : " — shares this pool"}`,
+      (b) => { switchToTab("buildings"); selectBuilding(b); });
+  renderUsageList("kind-usage-recipes", e.recipes,
+      (r) => `${r.file} — ${r.ingredients.join(" + ")} → ${r.output}`,
+      (r) => { switchToTab("recipes"); selectRecipe(r); });
+  const outputPaths = [...new Set(e.recipes.map((r) => r.output))];
+  const outputItems = outputPaths.map((path) => state.items.find((i) => i.path === path)).filter(Boolean);
+  renderUsageList("kind-usage-items", outputItems,
+      (item) => labelText(item.label),
+      (item) => { switchToTab("items"); selectItem(item); });
+}
+
+function hideKindUsagePanel() {
+  document.getElementById("kinds-usage-panel").classList.add("hidden");
+}
+
+function selectKindEntry(e) {
+  state.selected.kinds = e.id;
   formError("kinds", "");
-  state.selected.kinds = k.path;
   clearDirty("kinds");
+  const status = kindEntryStatus(e);
+  const form = document.getElementById("kinds-form");
+  const info = document.getElementById("kinds-implicit-info");
+  const jsonToggleBtn = document.querySelector('[data-view-toggle="kinds"]');
+  const jsonEl = document.getElementById("kinds-json");
+  if (status === "declared") {
+    fillKind(e.declared);
+    document.getElementById("kinds-form-title").textContent = `Edit "${e.id}"`;
+    form.classList.remove("hidden");
+    info.classList.add("hidden");
+    jsonToggleBtn.classList.remove("hidden");
+  } else {
+    document.getElementById("kinds-form-title").textContent = `"${e.id}"`;
+    form.classList.add("hidden");
+    info.classList.remove("hidden");
+    // No file backs an implicit/orphaned entry — there's no JSON body to show or edit for it.
+    jsonToggleBtn.classList.add("hidden");
+    jsonToggleBtn.classList.remove("active");
+    state.jsonMode.kinds = false;
+    jsonEl.classList.add("hidden");
+    info.classList.toggle("warn", status === "orphaned");
+    const goto = document.getElementById("kinds-implicit-goto-building");
+    if (status === "owned") {
+      const owner = e.buildings.find((b) => b.path === e.id);
+      document.getElementById("kinds-implicit-text").textContent =
+          `This isn't a declared Kind — it's the "${labelText(owner.label)}" building's own default recipe pool, named after the building itself. There's no separate file to edit: rename the building on the Buildings tab if you need to change this id, or click below to declare it as a real Kind instead (only needed if another building should start sharing this same pool).`;
+      goto.textContent = "Edit the building →";
+      goto.classList.remove("hidden");
+      goto.onclick = () => { switchToTab("buildings"); selectBuilding(owner); };
+    } else {
+      document.getElementById("kinds-implicit-text").textContent =
+          `Nothing actually provides this pool — no declared Kind and no building whose own id is "${e.id}", yet ${e.recipes.length + e.buildings.length} entr${e.recipes.length + e.buildings.length === 1 ? "y" : "ies"} below still point at it. This is a broken reference (a typo, or something that got renamed/deleted) — Validate will refuse to load it as-is. Repoint the entries below, or declare a Kind named "${e.id}" to make the reference real.`;
+      goto.classList.add("hidden");
+    }
+  }
+  renderKindUsagePanel(e);
   renderKindsList();
 }
 
@@ -904,6 +1022,10 @@ document.querySelector('[data-new="kinds"]').addEventListener("click", () => {
   formError("kinds", "");
   state.selected.kinds = null;
   clearDirty("kinds");
+  document.getElementById("kinds-form").classList.remove("hidden");
+  document.getElementById("kinds-implicit-info").classList.add("hidden");
+  document.querySelector('[data-view-toggle="kinds"]').classList.remove("hidden");
+  hideKindUsagePanel();
   renderKindsList();
 });
 
@@ -917,15 +1039,29 @@ document.getElementById("kinds-form").addEventListener("submit", async (e) => {
     return;
   }
   try {
-    if (state.selected.kinds) {
-      await api("PUT", `/api/kinds/${state.selected.kinds}`, body);
+    const oldKey = state.selected.kinds;
+    // Renaming a declared kind's path doesn't touch any file that still points at the OLD id — the
+    // API has no way to know those references exist. Warn before orphaning them; same reasoning as
+    // the delete confirm below.
+    if (oldKey && body.path !== oldKey) {
+      const current = (state.kindsIndex || []).find((k) => k.id === oldKey);
+      const usageCount = current ? current.buildings.length + current.recipes.length : 0;
+      if (usageCount > 0) {
+        const proceed = await confirmModal("Rename this kind?",
+            `${usageCount} building/recipe entr${usageCount === 1 ? "y" : "ies"} still point at "${oldKey}". They will NOT be updated automatically and will fail to load until repointed to "${body.path}". Rename anyway?`);
+        if (!proceed) return;
+      }
+    }
+    if (oldKey) {
+      await api("PUT", `/api/kinds/${oldKey}`, body);
     } else {
       await api("POST", "/api/kinds", body);
     }
     formError("kinds", "");
     toast(`Saved "${body.path}"`);
     await loadAll();
-    selectKind(body);
+    const saved = (state.kindsIndex || []).find((k) => k.id === body.path);
+    if (saved) selectKindEntry(saved);
   } catch (err) {
     formError("kinds", err.message);
     toast(err.message, true);
@@ -935,7 +1071,12 @@ document.getElementById("kinds-form").addEventListener("submit", async (e) => {
 document.querySelector('[data-delete="kinds"]').addEventListener("click", async () => {
   const key = state.selected.kinds;
   if (!key) return;
-  if (!(await confirmModal("Delete kind?", `"${key}" will be removed permanently. Any recipe/building still pointing at it will fail to load until repointed.`))) return;
+  const current = (state.kindsIndex || []).find((k) => k.id === key);
+  const usageCount = current ? current.buildings.length + current.recipes.length : 0;
+  const usageWarning = usageCount > 0
+      ? ` ${usageCount} building/recipe entr${usageCount === 1 ? "y" : "ies"} currently point at it and will fail to load until repointed.`
+      : " Nothing currently points at it, so this is safe.";
+  if (!(await confirmModal("Delete kind?", `"${key}" will be removed permanently.${usageWarning}`))) return;
   try {
     await api("DELETE", `/api/kinds/${key}`);
     toast(`Deleted "${key}"`);
@@ -944,6 +1085,10 @@ document.querySelector('[data-delete="kinds"]').addEventListener("click", async 
     document.getElementById("kinds-form-title").textContent = "New kind";
     state.selected.kinds = null;
     clearDirty("kinds");
+    document.getElementById("kinds-form").classList.remove("hidden");
+    document.getElementById("kinds-implicit-info").classList.add("hidden");
+    document.querySelector('[data-view-toggle="kinds"]').classList.remove("hidden");
+    hideKindUsagePanel();
     renderKindsList();
   } catch (err) {
     formError("kinds", err.message);
@@ -1049,7 +1194,7 @@ globalSearchInput.addEventListener("input", () => {
     { kind: "items", label: "Items", entries: state.items.filter((i) => `${labelText(i.label)} ${i.path}`.toLowerCase().includes(q)), info: itemRowInfo, select: selectItem },
     { kind: "recipes", label: "Recipes", entries: state.recipes.filter((r) => `${r.file} ${r.output}`.toLowerCase().includes(q)), info: recipeRowInfo, select: selectRecipe },
     { kind: "buildings", label: "Buildings", entries: state.buildings.filter((b) => `${labelText(b.label)} ${b.path}`.toLowerCase().includes(q)), info: buildingRowInfo, select: selectBuilding },
-    { kind: "kinds", label: "Kinds", entries: state.kinds.filter((k) => `${labelText(k.label)} ${k.path}`.toLowerCase().includes(q)), info: kindRowInfo, select: selectKind },
+    { kind: "kinds", label: "Kinds", entries: (state.kindsIndex || []).filter((k) => `${k.label} ${k.id}`.toLowerCase().includes(q)), info: kindRowInfo, select: selectKindEntry },
   ];
   searchResultsEl.innerHTML = "";
   let any = false;
@@ -1119,7 +1264,18 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     const tab = activeTab();
     if (tab === "textures") return;
-    document.getElementById(`${tab}-form`).requestSubmit();
+    const form = document.getElementById(`${tab}-form`);
+    // requestSubmit() runs native constraint validation first — if a `required` field (e.g. the
+    // recipe kind <select>) is blank while the form itself is hidden (JSON mode has it swapped
+    // out for the textarea), Chrome can't focus it to show the native error and just silently
+    // drops the submit ("An invalid form control ... is not focusable", no feedback to the user).
+    // The JSON textarea is the actual source of truth in that mode (see currentBody()), so skip
+    // native validation entirely and dispatch the submit event directly.
+    if (state.jsonMode[tab]) {
+      form.dispatchEvent(new Event("submit", { cancelable: true }));
+    } else {
+      form.requestSubmit();
+    }
   }
 });
 

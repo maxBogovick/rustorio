@@ -1,1 +1,1 @@
-{ "ingredients": ["gear", "mechanism"], "output": "engine", "time": 12, "kind": "PRESS" }
+{ "ingredients": ["gear", "mechanism"], "output": "engine", "time": 12, "kind": "press" }

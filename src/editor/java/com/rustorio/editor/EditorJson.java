@@ -90,4 +90,27 @@ final class EditorJson {
         }
         return value.asInt();
     }
+
+    /**
+     * Unlike {@link #requireText}, accepts what a label field is actually allowed to hold: a plain
+     * string, OR a localized {@code {en,ru,...}} object (what every vanilla item/building file
+     * already carries, and what {@code JsonNodes.requireLocalizedText} reads on the engine side).
+     * {@code requireText} rejected the object form outright, which meant saving any vanilla
+     * content with a translated label through the editor 400'd unconditionally.
+     */
+    static void requireLabel(ObjectNode node, String field) {
+        JsonNode value = node.get(field);
+        if (value != null && value.isTextual() && !value.asText().isBlank()) {
+            return;
+        }
+        if (value != null && value.isObject()) {
+            for (JsonNode entry : value) {
+                if (entry.isTextual() && !entry.asText().isBlank()) {
+                    return;
+                }
+            }
+        }
+        throw new ApiException(400, "'" + field + "' must be a non-blank string or a localized "
+                + "{en,ru,...} object with at least one non-blank value");
+    }
 }

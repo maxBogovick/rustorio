@@ -1,1 +1,1 @@
-{ "ingredients": ["bronze_ore"], "output": "bronze_plate", "time": 5, "kind": "FURNACE" }
+{ "ingredients": ["bronze_ore"], "output": "bronze_plate", "time": 5, "kind": "furnace" }
