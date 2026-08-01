@@ -21,6 +21,14 @@ import java.util.Map;
  * the exact mechanism {@code com.examplemod.ExampleMod} already proved for its "steel press" in
  * Phases 5-6, here driven by JSON instead of a Java literal. Genuinely NEW behavior stays a code
  * mod's job, never this loader's — it never constructs a {@code Building} itself, only data.
+ *
+ * <p>Two more optional fields make a {@code Furnace}-archetype building (FURNACE/PRESS/ASSEMBLER)
+ * fully self-contained with no Java at all: {@code "kind"} (bare/namespaced, same convention as
+ * {@code "cost".item} below) names this building's own recipe pool — defaults to its own {@code
+ * id} when omitted, a PRIVATE pool no other building shares unless it explicitly names the same
+ * one — and {@code "fuel"} (an item reference, same resolution) names what it burns as fuel, or is
+ * simply omitted for none. See {@link BuildingPrototype}'s own javadoc for {@code recipeKind}/
+ * {@code fuelItem}.
  */
 final class BuildingJsonLoader {
 
@@ -56,17 +64,42 @@ final class BuildingJsonLoader {
             int bufferMax = root.has("bufferMax") ? JsonNodes.requireInt(root, "bufferMax", file) : 0;
             int speedMultiplier = root.has("speedMultiplier") ? JsonNodes.requireInt(root, "speedMultiplier", file) : 1;
             boolean acceptsSpeedEffects = JsonNodes.optionalBoolean(root, "acceptsSpeedEffects", false);
+            // Private pool by default (this building's own id) — see the class javadoc.
+            ContentId recipeKind = root.has("kind") ? resolveKind(JsonNodes.requireText(root, "kind", file), modId) : id;
+            ItemType fuelItem = root.has("fuel") ? resolveItem(JsonNodes.requireText(root, "fuel", file), modId, context, file) : null;
 
             context.buildings().register(id, new BuildingPrototype(id, label, new BuildingCost(costItem, costAmount),
                     placement, texture, footprintWidth, footprintHeight, bufferMax, speedMultiplier, acceptsSpeedEffects,
-                    archetypePrototype.behavior(), archetypePrototype.restoreBehavior(), archetypePrototype.codec()));
+                    archetypePrototype.behavior(), archetypePrototype.restoreBehavior(), archetypePrototype.codec(),
+                    recipeKind, fuelItem));
         }
     }
 
     private static ItemType resolveItem(String ref, ModId modId, RegistrationContext context, Path file) {
-        ContentId id = ref.indexOf(':') >= 0 ? ContentId.of(ref) : new ContentId(modId.value(), ref);
+        ContentId id = resolveRef(ref, modId);
         return context.items().peek(id).orElseThrow(() -> new ModLoadException(file + ": item '" + id
                 + "' referenced by this building's cost is not registered"));
+    }
+
+    /** Bare path (resolved in the CURRENT mod's own namespace) or a full {@code "namespace:path"} — the same convention every content reference in this loader follows. */
+    private static ContentId resolveRef(String ref, ModId modId) {
+        return ref.indexOf(':') >= 0 ? ContentId.of(ref) : new ContentId(modId.value(), ref);
+    }
+
+    /**
+     * A {@code "kind"} value is either one of the 12 {@link BuildingType} names (opts this
+     * building into that kind's own shared vanilla pool — {@code ContentId} segments are lowercase
+     * only, so {@code "PRESS"} would otherwise fail {@link #resolveRef} outright) or a
+     * bare/namespaced reference, exactly mirroring {@code RecipeJsonLoader.resolveKind} — the two
+     * MUST agree, since a recipe's own {@code "kind"} is resolved the identical way.
+     */
+    private static ContentId resolveKind(String text, ModId modId) {
+        for (BuildingType type : BuildingType.values()) {
+            if (type.name().equals(text)) {
+                return type.contentId();
+            }
+        }
+        return resolveRef(text, modId);
     }
 
     private static BuildingType parseArchetype(String text, Path file) {

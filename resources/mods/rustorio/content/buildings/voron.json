@@ -2,6 +2,7 @@
   "path" : "voron",
   "label" : "Vorona",
   "archetype" : "FURNACE",
+  "fuel" : "coal",
   "cost" : {
     "item" : "coal",
     "amount" : 1

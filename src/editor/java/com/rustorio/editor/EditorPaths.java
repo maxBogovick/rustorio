@@ -17,6 +17,7 @@ final class EditorPaths {
     static final Path ITEMS_DIR = MOD_DIR.resolve("content").resolve("items");
     static final Path RECIPES_DIR = MOD_DIR.resolve("content").resolve("recipes");
     static final Path BUILDINGS_DIR = MOD_DIR.resolve("content").resolve("buildings");
+    static final Path KINDS_DIR = MOD_DIR.resolve("content").resolve("kinds");
     static final Path TEXTURES_DIR = MOD_DIR.resolve("textures");
     static final Path FRONTEND_ROOT = Path.of("resources", "editor");
 

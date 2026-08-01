@@ -43,6 +43,7 @@ class ModdedFurnaceAcceptanceTest {
                 new BuildingCost(VanillaItems.IRON_PLATE, 20),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN,
                 VanillaSprites.FURNACE_COLD,
+                1, 1,
                 10, // buffer — double the vanilla PRESS's 5
                 2, // speed multiplier — twice as fast
                 true,
@@ -53,7 +54,10 @@ class ModdedFurnaceAcceptanceTest {
                 },
                 // Same Codec instance the vanilla PRESS prototype uses — FurnaceState's shape
                 // doesn't depend on which prototype governs it, only on the archetype (Furnace).
-                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.PRESS)).codec());
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.PRESS)).codec(),
+                // The triple-input recipe below is tagged BuildingType.PRESS's own shared kind —
+                // this prototype must search that SAME pool, not its own private default.
+                VanillaBuildings.idFor(BuildingType.PRESS), null);
 
         Recipe tripleInput = new Recipe(
                 List.of(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.GEAR),

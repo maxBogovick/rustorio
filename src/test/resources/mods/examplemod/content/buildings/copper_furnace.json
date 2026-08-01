@@ -2,6 +2,8 @@
   "path": "copper_furnace",
   "label": "Copper Furnace",
   "archetype": "FURNACE",
+  "kind": "FURNACE",
+  "fuel": "rustorio:coal",
   "cost": { "item": "rustorio:iron_plate", "amount": 5 },
   "placement": "NEEDS_PASSABLE_TERRAIN",
   "texture": "rustorio:furnace_cold",

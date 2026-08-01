@@ -27,6 +27,7 @@ public final class EditorMain {
 
         server.createContext("/api/items", new JsonCrudHandler(EditorPaths.ITEMS_DIR, "/api/items", Validators::item));
         server.createContext("/api/buildings", new JsonCrudHandler(EditorPaths.BUILDINGS_DIR, "/api/buildings", Validators::building));
+        server.createContext("/api/kinds", new JsonCrudHandler(EditorPaths.KINDS_DIR, "/api/kinds", Validators::kind));
         server.createContext("/api/recipes", new RecipesHandler());
         server.createContext("/api/textures", new TexturesHandler());
         server.createContext("/api/validate", new ValidateHandler());

@@ -1,12 +1,17 @@
 package com.rustorio.domain;
 
+import com.rustorio.api.content.ContentId;
 import java.util.List;
 
 /**
- * A furnace/press recipe: what goes in, what comes out, how long it takes, and which {@link
- * BuildingType} role runs it. Pure data — see {@link RecipeBook} for the registry that furnaces
- * search through (Open/Closed principle: a new recipe is a new constant there, never a change to
- * {@code Furnace} itself).
+ * A furnace/press recipe: what goes in, what comes out, how long it takes, and which "kind" runs
+ * it — the {@link ContentId} a {@code Furnace}-archetype building's own governing pool is keyed
+ * by ({@code BuildingPrototype#recipeKind()}), NOT necessarily one of the 12 {@link BuildingType}
+ * constants: a JSON-defined custom archetype names its own, private pool (defaults to its own
+ * prototype id) so its recipes never collide or go ambiguous against the vanilla FURNACE/PRESS/
+ * ASSEMBLER pools, or another mod's. Pure data — see {@link RecipeBook} for the registry that
+ * furnaces search through (Open/Closed principle: a new recipe is a new constant there, never a
+ * change to {@code Furnace} itself).
  *
  * <p>{@code ingredients} — one or more, order-significant only for display (recipe book text) and
  * {@code Furnace}'s own tie-break when two ingredients happen to be the identical item (see that
@@ -15,7 +20,7 @@ import java.util.List;
  * "abstraction for a future that isn't this card's job" the project's own design checklist warns
  * against — a real need for {@code 2x IRON_PLATE} can add one later, as a genuine requirement.
  */
-public record Recipe(List<ItemType> ingredients, ItemType output, int time, BuildingType type) {
+public record Recipe(List<ItemType> ingredients, ItemType output, int time, ContentId type) {
 
     public Recipe {
         if (ingredients.isEmpty()) {
@@ -24,13 +29,18 @@ public record Recipe(List<ItemType> ingredients, ItemType output, int time, Buil
         ingredients = List.copyOf(ingredients);
     }
 
-    /** Single-ingredient recipe — most recipes need only one input. */
+    /** Single-ingredient recipe in one of the 12 vanilla kinds' own SHARED pool — most vanilla recipes need only one input. */
     public Recipe(ItemType input, ItemType output, int time, BuildingType type) {
-        this(List.of(input), output, time, type);
+        this(List.of(input), output, time, type.contentId());
     }
 
-    /** Two-ingredient recipe — e.g. {@code ENGINE} (a {@code GEAR} and a {@code MECHANISM}). */
+    /** Two-ingredient recipe in one of the 12 vanilla kinds' own SHARED pool — e.g. {@code ENGINE} (a {@code GEAR} and a {@code MECHANISM}). */
     public Recipe(ItemType input, ItemType input2, ItemType output, int time, BuildingType type) {
-        this(List.of(input, input2), output, time, type);
+        this(List.of(input, input2), output, time, type.contentId());
+    }
+
+    /** Arbitrary-length-ingredient-list recipe in one of the 12 vanilla kinds' own SHARED pool — a test fixture's three-plus-ingredient recipe, say. */
+    public Recipe(List<ItemType> ingredients, ItemType output, int time, BuildingType type) {
+        this(ingredients, output, time, type.contentId());
     }
 }

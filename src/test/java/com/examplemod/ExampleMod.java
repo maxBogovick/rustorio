@@ -44,6 +44,7 @@ final class ExampleMod {
                 new BuildingCost(VanillaItems.IRON_PLATE, 20),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN,
                 VanillaSprites.FURNACE_COLD,
+                1, 1,
                 10, // buffer — double the vanilla PRESS's 5
                 2, // speed multiplier — twice as fast
                 true,
@@ -54,7 +55,11 @@ final class ExampleMod {
                 },
                 // Same Codec the vanilla PRESS prototype uses — FurnaceState's shape doesn't depend
                 // on which prototype governs it, only on the archetype (Furnace) reused here.
-                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.PRESS)).codec()));
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.PRESS)).codec(),
+                // Explicitly opts INTO the shared vanilla PRESS recipe pool (this fixture's whole
+                // point is "same recipes, different tuning") rather than the private-pool default
+                // a bare id would otherwise get — see BuildingPrototype's own javadoc.
+                VanillaBuildings.idFor(BuildingType.PRESS), null));
         prototypes.register(CONVEYOR_ID, new BuildingPrototype(
                 CONVEYOR_ID,
                 "Conveyor",

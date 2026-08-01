@@ -4,6 +4,7 @@ import com.rustorio.api.mod.RegistrationContext;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
+import com.rustorio.domain.RecipeKind;
 import com.rustorio.domain.building.BuildingPrototype;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +19,7 @@ final class GameRegistrationContext implements RegistrationContext {
 
     private final Registry<ItemType> items = new Registry<>();
     private final Registry<BuildingPrototype> buildings = new Registry<>();
+    private final Registry<RecipeKind> kinds = new Registry<>();
     private final List<Recipe> recipes = new ArrayList<>();
 
     @Override
@@ -28,6 +30,11 @@ final class GameRegistrationContext implements RegistrationContext {
     @Override
     public Registry<BuildingPrototype> buildings() {
         return buildings;
+    }
+
+    @Override
+    public Registry<RecipeKind> kinds() {
+        return kinds;
     }
 
     @Override

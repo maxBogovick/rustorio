@@ -9,14 +9,15 @@ import java.util.Arrays;
 import java.util.Set;
 
 /**
- * Per-field shape checks for the two "self-named" content kinds (items, buildings — both carry
- * their own {@code path}) — cheap, immediate feedback in the editor UI. These deliberately reuse
- * the SAME enums the real loaders ({@code com.rustorio.mod.ItemJsonLoader}/{@code
+ * Per-field shape checks for the three "self-named" content kinds (items, buildings, kinds — all
+ * carry their own {@code path}) — cheap, immediate feedback in the editor UI. These deliberately
+ * reuse the SAME enums the real loaders ({@code com.rustorio.mod.ItemJsonLoader}/{@code
  * BuildingJsonLoader}) switch on ({@link ItemShape}, {@link BuildingType}), so the editor can never
  * accept a value the game would then reject — but they're not a full substitute for it: {@link
  * ValidateHandler} runs the actual {@code ModLoader.loadAll} before any relaunch, which is the only
  * check that also catches cross-file problems (a building's cost item that doesn't exist, a recipe
- * conflict) these per-field checks can't see in isolation.
+ * or building naming a kind that doesn't actually exist) these per-field checks can't see in
+ * isolation.
  */
 final class Validators {
 
@@ -76,11 +77,20 @@ final class Validators {
         }
         EditorJson.requireText(body, "output");
         EditorJson.requireInt(body, "time");
-        String kind = EditorJson.requireText(body, "kind");
-        if (!isValidEnum(BuildingType.class, kind)) {
-            throw new ApiException(400, "unknown kind \"" + kind + "\" (expected one of "
-                    + Arrays.toString(BuildingType.values()) + ")");
-        }
+        // "kind" — one of the 12 BuildingType names, a registered RecipeKind's own path, or a
+        // building's own path (RecipeJsonLoader.resolveKind resolves all three the same way). The
+        // FRONTEND only ever offers a real one of these (a <select>, not free text — see
+        // renderKindSelectOptions in app.js), so a per-field check here would just duplicate that;
+        // whether the chosen value actually still exists is a cross-file question this editor
+        // defers to ValidateHandler's real ModLoader.loadAll pass (ModLoader#validateContent) for,
+        // same as every other content reference.
+        EditorJson.requireText(body, "kind");
+    }
+
+    static void kind(ObjectNode body) {
+        String path = EditorJson.requireText(body, "path");
+        validateContentIdPath(path);
+        EditorJson.requireText(body, "label");
     }
 
     private static void validateContentIdPath(String path) {

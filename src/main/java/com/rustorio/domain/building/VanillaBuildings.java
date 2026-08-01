@@ -10,8 +10,8 @@ import com.rustorio.domain.VanillaSprites;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The game's own built-in building prototypes — one per {@link BuildingType} constant, matching
@@ -253,11 +253,15 @@ public final class VanillaBuildings {
 
     /**
      * {@code BuildingType}'s constant name, lowercased, under the {@code rustorio} namespace — the
-     * one place this conversion happens, so {@link #registerAll} and any later lookup (a future
-     * card) always agree on the same id instead of each retyping the convention independently.
+     * one place callers ask for this conversion, so {@link #registerAll} and any later lookup (a
+     * future card) always agree on the same id instead of each retyping the convention
+     * independently. Delegates to {@link BuildingType#contentId()} — the actual formula lives
+     * there now, not here, since {@code com.rustorio.domain.Recipe}/{@code RecipeBook} need the
+     * same conversion but {@code com.rustorio.domain} may not depend on this package (see that
+     * method's own javadoc).
      */
     public static ContentId idFor(BuildingType type) {
-        return new ContentId("rustorio", type.name().toLowerCase(Locale.ROOT));
+        return type.contentId();
     }
 
     /** The canonical, already-frozen registry backing every building's default data. */
@@ -295,7 +299,7 @@ public final class VanillaBuildings {
                 },
                 CHEST_CODEC);
         registerFurnaceLike(prototypes, BuildingType.FURNACE, new BuildingCost(VanillaItems.IRON_PLATE, 5),
-                VanillaSprites.FURNACE_COLD, 5, 1);
+                VanillaSprites.FURNACE_COLD, 5, 1, VanillaItems.COAL);
         register(prototypes, BuildingType.BELT, new BuildingCost(VanillaItems.IRON_PLATE, 1),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.BELT_EMPTY, false,
                 (self, direction, factory) -> new Belt(direction, self),
@@ -313,7 +317,7 @@ public final class VanillaBuildings {
                 },
                 SPLITTER_CODEC);
         registerFurnaceLike(prototypes, BuildingType.PRESS, new BuildingCost(VanillaItems.IRON_PLATE, 8),
-                VanillaSprites.FURNACE_COLD, 5, 1);
+                VanillaSprites.FURNACE_COLD, 5, 1, null);
         register(prototypes, BuildingType.UNDERGROUND_IN, new BuildingCost(VanillaItems.IRON_PLATE, 2),
                 PlacementRule.ALWAYS, VanillaSprites.UNDERGROUND_IN, false,
                 (self, direction, factory) -> new UndergroundBelt(UndergroundBelt.Kind.IN, direction, self),
@@ -357,7 +361,7 @@ public final class VanillaBuildings {
                 },
                 INSERTER_CODEC);
         registerFurnaceLike(prototypes, BuildingType.ASSEMBLER, new BuildingCost(VanillaItems.GEAR, 15),
-                VanillaSprites.ASSEMBLER, 5, 1);
+                VanillaSprites.ASSEMBLER, 5, 1, null);
     }
 
     private static Registry<BuildingPrototype> buildFrozen() {
@@ -367,12 +371,12 @@ public final class VanillaBuildings {
         return prototypes;
     }
 
-    /** Every non-{@link Furnace} archetype: {@code bufferMax}/{@code speedMultiplier} are meaningless to it, registered as {@code 0}/{@code 1}. */
+    /** Every non-{@link Furnace} archetype: {@code bufferMax}/{@code speedMultiplier} are meaningless to it, registered as {@code 0}/{@code 1}, no fuel. */
     private static void register(Registry<BuildingPrototype> prototypes, BuildingType type,
             BuildingCost cost, PlacementRule placementRule, ContentId texture, boolean acceptsSpeedEffects,
             BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec) {
         register(prototypes, type, cost, placementRule, texture, 0, 1, acceptsSpeedEffects, behavior,
-                restoreBehavior, codec);
+                restoreBehavior, codec, null);
     }
 
     /**
@@ -384,26 +388,31 @@ public final class VanillaBuildings {
      * {@code prototypeId} already resolves to exactly one of these three registrations before this
      * lambda ever runs, so which one is running already IS the kind). {@link #FURNACE_CODEC},
      * unlike the restore behavior, genuinely IS shared across all three — the encoded shape is
-     * identical regardless of kind.
+     * identical regardless of kind. {@code fuelItem} is {@link VanillaItems#COAL} for FURNACE only,
+     * {@code null} for PRESS/ASSEMBLER (D-05, DEV_TASKS.md) — see {@link BuildingPrototype}'s own
+     * javadoc for why this is data on the prototype now, not a {@code kind == FURNACE} check inside
+     * {@link Furnace} itself. {@code recipeKind} is left at its default (the prototype's own {@code
+     * id}) — exactly {@code idFor(type)}, the shared pool these three vanilla kinds have always had.
      */
     private static void registerFurnaceLike(Registry<BuildingPrototype> prototypes, BuildingType type,
-            BuildingCost cost, ContentId texture, int bufferMax, int speedMultiplier) {
+            BuildingCost cost, ContentId texture, int bufferMax, int speedMultiplier, @Nullable ItemType fuelItem) {
         register(prototypes, type, cost, PlacementRule.NEEDS_PASSABLE_TERRAIN, texture, bufferMax, speedMultiplier, true,
                 (self, direction, factory) -> new Furnace(type, direction, factory.recipeBook(), self),
                 (self, decodedState, factory) -> {
                     FurnaceState state = (FurnaceState) decodedState;
                     return new Furnace(type, state, factory.recipeBook(), self);
                 },
-                FURNACE_CODEC);
+                FURNACE_CODEC, fuelItem);
     }
 
-    /** {@code label}/{@code footprintWidth}/{@code footprintHeight} come from {@code type} itself — the single source of truth for every vanilla prototype's data, not retyped here. */
+    /** {@code label}/{@code footprintWidth}/{@code footprintHeight} come from {@code type} itself — the single source of truth for every vanilla prototype's data, not retyped here. {@code recipeKind} defaults to the prototype's own {@code id} (see {@link BuildingPrototype}'s own convenience constructor) — the shared pool every vanilla kind has always had, since each is registered under its own {@code idFor(type)}. */
     private static void register(Registry<BuildingPrototype> prototypes, BuildingType type,
             BuildingCost cost, PlacementRule placementRule, ContentId texture, int bufferMax, int speedMultiplier,
-            boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec) {
+            boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec,
+            @Nullable ItemType fuelItem) {
         ContentId id = idFor(type);
         prototypes.register(id, new BuildingPrototype(id, type.label(), cost, placementRule, texture,
                 type.footprintWidth(), type.footprintHeight(), bufferMax, speedMultiplier,
-                acceptsSpeedEffects, behavior, restoreBehavior, codec));
+                acceptsSpeedEffects, behavior, restoreBehavior, codec, id, fuelItem));
     }
 }

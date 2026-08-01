@@ -37,14 +37,26 @@ import org.jspecify.annotations.Nullable;
  * one recipe matches; an ambiguous item is refused (not consumed, not guessed at) until the player
  * calls {@link #cycleRecipe} to say which one they want.
  *
- * <p><b>Owner decision (D-05, DEV_TASKS.md):</b> only the {@code FURNACE} kind burns {@link
- * VanillaItems#COAL} — a {@code PRESS} is mechanical stamping, not a heat process, so it has no physical
- * reason to need fuel (§2.3 of the design audit only ever talks about smelting, and the card's own
- * acceptance criterion says "печь", furnace specifically, not press). {@link #fuelBuffer} is
- * deliberately independent of {@link #bufferA}/{@code bufferB}: fuel isn't a recipe ingredient (no
- * {@link Recipe} lists {@code COAL} as an input), it's a separate precondition {@link #tick} checks
- * before a {@code FURNACE} may even start a batch — the same "hold until delivered" discipline, one
- * more gate.
+ * <p><b>Owner decision (D-05, DEV_TASKS.md):</b> originally only the vanilla {@code FURNACE} kind
+ * burned {@link VanillaItems#COAL} — a {@code PRESS} is mechanical stamping, not a heat process, so
+ * it has no physical reason to need fuel (§2.3 of the design audit only ever talks about smelting).
+ * That's now data, not a hardcoded kind check: {@link BuildingPrototype#fuelItem()} names which
+ * item (if any) THIS prototype burns — {@code COAL} for vanilla FURNACE, {@code null} (no fuel
+ * requirement at all) for vanilla PRESS/ASSEMBLER, and whatever a JSON-defined custom archetype
+ * asks for (see {@code BuildingJsonLoader}'s {@code "fuel"} field) — no Java needed to pick a
+ * different fuel item, or none. {@link #fuelBuffer} is deliberately independent of the recipe's own
+ * ingredient buffers: fuel is never itself a recipe ingredient (whatever item is named as fuel is
+ * always intercepted before recipe-matching even runs — see {@link #accept}), it's a separate
+ * precondition {@link #tick} checks before a batch may even start — the same "hold until
+ * delivered" discipline, one more gate.
+ *
+ * <p>{@link BuildingPrototype#recipeKind()} is the other new prototype-driven knob (same feature):
+ * which pool of {@link Recipe}s this furnace searches — defaults to the prototype's own {@link
+ * BuildingPrototype#id()} (private, collision-free by construction) rather than always the shared
+ * vanilla FURNACE/PRESS/ASSEMBLER pool a {@code kind} implied before. {@link #kind} itself
+ * (the {@code BuildingType}) still only decides which of the three Java-level flavors this
+ * instance reports via {@link #type()} and the {@code ASSEMBLER} single-sprite branch in {@link
+ * #appearance()} — it no longer has anything to do with fuel or which recipes are reachable.
  */
 public final class Furnace implements Building, RecipeSelectable {
 
@@ -77,7 +89,7 @@ public final class Furnace implements Building, RecipeSelectable {
      * Persisted since F-03, DEV_TASKS.md (see {@link #state()}) — it used to not be.
      */
     private @Nullable Recipe selectedRecipe;
-    /** Coal on hand, {@code FURNACE} kind only — see the class javadoc's D-05 note. Always 0 and unused for {@code PRESS}. */
+    /** How much of {@link BuildingPrototype#fuelItem()} is on hand — see the class javadoc's D-05 note. Always 0 and unused for a fuel-less prototype (vanilla PRESS/ASSEMBLER, or a custom archetype that skips {@code "fuel"}). */
     private int fuelBuffer;
     /**
      * A finished batch waiting for a downstream neighbor to accept it — independent of {@link
@@ -128,7 +140,9 @@ public final class Furnace implements Building, RecipeSelectable {
         this.fuelBuffer = state.fuelBuffer();
         ItemType recipeOutput = state.recipeOutput();
         if (recipeOutput != null) {
-            Recipe recipe = recipeBook.findByOutput(kind, recipeOutput)
+            // prototype.recipeKind(), not kind: a restored custom prototype's own private pool
+            // isn't necessarily the shared vanilla FURNACE/PRESS/ASSEMBLER one kind alone names.
+            Recipe recipe = recipeBook.findByOutput(prototype.recipeKind(), recipeOutput)
                     .orElseThrow(() -> new IllegalStateException("Unknown recipe output: " + recipeOutput));
             // A non-positive cooldown means "no countdown was recorded", NOT "this batch is done"
             // (N10, NEW_BUGS_PROGRESS.md): ProcessTimer decrements before testing, so a timer
@@ -142,15 +156,18 @@ public final class Furnace implements Building, RecipeSelectable {
         this.pendingOutput = state.pendingOutput();
         ItemType selectedOutput = state.selectedRecipeOutput();
         if (selectedOutput != null) {
-            this.selectedRecipe = recipeBook.findByOutput(kind, selectedOutput)
+            this.selectedRecipe = recipeBook.findByOutput(prototype.recipeKind(), selectedOutput)
                     .orElseThrow(() -> new IllegalStateException("Unknown recipe output: " + selectedOutput));
         }
     }
 
     @Override
     public boolean accept(TickContext world, ItemType item) {
-        if (item.equals(VanillaItems.COAL)) {
-            if (kind != BuildingType.FURNACE || fuelBuffer >= FUEL_MAX) {
+        // item.equals(null) is a safe false (records never equal null) — a fuel-less prototype
+        // simply never intercepts anything here, every item falls straight through to recipe
+        // matching below, exactly like PRESS/ASSEMBLER always did.
+        if (item.equals(prototype.fuelItem())) {
+            if (fuelBuffer >= FUEL_MAX) {
                 return false;
             }
             fuelBuffer++;
@@ -196,7 +213,7 @@ public final class Furnace implements Building, RecipeSelectable {
      * player hasn't picked.
      */
     private @Nullable Recipe pickRecipe(ItemType item) {
-        List<Recipe> candidates = recipeBook.findAll(kind, item);
+        List<Recipe> candidates = recipeBook.findAll(prototype.recipeKind(), item);
         if (selectedRecipe != null && candidates.contains(selectedRecipe)) {
             return selectedRecipe;
         }
@@ -204,14 +221,14 @@ public final class Furnace implements Building, RecipeSelectable {
     }
 
     /**
-     * Advance {@link #selectedRecipe} to the next candidate for this furnace's {@link #kind}
-     * (wrapping back to "no preference"). The player's remedy for an ambiguous item {@link
-     * #accept} just refused — see the class javadoc's P2-02 note.
+     * Advance {@link #selectedRecipe} to the next candidate in this prototype's own {@link
+     * BuildingPrototype#recipeKind()} pool (wrapping back to "no preference"). The player's remedy
+     * for an ambiguous item {@link #accept} just refused — see the class javadoc's P2-02 note.
      *
      * @return the newly selected recipe's output, or empty for "no preference"
      */
     public Optional<ItemType> cycleRecipe() {
-        List<Recipe> options = recipeBook.forKind(kind);
+        List<Recipe> options = recipeBook.forKind(prototype.recipeKind());
         int next = selectedRecipe == null ? 0 : options.indexOf(selectedRecipe) + 1;
         selectedRecipe = next < options.size() ? options.get(next) : null;
         return Optional.ofNullable(selectedRecipe).map(Recipe::output);
@@ -228,7 +245,7 @@ public final class Furnace implements Building, RecipeSelectable {
     public void selectRecipe(Recipe recipe) {
         if (!possibleRecipes().contains(recipe)) {
             throw new IllegalArgumentException(
-                    "Recipe " + recipe + " is not one this " + kind + " can run");
+                    "Recipe " + recipe + " is not one this prototype's own kind (" + prototype.recipeKind() + ") can run");
         }
         selectedRecipe = recipe;
     }
@@ -263,9 +280,11 @@ public final class Furnace implements Building, RecipeSelectable {
                 status = BuildingStatus.NO_INPUT;
                 return;
             }
-            // FURNACE needs coal on hand to even start a batch (D-05, DEV_TASKS.md); PRESS has no
-            // fuel concept at all, so this is trivially true for it — see the class javadoc.
-            boolean fuelReady = kind != BuildingType.FURNACE || fuelBuffer > 0;
+            // A prototype with a fuelItem needs some on hand to even start a batch (D-05,
+            // DEV_TASKS.md); one without (vanilla PRESS/ASSEMBLER, or a fuel-less custom
+            // archetype) has no fuel concept at all, so this is trivially true for it — see the
+            // class javadoc.
+            boolean fuelReady = prototype.fuelItem() == null || fuelBuffer > 0;
             if (!fuelReady) {
                 status = BuildingStatus.NO_FUEL;
                 return;
@@ -289,7 +308,7 @@ public final class Furnace implements Building, RecipeSelectable {
             for (int i = 0; i < buffers.length; i++) {
                 buffers[i]--;
             }
-            if (kind == BuildingType.FURNACE) {
+            if (prototype.fuelItem() != null) {
                 fuelBuffer--;
             }
             pendingOutput = recipe.output();
@@ -391,10 +410,10 @@ public final class Furnace implements Building, RecipeSelectable {
         return Optional.ofNullable(selectedRecipe);
     }
 
-    /** Every recipe this furnace's {@link #kind} can run at all — "what could this produce" when nothing is committed yet. */
+    /** Every recipe this furnace's own {@link BuildingPrototype#recipeKind()} pool can run at all — "what could this produce" when nothing is committed yet. */
     @Override
     public List<Recipe> possibleRecipes() {
-        return recipeBook.forKind(kind);
+        return recipeBook.forKind(prototype.recipeKind());
     }
 
     @Override
@@ -513,7 +532,7 @@ public final class Furnace implements Building, RecipeSelectable {
                 speedLevel);
     }
 
-    /** Coal on hand — {@code FURNACE} kind only; always 0 for {@code PRESS}. For the inspection panel (F-03), later. */
+    /** How much of {@link BuildingPrototype#fuelItem()} is on hand — always 0 for a fuel-less prototype. For the inspection panel (F-03), later. */
     public int fuelBuffer() {
         return fuelBuffer;
     }

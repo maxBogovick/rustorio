@@ -630,8 +630,12 @@ class FurnaceTest {
 
         BuildingPrototype vanilla = VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.FURNACE));
         BuildingPrototype steelFurnace = new BuildingPrototype(
-                vanilla.id(), vanilla.label(), vanilla.cost(), vanilla.placementRule(), vanilla.texture(), 10, 2, true,
-                vanilla.behavior(), vanilla.restoreBehavior(), vanilla.codec());
+                vanilla.id(), vanilla.label(), vanilla.cost(), vanilla.placementRule(), vanilla.texture(), 1, 1, 10, 2, true,
+                vanilla.behavior(), vanilla.restoreBehavior(), vanilla.codec(),
+                // Same id as vanilla.id() (the default anyway) plus the vanilla FURNACE's own fuel
+                // item — this fixture reuses the shared FURNACE pool and still needs COAL, unlike
+                // the 11-arg convenience constructor's fuel-less default.
+                vanilla.id(), VanillaItems.COAL);
         Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES, steelFurnace);
         assertTrue(furnace.accept(world, VanillaItems.COAL));
 

@@ -1,5 +1,6 @@
 package com.rustorio.domain;
 
+import com.rustorio.api.content.ContentId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +68,11 @@ public final class RecipeBook {
             Recipe a = this.recipes.get(i);
             for (int j = i + 1; j < this.recipes.size(); j++) {
                 Recipe b = this.recipes.get(j);
-                if (a.type() == b.type() && sameIngredients(a, b)) {
+                // .equals(), not == — a.type()/b.type() is a ContentId now (a plain record, not an
+                // enum constant): two logically-identical ids built from separate call sites (e.g.
+                // one from BuildingType.contentId(), one parsed fresh off JSON) are equal but NOT
+                // the same reference, so == would silently miss a real collision.
+                if (a.type().equals(b.type()) && sameIngredients(a, b)) {
                     throw new IllegalArgumentException(
                             "Two " + a.type() + " recipes share the exact same ingredients: " + a + " and " + b);
                 }
@@ -98,10 +103,15 @@ public final class RecipeBook {
     }
 
     /** Recipe for {@code kind} that accepts {@code input} as its first or second ingredient. */
-    public Optional<Recipe> find(BuildingType kind, ItemType input) {
+    public Optional<Recipe> find(ContentId kind, ItemType input) {
         return recipes.stream()
-                .filter(r -> r.type() == kind && r.ingredients().contains(input))
+                .filter(r -> r.type().equals(kind) && r.ingredients().contains(input))
                 .findFirst();
+    }
+
+    /** Convenience for one of the 12 vanilla kinds' own shared pool — see {@link #find(ContentId, ItemType)}. */
+    public Optional<Recipe> find(BuildingType kind, ItemType input) {
+        return find(kind.contentId(), input);
     }
 
     /**
@@ -110,15 +120,25 @@ public final class RecipeBook {
      * and {@code CHASSIS}). {@code Furnace.accept} uses the size of this list to tell "obvious"
      * from "needs the player to pick" — see P2-02 in BUG_FIX_PROGRESS.md.
      */
-    public List<Recipe> findAll(BuildingType kind, ItemType input) {
+    public List<Recipe> findAll(ContentId kind, ItemType input) {
         return recipes.stream()
-                .filter(r -> r.type() == kind && r.ingredients().contains(input))
+                .filter(r -> r.type().equals(kind) && r.ingredients().contains(input))
                 .toList();
     }
 
+    /** Convenience for one of the 12 vanilla kinds' own shared pool — see {@link #findAll(ContentId, ItemType)}. */
+    public List<Recipe> findAll(BuildingType kind, ItemType input) {
+        return findAll(kind.contentId(), input);
+    }
+
     /** Every recipe {@code kind} can run — the candidates {@code Furnace.cycleRecipe} cycles through. */
+    public List<Recipe> forKind(ContentId kind) {
+        return recipes.stream().filter(r -> r.type().equals(kind)).toList();
+    }
+
+    /** Convenience for one of the 12 vanilla kinds' own shared pool — see {@link #forKind(ContentId)}. */
     public List<Recipe> forKind(BuildingType kind) {
-        return recipes.stream().filter(r -> r.type() == kind).toList();
+        return forKind(kind.contentId());
     }
 
     /**
@@ -126,8 +146,13 @@ public final class RecipeBook {
      * furnace that already committed to a recipe: a saved dual-input recipe's input is ambiguous
      * (which of the two arrived first?), but within one {@code kind} the output is always unique.
      */
+    public Optional<Recipe> findByOutput(ContentId kind, ItemType output) {
+        return recipes.stream().filter(r -> r.type().equals(kind) && r.output().equals(output)).findFirst();
+    }
+
+    /** Convenience for one of the 12 vanilla kinds' own shared pool — see {@link #findByOutput(ContentId, ItemType)}. */
     public Optional<Recipe> findByOutput(BuildingType kind, ItemType output) {
-        return recipes.stream().filter(r -> r.type() == kind && r.output().equals(output)).findFirst();
+        return findByOutput(kind.contentId(), output);
     }
 
     /**

@@ -8,16 +8,16 @@ import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 
 /**
  * Reads {@code content/recipes/*.json}: {@code ingredients} (array), {@code output}, {@code time},
- * {@code kind} (an existing {@link BuildingType} constant — a recipe still names one of the fixed
- * machine kinds rather than an arbitrary mod-defined one, since {@code Recipe}/{@code Furnace}
- * dispatch on that enum, not on a registered prototype id). Item references ({@code
- * ingredients}/{@code output}) are either a bare path (resolved in the CURRENT mod's own namespace)
- * or a full {@code "namespace:path"} (any other mod's item, including vanilla's).
+ * {@code kind} — either one of the 12 {@link BuildingType} names (the recipe joins that kind's own
+ * SHARED vanilla pool) or a bare/namespaced reference (same resolution as {@code ingredients}/
+ * {@code output} below) matching some building's own {@code BuildingPrototype#recipeKind()} — the
+ * private pool a {@code Furnace}-archetype building defaults to using its own id for (see {@code
+ * BuildingJsonLoader}'s {@code "kind"} field) — so a custom archetype's recipes never collide or go
+ * ambiguous against the vanilla pools, or another mod's, purely from JSON — no Java required.
  */
 final class RecipeJsonLoader {
 
@@ -30,7 +30,7 @@ final class RecipeJsonLoader {
             List<String> ingredientRefs = JsonNodes.requireTextArray(root, "ingredients", file);
             String outputRef = JsonNodes.requireText(root, "output", file);
             int time = JsonNodes.requireInt(root, "time", file);
-            BuildingType kind = parseKind(JsonNodes.requireText(root, "kind", file), file);
+            ContentId kind = resolveKind(JsonNodes.requireText(root, "kind", file), modId);
 
             List<ItemType> ingredients = ingredientRefs.stream()
                     .map(ref -> resolveItem(ref, modId, context.items(), file))
@@ -47,12 +47,21 @@ final class RecipeJsonLoader {
                 + "earlier-loaded dependency — before this recipe file is read)"));
     }
 
-    private static BuildingType parseKind(String text, Path file) {
-        try {
-            return BuildingType.valueOf(text);
-        } catch (IllegalArgumentException e) {
-            throw new ModLoadException(file + ": unknown 'kind' \"" + text + "\" (expected one of "
-                    + Arrays.toString(BuildingType.values()) + ")");
+    /**
+     * A {@link BuildingType} name resolves to that kind's own shared vanilla pool (unchanged
+     * behavior for every existing recipe file); anything else is a bare/namespaced reference to a
+     * building's own custom {@code recipeKind} — same bare-path-in-this-mod's-own-namespace
+     * convention {@link #resolveItem} already uses, deliberately NOT validated against a live
+     * registry here (unlike an item reference): a "kind" is just an identifier, not itself a
+     * registered thing, so there's nothing to look up — an unmatched custom kind simply means no
+     * building currently claims it, which is a legitimate (if useless) state, not an error.
+     */
+    private static ContentId resolveKind(String text, ModId modId) {
+        for (BuildingType type : BuildingType.values()) {
+            if (type.name().equals(text)) {
+                return type.contentId();
+            }
         }
+        return text.indexOf(':') >= 0 ? ContentId.of(text) : new ContentId(modId.value(), text);
     }
 }

@@ -5,6 +5,8 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.rustorio.api.content.ContentId;
+import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeBook;
@@ -110,6 +112,22 @@ final class RecipeBookRenderer {
     private static String describe(Recipe recipe) {
         String inputs = recipe.ingredients().stream().map(ItemType::label).collect(Collectors.joining(" + "));
         return inputs + "  ->  " + recipe.output().label()
-                + "   (" + recipe.type().label() + ", " + recipe.time() + " ticks)";
+                + "   (" + kindLabel(recipe.type()) + ", " + recipe.time() + " ticks)";
+    }
+
+    /**
+     * A recipe's {@code type()} is an open {@link ContentId} now (a JSON-defined custom archetype
+     * names its own, private one — see {@link Recipe}'s own javadoc), not always one of the 12
+     * vanilla {@link BuildingType} constants that has a nice display {@code label()}. Reverse-looks
+     * up a matching vanilla constant for the common case; falls back to the bare {@code path} (a
+     * custom kind's own name, e.g. {@code "voron"}) when none matches.
+     */
+    private static String kindLabel(ContentId kind) {
+        for (BuildingType type : BuildingType.values()) {
+            if (type.contentId().equals(kind)) {
+                return type.label();
+            }
+        }
+        return kind.path();
     }
 }

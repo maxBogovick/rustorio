@@ -69,15 +69,18 @@ const state = {
   items: [],
   recipes: [],
   buildings: [],
+  kinds: [],
   textures: { vanilla: [], mod: [] },
-  selected: { items: null, recipes: null, buildings: null },
-  dirty: { items: false, recipes: false, buildings: false },
-  jsonMode: { items: false, recipes: false, buildings: false },
+  selected: { items: null, recipes: null, buildings: null, kinds: null },
+  dirty: { items: false, recipes: false, buildings: false, kinds: false },
+  jsonMode: { items: false, recipes: false, buildings: false, kinds: false },
 };
 
 let recipeIngredients = [];
 let recipeOutput = null;
 let buildingCostItem = null;
+/** The building's own "Fuel item" picker state — null means no fuel requirement at all (the field is genuinely optional, unlike Cost). */
+let buildingFuelItem = null;
 
 function textureAssetUrl(id) {
   const all = [...state.textures.vanilla, ...state.textures.mod];
@@ -101,19 +104,22 @@ function labelText(label) {
 }
 
 async function loadAll() {
-  const [items, recipes, buildings, textures] = await Promise.all([
+  const [items, recipes, buildings, kinds, textures] = await Promise.all([
     api("GET", "/api/items"),
     api("GET", "/api/recipes"),
     api("GET", "/api/buildings"),
+    api("GET", "/api/kinds"),
     api("GET", "/api/textures"),
   ]);
   state.items = items;
   state.recipes = recipes;
   state.buildings = buildings;
+  state.kinds = kinds;
   state.textures = textures;
   renderItemsList();
   renderRecipesList();
   renderBuildingsList();
+  renderKindsList();
   renderTextureGrids();
   refreshContentStatus();
 
@@ -126,6 +132,62 @@ async function loadAll() {
   renderRecipeIngredientsUI();
   renderRecipeOutputUI();
   renderBuildingCostUI();
+  renderBuildingFuelUI();
+  renderKindSelectOptions();
+  updateBuildingRecipeFieldsVisibility();
+}
+
+/**
+ * Populates BOTH kind <select> fields (a recipe's own "Made in", a building's own "Recipe kind")
+ * from things that PROVABLY exist right now — every registered building's own path (its default
+ * private-pool kind, per BuildingJsonLoader) and every declared entry on the Kinds tab — nothing
+ * hardcoded or free-typed, so neither field can ever hold a value that doesn't resolve to
+ * something real (the whole point — see ModLoader#validateContent for the same guarantee enforced
+ * server-side too, for content edited outside this UI).
+ *
+ * <p>Deliberately does NOT also list the vanilla BuildingType names ("FURNACE" etc.) as separate
+ * options: resources/mods/rustorio/content/buildings/furnace.json (etc.) already exists and IS
+ * exactly that same pool under its own real (lowercase) path — a second, differently-spelled
+ * option resolving to the identical id would just be confusing.
+ */
+// Mirrors RecipeJsonLoader#resolveKind / BuildingJsonLoader#resolveKind (Java): an UPPERCASE
+// BuildingType name is a legacy shortcut for that vanilla building's own id (e.g. "PRESS" resolves
+// to rustorio:press, same ContentId as the lowercase path "press"). All of gear.json/alloy_gear.json
+// /etc still store this uppercase form. Without normalizing it, the <select> below has no matching
+// option, so opening one of these recipes shows an unselected dropdown — and saving without
+// deliberately re-picking a value would silently write kind: "" over a working recipe.
+const LEGACY_ARCHETYPE_KIND_NAMES = new Set([
+  "MINER", "CHEST", "FURNACE", "BELT", "SPLITTER", "PRESS",
+  "UNDERGROUND_IN", "UNDERGROUND_OUT", "LAB", "FILTER", "INSERTER", "ASSEMBLER",
+]);
+function normalizeLegacyKind(rawKind) {
+  return LEGACY_ARCHETYPE_KIND_NAMES.has(rawKind) ? rawKind.toLowerCase() : rawKind;
+}
+
+function renderKindSelectOptions() {
+  const options = [
+    ...state.buildings.map((b) => ({ value: b.path, text: `${b.path} (building)` })),
+    ...state.kinds.map((k) => ({ value: k.path, text: `${k.path} (kind)` })),
+  ].sort((a, b) => a.value.localeCompare(b.value));
+
+  const recipeSelect = document.getElementById("recipe-kind-select");
+  const previousRecipeValue = recipeSelect.value;
+  recipeSelect.innerHTML = options.map((o) => `<option value="${o.value}">${o.text}</option>`).join("");
+  recipeSelect.value = previousRecipeValue;
+
+  const buildingSelect = document.getElementById("building-kind-select");
+  const previousBuildingValue = buildingSelect.value;
+  buildingSelect.innerHTML = '<option value="">— private (this building\'s own id) —</option>'
+      + options.map((o) => `<option value="${o.value}">${o.text}</option>`).join("");
+  buildingSelect.value = previousBuildingValue;
+}
+
+/** FURNACE/PRESS/ASSEMBLER are the only archetypes {@code Furnace} (java) reads Recipe kind/Fuel item from — hide that whole field group for every other archetype so it isn't noise. */
+const RECIPE_ARCHETYPES = new Set(["FURNACE", "PRESS", "ASSEMBLER"]);
+
+function updateBuildingRecipeFieldsVisibility() {
+  const archetype = document.getElementById("buildings-form").archetype.value;
+  document.getElementById("building-recipe-fields").classList.toggle("hidden", !RECIPE_ARCHETYPES.has(archetype));
 }
 
 /* ============================================================
@@ -135,6 +197,7 @@ async function loadAll() {
 document.getElementById("nav-items").innerHTML = `${icon("box")}<span>Items</span><span class="count" id="count-items">0</span>`;
 document.getElementById("nav-recipes").innerHTML = `${icon("flask")}<span>Recipes</span><span class="count" id="count-recipes">0</span>`;
 document.getElementById("nav-buildings").innerHTML = `${icon("factory")}<span>Buildings</span><span class="count" id="count-buildings">0</span>`;
+document.getElementById("nav-kinds").innerHTML = `${icon("tag")}<span>Kinds</span><span class="count" id="count-kinds">0</span>`;
 document.getElementById("nav-textures").innerHTML = `${icon("image")}<span>Textures</span><span class="count" id="count-textures">0</span>`;
 document.getElementById("topbar-search-icon").innerHTML = icon("search", 15);
 document.querySelectorAll(".mini-search-icon").forEach((el) => (el.innerHTML = icon("search", 14)));
@@ -160,6 +223,14 @@ function activeTab() {
 function switchToTab(tab) {
   document.querySelector(`.nav-item[data-tab="${tab}"]`).click();
 }
+
+// The "Kinds tab" links inside the Recipes/Buildings forms' explanatory .field-hint text.
+document.querySelectorAll("[data-goto-tab]").forEach((link) => {
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    switchToTab(link.dataset.gotoTab);
+  });
+});
 
 /* ============================================================
    generic list rendering
@@ -199,6 +270,7 @@ function emptyMessage(kind) {
     items: "No items yet — click + New item to add the game's first custom item.",
     recipes: "No recipes yet — add ingredients and an output above.",
     buildings: "No buildings yet — every one reuses an existing archetype's behavior.",
+    kinds: "No declared kinds yet — most buildings don't need one (see the hint above).",
   }[kind];
 }
 
@@ -505,7 +577,11 @@ function fillRecipe(body) {
   recipeOutput = body.output || null;
   document.getElementById("recipe-output-value").value = recipeOutput || "";
   f.time.value = body.time || 5;
-  f.kind.value = body.kind || "FURNACE";
+  // No hardcoded fallback (the old free-text field defaulted to the literal string "FURNACE") —
+  // the <select>'s own options are the only valid values now; an empty/unmatched body.kind just
+  // leaves nothing selected. normalizeLegacyKind handles the one common legacy case (uppercase
+  // archetype-name shortcuts already used by the shipped vanilla recipes).
+  f.kind.value = normalizeLegacyKind(body.kind || "");
   renderRecipeIngredientsUI();
   renderRecipeOutputUI();
 }
@@ -607,6 +683,26 @@ function renderBuildingCostUI() {
   });
 }
 
+function renderBuildingFuelUI() {
+  const picker = document.getElementById("building-fuel-picker");
+  renderItemOptionsInto(picker, buildingFuelItem ? [buildingFuelItem] : []);
+  picker.querySelectorAll(".option").forEach((opt) => {
+    opt.addEventListener("click", () => {
+      buildingFuelItem = opt.dataset.path;
+      document.getElementById("building-fuel-value").value = buildingFuelItem;
+      markDirty("buildings");
+      renderBuildingFuelUI();
+    });
+  });
+}
+
+document.getElementById("building-fuel-clear").addEventListener("click", () => {
+  buildingFuelItem = null;
+  document.getElementById("building-fuel-value").value = "";
+  markDirty("buildings");
+  renderBuildingFuelUI();
+});
+
 function renderBuildingTexturePicker() {
   const picker = document.getElementById("building-texture-picker");
   picker.innerHTML = "";
@@ -646,10 +742,16 @@ function collectBuilding() {
   const label = editingBuildingLabel && typeof editingBuildingLabel === "object" && typed === labelText(editingBuildingLabel)
       ? editingBuildingLabel
       : typed;
+  // kind/fuel are genuinely optional — an empty string / null becomes `undefined` here so
+  // JSON.stringify drops the key entirely (matching "omitted" in the saved JSON file), instead of
+  // writing an empty string BuildingJsonLoader would then have to special-case.
+  const kind = f.kind.value.trim();
   return {
     path: f.path.value.trim(),
     label,
     archetype: f.archetype.value,
+    kind: kind || undefined,
+    fuel: buildingFuelItem || undefined,
     cost: { item: buildingCostItem, amount: Number(f.costAmount.value) },
     placement: f.placement.value,
     texture: document.getElementById("building-texture-value").value,
@@ -668,6 +770,9 @@ function fillBuilding(b) {
   f.path.value = b.path || "";
   f.label.value = labelText(b.label);
   f.archetype.value = b.archetype || "CHEST";
+  f.kind.value = normalizeLegacyKind(b.kind || "");
+  buildingFuelItem = b.fuel || null;
+  document.getElementById("building-fuel-value").value = buildingFuelItem || "";
   f.placement.value = b.placement || "ALWAYS";
   buildingCostItem = (b.cost && b.cost.item) || null;
   f.costAmount.value = (b.cost && b.cost.amount) || 1;
@@ -678,8 +783,10 @@ function fillBuilding(b) {
   f.speedMultiplier.value = b.speedMultiplier || 1;
   f.acceptsSpeedEffects.checked = !!b.acceptsSpeedEffects;
   renderBuildingCostUI();
+  renderBuildingFuelUI();
   renderBuildingTexturePicker();
   updateBuildingGlyphPreview();
+  updateBuildingRecipeFieldsVisibility();
 }
 fillers.buildings = fillBuilding;
 
@@ -738,10 +845,114 @@ document.querySelector('[data-delete="buildings"]').addEventListener("click", as
 
 wireDirtyTracking("buildings", document.getElementById("buildings-form"));
 wireJsonToggle("buildings");
+document.getElementById("buildings-form").archetype.addEventListener("change", updateBuildingRecipeFieldsVisibility);
 
 function formError(kind, message) {
   document.getElementById(`${kind}-form-error`).textContent = message || "";
 }
+
+/* ================= KINDS ================= */
+
+function kindRowInfo(k) {
+  const label = labelText(k.label);
+  return {
+    key: k.path,
+    title: label,
+    sub: `rustorio:${k.path}`,
+    search: `${label} ${k.path}`,
+    thumb: icon("flask", 16),
+  };
+}
+
+function renderKindsList() {
+  renderList("kinds", state.kinds, kindRowInfo, selectKind);
+}
+
+function selectKind(k) {
+  fillKind(k);
+  document.getElementById("kinds-form-title").textContent = `Edit "${k.path}"`;
+  formError("kinds", "");
+  state.selected.kinds = k.path;
+  clearDirty("kinds");
+  renderKindsList();
+}
+
+// Same "don't clobber a localized label the player never touched" reasoning as editingItemLabel.
+let editingKindLabel;
+
+function collectKind() {
+  const f = document.getElementById("kinds-form");
+  const typed = f.label.value.trim();
+  const label = editingKindLabel && typeof editingKindLabel === "object" && typed === labelText(editingKindLabel)
+      ? editingKindLabel
+      : typed;
+  return { path: f.path.value.trim(), label };
+}
+collectors.kinds = collectKind;
+
+function fillKind(body) {
+  const f = document.getElementById("kinds-form");
+  editingKindLabel = body.label;
+  f.path.value = body.path || "";
+  f.label.value = labelText(body.label);
+}
+fillers.kinds = fillKind;
+
+document.querySelector('[data-new="kinds"]').addEventListener("click", () => {
+  fillKind({});
+  document.getElementById("kinds-form-title").textContent = "New kind";
+  formError("kinds", "");
+  state.selected.kinds = null;
+  clearDirty("kinds");
+  renderKindsList();
+});
+
+document.getElementById("kinds-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  let body;
+  try {
+    body = currentBody("kinds");
+  } catch (err) {
+    formError("kinds", `Invalid JSON: ${err.message}`);
+    return;
+  }
+  try {
+    if (state.selected.kinds) {
+      await api("PUT", `/api/kinds/${state.selected.kinds}`, body);
+    } else {
+      await api("POST", "/api/kinds", body);
+    }
+    formError("kinds", "");
+    toast(`Saved "${body.path}"`);
+    await loadAll();
+    selectKind(body);
+  } catch (err) {
+    formError("kinds", err.message);
+    toast(err.message, true);
+  }
+});
+
+document.querySelector('[data-delete="kinds"]').addEventListener("click", async () => {
+  const key = state.selected.kinds;
+  if (!key) return;
+  if (!(await confirmModal("Delete kind?", `"${key}" will be removed permanently. Any recipe/building still pointing at it will fail to load until repointed.`))) return;
+  try {
+    await api("DELETE", `/api/kinds/${key}`);
+    toast(`Deleted "${key}"`);
+    await loadAll();
+    fillKind({});
+    document.getElementById("kinds-form-title").textContent = "New kind";
+    state.selected.kinds = null;
+    clearDirty("kinds");
+    renderKindsList();
+  } catch (err) {
+    formError("kinds", err.message);
+    toast(err.message, true);
+  }
+});
+
+wireDirtyTracking("kinds", document.getElementById("kinds-form"));
+wireJsonToggle("kinds");
 
 /* ================= TEXTURES ================= */
 
@@ -838,6 +1049,7 @@ globalSearchInput.addEventListener("input", () => {
     { kind: "items", label: "Items", entries: state.items.filter((i) => `${labelText(i.label)} ${i.path}`.toLowerCase().includes(q)), info: itemRowInfo, select: selectItem },
     { kind: "recipes", label: "Recipes", entries: state.recipes.filter((r) => `${r.file} ${r.output}`.toLowerCase().includes(q)), info: recipeRowInfo, select: selectRecipe },
     { kind: "buildings", label: "Buildings", entries: state.buildings.filter((b) => `${labelText(b.label)} ${b.path}`.toLowerCase().includes(q)), info: buildingRowInfo, select: selectBuilding },
+    { kind: "kinds", label: "Kinds", entries: state.kinds.filter((k) => `${labelText(k.label)} ${k.path}`.toLowerCase().includes(q)), info: kindRowInfo, select: selectKind },
   ];
   searchResultsEl.innerHTML = "";
   let any = false;
@@ -873,11 +1085,12 @@ document.addEventListener("click", (e) => {
   if (!e.target.closest(".search-box")) searchResultsEl.classList.add("hidden");
 });
 
-Object.entries({ items: "filter-items", recipes: "filter-recipes", buildings: "filter-buildings" }).forEach(([kind, id]) => {
+Object.entries({ items: "filter-items", recipes: "filter-recipes", buildings: "filter-buildings", kinds: "filter-kinds" }).forEach(([kind, id]) => {
   document.getElementById(id).addEventListener("input", () => {
     if (kind === "items") renderItemsList();
     if (kind === "recipes") renderRecipesList();
     if (kind === "buildings") renderBuildingsList();
+    if (kind === "kinds") renderKindsList();
   });
 });
 

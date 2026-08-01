@@ -162,6 +162,7 @@ class BuildingFactoryTest {
                 new BuildingCost(VanillaItems.IRON_PLATE, 20),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN,
                 VanillaSprites.FURNACE_COLD,
+                1, 1,
                 10, // buffer — double the vanilla PRESS's 5
                 2, // speed multiplier — twice as fast
                 true,
@@ -170,7 +171,10 @@ class BuildingFactoryTest {
                     FurnaceState state = (FurnaceState) decodedState;
                     return new Furnace(BuildingType.PRESS, state, factory.recipeBook(), self);
                 },
-                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.PRESS)).codec());
+                VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.PRESS)).codec(),
+                // Opts into the shared vanilla PRESS recipe pool (this test feeds IRON_PLATE and
+                // expects the real vanilla GEAR recipe) instead of the private-pool default.
+                VanillaBuildings.idFor(BuildingType.PRESS), null);
         Registry<BuildingPrototype> prototypes = new Registry<>();
         VanillaBuildings.registerAll(prototypes);
         prototypes.register(STEEL_PRESS_ID, steelPress);

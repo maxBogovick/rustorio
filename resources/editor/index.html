@@ -21,6 +21,7 @@
       <button class="nav-item active" data-tab="items" id="nav-items"></button>
       <button class="nav-item" data-tab="recipes" id="nav-recipes"></button>
       <button class="nav-item" data-tab="buildings" id="nav-buildings"></button>
+      <button class="nav-item" data-tab="kinds" id="nav-kinds"></button>
       <button class="nav-item" data-tab="textures" id="nav-textures"></button>
     </nav>
     <div class="sidebar-footer" id="content-status">
@@ -124,13 +125,10 @@
           <div class="grid2">
             <label>Time (ticks)<input name="time" type="number" min="1" value="5"></label>
             <label>Made in (kind)
-              <select name="kind">
-                <option>FURNACE</option>
-                <option>ASSEMBLER</option>
-                <option>PRESS</option>
-              </select>
+              <select name="kind" id="recipe-kind-select" required></select>
             </label>
           </div>
+          <p class="field-hint">A recipe is only reachable by a building whose OWN "Recipe kind" (on the Buildings tab) matches this exact value — pools never mix by accident. Pick the specific building this recipe belongs to (its private pool), or a pre-declared entry from the <a href="#" data-goto-tab="kinds">Kinds tab</a> if several buildings are meant to share it.</p>
           <div class="form-error" id="recipes-form-error"></div>
           <div class="form-actions">
             <button type="submit" class="btn-primary">Save<kbd>&#8984;S</kbd></button>
@@ -184,6 +182,23 @@
             </label>
           </div>
 
+          <div class="hideable-group" id="building-recipe-fields">
+            <div class="grid2">
+              <label>Recipe kind
+                <select name="kind" id="building-kind-select"></select>
+              </label>
+            </div>
+            <p class="field-hint">Only read by the FURNACE/PRESS/ASSEMBLER archetypes (hidden above otherwise). Leave as "— private —" and this building gets its own isolated recipe pool automatically, with nothing else to set up. Only change this if you deliberately want it to SHARE recipes with another specific building or a <a href="#" data-goto-tab="kinds">declared Kind</a>.</p>
+            <div class="picker-field">
+              <span class="picker-label">Fuel item <span class="muted-inline">(optional — none if unset)</span></span>
+              <div class="cost-row">
+                <div class="chip-picker single" id="building-fuel-picker"></div>
+                <input type="hidden" name="fuel" id="building-fuel-value">
+                <button type="button" class="btn-ghost" id="building-fuel-clear">No fuel</button>
+              </div>
+            </div>
+          </div>
+
           <div class="picker-field">
             <span class="picker-label">Cost</span>
             <div class="cost-row">
@@ -221,6 +236,38 @@
           </div>
         </form>
         <textarea class="json-view hidden" id="buildings-json" spellcheck="false"></textarea>
+      </div>
+    </section>
+
+    <!-- KINDS -->
+    <section class="workspace" id="panel-kinds">
+      <div class="list-panel">
+        <div class="list-toolbar">
+          <div class="mini-search"><span class="mini-search-icon"></span><input placeholder="Filter kinds&hellip;" id="filter-kinds"></div>
+          <button class="icon-btn" data-new="kinds" title="New kind"></button>
+        </div>
+        <ul class="entry-list" id="kinds-list"></ul>
+        <div class="empty-state hidden" id="kinds-empty"></div>
+      </div>
+      <div class="detail-panel">
+        <div class="detail-header">
+          <h2 id="kinds-form-title">New kind</h2>
+          <div class="detail-header-actions">
+            <span class="dirty-flag hidden" id="kinds-dirty">unsaved</span>
+            <button type="button" class="view-toggle" data-view-toggle="kinds">JSON</button>
+          </div>
+        </div>
+        <p class="field-hint">A Kind is just a named recipe pool — declare one here ONLY if you want several different buildings to deliberately share the exact same set of recipes. Most buildings don't need this at all: leaving a building's own "Recipe kind" (Buildings tab) as "— private —" already gives it an isolated pool with zero setup. Once declared, this kind's own path shows up as a pickable option on both the Recipes and Buildings forms.</p>
+        <form id="kinds-form" class="detail-form">
+          <label>Path (id)<input name="path" required pattern="[a-z0-9_]+" placeholder="steel_smelting" autocomplete="off"></label>
+          <label>Label<input name="label" required placeholder="Steel Smelting" autocomplete="off"></label>
+          <div class="form-error" id="kinds-form-error"></div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Save<kbd>&#8984;S</kbd></button>
+            <button type="button" class="btn-danger" data-delete="kinds">Delete</button>
+          </div>
+        </form>
+        <textarea class="json-view hidden" id="kinds-json" spellcheck="false"></textarea>
       </div>
     </section>
 

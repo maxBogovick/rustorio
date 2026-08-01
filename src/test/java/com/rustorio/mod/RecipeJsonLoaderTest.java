@@ -39,7 +39,7 @@ class RecipeJsonLoaderTest {
         Recipe recipe = context.recipes().get(0);
         assertEquals(plateId, recipe.output().id());
         assertEquals(5, recipe.time());
-        assertEquals(BuildingType.FURNACE, recipe.type());
+        assertEquals(BuildingType.FURNACE.contentId(), recipe.type(), "a BuildingType name joins that kind's own shared vanilla pool");
     }
 
     @Test
@@ -71,18 +71,24 @@ class RecipeJsonLoaderTest {
         assertTrue(thrown.getMessage().contains("testmod:ghost_ore"));
     }
 
+    /**
+     * A "kind" that isn't one of the 12 {@link BuildingType} names is no longer an error — it's a
+     * custom archetype's own private recipe pool (a {@code BuildingJsonLoader}-configured
+     * building's own {@code "kind"} field resolves the SAME way), the whole point of this feature:
+     * a JSON-only mod names any pool it likes, with no Java and no fixed enum to pick from.
+     */
     @Test
-    void unknownKindNamesTheAllowedValues() throws IOException {
+    void customKindResolvesAsABareReferenceInThisModsOwnNamespace() throws IOException {
         GameRegistrationContext context = new GameRegistrationContext();
         ContentId item = ContentId.of("testmod:x");
         context.items().register(item, new ItemType(item, "X", false, 0, ItemShape.CIRCLE));
         write("weird.json", """
-                { "ingredients": ["x"], "output": "x", "time": 1, "kind": "REPLICATOR" }
+                { "ingredients": ["x"], "output": "x", "time": 1, "kind": "replicator" }
                 """);
 
-        ModLoadException thrown = assertThrows(ModLoadException.class,
-                () -> RecipeJsonLoader.loadInto(tempDir, modId, context));
-        assertTrue(thrown.getMessage().contains("MINER"));
+        RecipeJsonLoader.loadInto(tempDir, modId, context);
+
+        assertEquals(ContentId.of("testmod:replicator"), context.recipes().get(0).type());
     }
 
     private Path write(String fileName, String content) throws IOException {

@@ -1,6 +1,6 @@
 {
-  "ingredients" : [ "gear" ],
+  "ingredients" : [ "iron_plate" ],
   "output" : "banana_ore",
   "time" : 5,
-  "kind" : "FURNACE"
+  "kind" : "voron"
 }

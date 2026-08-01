@@ -3,6 +3,7 @@ package com.rustorio.domain.building;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.ItemType;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A building's data — everything about it that doesn't depend on which Java class implements its
@@ -44,10 +45,35 @@ import com.rustorio.domain.ItemType;
  * {@link Codec}'s own javadoc) — erased to {@code Codec<?>} here for the same reason {@code
  * behavior}/{@code restoreBehavior} are erased to their own building-agnostic interfaces rather
  * than parametrizing this whole record by an archetype type.
+ *
+ * <p>{@link #recipeKind}/{@link #fuelItem} are what let a JSON-defined building reusing a
+ * {@link Furnace}-archetype (FURNACE/PRESS/ASSEMBLER) get its own recipe pool and fuel rules with
+ * no Java at all: {@code recipeKind} is the open {@link ContentId} {@code RecipeBook.forKind}
+ * actually searches by (defaults to this prototype's own {@link #id} — private, so a new custom
+ * building never accidentally collides or goes ambiguous against the vanilla pools unless it
+ * explicitly names one of them, or another building's {@code recipeKind}, itself); {@code
+ * fuelItem} is which item (if any) {@link Furnace} burns as fuel rather than a recipe ingredient
+ * — {@code null} for none, same as PRESS/ASSEMBLER today, not hardcoded to {@code COAL} anymore.
  */
 public record BuildingPrototype(ContentId id, String label, BuildingCost cost, PlacementRule placementRule,
         ContentId texture, int footprintWidth, int footprintHeight, int bufferMax, int speedMultiplier,
-        boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec) {
+        boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec,
+        ContentId recipeKind, @Nullable ItemType fuelItem) {
+
+    /**
+     * Convenience for a prototype that doesn't need its OWN private recipe pool or a fuel item —
+     * {@link #recipeKind} defaults to this prototype's own {@link #id} (a private pool no other
+     * prototype shares unless it explicitly names the same one — see {@code BuildingJsonLoader}),
+     * {@link #fuelItem} to none. Every {@code Furnace}-archetype vanilla registration
+     * ({@code VanillaBuildings#registerFurnaceLike}) that DOES need to share a pool or burn fuel
+     * calls the full 15-arg canonical constructor directly instead.
+     */
+    public BuildingPrototype(ContentId id, String label, BuildingCost cost, PlacementRule placementRule,
+            ContentId texture, int footprintWidth, int footprintHeight, int bufferMax, int speedMultiplier,
+            boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec) {
+        this(id, label, cost, placementRule, texture, footprintWidth, footprintHeight, bufferMax, speedMultiplier,
+                acceptsSpeedEffects, behavior, restoreBehavior, codec, id, null);
+    }
 
     /** Convenience for the common 1×1 footprint — every archetype except {@code ASSEMBLER} today. */
     public BuildingPrototype(ContentId id, String label, BuildingCost cost, PlacementRule placementRule,

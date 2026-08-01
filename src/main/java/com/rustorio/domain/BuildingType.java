@@ -1,5 +1,8 @@
 package com.rustorio.domain;
 
+import com.rustorio.api.content.ContentId;
+import java.util.Locale;
+
 /**
  * The building kind a player can pick in the hotbar. Declaration order is hotbar order and
  * keyboard-shortcut order (1, 2, 3…).
@@ -49,5 +52,20 @@ public enum BuildingType {
     /** The height counterpart to {@link #footprintWidth} — see its javadoc. */
     public int footprintHeight() {
         return this == ASSEMBLER ? 2 : 1;
+    }
+
+    /**
+     * This constant's own name, lowercased, under the {@code rustorio} namespace — the same
+     * formula {@code com.rustorio.domain.building.VanillaBuildings#idFor} exposes to callers that
+     * already depend on that package, duplicated here (not called FROM there) because {@code
+     * com.rustorio.domain} is architecturally forbidden from depending on {@code
+     * com.rustorio.domain.building} at all ({@code PackageBoundaryRulesTest}) — {@code
+     * VanillaBuildings.idFor} delegates to THIS method instead, so the formula still has exactly
+     * one real implementation. Lets {@link Recipe}/{@code RecipeBook} (both in this package)
+     * convert a {@code BuildingType} to the open {@link ContentId} a recipe's governing "kind" is
+     * now keyed by, without a forbidden import.
+     */
+    public ContentId contentId() {
+        return new ContentId("rustorio", name().toLowerCase(Locale.ROOT));
     }
 }

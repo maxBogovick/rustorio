@@ -18,6 +18,7 @@ const ICON_PATHS = {
   code: '<path d="m8 6-6 6 6 6M16 6l6 6-6 6"/>',
   upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/>',
   loader: '<path d="M12 2v4M12 18v4M4.9 4.9l2.9 2.9M16.2 16.2l2.9 2.9M2 12h4M18 12h4M4.9 19.1l2.9-2.9M16.2 7.8l2.9-2.9"/>',
+  tag: '<path d="M20.6 12.6 12 21.2 2.8 12A2 2 0 0 1 2.2 10.6L3 4a1 1 0 0 1 1-1l6.6-.8A2 2 0 0 1 12 2.8l8.6 8.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
 };
 
 function icon(name, size = 18) {

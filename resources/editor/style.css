@@ -323,6 +323,10 @@ kbd {
   display: flex; align-items: flex-end; justify-content: flex-end; padding: 1px 2px 0 0; font-weight: 700;
 }
 
+/* Explanatory copy under a field/form — distinct from .muted-inline (single-line, monospace id-like text): this is prose, meant to actually be read. */
+.field-hint { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: -6px 0 4px; }
+.field-hint a { color: var(--accent-strong); }
+
 .form-error { color: var(--danger); font-size: 12.5px; white-space: pre-wrap; font-family: ui-monospace, monospace; line-height: 1.5; }
 .form-actions { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
 .btn-primary, .btn-danger, .btn-ghost {

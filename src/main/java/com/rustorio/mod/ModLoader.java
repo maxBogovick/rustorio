@@ -3,17 +3,21 @@ package com.rustorio.mod;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.mod.RustorioMod;
 import com.rustorio.api.registry.Registry;
+import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeBook;
+import com.rustorio.domain.RecipeKind;
 import com.rustorio.domain.building.BuildingPrototype;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * The mod loader's entry point: {@link #loadAll} turns a set of mod directories into a fully
@@ -56,8 +60,9 @@ public final class ModLoader {
 
         context.items().freeze();
         context.buildings().freeze();
+        context.kinds().freeze();
         RecipeBook recipeBook = buildRecipeBook(context.recipes());
-        validateContent(context.items(), context.buildings(), recipeBook);
+        validateContent(context.items(), context.buildings(), context.kinds(), recipeBook);
 
         SimpleEventBus events = new SimpleEventBus();
         for (ModDescriptor mod : loadOrder) {
@@ -67,7 +72,7 @@ public final class ModLoader {
             }
         }
 
-        return new LoadedGame(context.items(), context.buildings(), recipeBook, events);
+        return new LoadedGame(context.items(), context.buildings(), context.kinds(), recipeBook, events);
     }
 
     /**
@@ -116,15 +121,21 @@ public final class ModLoader {
     /**
      * Content-wide validation pass, run once at the end of loading: every recipe's
      * ingredients/output, and every building prototype's cost item, must resolve in the now-frozen
-     * item registry. Names the offending content id precisely; does NOT name which mod registered
-     * it — {@link Registry} carries no per-entry provenance, and adding one to attribute a handful
-     * of error messages is a bigger change than this narrow validation pass needs. JSON content
-     * ({@link ItemJsonLoader}/{@link RecipeJsonLoader}/{@link BuildingJsonLoader}) already validates
-     * its OWN references immediately, file-named, at load time — this pass exists for what THOSE
-     * can't catch: a code mod calling {@code addRecipe}/{@code buildings().register} directly with
-     * a reference nothing registered.
+     * item registry; every recipe's own pool and every building's own {@code recipeKind} must
+     * resolve to a REAL kind (see {@link #knownKinds}). Names the offending content id precisely;
+     * does NOT name which mod registered it — {@link Registry} carries no per-entry provenance, and
+     * adding one to attribute a handful of error messages is a bigger change than this narrow
+     * validation pass needs. JSON content ({@link ItemJsonLoader}/{@link RecipeJsonLoader}/{@link
+     * BuildingJsonLoader}/{@link RecipeKindJsonLoader}) already validates its OWN references
+     * immediately, file-named, at load time — this pass exists for what THOSE can't catch: a code
+     * mod calling {@code addRecipe}/{@code buildings().register} directly with a reference nothing
+     * registered, OR a reference that only resolves correctly once EVERY mod's content — kinds
+     * included — has finished loading (which is why kind checking couldn't live in {@code
+     * RecipeJsonLoader}/{@code BuildingJsonLoader} themselves; see those two's own {@code
+     * resolveKind} javadoc).
      */
-    private static void validateContent(Registry<ItemType> items, Registry<BuildingPrototype> buildings, RecipeBook recipes) {
+    private static void validateContent(Registry<ItemType> items, Registry<BuildingPrototype> buildings,
+            Registry<RecipeKind> kinds, RecipeBook recipes) {
         for (Recipe recipe : recipes.all()) {
             for (ItemType ingredient : recipe.ingredients()) {
                 requireRegistered(items, ingredient, "recipe ingredient");
@@ -134,6 +145,48 @@ public final class ModLoader {
         for (BuildingPrototype prototype : buildings.iterate()) {
             requireRegistered(items, prototype.cost().item(), "building '" + prototype.id() + "'s cost item");
         }
+
+        Set<ContentId> knownKinds = knownKinds(buildings, kinds);
+        for (Recipe recipe : recipes.all()) {
+            if (!knownKinds.contains(recipe.type())) {
+                throw new ModLoadException("recipe '" + recipe + "'s kind '" + recipe.type()
+                        + "' doesn't match any BuildingType, registered kind, or building id — check for a typo");
+            }
+        }
+        for (BuildingPrototype prototype : buildings.iterate()) {
+            if (!knownKinds.contains(prototype.recipeKind())) {
+                throw new ModLoadException("building '" + prototype.id() + "'s recipe kind '" + prototype.recipeKind()
+                        + "' doesn't match any BuildingType, registered kind, or building id — check for a typo");
+            }
+        }
+    }
+
+    /**
+     * Every {@link ContentId} a recipe or a building's own {@code recipeKind} is allowed to name:
+     * the 12 vanilla {@link BuildingType} pools (a defensive fallback for content built through
+     * {@code VanillaBuildings.frozen()}/{@code BuildingFactory.standard()} directly, which many
+     * tests still do, rather than through this JSON path), every explicitly-registered {@link
+     * RecipeKind}, and every building's own {@link BuildingPrototype#id()} — deliberately {@code
+     * id()}, NOT {@code recipeKind()}: checking a building's OWN {@code recipeKind()} against a set
+     * that already includes every building's {@code recipeKind()} would be tautological and let
+     * ANY typo through, defeating the entire point of this check (caught during design review —
+     * see the plan). A building's DEFAULT {@code recipeKind()} (nothing explicit in its own JSON)
+     * always equals its own {@code id()} by construction, so it's automatically valid here with no
+     * separate registration needed — only an EXPLICIT reference (a building or recipe opting into
+     * someone else's pool) is actually checked against real ids.
+     */
+    private static Set<ContentId> knownKinds(Registry<BuildingPrototype> buildings, Registry<RecipeKind> kinds) {
+        Set<ContentId> knownKinds = new HashSet<>();
+        for (BuildingType type : BuildingType.values()) {
+            knownKinds.add(type.contentId());
+        }
+        for (RecipeKind kind : kinds.iterate()) {
+            knownKinds.add(kind.id());
+        }
+        for (BuildingPrototype prototype : buildings.iterate()) {
+            knownKinds.add(prototype.id());
+        }
+        return knownKinds;
     }
 
     private static void requireRegistered(Registry<ItemType> items, ItemType item, String role) {

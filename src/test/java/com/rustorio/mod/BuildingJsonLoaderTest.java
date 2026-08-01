@@ -43,7 +43,7 @@ class BuildingJsonLoaderTest {
         GameRegistrationContext context = new GameRegistrationContext();
         VanillaItems.registerAll(context.items());
         write("steel_press.json", """
-                { "path": "steel_press", "label": "Steel Press", "archetype": "PRESS",
+                { "path": "steel_press", "label": "Steel Press", "archetype": "PRESS", "kind": "PRESS",
                   "cost": { "item": "rustorio:iron_plate", "amount": 20 },
                   "placement": "NEEDS_PASSABLE_TERRAIN", "texture": "rustorio:furnace_cold",
                   "bufferMax": 10, "speedMultiplier": 2, "acceptsSpeedEffects": true }
