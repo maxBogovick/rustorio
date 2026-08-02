@@ -334,6 +334,12 @@ kbd {
 /* Explanatory copy under a field/form — distinct from .muted-inline (single-line, monospace id-like text): this is prose, meant to actually be read. */
 .field-hint { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: -6px 0 4px; }
 .field-hint a { color: var(--accent-strong); }
+/* Replaces a single dense multi-sentence paragraph (nobody reads five run-on sentences above a
+   toolbar) with one short line plus an info button that carries the full shortcut list as a native
+   hover tooltip — the detail is still there, just not blocking the view by default. */
+.map-hint-row { display: flex; align-items: center; gap: 10px; margin: -6px 0 4px; }
+.map-hint-row .field-hint { margin: 0; }
+.map-hint-row .icon-btn { width: 24px; height: 24px; flex-shrink: 0; }
 
 .form-error { color: var(--danger); font-size: 12.5px; white-space: pre-wrap; font-family: ui-monospace, monospace; line-height: 1.5; }
 .form-actions { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
@@ -351,13 +357,19 @@ kbd {
 .kind-implicit-info.warn { border-color: var(--danger); }
 .kind-implicit-info .field-hint { margin: 0 0 10px; }
 
-.map-detail-form { max-width: 720px; }
+/* 960px, not the 480px every other detail-form gets: the canvas wants to fill as much of the panel
+   as it reasonably can (see resizeMapCanvas in app.js) — a fixed narrow form was the reason the
+   canvas used to sit at a tiny, un-resizable 512px square regardless of the window's real width. */
+.map-detail-form { max-width: 960px; }
 .map-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
 .map-toolbar label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
 .map-toolbar select, .map-toolbar input[type=number] { min-width: 140px; }
 .map-toolbar .btn-ghost { padding: 8px 14px; }
 .map-canvas-wrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; width: fit-content; line-height: 0; }
-#map-canvas { display: block; cursor: crosshair; width: 512px; height: 512px; }
+/* No fixed width/height here on purpose — resizeMapCanvas (app.js) sets the canvas element's own
+   width/height ATTRIBUTES (the drawing-buffer resolution) to fill the available panel width, up to
+   880px; a CSS size here would just stretch that buffer and blur it instead of sizing it. */
+#map-canvas { display: block; cursor: crosshair; }
 .patch-list { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid var(--border-soft); border-radius: var(--radius); }
 .patch-list:empty { display: none; }
 .patch-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; font-size: 12.5px; }
@@ -372,6 +384,10 @@ kbd {
 .patch-row .drag-handle { cursor: grab; color: var(--muted-2); }
 
 .map-coords { margin-left: auto; font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted-2); align-self: center; }
+
+.patch-inspector { margin-top: -4px; }
+.patch-inspector input[type=number] { min-width: 70px; width: 70px; }
+.patch-inspector select { min-width: 140px; }
 
 .new-map-options { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 14px; }
 .new-map-options .btn-ghost { justify-content: center; width: 100%; }

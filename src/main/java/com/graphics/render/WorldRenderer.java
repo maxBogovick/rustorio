@@ -9,6 +9,8 @@ import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.Terrain;
 import com.rustorio.domain.VanillaItems;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -114,22 +116,42 @@ final class WorldRenderer {
     }
 
     /**
-     * Ground-tile ore color, at {@link #ORE_TINT_ALPHA} — deliberately its OWN palette (not
-     * {@link ItemType#colorRgb}, which colors the mined cargo instead): the same ore reads as blue
-     * on the map but neutral gray once picked up (see {@code Palette}'s own comment on why).
-     * Reference equality against {@link VanillaItems}' constants, not a {@code switch}: {@link
-     * ItemType} is a record with no fixed case set — a mod's ore isn't one of these three, so it
-     * falls through to the {@code IRON_ORE}-style default rather than failing to compile the
-     * moment a new ore is registered.
+     * Ground-tile ore color, at {@link #ORE_TINT_ALPHA}. The three vanilla ores keep their own
+     * hand-picked palette entries, deliberately NOT {@link ItemType#colorRgb} (the same ore reads
+     * as blue on the map but neutral gray once picked up — see {@code Palette}'s own comment on
+     * why); any other ore — a mod's, or one authored in the content editor — falls back to its
+     * own {@link ItemType#colorRgb} via {@link Palette#itemColor}, tinted, rather than one flat
+     * default: a mod's ore must be tellable apart from every OTHER ore on the map, not just from
+     * the vanilla three.
+     *
+     * <p>Matched by {@link ItemType#equals}, not {@code ==}: a map loaded through the mod pipeline
+     * (including one authored in the content editor) resolves its ore {@link ItemType}s from that
+     * map's own {@code Registry}, a DIFFERENT instance than {@link VanillaItems}' constants even
+     * for the very same vanilla id. Reference equality never matched for such a map, so every ore
+     * on it fell through to the same default tint regardless of its actual kind.
      */
-    private static Color oreColor(ItemType ore) {
-        if (ore == VanillaItems.BRONZE_ORE) {
+    static Color oreColor(ItemType ore) {
+        if (ore.equals(VanillaItems.BRONZE_ORE)) {
             return TINT_ORE_BRONZE;
         }
-        if (ore == VanillaItems.COAL) {
+        if (ore.equals(VanillaItems.COAL)) {
             return TINT_ORE_COAL;
         }
-        return TINT_ORE; // IRON_ORE, and any other/modded ore — the only other kind oreAt() ever actually returns today
+        if (ore.equals(VanillaItems.IRON_ORE)) {
+            return TINT_ORE;
+        }
+        // get/put, not computeIfAbsent: a lambda that captures ore would itself be a fresh
+        // allocation on every call on a miss AND (per the JLS, capturing lambdas are not guaranteed
+        // to be reused across invocations the way a non-capturing one's singleton instance is) —
+        // defeats the exact hot-path-allocation avoidance this cache exists for.
+        int rgb = ore.colorRgb();
+        Color cached = CUSTOM_ORE_TINTS.get(rgb);
+        if (cached != null) {
+            return cached;
+        }
+        Color tint = withAlpha(Palette.itemColor(ore), ORE_TINT_ALPHA);
+        CUSTOM_ORE_TINTS.put(rgb, tint);
+        return tint;
     }
 
     // Precomputed once, not reallocated per tile per frame — same reasoning as Palette#itemColor's
@@ -137,6 +159,15 @@ final class WorldRenderer {
     private static final Color TINT_ORE = withAlpha(Palette.ORE, ORE_TINT_ALPHA);
     private static final Color TINT_ORE_BRONZE = withAlpha(Palette.ORE_BRONZE, ORE_TINT_ALPHA);
     private static final Color TINT_ORE_COAL = withAlpha(Palette.ORE_COAL, ORE_TINT_ALPHA);
+
+    /**
+     * Memoizes the alpha-tinted color for a non-vanilla ore, keyed by its raw {@code colorRgb}
+     * (not by {@link ItemType} identity) — same reasoning as {@link Palette#itemColor}'s own
+     * cache: called once per visible ground tile EVERY FRAME, and keying by the packed int rather
+     * than the item survives a mod's {@code Registry.update()} changing a color after the first
+     * tile using it was already drawn.
+     */
+    private static final Map<Integer, Color> CUSTOM_ORE_TINTS = new HashMap<>();
 
     private static Color withAlpha(Color base, float alpha) {
         return new Color(base.r, base.g, base.b, alpha);
