@@ -8,6 +8,14 @@
 /.vscode
 *.iml
 
+# Индекс языкового сервера Java (плагин jdtls-lsp создаёт их при первом разборе проекта).
+# В git им делать нечего, а в `git status` они шумят — этот вывод попадает в контекст агентов.
+/.classpath
+/.project
+/.factorypath
+/.settings
+/bin
+
 # Прочее
 .DS_Store
 

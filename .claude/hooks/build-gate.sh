@@ -8,6 +8,14 @@
 # правках документации и ответах на вопросы ход не тормозится.
 set -uo pipefail
 
+# Ход уже был заблокирован этим хуком и агент пытается чиниться — второй блокировки не ставим.
+# Без этой проверки сборка, которую агент починить не может (например, красная ещё до сессии),
+# держит ход в петле до внутреннего лимита Claude Code: тот же полный build на каждом круге.
+input=$(cat)
+active=$(printf '%s' "$input" | /usr/bin/python3 -c \
+  'import json,sys; print(json.load(sys.stdin).get("stop_hook_active", False))' 2>/dev/null)
+[ "$active" = "True" ] && exit 0
+
 cd "$CLAUDE_PROJECT_DIR" || exit 0
 
 changed=$(git status --porcelain -- '*.java' 2>/dev/null)

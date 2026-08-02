@@ -19,12 +19,15 @@ esac
 
 cd "$CLAUDE_PROJECT_DIR" || exit 0
 
-# Тесты и src/tools компилируются своими задачами: NullAway на них выключен намеренно,
-# но синтаксис проверить всё равно надо.
+# У тестов, src/tools и src/editor свои задачи компиляции: NullAway на них выключен намеренно,
+# но синтаксис проверить всё равно надо. Без своей ветки правка такого файла уходила бы в
+# compileJava — задачу, которая этот файл вообще не видит, и ошибка всплывала бы только на
+# `./gradlew build` (в его `check` обе dev-задачи входят), то есть ходом позже.
 case "$file" in
-  */src/test/*)  task=compileTestJava ;;
-  */src/tools/*) task=compileToolsJava ;;
-  *)             task=compileJava ;;
+  */src/test/*)   task=compileTestJava ;;
+  */src/tools/*)  task=compileToolsJava ;;
+  */src/editor/*) task=compileEditorJava ;;
+  *)              task=compileJava ;;
 esac
 
 if ! out=$(./gradlew "$task" -q --console=plain 2>&1); then

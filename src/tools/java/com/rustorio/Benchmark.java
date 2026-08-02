@@ -11,7 +11,9 @@ import com.rustorio.domain.building.Belt;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.world.World;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -32,6 +34,28 @@ public final class Benchmark {
 
     private static final int WARMUP_TICKS = 200;
 
+    /**
+     * The accepted ceiling for one tick: the measured baseline of 0.88 ms plus 15% headroom. It
+     * lives here, in the only place that can compare it to a real measurement, rather than in the
+     * prose of the rule files — a threshold quoted in five documents and checked by a human reading
+     * the output is not a threshold, and this project had exactly that until now.
+     *
+     * <p>Machine-dependent by nature: the baseline was measured on the owner's machine, which is
+     * why this is not a CI gate. On slower hardware, override with {@code BENCHMARK_THRESHOLD_MS}
+     * rather than editing this constant, so the recorded number keeps meaning what it says.
+     */
+    private static final double DEFAULT_THRESHOLD_MS = 1.02;
+
+    /**
+     * The verdict is the median of this many measured batches, not a single one. Six consecutive
+     * runs on an idle machine, with the code unchanged, spread from 0.8841 to 1.0136 ms/tick —
+     * 14.7%, with two of them within 1% of the threshold. A single-shot gate on numbers like that
+     * fails on innocent changes, and a gate that cries wolf gets overridden and then ignored. The
+     * median of five is stable against one unlucky batch while still catching a real regression,
+     * which moves every batch at once.
+     */
+    private static final int MEASURED_BATCHES = 5;
+
     private Benchmark() {
     }
 
@@ -47,16 +71,47 @@ public final class Benchmark {
             scene.tick(); // JIT warmup — excluded from the measurement
         }
 
-        long start = System.nanoTime();
-        for (int i = 0; i < measuredTicks; i++) {
-            scene.tick();
+        double[] batches = new double[MEASURED_BATCHES];
+        for (int batch = 0; batch < MEASURED_BATCHES; batch++) {
+            long start = System.nanoTime();
+            for (int i = 0; i < measuredTicks; i++) {
+                scene.tick();
+            }
+            batches[batch] = (System.nanoTime() - start) / 1_000_000.0 / measuredTicks;
         }
-        long elapsedNanos = System.nanoTime() - start;
-        double msPerTick = elapsedNanos / 1_000_000.0 / measuredTicks;
+        double[] sorted = batches.clone(); // keep run order for the printout, sort only for the median
+        Arrays.sort(sorted);
+        double msPerTick = sorted[MEASURED_BATCHES / 2];
 
-        System.out.printf("Buildings: %d (%d lanes of %d + a chest)%n", totalBuildings, lanes, laneLength);
-        System.out.printf("Measured ticks: %d (plus %d warmup)%n", measuredTicks, WARMUP_TICKS);
-        System.out.printf("Average step time: %.4f ms/tick%n", msPerTick);
+        // Locale.ROOT throughout: the numbers end up in reports and greps, and a decimal comma on a
+        // machine with a Russian locale makes "0,9705" unparseable to everything that reads them.
+        System.out.printf(Locale.ROOT, "Buildings: %d (%d lanes of %d + a chest)%n",
+                totalBuildings, lanes, laneLength);
+        System.out.printf(Locale.ROOT, "Measured: %d batches of %d ticks (plus %d warmup)%n",
+                MEASURED_BATCHES, measuredTicks, WARMUP_TICKS);
+        StringBuilder runs = new StringBuilder();
+        for (double batch : batches) {
+            runs.append(String.format(Locale.ROOT, " %.4f", batch));
+        }
+        System.out.printf(Locale.ROOT, "Batches:%s ms/tick (spread %.1f%%)%n", runs,
+                (sorted[MEASURED_BATCHES - 1] / sorted[0] - 1) * 100);
+        System.out.printf(Locale.ROOT, "Median step time: %.4f ms/tick%n", msPerTick);
+
+        double threshold = threshold();
+        System.out.printf(Locale.ROOT, "Threshold: %.4f ms/tick%s%n", threshold,
+                threshold == DEFAULT_THRESHOLD_MS ? "" : " (overridden via BENCHMARK_THRESHOLD_MS)");
+        if (msPerTick > threshold) {
+            System.out.printf(Locale.ROOT, "FAIL: over the threshold by %.1f%% — the change is not accepted%n",
+                    (msPerTick / threshold - 1) * 100);
+            System.exit(1); // fails `./gradlew benchmark`, so the verdict is the command's, not the reader's
+        }
+        System.out.printf(Locale.ROOT, "PASS: %.1f%% of the threshold%n", msPerTick / threshold * 100);
+    }
+
+    /** Reads the ceiling, allowing a slower machine to raise it for one run without editing code. */
+    private static double threshold() {
+        String override = System.getenv("BENCHMARK_THRESHOLD_MS");
+        return override == null || override.isBlank() ? DEFAULT_THRESHOLD_MS : Double.parseDouble(override);
     }
 
     /**

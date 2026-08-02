@@ -14,6 +14,20 @@
       "Bash(grep *)",
       "Bash(ls *)",
       "Bash(wc *)"
+    ],
+    "ask": [
+      "Edit(/build.gradle)",
+      "Edit(/settings.gradle)",
+      "Edit(/gradle/**)",
+      "Edit(/gradlew)",
+      "Edit(/gradlew.bat)"
+    ],
+    "deny": [
+      "Edit(/rustorio-save.json)",
+      "Edit(/resources/**/*.png)",
+      "Bash(./gradlew run*)",
+      "Bash(./gradlew devRun*)",
+      "Bash(./gradlew editor*)"
     ]
   },
   "hooks": {

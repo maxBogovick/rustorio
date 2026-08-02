@@ -1,0 +1,161 @@
+package com.rustorio.architecture;
+
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
+/**
+ * Closes a finding about the rule files themselves rather than about the code: three style rules
+ * carried hand-counted numbers ("3 uses of var", "0 wildcard imports", "don't cite task ids") that
+ * nothing verified. An audit found numbers of exactly that kind already wrong elsewhere in the same
+ * documents, and the citation ban had been broken again days after it was written down. The point
+ * of this test is that those three sentences now fail loudly instead of aging quietly.
+ *
+ * <p>The first half feeds synthetic snippets to the detectors, so a reader can see what counts and
+ * what does not without trusting the regexes; the second half applies them to the real tree. The
+ * synthetic half also means the detectors are proven to catch a violation without anyone having to
+ * introduce one into a real file to check.
+ */
+class SourceTextRulesTest {
+
+    private static final Path SRC = Path.of("src");
+    private static final Path SRC_MAIN = Path.of("src", "main", "java");
+
+    /**
+     * Every citation that exists today, counted once per occurrence — 75 distinct ids and document
+     * names, led by three working documents that no longer live in the repository at all.
+     * Deliberately not zero: the owner ruled that files written under the old convention stay
+     * untouched, so the rule this project can actually enforce is "no new ones", and that is a
+     * ratchet. Removing occurrences is welcome — it just has to be recorded here in the same
+     * commit, the way the content-coupling ratchet records its own decreases.
+     */
+    private static final int DOC_ID_CITATION_BASELINE = 712;
+
+    /**
+     * Explicit types are the rule; these are the exceptions that survived review. A new one is not
+     * forbidden by nature, but it has to be argued for in review rather than appear unnoticed.
+     */
+    private static final int VAR_BASELINE = 3;
+
+    @Test
+    void wildcardImportIsDetected() {
+        List<SourceTextRules.TextFinding> found =
+                SourceTextRules.wildcardImports("A.java", "import java.util.*;\nclass A {}\n");
+        assertEquals(1, found.size(), "an import ending in .* is exactly what this rule forbids");
+    }
+
+    @Test
+    void ordinaryImportIsNotMistakenForAWildcardOne() {
+        List<SourceTextRules.TextFinding> found =
+                SourceTextRules.wildcardImports("A.java", "import java.util.List;\nclass A {}\n");
+        assertTrue(found.isEmpty(), "a named import is the form the project wants, not a violation");
+    }
+
+    @Test
+    void varDeclarationInCodeIsDetected() {
+        List<SourceTextRules.TextFinding> found =
+                SourceTextRules.varDeclarations("A.java", "class A { void m() { var x = 1; } }");
+        assertEquals(1, found.size(), "an inferred local type is the thing being counted");
+    }
+
+    @Test
+    void theWordVarInsideACommentIsNotCountedAsAUse() {
+        String source = "/** Explains why var is avoided here. */\nclass A { int x = 1; }";
+        assertTrue(SourceTextRules.varDeclarations("A.java", source).isEmpty(),
+                "javadoc discussing the rule must not inflate the count the rule is about");
+    }
+
+    @Test
+    void taskIdCitationInACommentIsDetected() {
+        String source = "/** Bumped again (E6-05, ENGINE_TASKS.md) to add the field. */\nclass A {}";
+        List<SourceTextRules.TextFinding> found = SourceTextRules.docIdCitations("A.java", source);
+        assertEquals(2, found.size(),
+                "both halves of the practice are citations: the card id and the document's name");
+    }
+
+    @Test
+    void mentionOfAPermanentRuleFileIsNotACitation() {
+        String source = "// The boundary rule this enforces is stated in AGENTS.md.\nclass A {}";
+        assertTrue(SourceTextRules.docIdCitations("A.java", source).isEmpty(),
+                "pointing at a versioned rule file is allowed; pointing at a disposable card is not");
+    }
+
+    @Test
+    void anIdInsideAStringLiteralIsNotACitation() {
+        String source = "class A { String s = \"ADR-4\"; }";
+        assertTrue(SourceTextRules.docIdCitations("A.java", source).isEmpty(),
+                "the ban is about comments; code that legitimately carries such text is not the target");
+    }
+
+    @Test
+    void textBlockContentIsNotReadAsAComment() {
+        String source = "class A { String json = \"\"\"\n"
+                + "        { \"note\": \"see ADR-9 // still data\" }\n"
+                + "        \"\"\"; }";
+        assertTrue(SourceTextRules.docIdCitations("A.java", source).isEmpty(),
+                "a fixture whose text merely looks like a comment is data — this repository has "
+                        + "fourteen files with text blocks, so getting this wrong would inflate the ratchet");
+    }
+
+    @Test
+    void blockCommentSpanningLinesIsReadWhole() {
+        String source = "/*\n * see ADR-7\n */\nclass A {}";
+        assertEquals(1, SourceTextRules.docIdCitations("A.java", source).size(),
+                "a citation on the second line of a block comment must not escape the scan");
+    }
+
+    @Test
+    void noWildcardImportsAnywhereInSources() {
+        List<SourceTextRules.TextFinding> found =
+                SourceTextRules.scanTree(SRC, SourceTextRules::wildcardImports);
+        assertTrue(found.isEmpty(),
+                "wildcard imports hide which type a name refers to; the project has zero" + list(found));
+    }
+
+    @Test
+    void varUsageStaysAtItsRecordedBaseline() {
+        List<SourceTextRules.TextFinding> found =
+                SourceTextRules.scanTree(SRC_MAIN, SourceTextRules::varDeclarations);
+        assertRatchet("var declarations in src/main", VAR_BASELINE, found);
+    }
+
+    @Test
+    void docIdCitationsDoNotGrow() {
+        List<SourceTextRules.TextFinding> found =
+                SourceTextRules.scanTree(SRC, SourceTextRules::docIdCitations);
+        assertRatchet("citations of task ids and working documents", DOC_ID_CITATION_BASELINE, found);
+    }
+
+    /**
+     * Fails on any drift, in either direction, the same way the content-coupling ratchet does:
+     * growth is the regression being guarded against, and shrinkage means the recorded number is
+     * stale and must be lowered here, in the commit that removed the occurrence, rather than
+     * loosening the guard silently.
+     */
+    private static void assertRatchet(String label, int baseline, List<SourceTextRules.TextFinding> found) {
+        if (found.size() > baseline) {
+            fail(label + " grew from " + baseline + " to " + found.size()
+                    + " — this is the regression this ratchet exists to catch." + list(found));
+        } else if (found.size() < baseline) {
+            fail(label + " dropped from " + baseline + " to " + found.size()
+                    + " — lower the baseline in SourceTextRulesTest to " + found.size()
+                    + " in the same commit, so the guard is never quietly loosened." + list(found));
+        }
+        assertTrue(true); // reached only when the count matches exactly
+    }
+
+    private static String list(List<SourceTextRules.TextFinding> found) {
+        if (found.isEmpty()) {
+            return "";
+        }
+        return found.stream()
+                .map(SourceTextRules.TextFinding::toString)
+                .collect(Collectors.joining("\n  ", "\n  ", ""));
+    }
+}
