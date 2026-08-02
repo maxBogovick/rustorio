@@ -17,11 +17,16 @@
       <div class="brand-mark">R</div>
       <div class="brand-text">Rustorio<span>content editor</span></div>
     </div>
+    <div class="mod-switcher">
+      <label for="mod-select">Editing mod</label>
+      <select id="mod-select"></select>
+    </div>
     <nav class="nav" id="nav">
       <button class="nav-item active" data-tab="items" id="nav-items"></button>
       <button class="nav-item" data-tab="recipes" id="nav-recipes"></button>
       <button class="nav-item" data-tab="buildings" id="nav-buildings"></button>
       <button class="nav-item" data-tab="kinds" id="nav-kinds"></button>
+      <button class="nav-item" data-tab="maps" id="nav-maps"></button>
       <button class="nav-item" data-tab="textures" id="nav-textures"></button>
     </nav>
     <div class="sidebar-footer" id="content-status">
@@ -290,6 +295,66 @@
       </div>
     </section>
 
+    <!-- MAPS -->
+    <section class="workspace" id="panel-maps">
+      <div class="list-panel">
+        <div class="list-toolbar">
+          <div class="mini-search"><span class="mini-search-icon"></span><input placeholder="Filter maps&hellip;" id="filter-maps"></div>
+          <button class="icon-btn" data-new="maps" title="New map"></button>
+        </div>
+        <ul class="entry-list" id="maps-list"></ul>
+        <div class="empty-state hidden" id="maps-empty"></div>
+      </div>
+      <div class="detail-panel">
+        <div class="detail-header">
+          <h2 id="maps-form-title">New map</h2>
+          <div class="detail-header-actions">
+            <span class="dirty-flag hidden" id="maps-dirty">unsaved</span>
+            <button type="button" class="view-toggle" data-view-toggle="maps">JSON</button>
+          </div>
+        </div>
+        <form id="maps-form" class="detail-form map-detail-form">
+          <label>Path (id)<input name="path" required pattern="[a-z0-9_]+" placeholder="starter_valley" autocomplete="off"></label>
+          <label>Label<input name="label" required placeholder="Starter Valley" autocomplete="off"></label>
+          <p class="field-hint">256&times;256 cells, same size as the game's own map. Click-drag to size a new patch live, or just click for the radius field's value. Click an existing patch to select it — drag its middle to move, drag its edge to resize, Delete to remove. Right-click removes whatever's under the cursor. Shift-drag pans; scroll to zoom. Order in the list below is paint priority (first wins any overlap, ore always wins over terrain) — drag rows to reorder. &#8984;Z / &#8984;&#8679;Z undo/redo.</p>
+
+          <div class="map-toolbar">
+            <label>Tool
+              <select id="map-tool">
+                <option value="ore">Ore</option>
+                <option value="WATER">Water</option>
+                <option value="ROCK">Rock</option>
+                <option value="stamp-ore-cluster">Stamp: ore cluster</option>
+                <option value="stamp-ore-seam">Stamp: ore seam</option>
+                <option value="stamp-lake">Stamp: lake</option>
+                <option value="stamp-ridge">Stamp: mountain ridge</option>
+              </select>
+            </label>
+            <label id="map-ore-item-field">Item
+              <select id="map-ore-item"></select>
+            </label>
+            <label>Radius<input id="map-radius" type="number" min="1" max="60" value="3"></label>
+            <button type="button" class="btn-ghost" id="map-zoom-reset">Fit whole map</button>
+            <button type="button" class="btn-ghost" id="map-clear-all">Clear all</button>
+            <span class="map-coords" id="map-coords"></span>
+          </div>
+
+          <div class="map-canvas-wrap">
+            <canvas id="map-canvas" width="512" height="512"></canvas>
+          </div>
+
+          <ul class="patch-list" id="map-patch-list"></ul>
+
+          <div class="form-error" id="maps-form-error"></div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Save<kbd>&#8984;S</kbd></button>
+            <button type="button" class="btn-danger" data-delete="maps">Delete</button>
+          </div>
+        </form>
+        <textarea class="json-view hidden" id="maps-json" spellcheck="false"></textarea>
+      </div>
+    </section>
+
     <!-- TEXTURES -->
     <section class="workspace" id="panel-textures">
       <div class="textures-full">
@@ -323,6 +388,24 @@
     <div class="modal-actions">
       <button class="btn-ghost" id="modal-cancel">Cancel</button>
       <button class="btn-danger" id="modal-confirm">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop hidden" id="new-map-backdrop">
+  <div class="modal">
+    <h3>New map</h3>
+    <div class="new-map-options">
+      <button type="button" class="btn-ghost" id="new-map-blank">Blank 256&times;256</button>
+      <button type="button" class="btn-ghost" id="new-map-vanilla">Import the built-in map's layout</button>
+      <button type="button" class="btn-ghost" id="new-map-duplicate-toggle">Duplicate an existing map&hellip;</button>
+    </div>
+    <div class="hidden new-map-duplicate-picker" id="new-map-duplicate-picker">
+      <select id="new-map-duplicate-select"></select>
+      <button type="button" class="btn-primary" id="new-map-duplicate-confirm">Duplicate</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="new-map-cancel">Cancel</button>
     </div>
   </div>
 </div>

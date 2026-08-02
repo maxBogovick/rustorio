@@ -1,0 +1,18 @@
+{
+  "path" : "test_build",
+  "label" : "Test build",
+  "archetype" : "FURNACE",
+  "kind" : "test_rec",
+  "fuel" : "rustorio:coal",
+  "cost" : {
+    "item" : "rustorio:coal",
+    "amount" : 1
+  },
+  "placement" : "ALWAYS",
+  "texture" : "rustorio:assembler",
+  "footprintWidth" : 1,
+  "footprintHeight" : 1,
+  "bufferMax" : 0,
+  "speedMultiplier" : 1,
+  "acceptsSpeedEffects" : false
+}

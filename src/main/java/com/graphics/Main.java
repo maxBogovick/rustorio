@@ -2,6 +2,7 @@ package com.graphics;
 
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
+import com.rustorio.api.content.ContentId;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -17,11 +18,15 @@ import org.jspecify.annotations.Nullable;
  * стратегия {@link com.rustorio.domain.OreLayout}, реальная точка подмены, а не
  * только тестовая).
  *
+ * <p>{@code --map=<namespace:path>} играет на авторской карте мода (нарисованной в
+ * {@code com.rustorio.editor}, {@code content/maps/*.json}) — побеждает {@code --seed=}, если
+ * заданы оба: обе выбирают, ЧЕМ заполнена карта, а не совместимы друг с другом.
+ *
  * <p>{@code --dev} запускает игру с уже построенным стендом (по одному живому примеру каждого
  * здания плюс одно намеренно сломанное — {@code com.graphics.screen.DevScene}) вместо пустой
  * карты — не карточка из DEV_TASKS.md, прямая просьба: чтобы не пересобирать один и тот же
- * тестовый стенд руками при каждой проверке механики. Игнорирует {@code --seed=}, если оба флага
- * заданы разом — координаты стенда завязаны на реальные рудные пятна фиксированной карты.
+ * тестовый стенд руками при каждой проверке механики. Игнорирует {@code --seed=}/{@code --map=},
+ * если заданы разом — координаты стенда завязаны на реальные рудные пятна фиксированной карты.
  */
 public final class Main {
 
@@ -35,13 +40,22 @@ public final class Main {
         config.setResizable(true); // камера умеет пересчитываться под новый размер
         config.useVsync(true);
         config.setForegroundFPS(60);
-        new Lwjgl3Application(new RustorioGame(parseSeed(args), hasFlag(args, "--dev")), config);
+        new Lwjgl3Application(new RustorioGame(parseSeed(args), parseMap(args), hasFlag(args, "--dev")), config);
     }
 
     private static @Nullable Long parseSeed(String[] args) {
         for (String arg : args) {
             if (arg.startsWith("--seed=")) {
                 return Long.parseLong(arg.substring("--seed=".length()));
+            }
+        }
+        return null;
+    }
+
+    private static @Nullable ContentId parseMap(String[] args) {
+        for (String arg : args) {
+            if (arg.startsWith("--map=")) {
+                return ContentId.of(arg.substring("--map=".length()));
             }
         }
         return null;

@@ -9,7 +9,7 @@ import java.util.Arrays;
 import java.util.Set;
 
 /**
- * Per-field shape checks for the three "self-named" content kinds (items, buildings, kinds — all
+ * Per-field shape checks for the "self-named" content kinds (items, buildings, kinds, maps — all
  * carry their own {@code path}) — cheap, immediate feedback in the editor UI. These deliberately
  * reuse the SAME enums the real loaders ({@code com.rustorio.mod.ItemJsonLoader}/{@code
  * BuildingJsonLoader}) switch on ({@link ItemShape}, {@link BuildingType}), so the editor can never
@@ -26,9 +26,9 @@ final class Validators {
     private Validators() {
     }
 
-    static void item(ObjectNode body) {
+    static void item(String modId, ObjectNode body) {
         String path = EditorJson.requireText(body, "path");
-        validateContentIdPath(path);
+        validateContentIdPath(modId, path);
         EditorJson.requireLabel(body, "label");
         String colorRgb = EditorJson.requireText(body, "colorRgb");
         if (!colorRgb.matches("#[0-9A-Fa-f]{6}")) {
@@ -45,9 +45,9 @@ final class Validators {
         }
     }
 
-    static void building(ObjectNode body) {
+    static void building(String modId, ObjectNode body) {
         String path = EditorJson.requireText(body, "path");
-        validateContentIdPath(path);
+        validateContentIdPath(modId, path);
         EditorJson.requireLabel(body, "label");
         String archetype = EditorJson.requireText(body, "archetype");
         if (!isValidEnum(BuildingType.class, archetype)) {
@@ -87,15 +87,60 @@ final class Validators {
         EditorJson.requireText(body, "kind");
     }
 
-    static void kind(ObjectNode body) {
+    static void kind(String modId, ObjectNode body) {
         String path = EditorJson.requireText(body, "path");
-        validateContentIdPath(path);
+        validateContentIdPath(modId, path);
         EditorJson.requireLabel(body, "label");
     }
 
-    private static void validateContentIdPath(String path) {
+    private static final Set<String> PAINTABLE_TERRAIN = Set.of("WATER", "ROCK");
+
+    /**
+     * Per-field checks for a map's own {@code orePatches}/{@code terrainPatches} circles — whether
+     * an {@code ore} reference actually names a registered item is, like a recipe's {@code kind},
+     * left to {@link ValidateHandler}'s real {@code ModLoader.loadAll} pass (see that class's own
+     * javadoc): this editor offers the item picker as a {@code <select>} of what actually exists, so
+     * a per-field check here would only duplicate it.
+     */
+    static void map(String modId, ObjectNode body) {
+        String path = EditorJson.requireText(body, "path");
+        validateContentIdPath(modId, path);
+        EditorJson.requireLabel(body, "label");
+        validatePatchArray(body, "orePatches", true);
+        validatePatchArray(body, "terrainPatches", false);
+    }
+
+    private static void validatePatchArray(ObjectNode body, String field, boolean ore) {
+        JsonNode array = body.get(field);
+        if (array == null || array.isNull()) {
+            return;
+        }
+        if (!array.isArray()) {
+            throw new ApiException(400, "'" + field + "' must be an array");
+        }
+        for (JsonNode patch : array) {
+            if (!patch.isObject() || !patch.hasNonNull("cx") || !patch.hasNonNull("cy") || !patch.hasNonNull("radius")) {
+                throw new ApiException(400, "every entry of '" + field + "' must have integer 'cx', 'cy' and 'radius'");
+            }
+            if (patch.get("radius").asInt() <= 0) {
+                throw new ApiException(400, "'" + field + "' radius must be positive");
+            }
+            if (ore) {
+                if (!patch.hasNonNull("ore") || !patch.get("ore").isTextual()) {
+                    throw new ApiException(400, "every entry of 'orePatches' must have a string 'ore' item reference");
+                }
+            } else {
+                String terrain = patch.path("terrain").asText("");
+                if (!PAINTABLE_TERRAIN.contains(terrain)) {
+                    throw new ApiException(400, "unknown terrain \"" + terrain + "\" (expected one of " + PAINTABLE_TERRAIN + ")");
+                }
+            }
+        }
+    }
+
+    private static void validateContentIdPath(String modId, String path) {
         try {
-            new ContentId("rustorio", path);
+            new ContentId(modId, path);
         } catch (IllegalArgumentException e) {
             throw new ApiException(400, e.getMessage());
         }

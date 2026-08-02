@@ -3,6 +3,7 @@ package com.rustorio.editor;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -29,10 +30,15 @@ final class GameProcess {
     private GameProcess() {
     }
 
-    static synchronized void relaunch() throws IOException {
+    /** {@code mapId} (a {@code namespace:path}, or {@code null} for the default fixed map) — forwarded as {@code --map=} via Gradle's own {@code --args}, the same mechanism {@code com.graphics.Main} already reads {@code --seed=}/{@code --dev} through. */
+    static synchronized void relaunch(String mapId) throws IOException {
         stop();
         Files.createDirectories(LOG_FILE.getParent());
-        ProcessBuilder builder = new ProcessBuilder(gradlewCommand(), "--no-daemon", "--console=plain", "run");
+        List<String> command = new ArrayList<>(List.of(gradlewCommand(), "--no-daemon", "--console=plain", "run"));
+        if (mapId != null && !mapId.isBlank()) {
+            command.add("--args=--map=" + mapId);
+        }
+        ProcessBuilder builder = new ProcessBuilder(command);
         builder.directory(EditorPaths.REPO_ROOT.toFile());
         builder.redirectErrorStream(true);
         builder.redirectOutput(ProcessBuilder.Redirect.to(LOG_FILE.toFile()));

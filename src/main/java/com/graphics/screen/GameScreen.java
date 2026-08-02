@@ -9,6 +9,8 @@ import com.graphics.input.InputHandler;
 import com.graphics.render.GameCamera;
 import com.graphics.render.Renderer;
 import com.graphics.render.Textures;
+import com.rustorio.api.content.ContentId;
+import com.rustorio.domain.AuthoredOreLayout;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RandomOreLayout;
@@ -21,6 +23,7 @@ import com.rustorio.mod.ModLoader;
 import com.rustorio.persistence.JsonSaveRepository;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Экран игры: держит мир и каждый кадр гоняет связку ввод → тик → рендер.
@@ -72,12 +75,12 @@ public final class GameScreen extends ScreenAdapter {
 
     /** Фиксированная карта руды ({@link PatchOreLayout#standard()}). */
     public GameScreen() {
-        this(PatchOreLayout.standard(), false);
+        this(loadedGame -> PatchOreLayout.standard(), false);
     }
 
     /** Карта руды сгенерирована из {@code oreSeed} — см. {@link RandomOreLayout}. */
     public GameScreen(long oreSeed) {
-        this(new RandomOreLayout(oreSeed, GfxConfig.GRID_W, GfxConfig.GRID_H), false);
+        this(loadedGame -> new RandomOreLayout(oreSeed, GfxConfig.GRID_W, GfxConfig.GRID_H), false);
     }
 
     /**
@@ -86,7 +89,18 @@ public final class GameScreen extends ScreenAdapter {
      * patches, so this can't be combined with {@link #GameScreen(long)}'s random seed.
      */
     public GameScreen(boolean devMode) {
-        this(PatchOreLayout.standard(), devMode);
+        this(loadedGame -> PatchOreLayout.standard(), devMode);
+    }
+
+    /**
+     * A mod-authored map (the content editor's canvas, {@code --map=} in {@code com.graphics.Main})
+     * — {@code mapId} must resolve in {@code loadedGame.maps()} once mods are loaded, hence the
+     * {@link Function}-based constructor below rather than a plain {@link OreLayout}: unlike {@link
+     * PatchOreLayout#standard()}/{@link RandomOreLayout}, this one doesn't exist until AFTER {@link
+     * ModLoader#loadAll} has run.
+     */
+    public GameScreen(ContentId mapId) {
+        this(loadedGame -> AuthoredOreLayout.from(loadedGame.maps().get(mapId)), false);
     }
 
     /**
@@ -98,10 +112,16 @@ public final class GameScreen extends ScreenAdapter {
      * 1:1 (see {@code VanillaAsModParityTest}), so on a stock checkout this looks identical — the
      * difference only shows once a mod (or the local content editor, {@code com.rustorio.editor})
      * adds or changes a {@code content/*.json} file under {@link #MODS_ROOT}.
+     *
+     * <p>{@code oreLayoutFactory}, not a plain {@link OreLayout}: an {@link AuthoredOreLayout} can
+     * only be built from a {@link LoadedGame}'s own {@code maps()} registry, which doesn't exist
+     * until {@link ModLoader#loadAll} below has already run — every OTHER caller's factory just
+     * ignores the argument, same as before this constructor existed.
      */
-    private GameScreen(OreLayout oreLayout, boolean devMode) {
+    private GameScreen(Function<LoadedGame, OreLayout> oreLayoutFactory, boolean devMode) {
         List<Path> modDirectories = ModDirectories.discover(MODS_ROOT);
         LoadedGame loadedGame = ModLoader.loadAll(modDirectories);
+        OreLayout oreLayout = oreLayoutFactory.apply(loadedGame);
         BuildingFactory buildingFactory = new BuildingFactory(
                 oreLayout, loadedGame.recipes(), loadedGame.items(), loadedGame.buildings());
         this.world = new World(GfxConfig.GRID_W, GfxConfig.GRID_H, buildingFactory);

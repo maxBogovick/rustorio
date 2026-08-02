@@ -1,0 +1,6 @@
+{
+  "ingredients" : [ "banana_ore" ],
+  "output" : "test_ore",
+  "time" : 5,
+  "kind" : "test_rec"
+}

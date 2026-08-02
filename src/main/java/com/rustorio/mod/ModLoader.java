@@ -61,6 +61,7 @@ public final class ModLoader {
         context.items().freeze();
         context.buildings().freeze();
         context.kinds().freeze();
+        context.maps().freeze();
         RecipeBook recipeBook = buildRecipeBook(context.recipes());
         validateContent(context.items(), context.buildings(), context.kinds(), recipeBook);
 
@@ -72,7 +73,7 @@ public final class ModLoader {
             }
         }
 
-        return new LoadedGame(context.items(), context.buildings(), context.kinds(), recipeBook, events);
+        return new LoadedGame(context.items(), context.buildings(), context.kinds(), context.maps(), recipeBook, events);
     }
 
     /**

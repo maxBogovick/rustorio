@@ -6,8 +6,12 @@ package com.rustorio.domain;
  * carry different payloads ({@link ItemType} vs {@link Terrain}) for genuinely different concerns, and
  * {@code OrePatch} is already shipped, tested code this task has no reason to reshape just to
  * share three lines of circle arithmetic (X-02, DEV_TASKS.md).
+ *
+ * <p>Public for the same reason {@link OrePatch} is: {@code com.rustorio.mod.MapJsonLoader}
+ * constructs these directly from a mod's {@code content/maps/*.json} to build an {@link
+ * AuthoredMap}.
  */
-record TerrainPatch(int cx, int cy, int radius, Terrain terrain) {
+public record TerrainPatch(int cx, int cy, int radius, Terrain terrain) {
 
     boolean contains(int x, int y) {
         int dx = x - cx;

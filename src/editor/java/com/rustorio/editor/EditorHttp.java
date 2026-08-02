@@ -1,15 +1,56 @@
 package com.rustorio.editor;
 
+import com.rustorio.mod.ModDirectories;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /** Small shared request/response helpers every handler in this package needs. */
 final class EditorHttp {
 
     private EditorHttp() {
+    }
+
+    /**
+     * Which mod a content request targets — the {@code ?mod=} query parameter, or {@link
+     * EditorPaths#DEFAULT_MOD_ID} if the request named none (every caller from before the mod
+     * switcher existed). Checked against the real directories under {@link EditorPaths#MODS_ROOT}
+     * so a typo'd mod id fails loudly (400) instead of silently reading/writing an empty,
+     * never-loaded directory tree.
+     */
+    static String modId(HttpExchange exchange) {
+        String raw = queryParam(exchange, "mod");
+        String modId = raw == null || raw.isBlank() ? EditorPaths.DEFAULT_MOD_ID : raw;
+        if (!knownModIds().contains(modId)) {
+            throw new ApiException(400, "unknown mod '" + modId + "' — expected one of " + knownModIds());
+        }
+        return modId;
+    }
+
+    static List<String> knownModIds() {
+        return ModDirectories.discover(EditorPaths.MODS_ROOT).stream()
+                .map(p -> p.getFileName().toString())
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    static String queryParam(HttpExchange exchange, String name) {
+        String query = exchange.getRequestURI().getRawQuery();
+        if (query == null) {
+            return null;
+        }
+        for (String pair : query.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq >= 0 && pair.substring(0, eq).equals(name)) {
+                return URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
+            }
+        }
+        return null;
     }
 
     static byte[] readBody(HttpExchange exchange) throws IOException {

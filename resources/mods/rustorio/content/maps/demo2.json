@@ -1,0 +1,356 @@
+{
+  "path" : "demo2",
+  "label" : "demo 2",
+  "orePatches" : [ {
+    "cx" : 35,
+    "cy" : 40,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 38,
+    "cy" : 41,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 33,
+    "cy" : 42,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 37,
+    "cy" : 38,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 32,
+    "cy" : 39,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 72,
+    "cy" : 26,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 75,
+    "cy" : 27,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 70,
+    "cy" : 28,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 74,
+    "cy" : 24,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 69,
+    "cy" : 25,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 77,
+    "cy" : 66,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 80,
+    "cy" : 67,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 75,
+    "cy" : 68,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 79,
+    "cy" : 64,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 74,
+    "cy" : 65,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 41,
+    "cy" : 74,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 44,
+    "cy" : 75,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 39,
+    "cy" : 76,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 43,
+    "cy" : 72,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 38,
+    "cy" : 73,
+    "radius" : 3,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 52,
+    "cy" : 43,
+    "radius" : 2,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 55,
+    "cy" : 44,
+    "radius" : 2,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 58,
+    "cy" : 43,
+    "radius" : 2,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 61,
+    "cy" : 42,
+    "radius" : 2,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 96,
+    "cy" : 42,
+    "radius" : 2,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 99,
+    "cy" : 43,
+    "radius" : 2,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 102,
+    "cy" : 42,
+    "radius" : 2,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 105,
+    "cy" : 41,
+    "radius" : 2,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 19,
+    "cy" : 101,
+    "radius" : 2,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 22,
+    "cy" : 102,
+    "radius" : 2,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 25,
+    "cy" : 101,
+    "radius" : 2,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 28,
+    "cy" : 100,
+    "radius" : 2,
+    "ore" : "alloy_gear"
+  }, {
+    "cx" : 90,
+    "cy" : 21,
+    "radius" : 6,
+    "ore" : "bronze_ore"
+  }, {
+    "cx" : 45,
+    "cy" : 16,
+    "radius" : 5,
+    "ore" : "coal"
+  }, {
+    "cx" : 9,
+    "cy" : 17,
+    "radius" : 5,
+    "ore" : "coal"
+  }, {
+    "cx" : 17,
+    "cy" : 31,
+    "radius" : 5,
+    "ore" : "coal"
+  }, {
+    "cx" : 34,
+    "cy" : 27,
+    "radius" : 5,
+    "ore" : "coal"
+  }, {
+    "cx" : 230,
+    "cy" : 29,
+    "radius" : 3,
+    "ore" : "coal"
+  }, {
+    "cx" : 216,
+    "cy" : 24,
+    "radius" : 3,
+    "ore" : "coal"
+  }, {
+    "cx" : 201,
+    "cy" : 12,
+    "radius" : 50,
+    "ore" : "coal"
+  } ],
+  "terrainPatches" : [ {
+    "cx" : 28,
+    "cy" : 63,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 30,
+    "cy" : 64,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 26,
+    "cy" : 64,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 28,
+    "cy" : 61,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 50,
+    "cy" : 60,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 52,
+    "cy" : 61,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 48,
+    "cy" : 61,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 50,
+    "cy" : 58,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 78,
+    "cy" : 52,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 80,
+    "cy" : 53,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 76,
+    "cy" : 53,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 78,
+    "cy" : 50,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 5,
+    "cy" : 47,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 8,
+    "cy" : 49,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 11,
+    "cy" : 50,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 14,
+    "cy" : 51,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 20,
+    "cy" : 47,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 23,
+    "cy" : 49,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 26,
+    "cy" : 50,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 29,
+    "cy" : 51,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 59,
+    "cy" : 48,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 62,
+    "cy" : 50,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 65,
+    "cy" : 51,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 68,
+    "cy" : 52,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 66,
+    "cy" : 37,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 69,
+    "cy" : 39,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 72,
+    "cy" : 40,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 75,
+    "cy" : 41,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 9,
+    "cy" : 64,
+    "radius" : 8,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 129,
+    "cy" : 200,
+    "radius" : 125,
+    "terrain" : "WATER"
+  } ]
+}

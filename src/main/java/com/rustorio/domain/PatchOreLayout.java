@@ -2,6 +2,7 @@ package com.rustorio.domain;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -158,6 +159,16 @@ public final class PatchOreLayout implements OreLayout {
      */
     public static PatchOreLayout standard() {
         return new PatchOreLayout(STANDARD_WIDTH, STANDARD_HEIGHT);
+    }
+
+    /** The vanilla map's own ore patches, read-only — lets the content editor offer "start a new authored map from the built-in layout" without duplicating these coordinates a second time by hand. */
+    public static List<OrePatch> patches() {
+        return List.of(PATCHES);
+    }
+
+    /** The vanilla map's own terrain obstacles — see {@link #patches()}. */
+    public static List<TerrainPatch> terrainPatches() {
+        return List.of(TERRAIN_PATCHES);
     }
 
     @Override

@@ -12,7 +12,8 @@ import java.nio.file.Path;
  * CRUD over {@code content/recipes/*.json} — unlike items/buildings ({@link JsonCrudHandler}) a
  * recipe file carries no identifying field of its own ({@code {"ingredients":…, "output":…,
  * "time":…, "kind":…}}, see {@code RecipeJsonLoader}), so its filename IS its identity, named by
- * this API's own {@code /api/recipes/{file}} key rather than anything inside the JSON body.
+ * this API's own {@code /api/recipes/{file}} key rather than anything inside the JSON body. Which
+ * mod that resolves against is {@code ?mod=} — see {@link EditorHttp#modId}.
  *
  * <p>{@code GET  /api/recipes}          — list every recipe, each tagged with its own {@code "file"}<br>
  * {@code GET  /api/recipes/{file}}      — one recipe<br>
@@ -35,17 +36,18 @@ final class RecipesHandler implements HttpHandler {
 
     private void route(HttpExchange exchange) throws IOException {
         String key = EditorHttp.keyAfter(exchange, PREFIX);
+        String modId = EditorHttp.modId(exchange);
         switch (exchange.getRequestMethod()) {
             case "GET" -> {
                 if (key == null) {
-                    listAll(exchange);
+                    listAll(exchange, modId);
                 } else {
-                    getOne(exchange, key);
+                    getOne(exchange, modId, key);
                 }
             }
-            case "POST" -> create(exchange);
-            case "PUT" -> update(exchange, requireKey(key));
-            case "DELETE" -> remove(exchange, requireKey(key));
+            case "POST" -> create(exchange, modId);
+            case "PUT" -> update(exchange, modId, requireKey(key));
+            case "DELETE" -> remove(exchange, modId, requireKey(key));
             default -> EditorHttp.sendError(exchange, 405, "method not allowed: " + exchange.getRequestMethod());
         }
     }
@@ -57,9 +59,9 @@ final class RecipesHandler implements HttpHandler {
         return key;
     }
 
-    private void listAll(HttpExchange exchange) throws IOException {
+    private void listAll(HttpExchange exchange, String modId) throws IOException {
         ArrayNode all = EditorJson.MAPPER.createArrayNode();
-        for (Path file : EditorJson.listJsonFilesSorted(EditorPaths.RECIPES_DIR)) {
+        for (Path file : EditorJson.listJsonFilesSorted(EditorPaths.contentDir(modId, "recipes"))) {
             ObjectNode node = ((ObjectNode) EditorJson.readTree(file)).deepCopy();
             node.put("file", fileKey(file));
             all.add(node);
@@ -67,8 +69,8 @@ final class RecipesHandler implements HttpHandler {
         EditorHttp.sendJson(exchange, 200, all.toString());
     }
 
-    private void getOne(HttpExchange exchange, String key) throws IOException {
-        Path file = fileFor(key);
+    private void getOne(HttpExchange exchange, String modId, String key) throws IOException {
+        Path file = fileFor(modId, key);
         if (!Files.isRegularFile(file)) {
             throw new ApiException(404, "no recipe named '" + key + "'");
         }
@@ -77,12 +79,12 @@ final class RecipesHandler implements HttpHandler {
         EditorHttp.sendJson(exchange, 200, node.toString());
     }
 
-    private void create(HttpExchange exchange) throws IOException {
-        String name = queryParam(exchange, "file");
+    private void create(HttpExchange exchange, String modId) throws IOException {
+        String name = EditorHttp.queryParam(exchange, "file");
         if (name == null || name.isBlank()) {
             throw new ApiException(400, "POST /api/recipes needs a ?file=<name> query parameter");
         }
-        Path file = fileFor(name);
+        Path file = fileFor(modId, name);
         if (Files.exists(file)) {
             throw new ApiException(409, "'" + name + "' already exists");
         }
@@ -93,8 +95,8 @@ final class RecipesHandler implements HttpHandler {
         EditorHttp.sendJson(exchange, 201, body.toString());
     }
 
-    private void update(HttpExchange exchange, String key) throws IOException {
-        Path file = fileFor(key);
+    private void update(HttpExchange exchange, String modId, String key) throws IOException {
+        Path file = fileFor(modId, key);
         if (!Files.isRegularFile(file)) {
             throw new ApiException(404, "no recipe named '" + key + "'");
         }
@@ -105,29 +107,15 @@ final class RecipesHandler implements HttpHandler {
         EditorHttp.sendJson(exchange, 200, body.toString());
     }
 
-    private void remove(HttpExchange exchange, String key) throws IOException {
-        if (!EditorJson.delete(fileFor(key))) {
+    private void remove(HttpExchange exchange, String modId, String key) throws IOException {
+        if (!EditorJson.delete(fileFor(modId, key))) {
             throw new ApiException(404, "no recipe named '" + key + "'");
         }
         EditorHttp.sendEmpty(exchange, 204);
     }
 
-    private static String queryParam(HttpExchange exchange, String name) {
-        String query = exchange.getRequestURI().getRawQuery();
-        if (query == null) {
-            return null;
-        }
-        for (String pair : query.split("&")) {
-            int eq = pair.indexOf('=');
-            if (eq >= 0 && pair.substring(0, eq).equals(name)) {
-                return java.net.URLDecoder.decode(pair.substring(eq + 1), java.nio.charset.StandardCharsets.UTF_8);
-            }
-        }
-        return null;
-    }
-
-    private static Path fileFor(String key) {
-        return EditorPaths.RECIPES_DIR.resolve(key + ".json");
+    private static Path fileFor(String modId, String key) {
+        return EditorPaths.contentDir(modId, "recipes").resolve(key + ".json");
     }
 
     private static String fileKey(Path file) {

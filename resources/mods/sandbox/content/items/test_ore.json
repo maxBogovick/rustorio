@@ -1,0 +1,7 @@
+{
+  "path" : "test_ore",
+  "label" : "Test",
+  "colorRgb" : "#4d22b3",
+  "shape" : "SQUARE",
+  "researchGrade" : false
+}

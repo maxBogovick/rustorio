@@ -3,8 +3,6 @@ package com.rustorio.editor;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -19,14 +17,15 @@ import java.util.regex.Pattern;
  * {@code GameScreen} for this exact purpose): the 12 built-in vanilla sprites (fixed files under
  * {@code resources/}, duplicated here as a small lookup table purely for this picker's thumbnails —
  * {@link ValidateHandler} is what actually re-checks a {@code texture} reference for real before
- * any relaunch, so this table going stale is a UI inconvenience, not a correctness gap), and
- * whatever {@code .png} files already live under {@code resources/mods/rustorio/textures/}, each
- * one becoming {@code "rustorio:<filename>"} once {@link com.graphics.render.Textures#loadFrom}
+ * any relaunch, so this table going stale is a UI inconvenience, not a correctness gap — always the
+ * same regardless of the mod switcher, since these ship with the game itself), and whatever {@code
+ * .png} files live under the CURRENT mod's {@code textures/} (see {@link EditorHttp#modId}), each
+ * one becoming {@code "<modId>:<filename>"} once {@link com.graphics.render.Textures#loadFrom}
  * scans that directory at game startup.
  *
- * <p>{@code GET  /api/textures}                    — {@code {"vanilla":[...], "mod":[...]}}, each entry {@code {"id":…, "assetUrl":…}}<br>
- * {@code GET  /api/textures/asset?kind=&name=}      — the PNG bytes for one entry<br>
- * {@code POST /api/textures/{name}}                 — raw PNG body, saved as {@code textures/{name}.png} (becomes {@code rustorio:{name}})
+ * <p>{@code GET  /api/textures}                          — {@code {"vanilla":[...], "mod":[...]}} for {@code ?mod=}, each entry {@code {"id":…, "assetUrl":…}}<br>
+ * {@code GET  /api/textures/asset?kind=&name=&mod=}       — the PNG bytes for one entry<br>
+ * {@code POST /api/textures/{name}?mod=}                  — raw PNG body, saved as {@code textures/{name}.png} under that mod (becomes {@code <modId>:{name}})
  */
 final class TexturesHandler implements HttpHandler {
 
@@ -80,35 +79,38 @@ final class TexturesHandler implements HttpHandler {
     }
 
     private void list(HttpExchange exchange) throws IOException {
+        String modId = EditorHttp.modId(exchange);
         StringBuilder json = new StringBuilder("{\"vanilla\":[");
-        appendEntries(json, VANILLA.keySet(), "vanilla");
+        appendEntries(json, VANILLA.keySet(), "vanilla", null);
         json.append("],\"mod\":[");
-        appendEntries(json, modTextureIds(), "mod");
+        appendEntries(json, modTextureIds(modId), "mod", modId);
         json.append("]}");
         EditorHttp.sendJson(exchange, 200, json.toString());
     }
 
-    private static void appendEntries(StringBuilder json, Iterable<String> ids, String kind) {
+    private static void appendEntries(StringBuilder json, Iterable<String> ids, String kind, String modId) {
         boolean first = true;
         for (String id : ids) {
             if (!first) {
                 json.append(',');
             }
             first = false;
-            String assetUrl = PREFIX + "/asset?kind=" + kind + "&name=" + id;
+            String assetUrl = PREFIX + "/asset?kind=" + kind + "&name=" + id
+                    + (modId == null ? "" : "&mod=" + modId);
             json.append("{\"id\":").append(EditorHttp.quote(id)).append(",\"assetUrl\":").append(EditorHttp.quote(assetUrl)).append('}');
         }
     }
 
-    private static java.util.List<String> modTextureIds() {
-        if (!Files.isDirectory(EditorPaths.TEXTURES_DIR)) {
+    private static java.util.List<String> modTextureIds(String modId) {
+        Path dir = EditorPaths.texturesDir(modId);
+        if (!Files.isDirectory(dir)) {
             return java.util.List.of();
         }
-        try (var files = Files.list(EditorPaths.TEXTURES_DIR)) {
+        try (var files = Files.list(dir)) {
             return files.filter(p -> p.getFileName().toString().endsWith(".png"))
                     .map(p -> {
                         String name = p.getFileName().toString();
-                        return "rustorio:" + name.substring(0, name.length() - ".png".length());
+                        return modId + ":" + name.substring(0, name.length() - ".png".length());
                     })
                     .sorted()
                     .toList();
@@ -132,7 +134,7 @@ final class TexturesHandler implements HttpHandler {
                 }
                 yield Path.of(relative);
             }
-            case "mod" -> EditorPaths.TEXTURES_DIR.resolve(bareName(name) + ".png");
+            case "mod" -> EditorPaths.texturesDir(EditorHttp.modId(exchange)).resolve(bareName(name) + ".png");
             default -> throw new ApiException(400, "kind must be 'vanilla' or 'mod'");
         };
         if (!Files.isRegularFile(file)) {
@@ -145,14 +147,16 @@ final class TexturesHandler implements HttpHandler {
         if (!NAME.matcher(name).matches()) {
             throw new ApiException(400, "texture name must match [a-z0-9_]+: \"" + name + "\"");
         }
+        String modId = EditorHttp.modId(exchange);
         byte[] body = EditorHttp.readBody(exchange);
         if (body.length < 8 || (body[0] & 0xFF) != 0x89 || body[1] != 'P' || body[2] != 'N' || body[3] != 'G') {
             throw new ApiException(400, "request body doesn't look like a PNG file");
         }
-        Path file = EditorPaths.TEXTURES_DIR.resolve(name + ".png");
-        Files.createDirectories(EditorPaths.TEXTURES_DIR);
+        Path dir = EditorPaths.texturesDir(modId);
+        Path file = dir.resolve(name + ".png");
+        Files.createDirectories(dir);
         Files.write(file, body);
-        EditorHttp.sendJson(exchange, 200, "{\"id\":" + EditorHttp.quote("rustorio:" + name) + "}");
+        EditorHttp.sendJson(exchange, 200, "{\"id\":" + EditorHttp.quote(modId + ":" + name) + "}");
     }
 
     private static String bareName(String contentId) {
@@ -168,7 +172,7 @@ final class TexturesHandler implements HttpHandler {
         for (String pair : query.split("&")) {
             int eq = pair.indexOf('=');
             if (eq >= 0) {
-                result.put(pair.substring(0, eq), URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8));
+                result.put(pair.substring(0, eq), java.net.URLDecoder.decode(pair.substring(eq + 1), java.nio.charset.StandardCharsets.UTF_8));
             }
         }
         return result;

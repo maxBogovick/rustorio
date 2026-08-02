@@ -1,6 +1,7 @@
 package com.rustorio.api.mod;
 
 import com.rustorio.api.registry.Registry;
+import com.rustorio.domain.AuthoredMap;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeKind;
@@ -30,6 +31,9 @@ public interface RegistrationContext {
 
     /** Every registered recipe pool ("kind") — see {@link RecipeKind}'s own javadoc for what this is and why it exists as a real registered thing now. */
     Registry<RecipeKind> kinds();
+
+    /** Every mod-authored map — see {@link AuthoredMap}'s own javadoc. Nothing in the base game reads this yet (the shipped {@code GameScreen} still picks its {@code OreLayout} before mods load); a mod's own bootstrap, or a later engine feature that lets a player pick a map, is what resolves one from here. */
+    Registry<AuthoredMap> maps();
 
     /** Adds a recipe to the game's recipe book — see the class javadoc for why this isn't a {@code Registry}. */
     void addRecipe(Recipe recipe);

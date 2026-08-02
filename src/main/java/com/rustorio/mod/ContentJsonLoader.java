@@ -21,6 +21,7 @@ final class ContentJsonLoader {
         Path content = modDirectory.resolve("content");
         RecipeKindJsonLoader.loadInto(content.resolve("kinds"), modId, context.kinds());
         ItemJsonLoader.loadInto(content.resolve("items"), modId, context.items());
+        MapJsonLoader.loadInto(content.resolve("maps"), modId, context);
         RecipeJsonLoader.loadInto(content.resolve("recipes"), modId, context);
         BuildingJsonLoader.loadInto(content.resolve("buildings"), modId, context);
     }
