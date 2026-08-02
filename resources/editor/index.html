@@ -305,7 +305,7 @@
         <ul class="entry-list" id="maps-list"></ul>
         <div class="empty-state hidden" id="maps-empty"></div>
       </div>
-      <div class="detail-panel">
+      <div class="detail-panel map-detail-panel">
         <div class="detail-header">
           <h2 id="maps-form-title">New map</h2>
           <div class="detail-header-actions">
@@ -314,48 +314,58 @@
           </div>
         </div>
         <form id="maps-form" class="detail-form map-detail-form">
-          <label>Path (id)<input name="path" required pattern="[a-z0-9_]+" placeholder="starter_valley" autocomplete="off"></label>
-          <label>Label<input name="label" required placeholder="Starter Valley" autocomplete="off"></label>
-          <div class="map-hint-row">
-            <p class="field-hint">256&times;256 cells, same size as the game's own map — click-drag to place a patch, click an existing one to select it.</p>
-            <button type="button" class="icon-btn" id="map-help" title="Click-drag to size a new patch live, or just click for the radius field's value — a freshly placed patch always paints on top of whatever's already there. Click an existing patch to select it — drag its middle to move, drag its edge to resize, or type its exact X/Y/radius/item below the canvas. Arrow keys nudge the selected patch a cell at a time (Shift = 10), Delete removes it, ⌘D duplicates it, Escape cancels a placement/pan/move/resize in progress. Right-click removes whatever's under the cursor. Shift-drag pans; scroll to zoom — grid lines appear once you're zoomed in enough to place precisely. Order in the list below is paint priority (first wins any overlap, ore always wins over terrain) — drag rows to reorder. ⌘Z / ⌘⇧Z undo/redo."></button>
+          <div class="map-meta-row">
+            <label>Path (id)<input name="path" required pattern="[a-z0-9_]+" placeholder="starter_valley" autocomplete="off"></label>
+            <label>Label<input name="label" required placeholder="Starter Valley" autocomplete="off"></label>
           </div>
 
-          <div class="map-toolbar">
-            <label>Tool
-              <select id="map-tool">
-                <option value="ore">Ore</option>
-                <option value="WATER">Water</option>
-                <option value="ROCK">Rock</option>
-                <option value="stamp-ore-cluster">Stamp: ore cluster</option>
-                <option value="stamp-ore-seam">Stamp: ore seam</option>
-                <option value="stamp-lake">Stamp: lake</option>
-                <option value="stamp-ridge">Stamp: mountain ridge</option>
-              </select>
-            </label>
-            <label id="map-ore-item-field">Item
-              <select id="map-ore-item"></select>
-            </label>
-            <label>Radius<input id="map-radius" type="number" min="1" max="60" value="3"></label>
-            <button type="button" class="btn-ghost" id="map-zoom-reset">Fit whole map</button>
-            <button type="button" class="btn-ghost" id="map-clear-all">Clear all</button>
-            <span class="map-coords" id="map-coords"></span>
-          </div>
+          <!-- Canvas fills whatever's left of the page; every "thing you can add to the map"
+               control lives in the docked panel beside it, not stacked in a scrolling column below
+               a small fixed canvas — the map is the main event, the tools are a sidebar on it. -->
+          <div class="map-stage">
+            <div class="map-canvas-wrap">
+              <canvas id="map-canvas" width="512" height="512"></canvas>
+            </div>
 
-          <div class="map-canvas-wrap">
-            <canvas id="map-canvas" width="512" height="512"></canvas>
-          </div>
+            <aside class="map-tools">
+              <div class="map-hint-row">
+                <p class="field-hint">256&times;256 cells — click-drag to place a patch, click an existing one to select it.</p>
+                <button type="button" class="icon-btn" id="map-help" title="Click-drag to size a new patch live, or just click for the radius field's value — a freshly placed patch always paints on top of whatever's already there. Click an existing patch to select it — drag its middle to move, drag its edge to resize, or type its exact X/Y/radius/item in the panel below. Arrow keys nudge the selected patch a cell at a time (Shift = 10), Delete removes it, ⌘D duplicates it, Escape cancels a placement/pan/move/resize in progress. Right-click removes whatever's under the cursor. Shift-drag pans; scroll to zoom — grid lines appear once you're zoomed in enough to place precisely. Order in the list below is paint priority (first wins any overlap, ore always wins over terrain) — drag rows to reorder. ⌘Z / ⌘⇧Z undo/redo."></button>
+              </div>
 
-          <div class="map-toolbar patch-inspector hidden" id="map-patch-inspector">
-            <label>X<input id="patch-cx" type="number"></label>
-            <label>Y<input id="patch-cy" type="number"></label>
-            <label>Radius<input id="patch-radius" type="number"></label>
-            <label id="patch-ore-field">Item<select id="patch-ore-item"></select></label>
-            <button type="button" class="btn-ghost" id="patch-duplicate">Duplicate<kbd>&#8984;D</kbd></button>
-            <button type="button" class="btn-ghost" id="patch-delete">Delete<kbd>Del</kbd></button>
-          </div>
+              <div class="map-toolbar">
+                <label>Tool
+                  <select id="map-tool">
+                    <option value="ore">Ore</option>
+                    <option value="WATER">Water</option>
+                    <option value="ROCK">Rock</option>
+                    <option value="stamp-ore-cluster">Stamp: ore cluster</option>
+                    <option value="stamp-ore-seam">Stamp: ore seam</option>
+                    <option value="stamp-lake">Stamp: lake</option>
+                    <option value="stamp-ridge">Stamp: mountain ridge</option>
+                  </select>
+                </label>
+                <label id="map-ore-item-field">Item
+                  <select id="map-ore-item"></select>
+                </label>
+                <label>Radius<input id="map-radius" type="number" min="1" max="60" value="3"></label>
+                <button type="button" class="btn-ghost" id="map-zoom-reset">Fit whole map</button>
+                <button type="button" class="btn-ghost" id="map-clear-all">Clear all</button>
+                <span class="map-coords" id="map-coords"></span>
+              </div>
 
-          <ul class="patch-list" id="map-patch-list"></ul>
+              <div class="map-toolbar patch-inspector hidden" id="map-patch-inspector">
+                <label>X<input id="patch-cx" type="number"></label>
+                <label>Y<input id="patch-cy" type="number"></label>
+                <label>Radius<input id="patch-radius" type="number"></label>
+                <label id="patch-ore-field">Item<select id="patch-ore-item"></select></label>
+                <button type="button" class="btn-ghost" id="patch-duplicate">Duplicate<kbd>&#8984;D</kbd></button>
+                <button type="button" class="btn-ghost" id="patch-delete">Delete<kbd>Del</kbd></button>
+              </div>
+
+              <ul class="patch-list" id="map-patch-list"></ul>
+            </aside>
+          </div>
 
           <div class="form-error" id="maps-form-error"></div>
           <div class="form-actions">

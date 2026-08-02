@@ -132,7 +132,13 @@ kbd {
 #content-status.clickable:hover { color: var(--text); }
 
 /* ---------- main / topbar ---------- */
-.main { display: flex; flex-direction: column; min-width: 0; }
+/* min-height:0 matters as much as min-width:0 here — without it, .main (a grid item under
+   .app{height:100vh}) refuses to shrink below its own content's height, and the WHOLE PAGE ends up
+   scrolling past the viewport instead of .workspace actually being bounded to it. Every other tab
+   masked this with its own .detail-panel{overflow-y:auto}, so nothing inside ever grew tall enough
+   to expose it — the maps tab's canvas stage is the first thing that actually depends on .workspace
+   (and everything under it) having a REAL, viewport-bounded height instead of an auto one. */
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; padding: 12px 22px;
@@ -357,19 +363,73 @@ kbd {
 .kind-implicit-info.warn { border-color: var(--danger); }
 .kind-implicit-info .field-hint { margin: 0 0 10px; }
 
-/* 960px, not the 480px every other detail-form gets: the canvas wants to fill as much of the panel
-   as it reasonably can (see resizeMapCanvas in app.js) — a fixed narrow form was the reason the
-   canvas used to sit at a tiny, un-resizable 512px square regardless of the window's real width. */
-.map-detail-form { max-width: 960px; }
+/* The maps tab gets its own full-height layout instead of the generic scrolling detail-form every
+   other tab uses: the canvas is the main event, not one more field stacked in a column, so it (and
+   its tool sidebar) fill the panel's full height rather than scrolling past it. */
+/* Tighter padding/margins than the generic detail-panel gets: every pixel of vertical chrome here
+   comes straight out of the canvas stage's own height (the canvas is square, sized to whichever of
+   width/height is tighter — see resizeMapCanvas in app.js — and height is usually the tighter one
+   once a tool sidebar is also sharing the row). Worth being stingy about here in a way that doesn't
+   matter for an ordinary scrolling field form. */
+.detail-panel.map-detail-panel { display: flex; flex-direction: column; overflow: hidden; padding: 14px 22px; }
+.map-detail-panel .detail-header { flex-shrink: 0; margin-bottom: 10px; }
+.map-detail-form.map-detail-form { max-width: none; flex: 1; display: flex; flex-direction: column; min-height: 0; gap: 10px; }
+/* The JSON-view textarea is #maps-form's sibling, shown instead of it (never alongside — see
+   wireJsonToggle) — .json-view's shared 340px min-height assumes the OLD scrolling panel; here,
+   with the panel's own overflow hidden, that fixed height could clip the textarea's box on a short
+   window instead of just scrolling past it. flex:1 makes it claim the same space the canvas stage
+   would, with its own scrollbar for content taller than that. */
+.map-detail-panel .json-view { flex: 1; min-height: 0; max-width: none; overflow-y: auto; }
+.map-meta-row { display: flex; gap: 14px; flex-shrink: 0; }
+.map-meta-row label { flex: 1; }
+
+/* Canvas + its tool sidebar, side by side, filling whatever vertical space .map-meta-row and
+   .form-actions don't take — see resizeMapCanvas (app.js), which measures .map-canvas-wrap's own
+   box (not a fixed pixel count) to size the canvas element itself. */
+.map-stage { display: flex; gap: 16px; flex: 1; min-height: 0; }
+
+.map-canvas-wrap {
+  flex: 1; min-width: 0; min-height: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  /* Matches the canvas's own "no terrain" fill (app.js, drawMapCanvas) — the canvas stays square
+     and gets centered here, so whichever axis has room to spare shows this as a margin; it needs
+     to be the same color as the canvas fill or that margin would read as a separate letterbox bar. */
+  background: #2b2e35;
+}
+/* No fixed width/height here on purpose — resizeMapCanvas (app.js) sets the canvas element's own
+   width/height ATTRIBUTES (the drawing-buffer resolution) to fill .map-canvas-wrap's box; a CSS
+   size here would just stretch that buffer and blur it instead of sizing it. */
+#map-canvas { display: block; cursor: crosshair; }
+
+/* Docked tool panel beside the canvas — every "thing you can add to the map" (tool/item/radius,
+   the selected patch's own inspector, the patch list) lives here, not stacked below a small canvas
+   in a scrolling column. overflow-y:auto on the WHOLE panel, not just .patch-list: on a short
+   window the toolbar+inspector+list together can still be taller than the space .map-stage has for
+   this column, and a scrollbar beats silently clipping the delete/duplicate buttons off the bottom
+   with nothing to scroll them into view. */
+.map-tools {
+  width: 300px; flex-shrink: 0; min-height: 0;
+  display: flex; flex-direction: column; gap: 14px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 16px; overflow-y: auto;
+}
+.map-tools .map-hint-row { flex-shrink: 0; }
+/* A column, not the wrapped row .map-toolbar is everywhere else — a 300px sidebar has no room for
+   several 140px-wide fields side by side; stacked full-width fields are the normal shape for a
+   docked tool panel (the same shape Photoshop/Figma's own side panels use). */
 .map-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
 .map-toolbar label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
 .map-toolbar select, .map-toolbar input[type=number] { min-width: 140px; }
 .map-toolbar .btn-ghost { padding: 8px 14px; }
-.map-canvas-wrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; width: fit-content; line-height: 0; }
-/* No fixed width/height here on purpose — resizeMapCanvas (app.js) sets the canvas element's own
-   width/height ATTRIBUTES (the drawing-buffer resolution) to fill the available panel width, up to
-   880px; a CSS size here would just stretch that buffer and blur it instead of sizing it. */
-#map-canvas { display: block; cursor: crosshair; }
+.map-tools .map-toolbar { flex-direction: column; align-items: stretch; flex-shrink: 0; gap: 10px; }
+.map-tools .map-toolbar select, .map-tools .map-toolbar input[type=number] { min-width: 0; width: 100%; }
+.map-tools .map-coords { margin-left: 0; align-self: flex-start; }
+/* flex:0 0 auto, not flex:1 — the LIST no longer owns the scrolling (.map-tools does, see its own
+   comment above); a flex:1 list plus an overflow-y:auto ancestor is two nested scrollers arguing
+   over the same leftover space, and the list would lose that argument silently. */
+.map-tools .patch-list { flex: 0 0 auto; max-height: none; margin: 0; }
+
 .patch-list { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid var(--border-soft); border-radius: var(--radius); }
 .patch-list:empty { display: none; }
 .patch-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; font-size: 12.5px; }
@@ -384,10 +444,6 @@ kbd {
 .patch-row .drag-handle { cursor: grab; color: var(--muted-2); }
 
 .map-coords { margin-left: auto; font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted-2); align-self: center; }
-
-.patch-inspector { margin-top: -4px; }
-.patch-inspector input[type=number] { min-width: 70px; width: 70px; }
-.patch-inspector select { min-width: 140px; }
 
 .new-map-options { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 14px; }
 .new-map-options .btn-ghost { justify-content: center; width: 100%; }

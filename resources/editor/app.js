@@ -1283,11 +1283,11 @@ const STAMPS = {
 };
 
 /** The canvas element's own drawing-buffer resolution (both width and height — always square),
- * recomputed by {@link resizeMapCanvas} to fill the available panel width instead of the fixed
- * 512px box this used to be hardcoded to (which left most of a normal-width browser window empty
- * and made precise placement on a 256x256 map needlessly hard). {@link mapMinScale}/{@link
- * mapMaxScale} derive from this instead of from fixed constants, so zoom bounds stay correct at
- * whatever size the canvas actually ends up. */
+ * recomputed by {@link resizeMapCanvas} to fill the available panel width AND height instead of
+ * the fixed 512px box this used to be hardcoded to (which left most of a normal-width browser
+ * window empty and made precise placement on a 256x256 map needlessly hard). {@link
+ * mapMinScale}/{@link mapMaxScale} derive from this instead of from fixed constants, so zoom
+ * bounds stay correct at whatever size the canvas actually ends up. */
 let mapCanvasSize = 512;
 
 /** The whole 256x256 map fits — can't zoom out further than this. */
@@ -1492,22 +1492,34 @@ function zoomAt(px, py, factor) {
   clampView();
 }
 
-/** Fills the available panel width instead of a fixed box (see {@link mapCanvasSize}'s own
- * comment) — called whenever the maps tab becomes visible and on window resize while it's active.
- * A no-op if the measured size didn't actually change, so switching back to an unchanged window
- * doesn't reset the camera on every tab click. Resets to "fit whole map" rather than trying to
- * preserve the exact pan/zoom across a resolution change — simpler, and a resize is rare enough
- * that losing the current pan isn't a real cost. */
+/** Fills the available space of {@code .map-canvas-wrap} — a {@code flex: 1} cell beside the
+ * {@code .map-tools} side panel, itself stretched to the full page height by the surrounding
+ * layout (see style.css) — instead of a fixed box (see {@link mapCanvasSize}'s own comment).
+ * Called whenever the maps tab becomes visible and on window resize while it's active. A no-op if
+ * the measured size didn't actually change, so switching back to an unchanged window doesn't reset
+ * the camera on every tab click. Resets to "fit whole map" rather than trying to preserve the exact
+ * pan/zoom across a resolution change — simpler, and a resize is rare enough that losing the
+ * current pan isn't a real cost. */
 function resizeMapCanvas() {
-  const available = mapCanvasEl.parentElement.parentElement.clientWidth;
-  // clientWidth is 0 whenever #maps-form itself is hidden (JSON-view toggle, or this tab isn't the
-  // active one at the moment a debounced resize fires) — every caller of this function already
-  // means to only measure while the form is visible, so a 0 here means "don't have a real number
-  // yet," not "shrink to the floor." Leaving mapCanvasSize alone until a real measurement arrives.
-  if (available <= 0) return;
-  // -2: .map-canvas-wrap's own 1px border on each side, so the canvas plus its border still fits
-  // inside the measured width instead of overflowing it by 2px.
-  const size = Math.max(420, Math.min(880, available - 2));
+  const wrap = mapCanvasEl.parentElement; // .map-canvas-wrap
+  const availableW = wrap.clientWidth;
+  const availableH = wrap.clientHeight;
+  // Either being 0 means .map-canvas-wrap itself is hidden right now (JSON-view toggle, or this
+  // tab isn't the active one at the moment a debounced resize fires) — every caller of this
+  // function already means to only measure while it's visible, so 0 means "don't have a real
+  // number yet," not "shrink to the floor." Leaving mapCanvasSize alone until a real one arrives.
+  if (availableW <= 0 || availableH <= 0) return;
+  // The canvas stays SQUARE (world math throughout this file assumes one uniform scale for both
+  // axes — a non-square canvas would need to either distort circular ore patches or letterbox,
+  // and neither is worth the complexity here) — sized to whichever of width/height is the tighter
+  // constraint, centered in the other by .map-canvas-wrap's own flex centering. No -2 for the
+  // wrap's border: clientWidth/clientHeight already exclude it (padding-box, not border-box), so
+  // subtracting again would just make the canvas needlessly smaller than what's actually available.
+  // No floor either — an artificial minimum would size the canvas BIGGER than a genuinely cramped
+  // wrap actually has room for, which .map-canvas-wrap's own overflow:hidden would then clip
+  // invisibly with no way to scroll to the missing part. A tiny window gets an honestly tiny
+  // canvas instead of a silently cropped one.
+  const size = Math.max(0, Math.min(availableW, availableH));
   if (size === mapCanvasSize) return;
   mapCanvasSize = size;
   mapCanvasEl.width = size;
@@ -1534,7 +1546,11 @@ function hitTestPatch(worldX, worldY) {
 function drawMapCanvas() {
   const canvas = document.getElementById("map-canvas");
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#3f5a3a";
+  // Dark neutral gray, not the green this used to be — this is "no terrain assigned" (the base
+  // ground layer, not water/rock/an ore patch), and a saturated color read as if it MEANT
+  // something, the way the actual ore/terrain tints do. Matches the app's own dark theme instead
+  // of standing out from it.
+  ctx.fillStyle = "#2b2e35";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Cell grid, only once cells are actually spaced out on screen: at mapMinScale() the whole
