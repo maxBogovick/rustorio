@@ -30,14 +30,21 @@ final class GameProcess {
     private GameProcess() {
     }
 
-    /** {@code mapId} (a {@code namespace:path}, or {@code null} for the default fixed map) — forwarded as {@code --map=} via Gradle's own {@code --args}, the same mechanism {@code com.graphics.Main} already reads {@code --seed=}/{@code --dev} through. */
+    /**
+     * {@code mapId} (a {@code namespace:path}, or {@code null} for the default fixed map) —
+     * forwarded as {@code --map=} via Gradle's own {@code --args}, the same mechanism {@code
+     * com.graphics.Main} already reads {@code --seed=}/{@code --dev} through. Always also passes
+     * {@code --no-menu}: {@code com.graphics.screen.MainMenuScreen} exists for a real desktop
+     * launch with nothing else specified, not for this Play button, which already knows exactly
+     * what to show (the picked map, or the default one) and would otherwise sit behind an extra
+     * click on every single relaunch.
+     */
     static synchronized void relaunch(String mapId) throws IOException {
         stop();
         Files.createDirectories(LOG_FILE.getParent());
         List<String> command = new ArrayList<>(List.of(gradlewCommand(), "--no-daemon", "--console=plain", "run"));
-        if (mapId != null && !mapId.isBlank()) {
-            command.add("--args=--map=" + mapId);
-        }
+        String extraArgs = mapId != null && !mapId.isBlank() ? "--map=" + mapId + " --no-menu" : "--no-menu";
+        command.add("--args=" + extraArgs);
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.directory(EditorPaths.REPO_ROOT.toFile());
         builder.redirectErrorStream(true);

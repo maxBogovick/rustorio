@@ -1,6 +1,8 @@
 package com.graphics.screen;
 
+import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.ScreenAdapter;
@@ -12,18 +14,19 @@ import com.graphics.render.Textures;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.AuthoredOreLayout;
 import com.rustorio.domain.OreLayout;
+import com.rustorio.domain.OreLayoutId;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RandomOreLayout;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.world.ProductionLog;
 import com.rustorio.domain.world.World;
 import com.rustorio.mod.LoadedGame;
-import com.rustorio.mod.ModDirectories;
-import com.rustorio.mod.ModLoader;
 import com.rustorio.persistence.JsonSaveRepository;
+import com.rustorio.persistence.SaveRepository;
+import com.rustorio.persistence.SaveResult;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Экран игры: держит мир и каждый кадр гоняет связку ввод → тик → рендер.
@@ -70,58 +73,56 @@ public final class GameScreen extends ScreenAdapter {
      */
     private final InputProcessor inputProcessor;
 
-    /** Where every mod (including the built-in {@code rustorio} one) lives — see {@link ModDirectories#discover}. */
-    private static final Path MODS_ROOT = Path.of("resources", "mods");
+    /** Esc (once no HUD panel is open — {@code InputHandler#hasOpenPanel}) — Save/Load/Main Menu/Exit; see its own javadoc. */
+    private final PauseMenu pauseMenu;
 
-    /** Фиксированная карта руды ({@link PatchOreLayout#standard()}). */
-    public GameScreen() {
-        this(loadedGame -> PatchOreLayout.standard(), false);
+    /**
+     * Фиксированная карта руды ({@link PatchOreLayout#standard()}). {@code loadedGame}/{@code
+     * modDirectories} come from whoever is switching TO this screen ({@code
+     * com.graphics.RustorioGame} on a CLI launch, {@code MainMenuScreen} from a menu choice) —
+     * mods are loaded exactly once, up there, not per {@code GameScreen} (see this class's own
+     * former javadoc history: before the main menu existed, this constructor ran {@code
+     * ModLoader#loadAll} itself, which would have meant loading mods twice for every
+     * menu → game transition).
+     */
+    public GameScreen(Game game, LoadedGame loadedGame, List<Path> modDirectories) {
+        this(game, loadedGame, modDirectories, PatchOreLayout.standard(), false);
     }
 
     /** Карта руды сгенерирована из {@code oreSeed} — см. {@link RandomOreLayout}. */
-    public GameScreen(long oreSeed) {
-        this(loadedGame -> new RandomOreLayout(oreSeed, GfxConfig.GRID_W, GfxConfig.GRID_H), false);
+    public GameScreen(Game game, LoadedGame loadedGame, List<Path> modDirectories, long oreSeed) {
+        this(game, loadedGame, modDirectories, new RandomOreLayout(oreSeed, GfxConfig.GRID_W, GfxConfig.GRID_H), false);
     }
 
     /**
      * Dev-mode showcase ({@code --dev}, {@code com.graphics.Main}) — фиксированная карта, как у
-     * {@link #GameScreen()}: {@link DevScene}'s coordinates assume the standard map's real ore
-     * patches, so this can't be combined with {@link #GameScreen(long)}'s random seed.
+     * {@link #GameScreen(LoadedGame, List)}: {@link DevScene}'s coordinates assume the standard
+     * map's real ore patches, so this can't be combined with a random seed.
      */
-    public GameScreen(boolean devMode) {
-        this(loadedGame -> PatchOreLayout.standard(), devMode);
+    public GameScreen(Game game, LoadedGame loadedGame, List<Path> modDirectories, boolean devMode) {
+        this(game, loadedGame, modDirectories, PatchOreLayout.standard(), devMode);
     }
 
     /**
-     * A mod-authored map (the content editor's canvas, {@code --map=} in {@code com.graphics.Main})
-     * — {@code mapId} must resolve in {@code loadedGame.maps()} once mods are loaded, hence the
-     * {@link Function}-based constructor below rather than a plain {@link OreLayout}: unlike {@link
-     * PatchOreLayout#standard()}/{@link RandomOreLayout}, this one doesn't exist until AFTER {@link
-     * ModLoader#loadAll} has run.
+     * A mod-authored map (the content editor's canvas, {@code --map=} in {@code com.graphics.Main},
+     * or a map picked in {@code MainMenuScreen}'s "New Game" list) — {@code mapId} must resolve in
+     * {@code loadedGame.maps()}.
      */
-    public GameScreen(ContentId mapId) {
-        this(loadedGame -> AuthoredOreLayout.from(loadedGame.maps().get(mapId)), false);
+    public GameScreen(Game game, LoadedGame loadedGame, List<Path> modDirectories, ContentId mapId) {
+        this(game, loadedGame, modDirectories, AuthoredOreLayout.from(loadedGame.maps().get(mapId)), false);
     }
 
     /**
-     * Every real content set (items, recipes, buildings — vanilla AND modded) is loaded here,
-     * through the same {@link ModLoader#loadAll} the mod system's own acceptance tests already
-     * exercise end to end, instead of the {@code VanillaItems.frozen()}/{@code
-     * VanillaBuildings.frozen()}/{@code RecipeBook.standard()} shortcut {@link
-     * BuildingFactory#standard()} takes. {@code resources/mods/rustorio}'s JSON mirrors vanilla
-     * 1:1 (see {@code VanillaAsModParityTest}), so on a stock checkout this looks identical — the
-     * difference only shows once a mod (or the local content editor, {@code com.rustorio.editor})
-     * adds or changes a {@code content/*.json} file under {@link #MODS_ROOT}.
-     *
-     * <p>{@code oreLayoutFactory}, not a plain {@link OreLayout}: an {@link AuthoredOreLayout} can
-     * only be built from a {@link LoadedGame}'s own {@code maps()} registry, which doesn't exist
-     * until {@link ModLoader#loadAll} below has already run — every OTHER caller's factory just
-     * ignores the argument, same as before this constructor existed.
+     * Every real content set (items, recipes, buildings — vanilla AND modded) already sits in
+     * {@code loadedGame}, built by the same {@link com.rustorio.mod.ModLoader#loadAll} the mod
+     * system's own acceptance tests already exercise end to end, instead of the {@code
+     * VanillaItems.frozen()}/{@code VanillaBuildings.frozen()}/{@code RecipeBook.standard()}
+     * shortcut {@link BuildingFactory#standard()} takes. {@code resources/mods/rustorio}'s JSON
+     * mirrors vanilla 1:1 (see {@code VanillaAsModParityTest}), so on a stock checkout this looks
+     * identical — the difference only shows once a mod (or the local content editor, {@code
+     * com.rustorio.editor}) adds or changes a {@code content/*.json} file.
      */
-    private GameScreen(Function<LoadedGame, OreLayout> oreLayoutFactory, boolean devMode) {
-        List<Path> modDirectories = ModDirectories.discover(MODS_ROOT);
-        LoadedGame loadedGame = ModLoader.loadAll(modDirectories);
-        OreLayout oreLayout = oreLayoutFactory.apply(loadedGame);
+    private GameScreen(Game game, LoadedGame loadedGame, List<Path> modDirectories, OreLayout oreLayout, boolean devMode) {
         BuildingFactory buildingFactory = new BuildingFactory(
                 oreLayout, loadedGame.recipes(), loadedGame.items(), loadedGame.buildings());
         this.world = new World(GfxConfig.GRID_W, GfxConfig.GRID_H, buildingFactory);
@@ -130,7 +131,13 @@ public final class GameScreen extends ScreenAdapter {
             DevScene.build(world);
         }
         this.camera = new GameCamera(GfxConfig.GRID_W, GfxConfig.GRID_H);
-        this.input = new InputHandler(camera, new JsonSaveRepository());
+        // loadedGame.items(), not VanillaItems.frozen() (JsonSaveRepository's own no-arg default):
+        // a quicksave (F5/F9) written with modded items in the world must round-trip against the
+        // SAME item registry the world was built with, or a load would reject every modded
+        // ItemType key as unknown — this GameScreen already builds buildingFactory against
+        // loadedGame.items() above, so the quicksave repository has to agree.
+        this.input = new InputHandler(camera, new JsonSaveRepository(JsonSaveRepository.DEFAULT_PATH, loadedGame.items()));
+        this.pauseMenu = new PauseMenu(game, loadedGame, modDirectories, world, this::dispose);
         this.textures = Textures.loadFrom(modDirectories);
         this.renderer = new Renderer(textures, camera, world.buildingFactory().oreLayout(), world.width(), world.height());
         // Колесо мыши в libGDX — событие, опросом его не поймать: подписываемся.
@@ -149,13 +156,63 @@ public final class GameScreen extends ScreenAdapter {
         Gdx.input.setInputProcessor(inputProcessor);
     }
 
+    /**
+     * Loads a save into this screen's already-built world — used by {@code MainMenuScreen}'s
+     * "Load Game"/"Continue", BEFORE this screen is ever shown to the player: the caller picks
+     * which {@code GameScreen} constructor to use from the save's own recorded map first, so
+     * {@link SaveRepository#load}'s map-mismatch check can never fire here. On {@link
+     * SaveResult.Failure} the caller is expected to {@link #dispose()} this instance instead of
+     * showing it — same "world untouched on failure" guarantee {@link SaveRepository#load} already
+     * documents, just one level up.
+     */
+    public SaveResult loadFrom(SaveRepository repository) {
+        return input.load(repository, world);
+    }
+
+    /**
+     * Picks the right {@code GameScreen} constructor for a save's own recorded {@link
+     * OreLayoutId} (vanilla/random/authored) — {@code null} if {@code layout} itself is {@code
+     * null} (a corrupt/foreign save header) or names an authored map {@code loadedGame} no longer
+     * has registered. Shared by {@code MainMenuScreen}'s "Load Game"/"Continue" and {@code
+     * PauseMenu}'s "Load Game": both need to pick a constructor from a save's own map BEFORE
+     * calling {@link #loadFrom}, so {@link SaveRepository#load}'s map-mismatch check can never
+     * fire for either.
+     */
+    public static @Nullable GameScreen forSave(Game game, LoadedGame loadedGame, List<Path> modDirectories, @Nullable OreLayoutId layout) {
+        if (layout == null) {
+            return null;
+        }
+        String kind = layout.kind();
+        if (kind.equals("patch")) {
+            return new GameScreen(game, loadedGame, modDirectories);
+        }
+        if (kind.equals("random")) {
+            return new GameScreen(game, loadedGame, modDirectories, layout.seed());
+        }
+        if (kind.startsWith("authored:")) {
+            ContentId mapId = ContentId.of(kind.substring("authored:".length()));
+            return loadedGame.maps().peek(mapId).isEmpty() ? null : new GameScreen(game, loadedGame, modDirectories, mapId);
+        }
+        return null;
+    }
+
     @Override
     public void render(float delta) {
-        input.handle(world, delta);           // 1. ввод: камера + выбор/постройка + пауза/скорость
-        // 2. тик: фиксированным шагом (P4-06) — на паузе аккумулятор не растёт и тиков не будет;
-        // иначе на каждый накопленный TICK_SECONDS мир тикает столько раз, сколько просит скорость
-        // (1×/2×/4×), но не больше MAX_CATCHUP_TICKS раз за этот кадр.
-        if (!input.isPaused()) {
+        if (pauseMenu.isOpen()) {
+            pauseMenu.handleInput();
+        } else {
+            input.handle(world, delta);        // 1. ввод: камера + выбор/постройка + пауза/скорость
+            // Esc, только если input.handle только что НЕ закрыл им же какую-то HUD-панель (см.
+            // InputHandler#hasOpenPanel) — один и тот же Esc либо закрывает панель, либо (если
+            // закрывать было нечего) открывает паузу-меню, не оба сразу за один кадр.
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) && !input.hasOpenPanel()) {
+                pauseMenu.open();
+            }
+        }
+        // 2. тик: фиксированным шагом (P4-06) — на паузе (обычной или через паузу-меню) аккумулятор
+        // не растёт и тиков не будет; иначе на каждый накопленный TICK_SECONDS мир тикает столько
+        // раз, сколько просит скорость (1×/2×/4×), но не больше MAX_CATCHUP_TICKS раз за этот кадр.
+        if (!input.isPaused() && !pauseMenu.isOpen()) {
             accumulator += delta;
             int caughtUp = 0;
             while (accumulator >= TICK_SECONDS && caughtUp < MAX_CATCHUP_TICKS) {
@@ -173,8 +230,8 @@ public final class GameScreen extends ScreenAdapter {
             ticksThisSecond = 0;
             upsTimer -= 1f;
         }
-        // 3. рендер: карта + HUD
-        renderer.render(world, input.hudState(), productionLog, lastUps);
+        // 3. рендер: карта + HUD (+ паузa-меню поверх всего, если открыто)
+        renderer.render(world, input.hudState(), productionLog, lastUps, pauseMenu.isOpen() ? pauseMenu.view() : null);
     }
 
     @Override

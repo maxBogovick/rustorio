@@ -100,6 +100,8 @@ public final class InputHandler {
     public ContentId selected() { return selected; }
     public Direction facing() { return facing; }
     public boolean isPaused() { return simulationControls.isPaused(); }
+    /** Whether a HUD panel (recipe book/tech tree/stats/build menu/info) is open right now — {@code GameScreen} uses this to tell an Esc that closed a panel apart from one that should open its pause menu instead. */
+    public boolean hasOpenPanel() { return simulationControls.hasOpenPanel(); }
     public int speed() { return simulationControls.speed(); }
     public boolean showRecipeBook() { return simulationControls.showRecipeBook(); }
     /**
@@ -228,14 +230,29 @@ public final class InputHandler {
             }
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.F9)) {
-            if (saveRepository.load(world) instanceof SaveResult.Failure failure) {
+            if (load(saveRepository, world) instanceof SaveResult.Failure failure) {
                 LOGGER.log(System.Logger.Level.WARNING, "Load failed: {0}", failure.reason());
                 showStatus("Load failed: " + failure.reason());
             } else {
-                history.clear(); // новый мир — старая история недействительна (P1-05)
                 showStatus("Loaded");
             }
         }
+    }
+
+    /**
+     * Loads {@code world} from {@code repository} — same effect as the F9 hotkey above, exposed
+     * for callers outside the per-frame key-handling loop ({@code MainMenuScreen}'s "Load
+     * Game"/"Continue", via {@code GameScreen#loadFrom}). Clears {@link #history} on anything but
+     * outright failure: a freshly loaded world invalidates whatever undo/redo stack belonged to
+     * the world that was live before (P1-05) — the same reason F9 always cleared it inline before
+     * this method existed to share that rule with a second caller.
+     */
+    public SaveResult load(SaveRepository repository, World world) {
+        SaveResult result = repository.load(world);
+        if (!(result instanceof SaveResult.Failure)) {
+            history.clear();
+        }
+        return result;
     }
 
     /**

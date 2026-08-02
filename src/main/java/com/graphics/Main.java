@@ -27,6 +27,11 @@ import org.jspecify.annotations.Nullable;
  * карты — не карточка из DEV_TASKS.md, прямая просьба: чтобы не пересобирать один и тот же
  * тестовый стенд руками при каждой проверке механики. Игнорирует {@code --seed=}/{@code --map=},
  * если заданы разом — координаты стенда завязаны на реальные рудные пятна фиксированной карты.
+ *
+ * <p>{@code --no-menu} пропускает {@code com.graphics.screen.MainMenuScreen} и идёт сразу на
+ * карту по умолчанию, если ни один другой флаг не задан — используется {@code com.rustorio.editor}
+ * ({@code GameProcess#relaunch}) для кнопки Play без выбранной карты: там меню — лишний клик на
+ * каждый релонч, а не то, что мод-автор просил проверить.
  */
 public final class Main {
 
@@ -40,7 +45,8 @@ public final class Main {
         config.setResizable(true); // камера умеет пересчитываться под новый размер
         config.useVsync(true);
         config.setForegroundFPS(60);
-        new Lwjgl3Application(new RustorioGame(parseSeed(args), parseMap(args), hasFlag(args, "--dev")), config);
+        new Lwjgl3Application(new RustorioGame(parseSeed(args), parseMap(args),
+                hasFlag(args, "--dev"), hasFlag(args, "--no-menu")), config);
     }
 
     private static @Nullable Long parseSeed(String[] args) {

@@ -10,6 +10,7 @@ import com.graphics.GfxConfig;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.world.ProductionLogView;
 import com.rustorio.domain.world.World;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Дирижёр отрисовки: владеет общими ресурсами и вызывает слои по порядку — земля, здания,
@@ -51,6 +52,7 @@ public final class Renderer implements Disposable {
     private final StatsScreenRenderer statsScreenRenderer;
     private final BuildMenuRenderer buildMenuRenderer;
     private final InfoOverlayRenderer infoOverlayRenderer;
+    private final PauseMenuRenderer pauseMenuRenderer;
 
     /**
      * {@code gridW}/{@code gridH} come from whoever built the {@link World} this renderer will be
@@ -78,6 +80,7 @@ public final class Renderer implements Disposable {
         this.statsScreenRenderer = new StatsScreenRenderer(batch, shapes, font);
         this.buildMenuRenderer = new BuildMenuRenderer(batch, shapes, font, textures);
         this.infoOverlayRenderer = new InfoOverlayRenderer(batch, shapes, font);
+        this.pauseMenuRenderer = new PauseMenuRenderer(batch, shapes, font);
     }
 
     /**
@@ -86,8 +89,10 @@ public final class Renderer implements Disposable {
      *
      * @param ups сколько раз {@code World.tick()} реально позвался за последнюю полную секунду
      *            (S-04, DEV_TASKS.md) — {@code GameScreen}'s own measurement, не то же самое, что FPS
+     * @param pauseMenu drawn on top of everything else when non-{@code null} ({@code GameScreen}'s
+     *                  own {@code PauseMenu} open) — {@code null} the rest of the time
      */
-    public void render(World world, HudState hud, ProductionLogView log, int ups) {
+    public void render(World world, HudState hud, ProductionLogView log, int ups, @Nullable PauseMenuView pauseMenu) {
         Gdx.gl.glClearColor(Palette.BG.r, Palette.BG.g, Palette.BG.b, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -144,6 +149,11 @@ public final class Renderer implements Disposable {
         // research/recent/полный список алертов, которые верхняя полоса больше не держит постоянно.
         if (hud.showInfo()) {
             infoOverlayRenderer.render(world, world.stats(), world.research(), world.inventory(), log);
+        }
+        // 11. пауза-меню (Esc) — поверх абсолютно всего остального, включая любую другую панель:
+        // GameScreen only ever opens it once every other panel above is already closed.
+        if (pauseMenu != null) {
+            pauseMenuRenderer.render(pauseMenu);
         }
     }
 

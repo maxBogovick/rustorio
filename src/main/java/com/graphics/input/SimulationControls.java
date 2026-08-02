@@ -230,6 +230,11 @@ final class SimulationControls {
         return openPanel == OverlayPanel.INFO;
     }
 
+    /** Whether ANY of the four modal panels is open right now — {@code InputHandler}'s own Esc handling uses this to tell "Esc just closed a panel" apart from "nothing was open, Esc should open the pause menu instead". */
+    boolean hasOpenPanel() {
+        return openPanel != OverlayPanel.NONE;
+    }
+
     boolean showHints() {
         return showHints;
     }
