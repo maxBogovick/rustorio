@@ -364,32 +364,36 @@ kbd {
 .kind-implicit-info .field-hint { margin: 0 0 10px; }
 
 /* The maps tab gets its own full-height layout instead of the generic scrolling detail-form every
-   other tab uses: the canvas is the main event, not one more field stacked in a column, so it (and
-   its tool sidebar) fill the panel's full height rather than scrolling past it. */
-/* Tighter padding/margins than the generic detail-panel gets: every pixel of vertical chrome here
-   comes straight out of the canvas stage's own height (the canvas is square, sized to whichever of
-   width/height is tighter — see resizeMapCanvas in app.js — and height is usually the tighter one
-   once a tool sidebar is also sharing the row). Worth being stingy about here in a way that doesn't
-   matter for an ordinary scrolling field form. */
+   other tab uses: the canvas fills the ENTIRE stage — .map-tools floats ON TOP of it, docked to the
+   right edge, rather than sitting beside it in a column that would shrink the canvas to make room
+   for a sidebar. That's the whole point: the map is what you're looking at, the add-to-the-map
+   controls are laid over a corner of it, the way a real map/level editor docks its palette. */
+/* #panel-maps specifically, not .workspace generally — every OTHER tab still gets its 300px file
+   list beside the detail form; only maps hides it, because #maps-picker (in the floating panel's
+   own header) replaces it as the "which map am I editing" control, and the whole point of this
+   layout is that the canvas is the entire page, not a canvas beside yet another list column. */
+#panel-maps.workspace.active { grid-template-columns: 1fr; }
+#panel-maps .list-panel { display: none; }
+
 .detail-panel.map-detail-panel { display: flex; flex-direction: column; overflow: hidden; padding: 14px 22px; }
 .map-detail-panel .detail-header { flex-shrink: 0; margin-bottom: 10px; }
-.map-detail-form.map-detail-form { max-width: none; flex: 1; display: flex; flex-direction: column; min-height: 0; gap: 10px; }
+.map-detail-form.map-detail-form { max-width: none; flex: 1; display: flex; flex-direction: column; min-height: 0; }
 /* The JSON-view textarea is #maps-form's sibling, shown instead of it (never alongside — see
    wireJsonToggle) — .json-view's shared 340px min-height assumes the OLD scrolling panel; here,
    with the panel's own overflow hidden, that fixed height could clip the textarea's box on a short
    window instead of just scrolling past it. flex:1 makes it claim the same space the canvas stage
    would, with its own scrollbar for content taller than that. */
 .map-detail-panel .json-view { flex: 1; min-height: 0; max-width: none; overflow-y: auto; }
-.map-meta-row { display: flex; gap: 14px; flex-shrink: 0; }
-.map-meta-row label { flex: 1; }
 
-/* Canvas + its tool sidebar, side by side, filling whatever vertical space .map-meta-row and
-   .form-actions don't take — see resizeMapCanvas (app.js), which measures .map-canvas-wrap's own
-   box (not a fixed pixel count) to size the canvas element itself. */
-.map-stage { display: flex; gap: 16px; flex: 1; min-height: 0; }
+/* position:relative anchors .map-canvas-wrap and .map-tools below — both position:absolute against
+   THIS box, not against the page, so they're confined to the stage's own area. */
+.map-stage { position: relative; flex: 1; min-height: 0; }
 
+/* inset:0 — fills the ENTIRE stage, full width and height, completely unaware that .map-tools
+   exists; resizeMapCanvas (app.js) measures THIS box, so the canvas is sized off the full stage,
+   not "the stage minus a sidebar's width." */
 .map-canvas-wrap {
-  flex: 1; min-width: 0; min-height: 0;
+  position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
   /* Matches the canvas's own "no terrain" fill (app.js, drawMapCanvas) — the canvas stays square
@@ -402,19 +406,34 @@ kbd {
    size here would just stretch that buffer and blur it instead of sizing it. */
 #map-canvas { display: block; cursor: crosshair; }
 
-/* Docked tool panel beside the canvas — every "thing you can add to the map" (tool/item/radius,
-   the selected patch's own inspector, the patch list) lives here, not stacked below a small canvas
-   in a scrolling column. overflow-y:auto on the WHOLE panel, not just .patch-list: on a short
-   window the toolbar+inspector+list together can still be taller than the space .map-stage has for
-   this column, and a scrollbar beats silently clipping the delete/duplicate buttons off the bottom
-   with nothing to scroll them into view. */
+/* The floating card: docked to the right edge of the stage, ON TOP of the canvas (z-index, and
+   later in DOM order than .map-canvas-wrap — either alone would be enough, both together is just
+   belt-and-suspenders). Path/Label/Save/Delete moved in here too, not just the ore/terrain tools —
+   the stage has NOTHING else in it now, so the canvas really does get the entire area, full width
+   and height, with this card simply laid over its right-hand corner. Fixed header (map identity)
+   and footer (save/delete) so those stay reachable regardless of how long the middle section (the
+   part that actually scrolls) gets. */
 .map-tools {
-  width: 300px; flex-shrink: 0; min-height: 0;
-  display: flex; flex-direction: column; gap: 14px;
+  position: absolute; top: 16px; right: 16px; bottom: 16px;
+  width: 300px; z-index: 1;
+  display: flex; flex-direction: column; min-height: 0;
   background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-lg);
-  padding: 16px; overflow-y: auto;
+  box-shadow: var(--shadow);
 }
-.map-tools .map-hint-row { flex-shrink: 0; }
+.map-tools-header { flex-shrink: 0; padding: 16px 16px 0; }
+.map-tools-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+.map-tools-footer { flex-shrink: 0; padding: 12px 16px 16px; border-top: 1px solid var(--border-soft); display: flex; flex-direction: column; gap: 8px; }
+.map-tools-footer .form-actions { margin-top: 0; }
+
+/* Replaces the (hidden, see #panel-maps .list-panel) file list as the "which map am I editing"
+   control — a plain <select>, not a search box + scrolling rows, on the assumption that a mod has
+   a handful of maps, not hundreds; if that assumption stops holding, this is the thing to revisit. */
+.map-picker-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.map-picker-row select { flex: 1; min-width: 0; }
+.map-picker-row .icon-btn { width: 38px; height: 38px; }
+
+.map-meta-row { display: flex; flex-direction: column; gap: 10px; }
+
 /* A column, not the wrapped row .map-toolbar is everywhere else — a 300px sidebar has no room for
    several 140px-wide fields side by side; stacked full-width fields are the normal shape for a
    docked tool panel (the same shape Photoshop/Figma's own side panels use). */
@@ -425,9 +444,6 @@ kbd {
 .map-tools .map-toolbar { flex-direction: column; align-items: stretch; flex-shrink: 0; gap: 10px; }
 .map-tools .map-toolbar select, .map-tools .map-toolbar input[type=number] { min-width: 0; width: 100%; }
 .map-tools .map-coords { margin-left: 0; align-self: flex-start; }
-/* flex:0 0 auto, not flex:1 — the LIST no longer owns the scrolling (.map-tools does, see its own
-   comment above); a flex:1 list plus an overflow-y:auto ancestor is two nested scrollers arguing
-   over the same leftover space, and the list would lose that argument silently. */
 .map-tools .patch-list { flex: 0 0 auto; max-height: none; margin: 0; }
 
 .patch-list { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid var(--border-soft); border-radius: var(--radius); }

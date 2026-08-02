@@ -1282,25 +1282,33 @@ const STAMPS = {
   "stamp-ridge": { kind: "terrain", terrain: "ROCK", radiusDelta: 0, offsets: [[-5, -2], [-2, 0], [1, 1], [4, 2]] },
 };
 
-/** The canvas element's own drawing-buffer resolution (both width and height — always square),
- * recomputed by {@link resizeMapCanvas} to fill the available panel width AND height instead of
- * the fixed 512px box this used to be hardcoded to (which left most of a normal-width browser
- * window empty and made precise placement on a 256x256 map needlessly hard). {@link
- * mapMinScale}/{@link mapMaxScale} derive from this instead of from fixed constants, so zoom
- * bounds stay correct at whatever size the canvas actually ends up. */
-let mapCanvasSize = 512;
+/** The canvas element's own drawing-buffer resolution, recomputed by {@link resizeMapCanvas} to
+ * fill the ENTIRE available panel width AND height (not just whichever is smaller) instead of the
+ * fixed 512px square box this used to be hardcoded to. Deliberately NOT forced square: a square
+ * canvas centered inside a wider (or taller) wrap left a margin on the long axis that was painted
+ * the exact same background color as the canvas itself — visually indistinguishable from map, but
+ * dead: mouse listeners are bound to {@code #map-canvas} itself, not its wrapper, so clicking that
+ * margin silently did nothing. Two numbers, not one, because the map area is no longer guaranteed
+ * square once it fills a real (usually landscape) panel. {@link mapMinScale}/{@link mapMaxScale}
+ * derive from these instead of from fixed constants, so zoom bounds stay correct at whatever size
+ * the canvas actually ends up. */
+let mapCanvasWidth = 512;
+let mapCanvasHeight = 512;
 
-/** The whole 256x256 map fits — can't zoom out further than this. */
+/** The whole 256x256 map fits on its OWN tighter axis — can't zoom out further than this. The
+ * other (longer) axis then shows MORE than 256 world units at this scale, same as any ordinary 2D
+ * camera whose viewport isn't the same aspect ratio as the level it's pointed at: not a distortion
+ * (one uniform scale for both axes — see {@link worldToScreen}), just a wider field of view. */
 function mapMinScale() {
-  return mapCanvasSize / MAP_SIZE;
+  return Math.min(mapCanvasWidth, mapCanvasHeight) / MAP_SIZE;
 }
 
-/** 16x16 cells visible — individually clickable, same ratio the editor has always used. */
+/** 16 cells visible on the tighter axis — individually clickable, same ratio the editor has always used. */
 function mapMaxScale() {
-  return mapCanvasSize / 16;
+  return Math.min(mapCanvasWidth, mapCanvasHeight) / 16;
 }
 
-/** Pan/zoom camera over the 256x256 world — this mapping changes on wheel/shift-drag; the canvas element's OWN size is {@link mapCanvasSize}, changed separately by {@link resizeMapCanvas}. */
+/** Pan/zoom camera over the 256x256 world — this mapping changes on wheel/shift-drag; the canvas element's OWN size is {@link mapCanvasWidth}/{@link mapCanvasHeight}, changed separately by {@link resizeMapCanvas}. */
 let mapView = { scale: mapMinScale(), offsetX: 0, offsetY: 0 };
 /** {@code {list, patch}} of the currently selected existing patch, or {@code null} — keyed by the
  * patch OBJECT itself, not its index: an index goes stale the moment any OTHER row in the same
@@ -1335,6 +1343,24 @@ function mapRowInfo(map) {
 
 function renderMapsList() {
   renderList("maps", state.maps, mapRowInfo, selectMap);
+  renderMapsPicker();
+}
+
+/** The Maps tab has no {@code .list-panel} (see {@code #panel-maps.workspace.active} in style.css)
+ * — the map editor is the whole page, so switching which map you're editing lives in this compact
+ * dropdown inside the floating tools panel instead of a permanent 300px file-list column eating
+ * into the canvas. Kept in sync with the (still-rendered, just off-screen) {@code #maps-list} by
+ * always being called from {@link renderMapsList} rather than tracking state.maps separately. */
+function renderMapsPicker() {
+  const select = document.getElementById("maps-picker");
+  const previousKey = state.selected.maps;
+  select.innerHTML = state.maps.map((m) => `<option value="${entryKey(m)}"></option>`).join("");
+  [...select.options].forEach((opt, idx) => (opt.textContent = `${labelText(state.maps[idx].label)} (${entryKey(state.maps[idx])})`));
+  if (previousKey && state.maps.some((m) => entryKey(m) === previousKey)) {
+    select.value = previousKey;
+  } else {
+    select.selectedIndex = -1; // a new/unsaved map matches nothing in the list — don't pretend it's whatever happens to be first
+  }
 }
 
 /** The ore-item <select> the "Ore" tool (and the ore-flavored stamps) read from — refreshed whenever the item list changes, same reasoning as renderKindSelectOptions. */
@@ -1472,11 +1498,18 @@ function worldFromEvent(e) {
   return { x: mapView.offsetX + px / mapView.scale, y: mapView.offsetY + py / mapView.scale };
 }
 
+/** Separate visible extents per axis, not one shared "visible" — the canvas isn't square (see
+ * {@link mapCanvasWidth}'s own comment), so how much world-space fits horizontally and vertically
+ * are two different numbers now. On the LONGER axis {@code MAP_SIZE - visible} goes negative
+ * (more world-space fits than the map actually has); clamping against 0 pins that axis to the
+ * map's own origin rather than trying to center the extra space — simple, and "Fit whole map"
+ * already guarantees the origin is what you see first. */
 function clampView() {
   const canvas = document.getElementById("map-canvas");
-  const visible = canvas.width / mapView.scale;
-  mapView.offsetX = Math.max(0, Math.min(MAP_SIZE - visible, mapView.offsetX));
-  mapView.offsetY = Math.max(0, Math.min(MAP_SIZE - visible, mapView.offsetY));
+  const visibleX = canvas.width / mapView.scale;
+  const visibleY = canvas.height / mapView.scale;
+  mapView.offsetX = Math.max(0, Math.min(MAP_SIZE - visibleX, mapView.offsetX));
+  mapView.offsetY = Math.max(0, Math.min(MAP_SIZE - visibleY, mapView.offsetY));
 }
 
 function resetView() {
@@ -1492,14 +1525,15 @@ function zoomAt(px, py, factor) {
   clampView();
 }
 
-/** Fills the available space of {@code .map-canvas-wrap} — a {@code flex: 1} cell beside the
- * {@code .map-tools} side panel, itself stretched to the full page height by the surrounding
- * layout (see style.css) — instead of a fixed box (see {@link mapCanvasSize}'s own comment).
- * Called whenever the maps tab becomes visible and on window resize while it's active. A no-op if
- * the measured size didn't actually change, so switching back to an unchanged window doesn't reset
- * the camera on every tab click. Resets to "fit whole map" rather than trying to preserve the exact
- * pan/zoom across a resolution change — simpler, and a resize is rare enough that losing the
- * current pan isn't a real cost. */
+/** Fills the available space of {@code .map-canvas-wrap} — {@code position: absolute; inset: 0}
+ * over the ENTIRE stage (see style.css), so this measures the full stage, not "the stage minus a
+ * sidebar" — {@code .map-tools} floats on top of the canvas rather than sharing a row with it —
+ * instead of a fixed box (see {@link mapCanvasWidth}'s own comment). Called whenever the maps tab
+ * becomes visible and on window resize while it's active. A no-op if the measured size didn't
+ * actually change, so switching back to an unchanged window doesn't reset the camera on every tab
+ * click. Resets to "fit whole map" rather than trying to preserve the exact pan/zoom across a
+ * resolution change — simpler, and a resize is rare enough that losing the current pan isn't a
+ * real cost. */
 function resizeMapCanvas() {
   const wrap = mapCanvasEl.parentElement; // .map-canvas-wrap
   const availableW = wrap.clientWidth;
@@ -1507,23 +1541,20 @@ function resizeMapCanvas() {
   // Either being 0 means .map-canvas-wrap itself is hidden right now (JSON-view toggle, or this
   // tab isn't the active one at the moment a debounced resize fires) — every caller of this
   // function already means to only measure while it's visible, so 0 means "don't have a real
-  // number yet," not "shrink to the floor." Leaving mapCanvasSize alone until a real one arrives.
+  // number yet," not "shrink to the floor." Leaving the canvas size alone until a real one arrives.
   if (availableW <= 0 || availableH <= 0) return;
-  // The canvas stays SQUARE (world math throughout this file assumes one uniform scale for both
-  // axes — a non-square canvas would need to either distort circular ore patches or letterbox,
-  // and neither is worth the complexity here) — sized to whichever of width/height is the tighter
-  // constraint, centered in the other by .map-canvas-wrap's own flex centering. No -2 for the
-  // wrap's border: clientWidth/clientHeight already exclude it (padding-box, not border-box), so
-  // subtracting again would just make the canvas needlessly smaller than what's actually available.
-  // No floor either — an artificial minimum would size the canvas BIGGER than a genuinely cramped
-  // wrap actually has room for, which .map-canvas-wrap's own overflow:hidden would then clip
-  // invisibly with no way to scroll to the missing part. A tiny window gets an honestly tiny
-  // canvas instead of a silently cropped one.
-  const size = Math.max(0, Math.min(availableW, availableH));
-  if (size === mapCanvasSize) return;
-  mapCanvasSize = size;
-  mapCanvasEl.width = size;
-  mapCanvasEl.height = size;
+  // The canvas is set to EXACTLY the wrap's own box — not forced square and centered inside it.
+  // A square canvas used to leave a margin on the wrap's longer axis, painted the same background
+  // color as the canvas (see mapCanvasWidth's own comment) — same color, but dead: mouse listeners
+  // are bound to the canvas element itself, not the wrap, so that margin looked like map and
+  // wasn't. No -2 for the wrap's border: clientWidth/clientHeight already exclude it (padding-box,
+  // not border-box), so subtracting again would just leave an unexplained gap on two edges instead
+  // of filling the wrap exactly.
+  if (availableW === mapCanvasWidth && availableH === mapCanvasHeight) return;
+  mapCanvasWidth = availableW;
+  mapCanvasHeight = availableH;
+  mapCanvasEl.width = availableW;
+  mapCanvasEl.height = availableH;
   resetView();
   renderMapEditor();
 }
@@ -1557,11 +1588,15 @@ function drawMapCanvas() {
   // 256-cell map is visible at once, one line per cell would be solid noise (256 of them) for no
   // benefit — the grid exists to help PRECISE placement, which only matters once you're zoomed in.
   if (mapView.scale >= 8) {
-    const visible = canvas.width / mapView.scale;
+    // Separate X/Y extents, not one shared "visible" — the canvas isn't square (see
+    // mapCanvasWidth's own comment), so reusing a width-derived value for the Y axis used to
+    // under/over-run the actual visible rows whenever width and height actually differed.
+    const visibleX = canvas.width / mapView.scale;
+    const visibleY = canvas.height / mapView.scale;
     const fromX = Math.floor(mapView.offsetX);
-    const toX = Math.ceil(mapView.offsetX + visible);
+    const toX = Math.ceil(mapView.offsetX + visibleX);
     const fromY = Math.floor(mapView.offsetY);
-    const toY = Math.ceil(mapView.offsetY + visible);
+    const toY = Math.ceil(mapView.offsetY + visibleY);
     ctx.strokeStyle = "rgba(255,255,255,0.08)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -2089,6 +2124,13 @@ function startNewMap(body) {
 
 document.querySelector('[data-new="maps"]').addEventListener("click", openNewMapModal);
 document.getElementById("new-map-blank").addEventListener("click", () => startNewMap({}));
+
+document.getElementById("maps-picker").addEventListener("change", (e) => {
+  const map = state.maps.find((m) => entryKey(m) === e.target.value);
+  if (map) selectMap(map);
+});
+document.getElementById("maps-picker-new").innerHTML = icon("plus", 15);
+document.getElementById("maps-picker-new").addEventListener("click", openNewMapModal);
 
 document.getElementById("new-map-vanilla").addEventListener("click", async () => {
   try {
