@@ -21,6 +21,9 @@ const ICON_PATHS = {
   tag: '<path d="M20.6 12.6 12 21.2 2.8 12A2 2 0 0 1 2.2 10.6L3 4a1 1 0 0 1 1-1l6.6-.8A2 2 0 0 1 12 2.8l8.6 8.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
   map: '<path d="M14.1 5.55a2 2 0 0 0 1.8 0l3.65-1.83A1 1 0 0 1 21 4.62v12.76a1 1 0 0 1-.55.9l-4.55 2.27a2 2 0 0 1-1.8 0l-4.2-2.1a2 2 0 0 0-1.8 0l-3.65 1.83A1 1 0 0 1 3 19.38V6.62a1 1 0 0 1 .55-.9l4.55-2.27a2 2 0 0 1 1.8 0Z"/><path d="M15 5.76v15M9 3.24v15"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  expand: '<path d="M8 3H4v4M16 3h4v4M8 21H4v-4M16 21h4v-4"/>',
+  collapse: '<path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/>',
 };
 
 function icon(name, size = 18) {

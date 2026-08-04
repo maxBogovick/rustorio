@@ -35,6 +35,15 @@
     --accent: #d9791a;
     --accent-strong: #c96a10;
     --accent-text: #ffffff;
+    /* --ok/--danger/--warn's DARK-mode values (#3fbf7f/#e0564a/#e0b23f) are bright enough to read
+       against the dark --bg/--panel above, but reused as-is on this theme's near-white ones they
+       fall to ~2:1 contrast — a status pill or dirty-flag label that's barely legible, not just a
+       shade off. These three are darkened (contrast-checked at ~4.9:1+ against white) the same way
+       --accent already is right above; --ok/--danger/--warn have no separate "-strong" variant to
+       reach for, so the base tokens themselves have to carry it. */
+    --ok: #1a7f37;
+    --danger: #cf222e;
+    --warn: #9a6700;
     --shadow: 0 8px 24px rgba(20, 22, 30, 0.12);
     --shadow-sm: 0 2px 6px rgba(20, 22, 30, 0.08);
   }
@@ -61,6 +70,17 @@ kbd {
   opacity: 0.75;
 }
 .muted-inline { color: var(--muted-2); font-weight: 400; font-size: 12px; font-family: ui-monospace, monospace; }
+
+/* Keyboard-focus ring for the div/li-based controls makeKeyboardClickable (app.js) makes tabbable —
+   entry/usage/search-result rows and the item/texture pickers' own option cells. Grouped in one
+   rule rather than repeated per selector since it's the exact same treatment everywhere: the same
+   outline .detail-form's own inputs already get on focus, :focus-visible so a mouse click doesn't
+   leave the ring sitting there (these elements' hover/selected states already make a mouse click's
+   own result obvious; the ring is specifically for "where did Tab just land"). */
+.entry-list li:focus-visible, .usage-list li:focus-visible, .search-result-row:focus-visible,
+.chip-picker .option:focus-visible, .texture-picker .swatch:focus-visible, .patch-row:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: -1px;
+}
 
 /* ---------- loading overlay ---------- */
 .loading-overlay {
@@ -391,6 +411,12 @@ kbd {
 /* position:relative anchors .map-canvas-wrap and .map-tools below — both position:absolute against
    THIS box, not against the page, so they're confined to the stage's own area. */
 .map-stage { position: relative; flex: 1; min-height: 0; }
+/* The Fullscreen API (map-fullscreen-btn, app.js) sizes THIS element to the whole screen — its own
+   absolutely-positioned children (.map-canvas-wrap, .map-tools, the HUDs) already fill it exactly
+   either way, so no layout rule needs to change here, only the background: the UA's own fullscreen
+   backdrop defaults to black, which would show as a mismatched flash/border against this app's own
+   theme if the stage's aspect ratio doesn't exactly match the screen's. */
+.map-stage:fullscreen, .map-stage::backdrop { background: var(--bg); }
 
 /* inset:0 — fills the ENTIRE stage, full width and height, completely unaware that .map-tools
    exists; resizeMapCanvas (app.js) measures THIS box, so the canvas is sized off the full stage,
@@ -483,7 +509,52 @@ kbd {
 .patch-row.dragging { opacity: 0.4; }
 .patch-row .drag-handle { cursor: grab; color: var(--muted-2); }
 
-.map-coords { margin-left: auto; font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted-2); align-self: center; }
+/* Floating HUD, bottom-left of the canvas — zoom controls and cursor position live where you're
+   actually looking (the map), not in the tools panel over on the right. Same corner and pill shape
+   every reference editor (Photoshop, Illustrator, Figma) puts this in. position:absolute against
+   .map-stage (see .map-tools' own comment for why that's the containing block), not the canvas
+   itself, so it stays put regardless of the canvas's own internal drawing-buffer coordinates. */
+.map-zoom-hud {
+  position: absolute; left: 16px; bottom: 16px; z-index: 1;
+  display: flex; align-items: center; gap: 2px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px;
+  box-shadow: var(--shadow-sm); padding: 4px;
+}
+.map-zoom-hud .icon-btn { width: 28px; height: 28px; border-radius: 50%; background: none; border: none; }
+.map-zoom-hud .icon-btn:hover { background: var(--border-soft); }
+.map-zoom-level {
+  background: none; border: none; color: var(--text); font-weight: 600; font-size: 12.5px;
+  font-family: ui-monospace, monospace; padding: 0 8px; cursor: pointer; min-width: 46px;
+}
+.map-zoom-level:hover { color: var(--accent-strong); }
+.map-coords { margin-left: 6px; padding-left: 10px; border-left: 1px solid var(--border-soft); font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted-2); }
+.map-coords:empty { padding-left: 0; border-left: none; margin-left: 0; }
+/* Grouped into the same pill as zoom/coords rather than a second floating HUD — same "controls for
+   looking at the map" family, just one more of them. No divider before it (unlike .map-coords):
+   this button stays circular like its sibling zoom buttons (.map-zoom-hud .icon-btn), and a
+   border-left would sit off-center against a circle's own curve instead of reading as a clean seam. */
+.map-fullscreen-btn { margin-left: 6px; }
+
+/* Floating quick-action pill for whichever patch is hovered/selected (renderHoverToolbar, app.js) —
+   positioned in SCREEN space (left/top set directly from worldToScreen, not CSS) just above the
+   patch, translated up+centered off that point rather than off the element's own top-left corner.
+   Same pill language as .map-zoom-hud, just anchored to a moving target instead of a fixed corner. */
+.map-hover-toolbar {
+  position: absolute; z-index: 2; transform: translate(-50%, calc(-100% - 10px));
+  display: flex; align-items: center; gap: 2px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px;
+  box-shadow: var(--shadow-sm); padding: 4px;
+  /* A CSS transition here (rather than snapping) would visibly lag behind the canvas it's meant to
+     sit on top of during a drag/pan/zoom, since THIS moves via inline style writes on every render
+     while the canvas repaints instantly — better to match the canvas exactly than to animate toward
+     a target that's already moved on again by the time the animation would finish. */
+}
+.map-hover-toolbar .icon-btn { width: 26px; height: 26px; border-radius: 50%; background: none; border: none; }
+.map-hover-toolbar .icon-btn:hover { background: var(--border-soft); }
+.map-hover-toolbar #map-hover-toolbar-delete:hover { background: rgba(224,86,74,0.16); color: var(--danger); }
+/* renderHoverToolbar's own flip for a patch sitting near the map's top edge, where the default
+   above-the-patch placement would run the pill off-canvas — same anchor point, opposite direction. */
+.map-hover-toolbar.flip-below { transform: translate(-50%, 10px); }
 
 .new-map-options { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 14px; }
 .new-map-options .btn-ghost { justify-content: center; width: 100%; }

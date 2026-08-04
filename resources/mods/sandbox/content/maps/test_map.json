@@ -2,38 +2,333 @@
   "path" : "test_map",
   "label" : "test map 1",
   "orePatches" : [ {
-    "cx" : 19,
-    "cy" : 29,
-    "radius" : 1,
-    "ore" : "rustorio:alloy_gear"
+    "cx" : 51,
+    "cy" : 216,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 54,
+    "cy" : 217,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 57,
+    "cy" : 216,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 60,
+    "cy" : 215,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 26,
+    "cy" : 197,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 29,
+    "cy" : 198,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 32,
+    "cy" : 197,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 35,
+    "cy" : 196,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 27,
+    "cy" : 204,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 30,
+    "cy" : 205,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 33,
+    "cy" : 204,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 36,
+    "cy" : 203,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 26,
+    "cy" : 183,
+    "radius" : 3,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 29,
+    "cy" : 184,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 32,
+    "cy" : 183,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 35,
+    "cy" : 182,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 45,
+    "cy" : 189,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 48,
+    "cy" : 190,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 51,
+    "cy" : 189,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 54,
+    "cy" : 188,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 33,
+    "cy" : 194,
+    "radius" : 4,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 36,
+    "cy" : 195,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 39,
+    "cy" : 194,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 42,
+    "cy" : 193,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 33,
+    "cy" : 187,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 36,
+    "cy" : 188,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 39,
+    "cy" : 187,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 42,
+    "cy" : 186,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
   }, {
     "cx" : 19,
-    "cy" : 32,
-    "radius" : 3,
-    "ore" : "rustorio:alloy_gear"
+    "cy" : 190,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
   }, {
     "cx" : 22,
-    "cy" : 33,
-    "radius" : 3,
-    "ore" : "rustorio:alloy_gear"
+    "cy" : 191,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
   }, {
-    "cx" : 17,
-    "cy" : 34,
-    "radius" : 3,
-    "ore" : "rustorio:alloy_gear"
+    "cx" : 25,
+    "cy" : 190,
+    "radius" : 4,
+    "ore" : "rustorio:alloy_plate"
   }, {
-    "cx" : 21,
-    "cy" : 30,
-    "radius" : 3,
-    "ore" : "rustorio:alloy_gear"
+    "cx" : 28,
+    "cy" : 189,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
   }, {
     "cx" : 16,
-    "cy" : 31,
+    "cy" : 197,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 19,
+    "cy" : 198,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 22,
+    "cy" : 197,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 25,
+    "cy" : 196,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 9,
+    "cy" : 194,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 12,
+    "cy" : 195,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 15,
+    "cy" : 194,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 18,
+    "cy" : 193,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 6,
+    "cy" : 189,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 9,
+    "cy" : 190,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 12,
+    "cy" : 189,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 15,
+    "cy" : 188,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 6,
+    "cy" : 181,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 9,
+    "cy" : 182,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 12,
+    "cy" : 181,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 15,
+    "cy" : 180,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 11,
+    "cy" : 176,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 14,
+    "cy" : 177,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 17,
+    "cy" : 176,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 20,
+    "cy" : 175,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 18,
+    "cy" : 180,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 21,
+    "cy" : 181,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 24,
+    "cy" : 180,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 27,
+    "cy" : 179,
+    "radius" : 2,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 217,
+    "cy" : 132,
+    "radius" : 3,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 183,
+    "cy" : 135,
+    "radius" : 3,
+    "ore" : "rustorio:alloy_plate"
+  }, {
+    "cx" : 155,
+    "cy" : 146,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 142,
+    "cy" : 172,
+    "radius" : 3,
+    "ore" : "test_ore"
+  }, {
+    "cx" : 192,
+    "cy" : 161,
+    "radius" : 3,
+    "ore" : "rustorio:chassis"
+  }, {
+    "cx" : 48,
+    "cy" : 86,
+    "radius" : 6,
+    "ore" : "rustorio:chassis"
+  }, {
+    "cx" : 19,
+    "cy" : 64,
+    "radius" : 11,
+    "ore" : "rustorio:bronze_ore"
+  }, {
+    "cx" : 25,
+    "cy" : 78,
+    "radius" : 7,
+    "ore" : "rustorio:bronze_ore"
+  }, {
+    "cx" : 21,
+    "cy" : 24,
     "radius" : 3,
     "ore" : "rustorio:alloy_gear"
   }, {
-    "cx" : 31,
-    "cy" : 42,
+    "cx" : 13,
+    "cy" : 32,
     "radius" : 3,
     "ore" : "rustorio:alloy_gear"
   }, {
@@ -44,11 +339,6 @@
   }, {
     "cx" : 29,
     "cy" : 44,
-    "radius" : 3,
-    "ore" : "rustorio:alloy_gear"
-  }, {
-    "cx" : 33,
-    "cy" : 40,
     "radius" : 3,
     "ore" : "rustorio:alloy_gear"
   }, {
@@ -563,6 +853,201 @@
     "ore" : "rustorio:iron_ore"
   } ],
   "terrainPatches" : [ {
+    "cx" : 99,
+    "cy" : 196,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 102,
+    "cy" : 198,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 105,
+    "cy" : 199,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 108,
+    "cy" : 200,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 98,
+    "cy" : 201,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 101,
+    "cy" : 203,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 104,
+    "cy" : 204,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 107,
+    "cy" : 205,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 98,
+    "cy" : 206,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 101,
+    "cy" : 208,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 104,
+    "cy" : 209,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 107,
+    "cy" : 210,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 100,
+    "cy" : 213,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 103,
+    "cy" : 215,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 106,
+    "cy" : 216,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 109,
+    "cy" : 217,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 113,
+    "cy" : 225,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 116,
+    "cy" : 227,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 119,
+    "cy" : 228,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 122,
+    "cy" : 229,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 123,
+    "cy" : 226,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 126,
+    "cy" : 228,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 129,
+    "cy" : 229,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 132,
+    "cy" : 230,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 110,
+    "cy" : 218,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 113,
+    "cy" : 220,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 116,
+    "cy" : 221,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 119,
+    "cy" : 222,
+    "radius" : 3,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 138,
+    "cy" : 208,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 140,
+    "cy" : 209,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 136,
+    "cy" : 209,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 138,
+    "cy" : 206,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 130,
+    "cy" : 218,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 132,
+    "cy" : 219,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 128,
+    "cy" : 219,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 130,
+    "cy" : 216,
+    "radius" : 6,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 6,
+    "cy" : 167,
+    "radius" : 8,
+    "terrain" : "ROCK"
+  }, {
+    "cx" : 100,
+    "cy" : 171,
+    "radius" : 3,
+    "terrain" : "WATER"
+  }, {
+    "cx" : 156,
+    "cy" : 161,
+    "radius" : 17,
+    "terrain" : "WATER"
+  }, {
     "cx" : 53,
     "cy" : 35,
     "radius" : 6,
@@ -721,11 +1206,6 @@
     "cx" : 115,
     "cy" : 182,
     "radius" : 6,
-    "terrain" : "WATER"
-  }, {
-    "cx" : 94,
-    "cy" : 176,
-    "radius" : 57,
     "terrain" : "WATER"
   }, {
     "cx" : 202,

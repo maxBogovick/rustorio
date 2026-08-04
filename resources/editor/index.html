@@ -329,6 +329,25 @@
               <canvas id="map-canvas" width="512" height="512"></canvas>
             </div>
 
+            <!-- Zoom + cursor position live ON the canvas, bottom-left — the same corner every
+                 reference editor (Photoshop, Illustrator, Figma) puts this HUD in, not buried in a
+                 side panel you have to look away from the map to read. -->
+            <div class="map-zoom-hud">
+              <button type="button" class="icon-btn" id="map-zoom-out-btn" title="Zoom out (-)">&minus;</button>
+              <button type="button" class="map-zoom-level" id="map-zoom-level" title="Reset to Fit whole map (0)">100%</button>
+              <button type="button" class="icon-btn" id="map-zoom-in-btn" title="Zoom in (+ / =)">+</button>
+              <span class="map-coords" id="map-coords"></span>
+              <button type="button" class="icon-btn map-fullscreen-btn" id="map-fullscreen-btn" title="Fill the screen with the map"></button>
+            </div>
+
+            <!-- Follows whichever patch is hovered or singly selected (renderHoverToolbar, app.js) —
+                 the quick actions every reference editor (Figma, Miro) surfaces right at the object
+                 instead of only in a side panel you have to look away from the map to reach. -->
+            <div class="map-hover-toolbar hidden" id="map-hover-toolbar">
+              <button type="button" class="icon-btn" id="map-hover-toolbar-duplicate" title="Duplicate (⌘D)"></button>
+              <button type="button" class="icon-btn" id="map-hover-toolbar-delete" title="Delete (Del)"></button>
+            </div>
+
             <aside class="map-tools" id="map-tools">
               <div class="map-tools-resize-handle" id="map-tools-resize-handle" title="Drag to resize"></div>
               <div class="map-tools-header">
@@ -347,7 +366,7 @@
               <div class="map-tools-scroll">
                 <div class="map-hint-row">
                   <p class="field-hint">256&times;256 cells — click-drag to place a patch, click an existing one to select it.</p>
-                  <button type="button" class="icon-btn" id="map-help" title="Click-drag to size a new patch live, or just click for the radius field's value — a freshly placed patch always paints on top of whatever's already there. Click an existing patch to select it — drag its middle to move, drag its edge to resize, or type its exact X/Y/radius/item in the panel below. Shift-click adds/removes a patch from the selection; the Select tool drag-boxes many at once — drag any one of a multi-selection to move them all together. Arrow keys nudge the selection a cell at a time (Shift = 10), Delete removes it, ⌘D duplicates it, F centers the camera on it, Escape cancels a placement/pan/move/resize in progress. Right-click removes whatever's under the cursor. Shift-drag pans; scroll or +/-/0 to zoom — grid lines appear once you're zoomed in enough to place precisely. The Ore/Terrain buttons hide a layer entirely (canvas, list, and clicks). Order in the list below is paint priority (first wins any overlap, ore always wins over terrain) — drag rows to reorder. ⌘Z / ⌘⇧Z undo/redo. Drag the panel's left edge to resize it."></button>
+                  <button type="button" class="icon-btn" id="map-help" title="Click-drag to size a new patch live, or just click for the radius field's value — a freshly placed patch always paints on top of whatever's already there. Click an existing patch to select it — drag its middle to move, drag its edge to resize, or type its exact X/Y/radius/item in the panel below. Shift-click adds/removes a patch from the selection; the Select tool drag-boxes many at once — drag any one of a multi-selection to move them all together. Arrow keys nudge the selection a cell at a time (Shift = 10), Delete removes it, ⌘D duplicates it, F centers the camera on it, Escape cancels a placement/pan/move/resize in progress. Right-click removes whatever's under the cursor. WASD pans the camera, Shift-drag also pans, scroll or the +/− buttons (bottom-left of the canvas) or +/-/0 zoom — grid lines appear once you're zoomed in enough to place precisely, and the zoom percentage there resets to Fit whole map when clicked. The Ore/Terrain buttons hide a layer entirely (canvas, list, and clicks). Order in the list below is paint priority (first wins any overlap, ore always wins over terrain) — drag rows to reorder. ⌘Z / ⌘⇧Z undo/redo. Drag the panel's left edge to resize it."></button>
                 </div>
 
                 <div class="map-toolbar">
@@ -373,7 +392,6 @@
                     <button type="button" class="btn-ghost active" id="toggle-layer-ore" title="Hide ore patches">Ore</button>
                     <button type="button" class="btn-ghost active" id="toggle-layer-terrain" title="Hide terrain patches">Terrain</button>
                   </div>
-                  <span class="map-coords" id="map-coords"></span>
                 </div>
 
                 <div class="map-toolbar patch-inspector hidden" id="map-patch-inspector">

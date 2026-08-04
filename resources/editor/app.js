@@ -72,6 +72,25 @@ function confirmModal(title, body) {
   });
 }
 
+/** Makes a plain {@code <div>}/{@code <li>} with a click handler operable from the keyboard too —
+ * Tab to reach it, Enter/Space to activate it, same as a real {@code <button>} gets for free. Every
+ * OTHER control in this app already is a real button/input/select; the item/texture pickers and the
+ * entry/usage/search-result rows are the exception, built as divs because they need free-form
+ * thumb+label markup a {@code <button>} can hold too, but historically never got the keyboard half
+ * of that — reachable to look at, but only clickable with a mouse. Call this right after adding the
+ * element's own "click" listener; it re-dispatches a click rather than duplicating that listener's
+ * logic, so the two can never drift apart. */
+function makeKeyboardClickable(el) {
+  el.tabIndex = 0;
+  el.setAttribute("role", "button");
+  el.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault(); // Space must not also scroll the list it's inside
+      el.click();
+    }
+  });
+}
+
 /* ============================================================
    app state
    ============================================================ */
@@ -337,8 +356,29 @@ document.getElementById("play-btn").innerHTML = `${icon("play", 15)} Play`;
 document.querySelector('#texture-upload-form button[type=submit]').innerHTML = `${icon("upload", 15)} Upload`;
 document.getElementById("buildings-glyph-fallback").innerHTML = icon("factory", 26);
 
+/** True if the CURRENTLY OPEN form has unsaved edits a caller is about to throw away (switching
+ * tabs, selecting a different entry, starting a new one) — asks the user first (native confirm(),
+ * not confirmModal: this fires from a plain synchronous click handler, and every call site needs
+ * a yes/no answer before it can decide whether to proceed at all) and returns whether the caller
+ * should abort. Previously nothing asked at all — clicking a different row, a different tab, or
+ * even just closing the browser tab silently discarded whatever was typed but not yet Saved. */
+function blockedByUnsavedChanges() {
+  const tab = activeTab();
+  if (tab === "textures" || !state.dirty[tab]) return false;
+  return !confirm(`Discard unsaved changes to this ${tab.slice(0, -1)}?`);
+}
+
+window.addEventListener("beforeunload", (e) => {
+  if (Object.values(state.dirty).some(Boolean)) {
+    e.preventDefault();
+    e.returnValue = ""; // Chrome requires returnValue to be set; the actual text shown is browser-chosen, not this string
+  }
+});
+
 document.querySelectorAll(".nav-item").forEach((btn) => {
   btn.addEventListener("click", () => {
+    if (btn.dataset.tab === activeTab()) return; // already here — nothing would actually be discarded
+    if (blockedByUnsavedChanges()) return;
     document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
     document.querySelectorAll(".workspace").forEach((p) => p.classList.remove("active"));
     btn.classList.add("active");
@@ -354,8 +394,15 @@ function activeTab() {
   return document.querySelector(".nav-item.active").dataset.tab;
 }
 
+/** Switches tabs through the SAME guarded click handler above (so a bare click on the nav and a
+ * programmatic switchToTab() can never disagree about whether unsaved changes get discarded) and
+ * reports back whether it actually happened — a caller that also wants to select something in the
+ * destination tab (kind-usage links, global search results) needs to know NOT to do that when the
+ * user chose to keep editing instead. */
 function switchToTab(tab) {
+  if (tab === activeTab()) return true;
   document.querySelector(`.nav-item[data-tab="${tab}"]`).click();
+  return activeTab() === tab;
 }
 
 // The "Kinds tab" links inside the Recipes/Buildings forms' explanatory .field-hint text.
@@ -386,7 +433,11 @@ function renderList(kind, entries, rowInfo, onSelect) {
     li.innerHTML = `<div class="row-thumb">${info.thumb}</div><div class="row-text"><div class="row-title"></div><div class="row-sub"></div></div>`;
     li.querySelector(".row-title").textContent = info.title;
     li.querySelector(".row-sub").textContent = info.sub;
-    li.addEventListener("click", () => onSelect(entry));
+    li.addEventListener("click", () => {
+      if (blockedByUnsavedChanges()) return;
+      onSelect(entry);
+    });
+    makeKeyboardClickable(li);
     ul.appendChild(li);
   }
   document.getElementById(`count-${kind}`).textContent = entries.length;
@@ -488,6 +539,7 @@ function renderItemOptionsInto(container, selectedRefs) {
     thumb.innerHTML = itemGlyph(item.colorRgb, item.shape);
     opt.appendChild(thumb);
     opt.appendChild(document.createTextNode(labelText(item.label) + originSuffix(item)));
+    makeKeyboardClickable(opt); // click listener wired by each of this function's own callers, below
     container.appendChild(opt);
   }
   if (state.items.length === 0) {
@@ -565,6 +617,7 @@ function fillItem(body) {
 fillers.items = fillItem;
 
 document.querySelector('[data-new="items"]').addEventListener("click", () => {
+  if (blockedByUnsavedChanges()) return;
   fillItem({});
   document.getElementById("items-form-title").textContent = "New item";
   formError("items", "");
@@ -739,6 +792,7 @@ function fillRecipe(body) {
 fillers.recipes = fillRecipe;
 
 document.querySelector('[data-new="recipes"]').addEventListener("click", () => {
+  if (blockedByUnsavedChanges()) return;
   fillRecipe({});
   document.getElementById("recipes-form").file.disabled = false;
   document.getElementById("recipes-form-title").textContent = "New recipe";
@@ -873,6 +927,7 @@ function renderBuildingTexturePicker() {
       renderBuildingTexturePicker();
       updateBuildingGlyphPreview();
     });
+    makeKeyboardClickable(div);
     picker.appendChild(div);
   }
 }
@@ -945,6 +1000,7 @@ function fillBuilding(b) {
 fillers.buildings = fillBuilding;
 
 document.querySelector('[data-new="buildings"]').addEventListener("click", () => {
+  if (blockedByUnsavedChanges()) return;
   fillBuilding({ footprintWidth: 1, footprintHeight: 1, bufferMax: 0, speedMultiplier: 1 });
   document.getElementById("buildings-form-title").textContent = "New building";
   formError("buildings", "");
@@ -1087,6 +1143,7 @@ function renderUsageList(elementId, rows, describe, onOpen) {
     const li = document.createElement("li");
     li.textContent = describe(row);
     li.addEventListener("click", () => onOpen(row));
+    makeKeyboardClickable(li);
     el.appendChild(li);
   }
 }
@@ -1095,15 +1152,15 @@ function renderKindUsagePanel(e) {
   document.getElementById("kinds-usage-panel").classList.remove("hidden");
   renderUsageList("kind-usage-buildings", e.buildings,
       (b) => `${labelText(b.label)} (${entryKey(b)})${entryKey(b) === e.id ? " — own pool" : " — shares this pool"}`,
-      (b) => { switchToTab("buildings"); selectBuilding(b); });
+      (b) => { if (switchToTab("buildings")) selectBuilding(b); });
   renderUsageList("kind-usage-recipes", e.recipes,
       (r) => `${r.file} — ${r.ingredients.join(" + ")} → ${r.output}`,
-      (r) => { switchToTab("recipes"); selectRecipe(r); });
+      (r) => { if (switchToTab("recipes")) selectRecipe(r); });
   const outputPaths = [...new Set(e.recipes.map((r) => r.output))];
   const outputItems = outputPaths.map((path) => resolveItemRef(path)).filter(Boolean);
   renderUsageList("kind-usage-items", outputItems,
       (item) => labelText(item.label) + originSuffix(item),
-      (item) => { switchToTab("items"); selectItem(item); });
+      (item) => { if (switchToTab("items")) selectItem(item); });
 }
 
 function hideKindUsagePanel() {
@@ -1175,6 +1232,7 @@ function fillKind(body) {
 fillers.kinds = fillKind;
 
 document.querySelector('[data-new="kinds"]').addEventListener("click", () => {
+  if (blockedByUnsavedChanges()) return;
   fillKind({});
   document.getElementById("kinds-form-title").textContent = "New kind";
   formError("kinds", "");
@@ -1333,6 +1391,12 @@ let mapDrag = null;
 let mapPendingPatch = null;
 /** World coordinates under the cursor right now (idle hover, not dragging) — drives the coordinate readout and the placement preview ghost. */
 let mapHoverWorld = null;
+/** {@link hitTestPatch}'s own result for the CURRENT idle hover — {@code null} off the map, over
+ * empty space, or mid-drag. Drives {@link renderHoverToolbar}'s quick Duplicate/Delete pill; kept
+ * as its own variable rather than re-hit-testing inside that render function so a render triggered
+ * by something OTHER than a mousemove (a keyboard nudge, a save) doesn't have to re-run hit-testing
+ * against a cursor position that hasn't actually changed. */
+let mapHoverPatch = null;
 /** Set by the keydown arrow-nudge branch, consumed by the keyup listener right below it — coalesces a whole key-repeat sequence into one undo step, the same way a mouse drag only pushes history on mouseup. */
 let mapNudgePending = false;
 /** Per-layer visibility, toggled from the tools panel — a display-only affordance for a dense map
@@ -1417,11 +1481,31 @@ function updateMapToolFieldVisibility() {
   const tool = document.getElementById("map-tool").value;
   const needsItem = tool === "ore" || (STAMPS[tool] && STAMPS[tool].kind === "ore");
   document.getElementById("map-ore-item-field").classList.toggle("hidden", !needsItem);
+  updateMapCursor();
+}
+
+/** The canvas's own cursor — three states, checked in priority order: actively panning beats
+ * holding-Space-ready-to-pan beats whatever the selected tool would otherwise show. Re-evaluated
+ * from every place that can change ANY of those three inputs (tool switch, Space down/up, a pan
+ * drag starting/ending) rather than each of those places poking the style directly — one function
+ * that knows the whole priority order instead of N call sites each hoping they got it right. Looked
+ * up fresh rather than through the module-level mapCanvasEl const: this function's very first call
+ * (right below updateMapToolFieldVisibility's own definition) runs before that const's declaration
+ * line does. */
+function updateMapCursor() {
+  const canvas = document.getElementById("map-canvas");
+  if (mapDrag && mapDrag.mode === "pan") {
+    canvas.style.cursor = "grabbing";
+    return;
+  }
+  if (spaceHeld) {
+    canvas.style.cursor = "grab";
+    return;
+  }
   // Crosshair reads as "about to draw"; Select isn't drawing anything, so it gets the ordinary
-  // pointer instead — a small cue for which mode a freshly-opened map defaults into. Looked up
-  // fresh rather than through the module-level mapCanvasEl const: this function's very first call
-  // (right below its own definition) runs before that const's declaration line does.
-  document.getElementById("map-canvas").style.cursor = tool === "select" ? "default" : "crosshair";
+  // pointer instead — a small cue for which mode a freshly-opened map defaults into.
+  const tool = document.getElementById("map-tool").value;
+  canvas.style.cursor = tool === "select" ? "default" : "crosshair";
 }
 
 function itemLabelByPath(ref) {
@@ -1587,20 +1671,25 @@ function worldFromEvent(e) {
 
 /** Separate visible extents per axis, not one shared "visible" — the canvas isn't square (see
  * {@link mapCanvasWidth}'s own comment), so how much world-space fits horizontally and vertically
- * are two different numbers now. On the LONGER axis {@code MAP_SIZE - visible} goes negative
- * (more world-space fits than the map actually has); clamping against 0 pins that axis to the
- * map's own origin rather than trying to center the extra space — simple, and "Fit whole map"
- * already guarantees the origin is what you see first. */
+ * are two different numbers now. Two different regimes per axis, not one clamp formula: once
+ * zoomed in enough that the map fills MORE than the visible extent, panning clamps at the map's
+ * own edges as usual (can't show anything beyond them) — but whenever there's room to SPARE (the
+ * whole map plus margin fits, which is the normal case at "Fit whole map" on a wide/tall canvas),
+ * the map is centered in that extra space instead of pinned to the origin corner. Pinning used to
+ * leave the map sitting in a corner with a huge empty gap on one side — centering is what every
+ * reference editor (and image viewer, and PDF reader) actually does once the document is smaller
+ * than the viewport. */
 function clampView() {
   const canvas = document.getElementById("map-canvas");
   const visibleX = canvas.width / mapView.scale;
   const visibleY = canvas.height / mapView.scale;
-  mapView.offsetX = Math.max(0, Math.min(MAP_SIZE - visibleX, mapView.offsetX));
-  mapView.offsetY = Math.max(0, Math.min(MAP_SIZE - visibleY, mapView.offsetY));
+  mapView.offsetX = visibleX >= MAP_SIZE ? (MAP_SIZE - visibleX) / 2 : Math.max(0, Math.min(MAP_SIZE - visibleX, mapView.offsetX));
+  mapView.offsetY = visibleY >= MAP_SIZE ? (MAP_SIZE - visibleY) / 2 : Math.max(0, Math.min(MAP_SIZE - visibleY, mapView.offsetY));
 }
 
 function resetView() {
   mapView = { scale: mapMinScale(), offsetX: 0, offsetY: 0 };
+  clampView(); // centers whichever axis has room to spare — see clampView's own comment
 }
 
 function zoomAt(px, py, factor) {
@@ -1678,41 +1767,71 @@ function hitTestPatch(worldX, worldY) {
   return null;
 }
 
+/** Whether a world coordinate is actually inside the 256x256 map — as opposed to the "pasteboard"
+ * area a non-square canvas can show beyond it (see drawMapCanvas's own comment). Placement tools
+ * treat outside-the-map the same as outside-the-canvas: a no-op, not a click that lands somewhere
+ * you didn't aim for via clampCell. */
+function isInsideMap(x, y) {
+  return x >= 0 && x < MAP_SIZE && y >= 0 && y < MAP_SIZE;
+}
+
+/** {@link drawMapCanvas}'s pasteboard fill, read off the {@code --bg} custom property so it's
+ * correct in both this app's themes — cached rather than looked up fresh every call, because
+ * drawMapCanvas itself runs on every {@link renderMapEditor}, including every single mousemove
+ * while idly hovering the canvas or mid-drag; getComputedStyle forces a style recalc, and paying
+ * that ~60 times a second for a value that only ever changes on an OS-level color-scheme flip was
+ * measurable jank while dragging a patch around. Invalidated by the one event that can actually
+ * change it, below. */
+let cachedPasteboardColor = null;
+function pasteboardColor() {
+  if (cachedPasteboardColor === null) {
+    cachedPasteboardColor = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#14161b";
+  }
+  return cachedPasteboardColor;
+}
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  cachedPasteboardColor = null;
+  if (activeTab() === "maps") renderMapEditor();
+});
+
 function drawMapCanvas() {
   const canvas = document.getElementById("map-canvas");
   const ctx = canvas.getContext("2d");
-  // Dark neutral gray, not the green this used to be — this is "no terrain assigned" (the base
-  // ground layer, not water/rock/an ore patch), and a saturated color read as if it MEANT
-  // something, the way the actual ore/terrain tints do. Matches the app's own dark theme instead
-  // of standing out from it.
-  ctx.fillStyle = "#2b2e35";
+
+  // "Pasteboard," not more ground: the canvas isn't square (see mapCanvasWidth's own comment) but
+  // the map always is, so at most zoom levels — especially "Fit whole map," which only fits the
+  // SHORTER axis — the longer axis shows more canvas than there is actual map. The first version
+  // of this fix darkened that leftover strip on top of the SAME ground fill, which read as a
+  // broken render (a flat color seam) rather than an intentional boundary. Every reference editor
+  // (Photoshop, Illustrator, Figma, Tiled) instead treats the document as a distinct sheet sitting
+  // on a neutral surface — same idea here: this pasteboard is the app's own background color, and
+  // the map gets its own shadowed rectangle on top of it, not a same-toned block cut in half.
+  ctx.fillStyle = pasteboardColor();
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // The canvas isn't square (see mapCanvasWidth's own comment) but the map itself always is —
-  // at most zoom levels (especially "Fit whole map", which only fits the SHORTER axis) the wider
-  // axis shows MORE canvas than there is actual map, with nothing visually marking where the real
-  // 256x256 area stops. Clicking in that "extra" strip still hits the canvas and places a patch —
-  // clampCell just pulls it back to the map's true edge, which without this shading reads as "my
-  // click landed somewhere else entirely" instead of "I clicked outside the map." Darkening that
-  // strip and outlining the real boundary makes the clamp an expected edge case, not a mystery.
-  {
-    const mapTopLeft = worldToScreen(0, 0);
-    const mapBottomRight = worldToScreen(MAP_SIZE, MAP_SIZE);
-    const x0 = Math.max(0, mapTopLeft.x);
-    const y0 = Math.max(0, mapTopLeft.y);
-    const x1 = Math.min(canvas.width, mapBottomRight.x);
-    const y1 = Math.min(canvas.height, mapBottomRight.y);
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
-    if (y0 > 0) ctx.fillRect(0, 0, canvas.width, y0); // above the map
-    if (y1 < canvas.height) ctx.fillRect(0, y1, canvas.width, canvas.height - y1); // below
-    if (x0 > 0) ctx.fillRect(0, y0, x0, y1 - y0); // left of it (excludes the already-shaded corners)
-    if (x1 < canvas.width) ctx.fillRect(x1, y0, canvas.width - x1, y1 - y0); // right of it
-    if (x0 > 0 || y0 > 0 || x1 < canvas.width || y1 < canvas.height) {
-      ctx.strokeStyle = "rgba(255,255,255,0.3)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(mapTopLeft.x, mapTopLeft.y, mapBottomRight.x - mapTopLeft.x, mapBottomRight.y - mapTopLeft.y);
-    }
-  }
+  const mapTopLeft = worldToScreen(0, 0);
+  const mapBottomRight = worldToScreen(MAP_SIZE, MAP_SIZE);
+  const mapX = mapTopLeft.x;
+  const mapY = mapTopLeft.y;
+  const mapW = mapBottomRight.x - mapTopLeft.x;
+  const mapH = mapBottomRight.y - mapTopLeft.y;
+
+  // The sheet itself, lifted off the pasteboard with a soft shadow instead of a hard-edged color
+  // seam — "no terrain assigned" gray, same as before, just now confined to where the map actually is.
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.45)";
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = "#2b2e35";
+  ctx.fillRect(mapX, mapY, mapW, mapH);
+  ctx.restore();
+
+  // Everything below (grid, patches, hover ghost) is clipped to the sheet's own rectangle — none
+  // of it can ever legitimately exist outside the map, so nothing gets to bleed past its edge
+  // either (a patch dragged right up against the boundary used to visibly poke past it).
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(mapX, mapY, mapW, mapH);
+  ctx.clip();
 
   // Cell grid, only once cells are actually spaced out on screen: at mapMinScale() the whole
   // 256-cell map is visible at once, one line per cell would be solid noise (256 of them) for no
@@ -1779,7 +1898,9 @@ function drawMapCanvas() {
 
   if (mapPendingPatch) {
     drawPatch(mapPendingPatch, previewColorForTool(document.getElementById("map-tool").value) + "aa", false);
-  } else if (mapHoverWorld && !mapDrag && !hitTestPatch(mapHoverWorld.x, mapHoverWorld.y)) {
+  } else if (mapHoverWorld && !mapDrag && isInsideMap(mapHoverWorld.x, mapHoverWorld.y) && !hitTestPatch(mapHoverWorld.x, mapHoverWorld.y)) {
+    // isInsideMap here, not just at click time — showing a "you could place here" ghost over the
+    // pasteboard would be a lie now that clicking there is a no-op (see the mousedown handler).
     const tool = document.getElementById("map-tool").value;
     const centerX = Math.round(mapHoverWorld.x);
     const centerY = Math.round(mapHoverWorld.y);
@@ -1799,6 +1920,17 @@ function drawMapCanvas() {
     }
   }
 
+  ctx.restore(); // end of the clip-to-the-sheet region opened above
+
+  // Crisp 1px edge around the sheet, drawn AFTER unclipping so the stroke itself isn't cut in
+  // half by its own clip region.
+  ctx.strokeStyle = "rgba(255,255,255,0.15)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(Math.round(mapX) + 0.5, Math.round(mapY) + 0.5, Math.round(mapW) - 1, Math.round(mapH) - 1);
+
+  // Rubber-band box is a selection-UI overlay, not map content — drawn unclipped, since starting
+  // or ending the drag out on the pasteboard (to fully enclose patches near the map's edge) is
+  // normal and the box itself should stay visible while doing that.
   if (mapDrag && mapDrag.mode === "rubberband") {
     const p1 = worldToScreen(mapDrag.startWorld.x, mapDrag.startWorld.y);
     const p2 = worldToScreen(mapDrag.currentWorld.x, mapDrag.currentWorld.y);
@@ -1858,6 +1990,11 @@ function renderMapPatchList() {
         selectPatch(row.list, row.patch);
       }
     });
+    // Enter/Space picks this row (the plain-click behavior) — a keyboard equivalent of Shift-click
+    // isn't offered, same as nowhere else in this file synthesizes a modifier key for one either;
+    // the rubber-band ("Select" tool) is still there on the canvas for a keyboard user who needs a
+    // multi-selection built up.
+    makeKeyboardClickable(li);
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
     removeBtn.innerHTML = icon("close", 12);
@@ -1899,10 +2036,60 @@ function renderMapPatchList() {
   }
 }
 
+/** "100%" means {@link mapMinScale}, i.e. "Fit whole map" — there's no natural "1 screen pixel per
+ * world unit" baseline here the way an image editor has (a map cell isn't a pixel), so the one
+ * zoom level the user already has a button for is the more useful 100% to anchor against. */
+function renderMapZoomHud() {
+  document.getElementById("map-zoom-level").textContent = `${Math.round((mapView.scale / mapMinScale()) * 100)}%`;
+}
+
+/** Whichever patch {@link renderHoverToolbar} is CURRENTLY showing its pill for — set by that
+ * function on every render, read by the pill's own two button click handlers (wired once, below,
+ * not per-render) so they act on the right patch without re-deriving "which one" themselves. */
+let currentHoverToolbarTarget = null;
+
+/** The quick Duplicate/Delete pill positioned at whichever patch is hovered or singly selected —
+ * selection wins over hover (so it reads as "acting on what's selected," not flickering to
+ * "whatever the mouse happens to be sitting on" while adjusting the inspector fields next to it).
+ * A stale {@link mapHoverPatch} left over from a since-deleted patch (deleted via the keyboard, the
+ * side panel, OR this very toolbar) is caught here with one {@code list.includes} check rather than
+ * hunting down and clearing it in every one of those separate deletion code paths. */
+function renderHoverToolbar() {
+  let target = null;
+  if (mapSelectedSet.length === 1) {
+    target = mapSelectedSet[0];
+  } else if (mapHoverPatch && mapHoverPatch.list.includes(mapHoverPatch.patch)) {
+    target = { list: mapHoverPatch.list, patch: mapHoverPatch.patch };
+  } else {
+    mapHoverPatch = null;
+  }
+  if (!target || mapDrag || mapPendingPatch) {
+    hoverToolbarEl.classList.add("hidden");
+    currentHoverToolbarTarget = null;
+    return;
+  }
+  currentHoverToolbarTarget = target;
+  const { patch } = target;
+  const above = worldToScreen(patch.cx + 0.5, patch.cy - patch.radius);
+  const below = worldToScreen(patch.cx + 0.5, patch.cy + patch.radius);
+  // Flips below the patch instead of above whenever "above" would run the pill off the canvas's own
+  // top edge (a patch sitting near world y=0) — same reasoning a tooltip/popover flips an
+  // edge-anchored target, just on the one axis that actually needs it (the pill is narrow enough
+  // never to run off the left/right edges at any zoom level this tool allows).
+  const flipped = above.y < 44;
+  const point = flipped ? below : above;
+  hoverToolbarEl.style.left = `${point.x}px`;
+  hoverToolbarEl.style.top = `${point.y}px`;
+  hoverToolbarEl.classList.toggle("flip-below", flipped);
+  hoverToolbarEl.classList.remove("hidden");
+}
+
 function renderMapEditor() {
   drawMapCanvas();
   renderMapPatchList();
   renderPatchInspector();
+  renderMapZoomHud();
+  renderHoverToolbar();
 }
 
 /* ---- undo/redo — a plain snapshot stack, small arrays, cheap to copy wholesale ---- */
@@ -1992,10 +2179,18 @@ function commitPendingPatch() {
   return true;
 }
 
+/** Space held down right now — the tool-agnostic "temporary pan" gesture every pro editor (Figma,
+ * Miro, Photoshop) offers as an alternative to Shift-drag/middle-drag: unlike those two, holding
+ * Space overrides whatever the CURRENT tool would otherwise do with a drag, so it works mid-way
+ * through placing a patch just as well as it does over empty space. Declared before the first
+ * {@link updateMapCursor} call (from updateMapToolFieldVisibility() right below) can read it. */
+let spaceHeld = false;
+
 document.getElementById("map-tool").addEventListener("change", updateMapToolFieldVisibility);
 updateMapToolFieldVisibility();
 
 const mapCanvasEl = document.getElementById("map-canvas");
+const hoverToolbarEl = document.getElementById("map-hover-toolbar");
 
 mapCanvasEl.addEventListener("mousedown", (e) => {
   // mousedown fires BEFORE the browser's default focus-change — if an inspector field is mid-edit
@@ -2005,12 +2200,24 @@ mapCanvasEl.addEventListener("mousedown", (e) => {
   // instead. Blurring first forces that commit to land on the patch it was actually typed for.
   const focused = document.activeElement;
   if (focused && focused.closest && focused.closest("#map-patch-inspector")) focused.blur();
+  // Middle-mouse-drag and Space-drag pan regardless of what's under the cursor — a patch mid-hover,
+  // the "select" tool, a half-placed patch, doesn't matter, same as every pro editor's own
+  // tool-agnostic pan gesture. Checked before hit-testing even runs: unlike Shift+drag below (which
+  // only pans when it DIDN'T land on a patch, so Shift can still toggle one into the selection),
+  // these two always mean "pan," full stop.
+  if (e.button === 1 || spaceHeld) {
+    e.preventDefault(); // middle-click's own default is usually autoscroll/paste — neither belongs here
+    mapDrag = { mode: "pan", startClientX: e.clientX, startClientY: e.clientY, startOffsetX: mapView.offsetX, startOffsetY: mapView.offsetY };
+    updateMapCursor();
+    return;
+  }
   const world = worldFromEvent(e);
   const hit = hitTestPatch(world.x, world.y);
   // Shift+empty-space still pans; Shift+an-actual-patch toggles it in/out of the selection instead
   // (checked below, once hit is known) — the two never conflict, since they're on different targets.
   if (e.shiftKey && !hit) {
     mapDrag = { mode: "pan", startClientX: e.clientX, startClientY: e.clientY, startOffsetX: mapView.offsetX, startOffsetY: mapView.offsetY };
+    updateMapCursor();
     return;
   }
   const tool = document.getElementById("map-tool").value;
@@ -2045,7 +2252,17 @@ mapCanvasEl.addEventListener("mousedown", (e) => {
   if (tool === "select") {
     // Resolved at mouseup (finishRubberBand), against whatever the box ends up covering — nothing
     // about the CURRENT selection is touched here, so the existing one stays visible while dragging.
+    // Deliberately NOT bounds-checked below like placement is: starting (or ending) a rubber-band
+    // out on the pasteboard, to fully enclose patches sitting right against the map's edge, is
+    // completely normal — only PLACING something out there doesn't mean anything.
     mapDrag = { mode: "rubberband", startWorld: world, currentWorld: world };
+    return;
+  }
+  // Clicked the pasteboard around the map (see drawMapCanvas), not the map itself — same as
+  // clicking outside a document's canvas in any other editor, this does nothing. Previously
+  // clampCell pulled a click way out here back to the map's nearest edge instead, which looked
+  // like the placement had randomly landed somewhere other than where you clicked.
+  if (!isInsideMap(world.x, world.y)) {
     return;
   }
   // Placing into a HIDDEN layer would violate mapLayerVisible's own contract (see its comment) —
@@ -2075,6 +2292,7 @@ mapCanvasEl.addEventListener("mousemove", (e) => {
   const world = worldFromEvent(e);
   updateMapCoordsReadout(world);
   mapHoverWorld = world;
+  mapHoverPatch = isInsideMap(world.x, world.y) ? hitTestPatch(world.x, world.y) : null;
   renderMapEditor();
 });
 
@@ -2120,8 +2338,14 @@ window.addEventListener("mousemove", (e) => {
   renderMapEditor();
 });
 
-mapCanvasEl.addEventListener("mouseleave", () => {
+mapCanvasEl.addEventListener("mouseleave", (e) => {
+  // The hover toolbar (renderHoverToolbar) floats OVER the canvas as a separate DOM element, not
+  // inside it — moving the cursor onto it is, DOM-wise, leaving the canvas, and would otherwise wipe
+  // mapHoverPatch out from under the very toolbar the user is trying to click. Its own mouseleave
+  // (right below) is the one that clears state once the cursor actually leaves both.
+  if (e.relatedTarget && hoverToolbarEl.contains(e.relatedTarget)) return;
   mapHoverWorld = null;
+  mapHoverPatch = null;
   updateMapCoordsReadout(null);
   renderMapEditor();
 });
@@ -2138,12 +2362,30 @@ mapCanvasEl.addEventListener("contextmenu", (e) => {
   renderMapEditor();
 });
 
+// Figma/Miro convention, not "wheel always zooms": plain scroll (mouse wheel OR trackpad two-finger
+// pan) PANS the canvas — deltaX too, not just deltaY, since a trackpad's horizontal swipe is a real,
+// common gesture a deltaY-only handler would silently swallow. Zoom needs a modifier (Ctrl/Cmd+wheel)
+// specifically because browsers report a trackpad PINCH as a wheel event with ctrlKey set (there is
+// no separate "pinch" DOM event) — this one check is simultaneously "the zoom shortcut" AND "how a
+// pinch gesture is even detectable" at once, not two unrelated things that happen to share a key.
 mapCanvasEl.addEventListener("wheel", (e) => {
   e.preventDefault();
   const rect = mapCanvasEl.getBoundingClientRect();
   const px = (e.clientX - rect.left) / rect.width * mapCanvasEl.width;
   const py = (e.clientY - rect.top) / rect.height * mapCanvasEl.height;
-  zoomAt(px, py, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+  if (e.ctrlKey || e.metaKey) {
+    // deltaY's sign is what both a real Ctrl+wheel AND a trackpad pinch already use for "in"/"out"
+    // (pinching out — spreading fingers — reports negative deltaY, same as scrolling up) — no
+    // separate gesture-direction mapping needed beyond what zoomAt/the plain-scroll branch already do.
+    zoomAt(px, py, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+  } else {
+    // Screen-pixel deltas straight off the event, converted through the current scale — matches the
+    // WASD pan step's own conversion (see the keydown handler) so the two feel like the same camera
+    // regardless of which one is driving it.
+    mapView.offsetX += e.deltaX / mapView.scale;
+    mapView.offsetY += e.deltaY / mapView.scale;
+    clampView();
+  }
   renderMapEditor();
 }, { passive: false });
 
@@ -2202,11 +2444,97 @@ window.addEventListener("mouseup", () => {
   }
   // "pan" touches no patch data at all — nothing here to mark dirty or push to history.
   mapDrag = null;
+  updateMapCursor(); // drops out of "grabbing" back to "grab" (Space still down) or the tool's own cursor
   renderMapEditor();
 });
 
 document.getElementById("map-zoom-reset").addEventListener("click", () => {
   resetView();
+  renderMapEditor();
+});
+
+/* ---- full screen: the WHOLE stage (canvas + floating tools panel + both HUDs), via the browser's
+   own Fullscreen API — not a CSS-only "hide the sidebar" mode, since the point is showing more map
+   than the browser chrome/OS taskbar would otherwise leave room for, the same as a video player's
+   own fullscreen button. ---- */
+
+const mapStageEl = document.querySelector(".map-stage");
+const mapFullscreenBtn = document.getElementById("map-fullscreen-btn");
+
+function updateMapFullscreenBtn() {
+  const isFull = document.fullscreenElement === mapStageEl;
+  mapFullscreenBtn.innerHTML = icon(isFull ? "collapse" : "expand", 15);
+  mapFullscreenBtn.title = isFull ? "Exit full screen (Esc)" : "Fill the screen with the map";
+}
+updateMapFullscreenBtn();
+
+mapFullscreenBtn.addEventListener("click", () => {
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  } else {
+    // Rejects (rather than throwing synchronously) if the browser refuses — e.g. a user gesture
+    // requirement it decided this click somehow didn't satisfy, or a sandboxed embed — surfaced as
+    // a toast instead of an uncaught promise rejection silently doing nothing.
+    mapStageEl.requestFullscreen().catch((err) => toast(`Couldn't enter full screen: ${err.message}`, true));
+  }
+});
+
+// Fires for ANY fullscreen change, not just ones this button caused (the browser's own Esc-to-exit
+// bypasses the click handler above entirely) — the one place both the icon/title AND the canvas's
+// own drawing-buffer size actually get resynced, regardless of what triggered the change.
+document.addEventListener("fullscreenchange", () => {
+  updateMapFullscreenBtn();
+  // The stage's box changes size the INSTANT fullscreen engages/releases — measure and redraw right
+  // away rather than waiting for the debounced window "resize" handler (120ms, see its own comment)
+  // to eventually catch up, since this size change is already fully known right now.
+  if (activeTab() === "maps") resizeMapCanvas();
+});
+
+// Zoom HUD (bottom-left of the canvas — see .map-zoom-hud): +/- zoom toward the canvas's own
+// center (there's no cursor position to zoom toward for a button click, unlike the wheel), and
+// the percentage readout doubles as a reset button, the same dual-purpose convention Figma uses.
+document.getElementById("map-zoom-in-btn").addEventListener("click", () => {
+  zoomAt(mapCanvasWidth / 2, mapCanvasHeight / 2, 1.2);
+  renderMapEditor();
+});
+document.getElementById("map-zoom-out-btn").addEventListener("click", () => {
+  zoomAt(mapCanvasWidth / 2, mapCanvasHeight / 2, 1 / 1.2);
+  renderMapEditor();
+});
+document.getElementById("map-zoom-level").addEventListener("click", () => {
+  resetView();
+  renderMapEditor();
+});
+
+document.getElementById("map-hover-toolbar-duplicate").innerHTML = icon("copy", 14);
+document.getElementById("map-hover-toolbar-delete").innerHTML = icon("trash", 14);
+
+// Both buttons act on currentHoverToolbarTarget (set by renderHoverToolbar, not re-derived here) —
+// selecting it first, even when it was already the hover target rather than the selection, keeps
+// duplicateSelectedPatches/deleteSelectedPatches as the ONE place that actually knows how to mutate
+// mapOrePatches/mapTerrainPatches and push history, instead of a second copy of that logic living here.
+document.getElementById("map-hover-toolbar-duplicate").addEventListener("click", () => {
+  if (!currentHoverToolbarTarget) return;
+  selectPatch(currentHoverToolbarTarget.list, currentHoverToolbarTarget.patch);
+  duplicateSelectedPatches();
+});
+document.getElementById("map-hover-toolbar-delete").addEventListener("click", () => {
+  if (!currentHoverToolbarTarget) return;
+  selectPatch(currentHoverToolbarTarget.list, currentHoverToolbarTarget.patch);
+  // The patch this pill was showing for is about to stop existing — clear the hover reference to it
+  // explicitly rather than relying on next mousemove: renderHoverToolbar's own list.includes guard
+  // WOULD catch it either way, but only once something re-renders, and nothing does until the mouse
+  // actually moves again if the click came from a hover (not a selection).
+  mapHoverPatch = null;
+  deleteSelectedPatches();
+});
+
+// Moving from the canvas onto this floating pill fires the canvas's own "mouseleave" (see its
+// comment) — this element's matching "leave the pill" case, for when the cursor goes somewhere that
+// ISN'T back onto the canvas (a genuine move-away, not just crossing the seam between the two).
+hoverToolbarEl.addEventListener("mouseleave", (e) => {
+  if (e.relatedTarget && mapCanvasEl.contains(e.relatedTarget)) return;
+  mapHoverPatch = null;
   renderMapEditor();
 });
 
@@ -2245,7 +2573,19 @@ document.addEventListener("keydown", (e) => {
     }
     mapDrag = null;
     mapPendingPatch = null;
+    updateMapCursor();
     renderMapEditor();
+    return;
+  }
+  // e.repeat guards against the flood of keydowns an OS auto-repeats while a key stays held — every
+  // one AFTER the first is a no-op here anyway (spaceHeld's already true), but skipping them avoids
+  // pointlessly restyling the cursor dozens of times a second for as long as Space stays down.
+  // code, not key: "Space" is unambiguous across keyboard layouts where e.key for the spacebar can
+  // differ (some layouts/browsers report it as "Spacebar").
+  if (!typing && e.code === "Space" && !e.repeat) {
+    e.preventDefault(); // Space's own default (scroll the page down) would fight with panning
+    spaceHeld = true;
+    updateMapCursor();
     return;
   }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !typing) {
@@ -2321,10 +2661,36 @@ document.addEventListener("keydown", (e) => {
   if (!typing && noModifier && e.key.toLowerCase() === "f") {
     e.preventDefault();
     focusOnSelection();
+    return;
+  }
+  // WASD pans the CAMERA, arrow keys nudge the SELECTED PATCH (see the arrow-key branch above) —
+  // deliberately two different key sets so the two never fight over the same keypress. Step is in
+  // screen pixels, not world units, converted through the current scale — holding Shift for a
+  // bigger step matches the same convention the arrow-key nudge already uses.
+  const wasd = { w: "up", s: "down", a: "left", d: "right" }[e.key.toLowerCase()];
+  if (!typing && noModifier && wasd) {
+    e.preventDefault();
+    const panStep = (e.shiftKey ? 180 : 60) / mapView.scale;
+    if (wasd === "up") mapView.offsetY -= panStep;
+    if (wasd === "down") mapView.offsetY += panStep;
+    if (wasd === "left") mapView.offsetX -= panStep;
+    if (wasd === "right") mapView.offsetX += panStep;
+    clampView();
+    renderMapEditor();
   }
 });
 
 document.addEventListener("keyup", (e) => {
+  // Not tab-gated like its keydown counterpart — Space can still be physically held while switching
+  // tabs (a mouse click doesn't release it), and the flag has to come back down wherever it lets go,
+  // not just while the maps tab happens to still be the active one.
+  if (e.code === "Space" && spaceHeld) {
+    spaceHeld = false;
+    // A pan that's still in progress (mouse never released) keeps going as an ordinary Shift/
+    // middle-drag pan would — only the CURSOR reverts, since the drag itself doesn't have a
+    // "half-Space" state to fall back into; mouseup ends it the normal way either way.
+    if (!mapDrag || mapDrag.mode !== "pan") updateMapCursor();
+  }
   if (!mapNudgePending) return;
   if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
     mapNudgePending = false;
@@ -2490,6 +2856,7 @@ function closeNewMapModal() {
 }
 
 function startNewMap(body) {
+  if (blockedByUnsavedChanges()) return;
   fillMap(body || {});
   document.getElementById("maps-form-title").textContent = "New map";
   formError("maps", "");
@@ -2513,6 +2880,10 @@ document.getElementById("maps-picker").addEventListener("change", (e) => {
   // typing/blurring the filter below) would mark the map you just SWITCHED TO as "unsaved" before
   // you've touched a single field of it.
   e.stopPropagation();
+  if (blockedByUnsavedChanges()) {
+    e.target.value = state.selected.maps || ""; // revert — the select already changed itself before "change" fired
+    return;
+  }
   const map = state.maps.find((m) => entryKey(m) === e.target.value);
   if (map) selectMap(map);
 });
@@ -2736,11 +3107,12 @@ globalSearchInput.addEventListener("input", () => {
       row.innerHTML = `<span class="thumb">${info.thumb}</span><span></span>`;
       row.querySelector("span:last-child").textContent = info.title;
       row.addEventListener("click", () => {
-        switchToTab(group.kind);
+        if (!switchToTab(group.kind)) return;
         group.select(entry);
         searchResultsEl.classList.add("hidden");
         globalSearchInput.value = "";
       });
+      makeKeyboardClickable(row);
       searchResultsEl.appendChild(row);
     }
   }
