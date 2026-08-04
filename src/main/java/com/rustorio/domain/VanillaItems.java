@@ -37,6 +37,14 @@ public final class VanillaItems {
     private static final ContentId ALLOY_PLATE_ID = ContentId.of("rustorio:alloy_plate");
     private static final ContentId ALLOY_GEAR_ID = ContentId.of("rustorio:alloy_gear");
     private static final ContentId COAL_ID = ContentId.of("rustorio:coal");
+    // Terrain, not cargo: these two are what a TerrainPatch names now that terrain is content
+    // rather than a closed enum (see TerrainPatch and OreLayout#terrainAt). They live in the item
+    // registry because that is what a patch's reference resolves against — a cell reports the
+    // ItemType lying on it, and "nothing lying on it" is plain, buildable ground. Nothing puts
+    // them on a belt: no recipe names them, no building's cost is paid in them, and the content
+    // editor keeps them out of the ore picker (their own "tool" field says which tool offers them).
+    private static final ContentId WATER_ID = ContentId.of("rustorio:water");
+    private static final ContentId ROCK_ID = ContentId.of("rustorio:rock");
 
     // FROZEN must be declared (and therefore initialized) before any constant below that calls
     // frozen() — Java runs static field initializers in textual, top-to-bottom order, and a
@@ -57,8 +65,26 @@ public final class VanillaItems {
     public static final ItemType ALLOY_PLATE = frozen().get(ALLOY_PLATE_ID);
     public static final ItemType ALLOY_GEAR = frozen().get(ALLOY_GEAR_ID);
     public static final ItemType COAL = frozen().get(COAL_ID);
+    public static final ItemType WATER = frozen().get(WATER_ID);
+    public static final ItemType ROCK = frozen().get(ROCK_ID);
 
     private VanillaItems() {
+    }
+
+    /**
+     * Whether {@code item} is one of the two vanilla items that exist as terrain rather than as
+     * cargo ({@link #WATER}, {@link #ROCK}) — the obstacle kinds that used to be constants of a
+     * closed {@code Terrain} enum before a terrain patch started naming content like an ore patch
+     * always did. Nothing produces them, nothing consumes them, and no recipe reaches them, so the
+     * places that reason about "every item a player can end up holding" have to be able to say so.
+     *
+     * <p>Deliberately scoped to VANILLA, and named that way: a mod's own terrain item is not
+     * listed here and cannot be — this answers "do I have hand-drawn art / a recipe path for this
+     * one", not "is this terrain". What a patch DOES is decided by which array it sits in ({@link
+     * AuthoredMap}), never by asking an item what it is.
+     */
+    public static boolean isVanillaTerrain(ItemType item) {
+        return WATER.equals(item) || ROCK.equals(item);
     }
 
     /** The canonical, already-frozen registry backing the constants above. */
@@ -66,7 +92,7 @@ public final class VanillaItems {
         return FROZEN;
     }
 
-    /** Registers all 11 vanilla items into {@code items}. For tests/custom assemblies that want their own isolated (unfrozen) copy instead of sharing {@link #frozen()}. */
+    /** Registers all 13 vanilla items into {@code items}. For tests/custom assemblies that want their own isolated (unfrozen) copy instead of sharing {@link #frozen()}. */
     public static void registerAll(Registry<ItemType> items) {
         register(items, IRON_ORE_ID, "Iron Ore", false, rgb(105, 100, 95), ItemShape.CIRCLE);
         register(items, IRON_PLATE_ID, "Iron Plate", false, rgb(170, 172, 178), ItemShape.SQUARE);
@@ -79,6 +105,10 @@ public final class VanillaItems {
         register(items, ALLOY_PLATE_ID, "Alloy Plate", false, rgb(150, 140, 130), ItemShape.SQUARE);
         register(items, ALLOY_GEAR_ID, "Alloy Gear", true, rgb(190, 170, 90), ItemShape.TRIANGLE);
         register(items, COAL_ID, "Coal", false, rgb(35, 33, 32), ItemShape.CIRCLE);
+        // Colors match the map tiles these two draw as (Textures#terrainWater/terrainRock), so a
+        // renderer or editor without art for them still shows water as water.
+        register(items, WATER_ID, "Water", false, rgb(58, 110, 165), ItemShape.SQUARE);
+        register(items, ROCK_ID, "Rock", false, rgb(122, 122, 118), ItemShape.SQUARE);
     }
 
     private static Registry<ItemType> buildFrozen() {

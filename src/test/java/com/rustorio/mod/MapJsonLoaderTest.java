@@ -9,7 +9,6 @@ import com.rustorio.domain.AuthoredMap;
 import com.rustorio.domain.ItemShape;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OrePatch;
-import com.rustorio.domain.Terrain;
 import com.rustorio.domain.TerrainPatch;
 import com.rustorio.domain.VanillaItems;
 import java.io.IOException;
@@ -56,7 +55,8 @@ class MapJsonLoaderTest {
         assertEquals(6, map.orePatches().get(0).cx(), "a bare 'moonrock' reference must resolve in the CURRENT mod's own namespace");
         assertEquals(new OrePatch(20, 20, 2, VanillaItems.COAL), map.orePatches().get(1),
                 "a full 'rustorio:coal' reference must resolve regardless of which mod declared the map");
-        assertEquals(List.of(new TerrainPatch(50, 50, 8, Terrain.WATER)), map.terrainPatches());
+        assertEquals(List.of(new TerrainPatch(50, 50, 8, VanillaItems.WATER)), map.terrainPatches(),
+                "the legacy \"WATER\" spelling every map file written before terrain became content still uses must keep resolving");
     }
 
     @Test
@@ -87,18 +87,40 @@ class MapJsonLoaderTest {
         assertTrue(thrown.getMessage().contains("testmod:unobtainium"), thrown.getMessage());
     }
 
+    /**
+     * The point of terrain becoming content: a mod's own item can be an obstacle, without the
+     * engine having heard of it. Fails on the old code, where terrain was an enum of exactly
+     * WATER and ROCK and anything else was rejected by name.
+     */
     @Test
-    void unknownTerrainNamesTheAllowedValues() throws IOException {
+    void terrainPatchResolvesAModsOwnItem() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        ContentId swampId = new ContentId("testmod", "swamp");
+        ItemType swamp = new ItemType(swampId, "Swamp", false, 0x3a5f3a, ItemShape.SQUARE);
+        context.items().register(swampId, swamp);
+        write("bog.json", """
+                { "path": "bog", "label": "Bog",
+                  "terrainPatches": [ { "cx": 7, "cy": 8, "radius": 4, "terrain": "swamp" } ] }
+                """);
+
+        MapJsonLoader.loadInto(tempDir, modId, context);
+
+        AuthoredMap map = context.maps().peek(ContentId.of("testmod:bog")).orElseThrow();
+        assertEquals(List.of(new TerrainPatch(7, 8, 4, swamp)), map.terrainPatches());
+    }
+
+    @Test
+    void unresolvedTerrainReferenceFailsWithAClearMessage() throws IOException {
         GameRegistrationContext context = new GameRegistrationContext();
         VanillaItems.registerAll(context.items());
         write("weird.json", """
                 { "path": "weird", "label": "Weird",
-                  "terrainPatches": [ { "cx": 1, "cy": 1, "radius": 1, "terrain": "GROUND" } ] }
+                  "terrainPatches": [ { "cx": 1, "cy": 1, "radius": 1, "terrain": "quicksand" } ] }
                 """);
 
         ModLoadException thrown = assertThrows(ModLoadException.class, () -> MapJsonLoader.loadInto(tempDir, modId, context));
-        assertTrue(thrown.getMessage().contains("WATER"), thrown.getMessage());
-        assertTrue(thrown.getMessage().contains("ROCK"), thrown.getMessage());
+        assertTrue(thrown.getMessage().contains("testmod:quicksand"), thrown.getMessage());
     }
 
     @Test

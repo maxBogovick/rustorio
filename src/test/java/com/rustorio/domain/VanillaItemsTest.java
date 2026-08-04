@@ -20,8 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 class VanillaItemsTest {
 
     @Test
-    void frozenRegistryHasAllElevenItems() {
-        assertEquals(11, VanillaItems.frozen().size());
+    void frozenRegistryHasAllThirteenItems() {
+        assertEquals(13, VanillaItems.frozen().size());
     }
 
     @Test

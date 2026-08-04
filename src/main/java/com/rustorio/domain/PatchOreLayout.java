@@ -72,16 +72,17 @@ public final class PatchOreLayout implements OreLayout {
      * (checked first, in the constructor below) as a second, belt-and-suspenders guarantee.
      */
     private static final TerrainPatch[] TERRAIN_PATCHES = {
-            new TerrainPatch(130, 90, 8, Terrain.WATER), new TerrainPatch(200, 60, 7, Terrain.WATER),
-            new TerrainPatch(110, 190, 9, Terrain.WATER),
-            new TerrainPatch(210, 150, 7, Terrain.ROCK), new TerrainPatch(150, 220, 8, Terrain.ROCK),
-            new TerrainPatch(230, 220, 6, Terrain.ROCK),
+            new TerrainPatch(130, 90, 8, VanillaItems.WATER), new TerrainPatch(200, 60, 7, VanillaItems.WATER),
+            new TerrainPatch(110, 190, 9, VanillaItems.WATER),
+            new TerrainPatch(210, 150, 7, VanillaItems.ROCK), new TerrainPatch(150, 220, 8, VanillaItems.ROCK),
+            new TerrainPatch(230, 220, 6, VanillaItems.ROCK),
     };
 
     private final int width;
     private final int height;
     private final @Nullable ItemType[] grid;
-    private final Terrain[] terrainGrid;
+    /** Null means plain ground — see {@link OreLayout#terrainAt} on why the absence of a patch is spelled as an absence. */
+    private final @Nullable ItemType[] terrainGrid;
     /**
      * Calls to {@link #extract} per cell so far, parallel to {@link #grid} — see {@link
      * OreDepletion} (D-04, DEV_TASKS.md). Zeroed at construction: every fresh {@code
@@ -95,8 +96,7 @@ public final class PatchOreLayout implements OreLayout {
         this.height = height;
         this.grid = new ItemType[width * height];
         this.extractedCount = new int[width * height];
-        this.terrainGrid = new Terrain[width * height];
-        Arrays.fill(terrainGrid, Terrain.GROUND);
+        this.terrainGrid = new ItemType[width * height]; // all null = all plain ground, no fill needed
 
         // Bounding-box rasterization, not a full width×height scan checking every patch per cell
         // (code review finding): PATCHES.length patches, each touching only its own small circle
@@ -223,10 +223,10 @@ public final class PatchOreLayout implements OreLayout {
     }
 
     @Override
-    public Terrain terrainAt(int x, int y) {
+    public Optional<ItemType> terrainAt(int x, int y) {
         if (x < 0 || y < 0 || x >= width || y >= height) {
-            return Terrain.ROCK; // fail closed — off the generated grid entirely, never buildable
+            return Optional.of(VanillaItems.ROCK); // fail closed — off the generated grid entirely, never buildable
         }
-        return terrainGrid[y * width + x];
+        return Optional.ofNullable(terrainGrid[y * width + x]);
     }
 }

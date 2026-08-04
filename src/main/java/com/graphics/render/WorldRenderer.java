@@ -8,7 +8,6 @@ import com.badlogic.gdx.utils.IntMap;
 import com.graphics.GfxConfig;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
-import com.rustorio.domain.Terrain;
 import com.rustorio.domain.VanillaItems;
 import java.util.Optional;
 
@@ -78,7 +77,12 @@ final class WorldRenderer {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (int y = range.minY(); y <= range.maxY(); y++) {
             for (int x = range.minX(); x <= range.maxX(); x++) {
-                Optional<Color> tint = oreTint(x, y);
+                // Terrain first: the two are mutually exclusive (terrain never carries ore — see
+                // oreTint), so this is one pass over the cells, not two overlapping ones. Written
+                // out rather than as terrainTint(...).or(() -> oreTint(x, y)): the loop counters a
+                // lambda would capture are not effectively final.
+                Optional<Color> terrain = terrainTint(x, y);
+                Optional<Color> tint = terrain.isPresent() ? terrain : oreTint(x, y);
                 if (tint.isPresent()) {
                     shapes.setColor(tint.get());
                     shapes.rect(grid.x(x), grid.yBottom(y), tile, tile);
@@ -97,18 +101,47 @@ final class WorldRenderer {
         shapes.end();
     }
 
-    /** Which base tile texture a cell draws — terrain wins over ore (see the class javadoc for why the order never actually matters). */
+    /**
+     * Which base tile texture a cell draws — terrain wins over ore (see the class javadoc for why
+     * the order never actually matters). No cell is left without a tile: a terrain kind this build
+     * has no art for still draws the ground tile, and {@link #terrainTint} colors it.
+     *
+     * <p>An {@code if} chain over the two vanilla obstacles rather than the exhaustive {@code
+     * switch} this used to be: terrain is content now, so there is no complete set of cases to
+     * cover — the vanilla two keep their hand-drawn tiles, and everything else (a mod's, or one
+     * authored in the content editor) is handled by the same fallback, exactly the way {@code
+     * oreColor} below already treats vanilla ores versus everybody else's.
+     */
     private TextureRegion terrainTexture(int x, int y) {
-        return switch (oreLayout.terrainAt(x, y)) {
-            case WATER -> textures.terrainWater();
-            case ROCK -> textures.terrainRock();
-            case GROUND -> textures.terrainGround();
-        };
+        Optional<ItemType> terrain = oreLayout.terrainAt(x, y);
+        if (terrain.isEmpty()) {
+            return textures.terrainGround();
+        }
+        ItemType kind = terrain.get();
+        if (kind.equals(VanillaItems.WATER)) {
+            return textures.terrainWater();
+        }
+        if (kind.equals(VanillaItems.ROCK)) {
+            return textures.terrainRock();
+        }
+        return textures.terrainGround(); // a mod's own terrain — terrainTint colors this tile
+    }
+
+    /**
+     * An opaque overlay for a terrain kind with no tile of its own, empty for the vanilla two (whose
+     * own textures already say what they are) and for plain ground. Opaque, unlike the ore tint: ore
+     * reads as something IN the ground, while terrain IS the ground — a translucent obstacle would
+     * read as a patch of dirt with a stain on it rather than as a thing you can't build on.
+     */
+    private Optional<Color> terrainTint(int x, int y) {
+        return oreLayout.terrainAt(x, y)
+                .filter(kind -> !VanillaItems.isVanillaTerrain(kind))
+                .map(Palette::itemColor);
     }
 
     /** Translucent ore color for {@link #render}'s overlay pass — empty for a cell with no ore (including any non-{@code GROUND} terrain, which never carries ore — see the class javadoc). */
     private Optional<Color> oreTint(int x, int y) {
-        if (oreLayout.terrainAt(x, y) != Terrain.GROUND) {
+        if (oreLayout.terrainAt(x, y).isPresent()) {
             return Optional.empty();
         }
         return oreLayout.oreAt(x, y).map(WorldRenderer::oreColor);

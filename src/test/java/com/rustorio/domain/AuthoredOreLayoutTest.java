@@ -24,12 +24,12 @@ class AuthoredOreLayoutTest {
     void reportsOreAndTerrainFromTheirOwnPatches() {
         AuthoredMap map = new AuthoredMap(MAP_ID,
                 List.of(new OrePatch(10, 10, 3, VanillaItems.IRON_ORE)),
-                List.of(new TerrainPatch(50, 50, 4, Terrain.WATER)));
+                List.of(new TerrainPatch(50, 50, 4, VanillaItems.WATER)));
         AuthoredOreLayout layout = AuthoredOreLayout.from(map);
 
         assertEquals(Optional.of(VanillaItems.IRON_ORE), layout.oreAt(10, 10));
-        assertEquals(Terrain.WATER, layout.terrainAt(50, 50));
-        assertEquals(Terrain.GROUND, layout.terrainAt(0, 0), "an unpainted cell is plain buildable ground");
+        assertEquals(Optional.of(VanillaItems.WATER), layout.terrainAt(50, 50));
+        assertEquals(Optional.empty(), layout.terrainAt(0, 0), "an unpainted cell is plain buildable ground");
         assertFalse(layout.hasOre(0, 0));
     }
 
@@ -48,7 +48,7 @@ class AuthoredOreLayoutTest {
     void oreAlwaysWinsOverTerrainEvenWhenTerrainIsDeclaredFirst() {
         AuthoredMap map = new AuthoredMap(MAP_ID,
                 List.of(new OrePatch(20, 20, 4, VanillaItems.BRONZE_ORE)),
-                List.of(new TerrainPatch(20, 20, 4, Terrain.ROCK)));
+                List.of(new TerrainPatch(20, 20, 4, VanillaItems.ROCK)));
         AuthoredOreLayout layout = AuthoredOreLayout.from(map);
 
         assertEquals(Optional.of(VanillaItems.BRONZE_ORE), layout.oreAt(20, 20));

@@ -35,7 +35,7 @@ class SourceTextRulesTest {
      * ratchet. Removing occurrences is welcome — it just has to be recorded here in the same
      * commit, the way the content-coupling ratchet records its own decreases.
      */
-    private static final int DOC_ID_CITATION_BASELINE = 712;
+    private static final int DOC_ID_CITATION_BASELINE = 708;
 
     /**
      * Explicit types are the rule; these are the exceptions that survived review. A new one is not

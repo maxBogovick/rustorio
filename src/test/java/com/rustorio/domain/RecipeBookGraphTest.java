@@ -59,6 +59,13 @@ class RecipeBookGraphTest {
         Set<ItemType> reachable = reachableItems(RecipeBook.standard());
 
         for (ItemType item : VanillaItems.frozen().iterate()) {
+            // Terrain (water, rock) is in the item registry because a terrain patch names content
+            // the same way an ore patch does — but it is scenery, not cargo: nothing mines it,
+            // nothing crafts it, and a player never holds it. Requiring a recipe path to it would
+            // be asking the recipe book to explain the map.
+            if (VanillaItems.isVanillaTerrain(item)) {
+                continue;
+            }
             assertTrue(reachable.contains(item), item + " is not reachable from any base ore through RecipeBook's recipes");
         }
     }

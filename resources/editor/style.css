@@ -490,11 +490,12 @@ kbd {
 .map-layer-toggles { display: flex; gap: 8px; }
 .map-layer-toggles .btn-ghost { flex: 1; justify-content: center; }
 .map-tools .patch-list { flex: 0 0 auto; max-height: none; margin: 0; }
-/* #patch-inspector-single wraps the X/Y/Radius/Item fields so they can be shown/hidden as one unit
-   depending on selection size (see renderPatchInspector) — it needs the same column layout
-   .map-tools .map-toolbar gives its OWN direct children, since wrapping them in a div takes them
-   out of that direct-child relationship. */
-#patch-inspector-single { display: flex; flex-direction: column; gap: 10px; }
+/* #patch-inspector-position wraps the X/Y fields so they can be shown/hidden as one unit — they're
+   the only two the inspector still hides for a multi-selection (everything else there applies to
+   the whole selection; see renderPatchInspector). It needs the same column layout .map-tools
+   .map-toolbar gives its OWN direct children, since wrapping them in a div takes them out of that
+   direct-child relationship. */
+#patch-inspector-position { display: flex; flex-direction: column; gap: 10px; }
 
 .patch-list { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid var(--border-soft); border-radius: var(--radius); }
 .patch-list:empty { display: none; }

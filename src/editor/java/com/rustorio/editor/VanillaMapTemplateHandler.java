@@ -39,7 +39,11 @@ final class VanillaMapTemplateHandler implements HttpHandler {
             node.put("cx", patch.cx());
             node.put("cy", patch.cy());
             node.put("radius", patch.radius());
-            node.put("terrain", patch.terrain().name());
+            // The item's own path, exactly like an ore patch above — terrain is a content
+            // reference now, not an enum constant's name. Bare, because this template is a vanilla
+            // map being handed to whichever mod is about to save it; the editor requalifies a
+            // cross-mod reference on its way into the file (see requalifyRef in app.js).
+            node.put("terrain", patch.terrain().id().path());
         }
         EditorHttp.sendJson(exchange, 200, body.toString());
     }
