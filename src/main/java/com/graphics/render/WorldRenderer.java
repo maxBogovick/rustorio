@@ -4,13 +4,12 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.utils.IntMap;
 import com.graphics.GfxConfig;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.Terrain;
 import com.rustorio.domain.VanillaItems;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -143,7 +142,10 @@ final class WorldRenderer {
         // get/put, not computeIfAbsent: a lambda that captures ore would itself be a fresh
         // allocation on every call on a miss AND (per the JLS, capturing lambdas are not guaranteed
         // to be reused across invocations the way a non-capturing one's singleton instance is) —
-        // defeats the exact hot-path-allocation avoidance this cache exists for.
+        // defeats the exact hot-path-allocation avoidance this cache exists for. IntMap (libGDX),
+        // not a JDK Map<Integer,Color>: a boxed Integer key would itself allocate on every call for
+        // any rgb outside the JVM's cached Integer range (-128..127), which real ore colors always
+        // are — the very allocation this whole cache exists to avoid, just moved into the key.
         int rgb = ore.colorRgb();
         Color cached = CUSTOM_ORE_TINTS.get(rgb);
         if (cached != null) {
@@ -167,7 +169,7 @@ final class WorldRenderer {
      * than the item survives a mod's {@code Registry.update()} changing a color after the first
      * tile using it was already drawn.
      */
-    private static final Map<Integer, Color> CUSTOM_ORE_TINTS = new HashMap<>();
+    private static final IntMap<Color> CUSTOM_ORE_TINTS = new IntMap<>();
 
     private static Color withAlpha(Color base, float alpha) {
         return new Color(base.r, base.g, base.b, alpha);

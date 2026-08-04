@@ -1282,6 +1282,15 @@ const STAMPS = {
   "stamp-ridge": { kind: "terrain", terrain: "ROCK", radiusDelta: 0, offsets: [[-5, -2], [-2, 0], [1, 1], [4, 2]] },
 };
 
+/** Which layer (see mapLayerVisible) a given #map-tool value would actually draw into — "ore" for
+ * the Ore tool and the two ore-flavored stamps, "terrain" for Water/Rock and the two
+ * terrain-flavored stamps. Used to refuse placing into a currently-hidden layer (mousedown). */
+function toolLayerKind(tool) {
+  if (tool === "ore") return "ore";
+  if (STAMPS[tool]) return STAMPS[tool].kind;
+  return "terrain";
+}
+
 /** The canvas element's own drawing-buffer resolution, recomputed by {@link resizeMapCanvas} to
  * fill the ENTIRE available panel width AND height (not just whichever is smaller) instead of the
  * fixed 512px square box this used to be hardcoded to. Deliberately NOT forced square: a square
@@ -1310,11 +1319,14 @@ function mapMaxScale() {
 
 /** Pan/zoom camera over the 256x256 world — this mapping changes on wheel/shift-drag; the canvas element's OWN size is {@link mapCanvasWidth}/{@link mapCanvasHeight}, changed separately by {@link resizeMapCanvas}. */
 let mapView = { scale: mapMinScale(), offsetX: 0, offsetY: 0 };
-/** {@code {list, patch}} of the currently selected existing patch, or {@code null} — keyed by the
- * patch OBJECT itself, not its index: an index goes stale the moment any OTHER row in the same
- * list is deleted or drag-reordered, silently "selecting" whatever patch happens to have slid into
- * that slot. */
-let mapSelected = null;
+/** Every currently selected patch, as {@code {list, patch}} pairs — keyed by the patch OBJECT
+ * itself, not its index: an index goes stale the moment any OTHER row in the same list is deleted
+ * or drag-reordered, silently "selecting" whatever patch happens to have slid into that slot. A
+ * single click replaces this with a one-element array; Shift-click toggles one pair in or out;
+ * rubber-band (the "Select" tool) replaces it with everything the box enclosed. Most call sites
+ * that only make sense for exactly one patch (resize, the numeric X/Y/radius/item fields) check
+ * {@code mapSelectedSet.length === 1} rather than having a separate single-selection variable. */
+let mapSelectedSet = [];
 /** In-progress mouse interaction — {@code null} when idle. See the canvas {@code mousedown} handler for the shapes this takes. */
 let mapDrag = null;
 /** The not-yet-committed patch a "place" drag is sizing live — drawn as a translucent ghost, pushed into the real array on mouseup. */
@@ -1323,6 +1335,12 @@ let mapPendingPatch = null;
 let mapHoverWorld = null;
 /** Set by the keydown arrow-nudge branch, consumed by the keyup listener right below it — coalesces a whole key-repeat sequence into one undo step, the same way a mouse drag only pushes history on mouseup. */
 let mapNudgePending = false;
+/** Per-layer visibility, toggled from the tools panel — a display-only affordance for a dense map
+ * where ore and terrain patches bury each other, NOT part of the saved map data (collectMap never
+ * reads this). Hiding a layer also takes it out of hit-testing/rubber-band/the patch list, not
+ * just off the canvas — otherwise clicking or box-selecting through an "invisible" layer would
+ * still catch patches you can't see, which is more confusing than genuinely being out of the way. */
+let mapLayerVisible = { ore: true, terrain: true };
 
 let mapHistory = [];
 let mapHistoryIndex = -1;
@@ -1354,9 +1372,19 @@ function renderMapsList() {
 function renderMapsPicker() {
   const select = document.getElementById("maps-picker");
   const previousKey = state.selected.maps;
-  select.innerHTML = state.maps.map((m) => `<option value="${entryKey(m)}"></option>`).join("");
-  [...select.options].forEach((opt, idx) => (opt.textContent = `${labelText(state.maps[idx].label)} (${entryKey(state.maps[idx])})`));
-  if (previousKey && state.maps.some((m) => entryKey(m) === previousKey)) {
+  const query = (document.getElementById("maps-picker-filter").value || "").trim().toLowerCase();
+  // Same search string mapRowInfo already computes for the (hidden, but still-live) #maps-list —
+  // one definition of "matches the filter," not a second one that could quietly disagree with it.
+  let matches = query ? state.maps.filter((m) => mapRowInfo(m).search.toLowerCase().includes(query)) : state.maps;
+  // The map actually open stays in the list even if it doesn't match what's currently typed — losing
+  // it from the dropdown mid-search would orphan the selection (or silently jump to a different map).
+  const current = state.maps.find((m) => entryKey(m) === previousKey);
+  if (current && !matches.includes(current)) {
+    matches = [current, ...matches];
+  }
+  select.innerHTML = matches.map((m) => `<option value="${entryKey(m)}"></option>`).join("");
+  [...select.options].forEach((opt, idx) => (opt.textContent = `${labelText(matches[idx].label)} (${entryKey(matches[idx])})`));
+  if (previousKey && matches.some((m) => entryKey(m) === previousKey)) {
     select.value = previousKey;
   } else {
     select.selectedIndex = -1; // a new/unsaved map matches nothing in the list — don't pretend it's whatever happens to be first
@@ -1389,6 +1417,11 @@ function updateMapToolFieldVisibility() {
   const tool = document.getElementById("map-tool").value;
   const needsItem = tool === "ore" || (STAMPS[tool] && STAMPS[tool].kind === "ore");
   document.getElementById("map-ore-item-field").classList.toggle("hidden", !needsItem);
+  // Crosshair reads as "about to draw"; Select isn't drawing anything, so it gets the ordinary
+  // pointer instead — a small cue for which mode a freshly-opened map defaults into. Looked up
+  // fresh rather than through the module-level mapCanvasEl const: this function's very first call
+  // (right below its own definition) runs before that const's declaration line does.
+  document.getElementById("map-canvas").style.cursor = tool === "select" ? "default" : "crosshair";
 }
 
 function itemLabelByPath(ref) {
@@ -1403,6 +1436,14 @@ function oreColorFor(ref) {
 
 function previewColorForTool(tool) {
   if (tool === "ore") return oreColorFor(document.getElementById("map-ore-item").value);
+  if (STAMPS[tool]) {
+    // A stamp is either ore-flavored (cluster/seam) or terrain-flavored (lake/ridge) — same color
+    // resolution as its own two kinds, just keyed off the stamp definition instead of the raw tool
+    // value directly. Previously fell through to the terrain branch below, which doesn't know
+    // "stamp-ore-cluster" from any other unrecognized string and returned a flat white.
+    const stamp = STAMPS[tool];
+    return stamp.kind === "ore" ? oreColorFor(document.getElementById("map-ore-item").value) : (TERRAIN_COLORS[stamp.terrain] || "#ffffff");
+  }
   return TERRAIN_COLORS[tool] || "#ffffff";
 }
 
@@ -1415,41 +1456,74 @@ function clampCell(v) {
 }
 
 function isSelectedPatch(list, patch) {
-  return !!mapSelected && mapSelected.list === list && mapSelected.patch === patch;
+  return mapSelectedSet.some((s) => s.list === list && s.patch === patch);
 }
 
+/** Replaces the WHOLE selection with just this one patch — the plain-click behavior. See {@link
+ * toggleSelected} for Shift-click (add/remove one patch without disturbing the rest). */
 function selectPatch(list, patch) {
-  mapSelected = { list, patch };
+  mapSelectedSet = [{ list, patch }];
+  renderMapEditor();
+}
+
+/** Shift-click: adds the patch to the selection if it wasn't there, removes it if it was — the
+ * usual way to build up a multi-selection one patch at a time, alongside rubber-band (the
+ * "Select" tool) for grabbing many at once. */
+function toggleSelected(list, patch) {
+  const idx = mapSelectedSet.findIndex((s) => s.list === list && s.patch === patch);
+  if (idx >= 0) {
+    mapSelectedSet.splice(idx, 1);
+  } else {
+    mapSelectedSet.push({ list, patch });
+  }
   renderMapEditor();
 }
 
 function deselectPatch() {
-  if (mapSelected) {
-    mapSelected = null;
+  if (mapSelectedSet.length > 0) {
+    mapSelectedSet = [];
     renderMapEditor();
   }
 }
 
-function deleteSelectedPatch() {
-  if (!mapSelected) return;
-  const { list, patch } = mapSelected;
-  const index = list.indexOf(patch);
-  if (index < 0) return; // stale selection (shouldn't happen — every array reassignment nulls mapSelected) — splice(-1, 1) would silently delete the LAST patch instead of doing nothing
-  list.splice(index, 1);
+function deleteSelectedPatches() {
+  if (mapSelectedSet.length === 0) return;
+  // ⌘D/Delete are reachable via keydown WHILE a mouse drag is still held (mapDrag.group holds the
+  // very objects about to be removed here) — dropping the in-progress drag avoids two problems at
+  // once: mousemove would keep dragging now-deleted (or, for duplicate, now-stale) patch objects
+  // around invisibly, and mouseup would then push a second, redundant history snapshot on top of
+  // the one this function already pushes.
+  mapDrag = null;
+  const doomed = new Set(mapSelectedSet.map((s) => s.patch));
+  mapOrePatches = mapOrePatches.filter((p) => !doomed.has(p));
+  mapTerrainPatches = mapTerrainPatches.filter((p) => !doomed.has(p));
   deselectPatch();
   markDirty("maps");
   pushMapHistory();
   renderMapEditor();
 }
 
-/** Offsets the copy a few cells over (clamped) so it doesn't land exactly on the original — front
- * of its list, same "just placed" priority as any freshly drawn patch (see commitPendingPatch). */
-function duplicateSelectedPatch() {
-  if (!mapSelected) return;
-  const { list, patch } = mapSelected;
-  const copy = { ...patch, cx: clampCell(patch.cx + 5), cy: clampCell(patch.cy + 5) };
-  list.unshift(copy);
-  mapSelected = { list, patch: copy };
+/** Offsets every copy a few cells over (clamped) so none lands exactly on its original — front of
+ * its own list, same "just placed" priority as any freshly drawn patch (see commitPendingPatch).
+ * The new copies become the selection, same as a single duplicate did before multi-select existed.
+ * Copies for the SAME list are batched into one unshift(...copies) at the end, preserving their
+ * relative order — one unshift per COPY (in a loop) would reverse that order, same trap
+ * placeStamp's own comment already documents for a stamp's own sub-patches. */
+function duplicateSelectedPatches() {
+  if (mapSelectedSet.length === 0) return;
+  mapDrag = null; // see deleteSelectedPatches' own comment — reachable mid-drag via ⌘D
+  const copiesByList = new Map();
+  const newSelection = [];
+  for (const { list, patch } of mapSelectedSet) {
+    const copy = { ...patch, cx: clampCell(patch.cx + 5), cy: clampCell(patch.cy + 5) };
+    if (!copiesByList.has(list)) copiesByList.set(list, []);
+    copiesByList.get(list).push(copy);
+    newSelection.push({ list, patch: copy });
+  }
+  for (const [list, copies] of copiesByList) {
+    list.unshift(...copies);
+  }
+  mapSelectedSet = newSelection;
   markDirty("maps");
   pushMapHistory();
   renderMapEditor();
@@ -1457,18 +1531,31 @@ function duplicateSelectedPatch() {
 
 /** Exact-value editing for whichever patch is selected — dragging on the canvas is the only other
  * way to move/resize a patch, and there was previously no way at all to type a precise coordinate
- * or reassign an ore patch's item short of deleting it and drawing a fresh one. Cheap on purpose:
- * called on every {@link renderMapEditor} (including every mousemove while idle), so it only ever
- * sets values/toggles visibility — the ore <select>'s own <option> list is rebuilt separately, by
- * {@link renderPatchInspectorOreOptions}, only when the item list itself changes. */
+ * or reassign an ore patch's item short of deleting it and drawing a fresh one. Only makes sense
+ * for EXACTLY one patch (typing one X into three differently-positioned patches has no single
+ * right answer) — a multi-selection gets a plain "N patches selected" summary instead, with
+ * Duplicate/Delete still acting on all of them. Cheap on purpose: called on every {@link
+ * renderMapEditor} (including every mousemove while idle), so it only ever sets values/toggles
+ * visibility — the ore <select>'s own <option> list is rebuilt separately, by {@link
+ * renderPatchInspectorOreOptions}, only when the item list itself changes. */
 function renderPatchInspector() {
   const panel = document.getElementById("map-patch-inspector");
-  if (!mapSelected) {
+  const single = document.getElementById("patch-inspector-single");
+  const multi = document.getElementById("patch-inspector-multi");
+  if (mapSelectedSet.length === 0) {
     panel.classList.add("hidden");
     return;
   }
   panel.classList.remove("hidden");
-  const { list, patch } = mapSelected;
+  if (mapSelectedSet.length > 1) {
+    single.classList.add("hidden");
+    multi.classList.remove("hidden");
+    document.getElementById("patch-inspector-count").textContent = `${mapSelectedSet.length} patches selected`;
+    return;
+  }
+  single.classList.remove("hidden");
+  multi.classList.add("hidden");
+  const { list, patch } = mapSelectedSet[0];
   const isOre = list === mapOrePatches;
   // This runs on every renderMapEditor, including plain mouse hover — writing into a field the
   // user is mid-edit in (before its own "change" commits) would silently overwrite what they just
@@ -1525,6 +1612,20 @@ function zoomAt(px, py, factor) {
   clampView();
 }
 
+/** Pans (without changing zoom) so the CENTROID of the current selection sits at the canvas
+ * center — for finding a patch again after panning/zooming away from it, not for the initial
+ * placement (that's what "Fit whole map" and the ghost preview are for). A no-op with nothing
+ * selected — bound to a key, not a button, so there's nothing to disable/hide in that case. */
+function focusOnSelection() {
+  if (mapSelectedSet.length === 0) return;
+  const cx = mapSelectedSet.reduce((sum, s) => sum + s.patch.cx, 0) / mapSelectedSet.length;
+  const cy = mapSelectedSet.reduce((sum, s) => sum + s.patch.cy, 0) / mapSelectedSet.length;
+  mapView.offsetX = cx - mapCanvasWidth / mapView.scale / 2;
+  mapView.offsetY = cy - mapCanvasHeight / mapView.scale / 2;
+  clampView();
+  renderMapEditor();
+}
+
 /** Fills the available space of {@code .map-canvas-wrap} — {@code position: absolute; inset: 0}
  * over the ENTIRE stage (see style.css), so this measures the full stage, not "the stage minus a
  * sidebar" — {@code .map-tools} floats on top of the canvas rather than sharing a row with it —
@@ -1563,6 +1664,9 @@ function resizeMapCanvas() {
 function hitTestPatch(worldX, worldY) {
   const edgeTol = 5 / mapView.scale;
   for (const list of [mapOrePatches, mapTerrainPatches]) {
+    if ((list === mapOrePatches && !mapLayerVisible.ore) || (list === mapTerrainPatches && !mapLayerVisible.terrain)) {
+      continue;
+    }
     for (let i = 0; i < list.length; i++) {
       const p = list[i];
       const d = Math.hypot(worldX - p.cx, worldY - p.cy);
@@ -1583,6 +1687,32 @@ function drawMapCanvas() {
   // of standing out from it.
   ctx.fillStyle = "#2b2e35";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // The canvas isn't square (see mapCanvasWidth's own comment) but the map itself always is —
+  // at most zoom levels (especially "Fit whole map", which only fits the SHORTER axis) the wider
+  // axis shows MORE canvas than there is actual map, with nothing visually marking where the real
+  // 256x256 area stops. Clicking in that "extra" strip still hits the canvas and places a patch —
+  // clampCell just pulls it back to the map's true edge, which without this shading reads as "my
+  // click landed somewhere else entirely" instead of "I clicked outside the map." Darkening that
+  // strip and outlining the real boundary makes the clamp an expected edge case, not a mystery.
+  {
+    const mapTopLeft = worldToScreen(0, 0);
+    const mapBottomRight = worldToScreen(MAP_SIZE, MAP_SIZE);
+    const x0 = Math.max(0, mapTopLeft.x);
+    const y0 = Math.max(0, mapTopLeft.y);
+    const x1 = Math.min(canvas.width, mapBottomRight.x);
+    const y1 = Math.min(canvas.height, mapBottomRight.y);
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    if (y0 > 0) ctx.fillRect(0, 0, canvas.width, y0); // above the map
+    if (y1 < canvas.height) ctx.fillRect(0, y1, canvas.width, canvas.height - y1); // below
+    if (x0 > 0) ctx.fillRect(0, y0, x0, y1 - y0); // left of it (excludes the already-shaded corners)
+    if (x1 < canvas.width) ctx.fillRect(x1, y0, canvas.width - x1, y1 - y0); // right of it
+    if (x0 > 0 || y0 > 0 || x1 < canvas.width || y1 < canvas.height) {
+      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(mapTopLeft.x, mapTopLeft.y, mapBottomRight.x - mapTopLeft.x, mapBottomRight.y - mapTopLeft.y);
+    }
+  }
 
   // Cell grid, only once cells are actually spaced out on screen: at mapMinScale() the whole
   // 256-cell map is visible at once, one line per cell would be solid noise (256 of them) for no
@@ -1631,23 +1761,56 @@ function drawMapCanvas() {
 
   // Reversed: the FIRST patch in each array wins an overlap (see AuthoredOreLayout's rasterizer),
   // so it has to be painted LAST here to land visually on top — matching what the game renders.
-  for (let i = mapTerrainPatches.length - 1; i >= 0; i--) {
-    const p = mapTerrainPatches[i];
-    drawPatch(p, TERRAIN_COLORS[p.terrain] || "#7a7a76", isSelectedPatch(mapTerrainPatches, p));
+  // Hiding a layer (mapLayerVisible) skips its loop here entirely, same as it does in
+  // hitTestPatch/renderMapPatchList/finishRubberBand — "hidden" means genuinely out of the way,
+  // not just invisible while still catching clicks underneath whatever IS drawn.
+  if (mapLayerVisible.terrain) {
+    for (let i = mapTerrainPatches.length - 1; i >= 0; i--) {
+      const p = mapTerrainPatches[i];
+      drawPatch(p, TERRAIN_COLORS[p.terrain] || "#7a7a76", isSelectedPatch(mapTerrainPatches, p));
+    }
   }
-  for (let i = mapOrePatches.length - 1; i >= 0; i--) {
-    const p = mapOrePatches[i];
-    drawPatch(p, oreColorFor(p.ore), isSelectedPatch(mapOrePatches, p));
+  if (mapLayerVisible.ore) {
+    for (let i = mapOrePatches.length - 1; i >= 0; i--) {
+      const p = mapOrePatches[i];
+      drawPatch(p, oreColorFor(p.ore), isSelectedPatch(mapOrePatches, p));
+    }
   }
 
   if (mapPendingPatch) {
     drawPatch(mapPendingPatch, previewColorForTool(document.getElementById("map-tool").value) + "aa", false);
   } else if (mapHoverWorld && !mapDrag && !hitTestPatch(mapHoverWorld.x, mapHoverWorld.y)) {
     const tool = document.getElementById("map-tool").value;
-    if (!STAMPS[tool]) {
-      const ghost = { cx: Math.round(mapHoverWorld.x), cy: Math.round(mapHoverWorld.y), radius: currentRadius() };
+    const centerX = Math.round(mapHoverWorld.x);
+    const centerY = Math.round(mapHoverWorld.y);
+    if (STAMPS[tool]) {
+      // Every sub-patch a click would actually place, so a multi-offset stamp (a cluster, a lake)
+      // shows its WHOLE shape before committing — previously only single-cell tools got this
+      // preview at all; a stamp painted blind, one click at a time, until it looked right.
+      const stamp = STAMPS[tool];
+      const radius = Math.max(1, currentRadius() + stamp.radiusDelta);
+      const color = previewColorForTool(tool) + "77";
+      for (const [dx, dy] of stamp.offsets) {
+        drawPatch({ cx: clampCell(centerX + dx), cy: clampCell(centerY + dy), radius }, color, false);
+      }
+    } else if (tool !== "select") {
+      const ghost = { cx: centerX, cy: centerY, radius: currentRadius() };
       drawPatch(ghost, previewColorForTool(tool) + "77", false);
     }
+  }
+
+  if (mapDrag && mapDrag.mode === "rubberband") {
+    const p1 = worldToScreen(mapDrag.startWorld.x, mapDrag.startWorld.y);
+    const p2 = worldToScreen(mapDrag.currentWorld.x, mapDrag.currentWorld.y);
+    const x = Math.min(p1.x, p2.x);
+    const y = Math.min(p1.y, p2.y);
+    const w = Math.abs(p2.x - p1.x);
+    const h = Math.abs(p2.y - p1.y);
+    ctx.fillStyle = "rgba(239,155,61,0.15)";
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = "rgba(239,155,61,0.8)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, w, h);
   }
 }
 
@@ -1657,18 +1820,30 @@ function updateMapCoordsReadout(world) {
 
 let mapDragRow = null;
 
+/** Live counts, not the saved file's own (map-list used to show these before it got replaced by
+ * #maps-picker for the full-page layout — see #panel-maps.workspace.active in style.css) — reads
+ * straight off mapOrePatches/mapTerrainPatches so it reflects unsaved edits too, not just what's
+ * on disk. */
+function renderMapPatchCount() {
+  const oreCount = mapOrePatches.length;
+  const terrainCount = mapTerrainPatches.length;
+  document.getElementById("map-patch-count").textContent =
+      `${oreCount} ore patch${oreCount === 1 ? "" : "es"}, ${terrainCount} terrain patch${terrainCount === 1 ? "" : "es"}`;
+}
+
 function renderMapPatchList() {
+  renderMapPatchCount();
   const ul = document.getElementById("map-patch-list");
   ul.innerHTML = "";
   const rows = [
-    ...mapOrePatches.map((p, index) => ({
+    ...(mapLayerVisible.ore ? mapOrePatches.map((p, index) => ({
       index, patch: p, list: mapOrePatches, color: oreColorFor(p.ore),
       desc: `${itemLabelByPath(p.ore)} ore @ (${p.cx}, ${p.cy}) r=${p.radius}`,
-    })),
-    ...mapTerrainPatches.map((p, index) => ({
+    })) : []),
+    ...(mapLayerVisible.terrain ? mapTerrainPatches.map((p, index) => ({
       index, patch: p, list: mapTerrainPatches, color: TERRAIN_COLORS[p.terrain] || "#7a7a76",
       desc: `${p.terrain} @ (${p.cx}, ${p.cy}) r=${p.radius}`,
-    })),
+    })) : []),
   ];
   for (const row of rows) {
     const li = document.createElement("li");
@@ -1676,16 +1851,22 @@ function renderMapPatchList() {
     li.draggable = true;
     li.innerHTML = `<span class="drag-handle">⋮⋮</span><span class="patch-swatch" style="background:${row.color}"></span><span class="patch-desc"></span>`;
     li.querySelector(".patch-desc").textContent = row.desc;
-    li.addEventListener("click", () => selectPatch(row.list, row.patch));
+    li.addEventListener("click", (e) => {
+      if (e.shiftKey) {
+        toggleSelected(row.list, row.patch);
+      } else {
+        selectPatch(row.list, row.patch);
+      }
+    });
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
     removeBtn.innerHTML = icon("close", 12);
     removeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       row.list.splice(row.index, 1);
-      // Only clears the selection if THIS row was the one selected — deleting some other row must
-      // not silently drop a selection that has nothing to do with it.
-      if (mapSelected && mapSelected.patch === row.patch) deselectPatch();
+      // Only drops THIS patch from the selection — deleting some other row must not silently
+      // clear a selection (or the rest of a multi-selection) that has nothing to do with it.
+      mapSelectedSet = mapSelectedSet.filter((s) => s.patch !== row.patch);
       markDirty("maps");
       pushMapHistory();
       renderMapEditor();
@@ -1757,7 +1938,7 @@ function redoMap() {
 function restoreMapSnapshot(snapshot) {
   mapOrePatches = snapshot.ore.map((p) => ({ ...p }));
   mapTerrainPatches = snapshot.terrain.map((p) => ({ ...p }));
-  mapSelected = null;
+  mapSelectedSet = [];
   markDirty("maps");
   renderMapEditor();
 }
@@ -1786,25 +1967,29 @@ function placeStamp(toolKey, centerX, centerY) {
   renderMapEditor();
 }
 
+/** Returns whether a patch actually got committed — false for the "no item registered yet" bail
+ * (toast only), so the mouseup handler knows not to mark the map dirty or push a no-op history
+ * entry for a placement that never happened. */
 function commitPendingPatch() {
   const tool = document.getElementById("map-tool").value; // guaranteed "ore"/"WATER"/"ROCK" — stamps commit on mousedown, never reach a "place" drag
   if (tool === "ore") {
     const ore = document.getElementById("map-ore-item").value;
     if (!ore) {
       toast("Add an item on the Items tab first", true);
-      return;
+      return false;
     }
     // unshift (front = top priority), not push — see placeStamp's own comment on why. Auto-select
     // the result so the new patch's exact position/radius is immediately visible and nudgeable in
     // the inspector, instead of needing a second click to find what you just drew.
     const patch = { cx: mapPendingPatch.cx, cy: mapPendingPatch.cy, radius: mapPendingPatch.radius, ore };
     mapOrePatches.unshift(patch);
-    mapSelected = { list: mapOrePatches, patch };
+    mapSelectedSet = [{ list: mapOrePatches, patch }];
   } else {
     const patch = { cx: mapPendingPatch.cx, cy: mapPendingPatch.cy, radius: mapPendingPatch.radius, terrain: tool };
     mapTerrainPatches.unshift(patch);
-    mapSelected = { list: mapTerrainPatches, patch };
+    mapSelectedSet = [{ list: mapTerrainPatches, patch }];
   }
+  return true;
 }
 
 document.getElementById("map-tool").addEventListener("change", updateMapToolFieldVisibility);
@@ -1821,28 +2006,57 @@ mapCanvasEl.addEventListener("mousedown", (e) => {
   const focused = document.activeElement;
   if (focused && focused.closest && focused.closest("#map-patch-inspector")) focused.blur();
   const world = worldFromEvent(e);
-  if (e.shiftKey) {
+  const hit = hitTestPatch(world.x, world.y);
+  // Shift+empty-space still pans; Shift+an-actual-patch toggles it in/out of the selection instead
+  // (checked below, once hit is known) — the two never conflict, since they're on different targets.
+  if (e.shiftKey && !hit) {
     mapDrag = { mode: "pan", startClientX: e.clientX, startClientY: e.clientY, startOffsetX: mapView.offsetX, startOffsetY: mapView.offsetY };
     return;
   }
   const tool = document.getElementById("map-tool").value;
-  if (STAMPS[tool]) {
-    placeStamp(tool, Math.round(world.x), Math.round(world.y));
+  if (hit) {
+    if (e.shiftKey) {
+      toggleSelected(hit.list, hit.patch);
+      return;
+    }
+    // Clicking a patch that's ALREADY part of a multi-selection drags the whole group; clicking
+    // any other patch (or the only one already selected) replaces the selection with just it —
+    // the usual "click one of several selected things to move all of them" convention.
+    const partOfGroup = mapSelectedSet.length > 1 && isSelectedPatch(hit.list, hit.patch);
+    if (!partOfGroup) {
+      selectPatch(hit.list, hit.patch);
+    }
+    if (mapSelectedSet.length > 1) {
+      // Group move only — resizing several differently-sized patches at once by one shared handle
+      // has no single sensible meaning, so multi-selection never offers it, even from an edge hit.
+      mapDrag = { mode: "move", startWorld: world, group: mapSelectedSet.map((s) => ({ patch: s.patch, startCx: s.patch.cx, startCy: s.patch.cy })) };
+    } else {
+      // Keyed by the patch OBJECT, not list+index — a keyboard shortcut (⌘D, Delete) can fire
+      // mid-drag and mutate the list (unshift/filter) while the mouse button is still down, which
+      // would silently shift every index and make an index-based lookup grab the wrong patch (see
+      // mapSelectedSet's own comment for the same reasoning). startRadius doubles as the
+      // Escape-cancel rollback value (see the maps keydown handler) as well as the drag math itself.
+      mapDrag = hit.onEdge
+          ? { mode: "resize", patch: hit.patch, center: { x: hit.patch.cx, y: hit.patch.cy }, startRadius: hit.patch.radius }
+          : { mode: "move", startWorld: world, group: [{ patch: hit.patch, startCx: hit.patch.cx, startCy: hit.patch.cy }] };
+    }
     return;
   }
-  const hit = hitTestPatch(world.x, world.y);
-  if (hit) {
-    selectPatch(hit.list, hit.patch);
-    // Keyed by the patch OBJECT (hit.patch), not list+index — a keyboard shortcut (⌘D, Delete) can
-    // fire mid-drag and mutate the list (unshift/splice) while the mouse button is still down,
-    // which would silently shift every index and make an index-based lookup grab the wrong patch
-    // (see mapSelected's own comment for the same reasoning). startRadius/startCenter double as the
-    // Escape-cancel rollback value (see the maps keydown handler) as well as the drag math itself —
-    // a resize needs the pre-drag radius for the same reason a move needs the pre-drag center: to
-    // have something to put back.
-    mapDrag = hit.onEdge
-        ? { mode: "resize", list: hit.list, patch: hit.patch, center: { x: hit.patch.cx, y: hit.patch.cy }, startRadius: hit.patch.radius }
-        : { mode: "move", list: hit.list, patch: hit.patch, startWorld: world, startCenter: { x: hit.patch.cx, y: hit.patch.cy } };
+  if (tool === "select") {
+    // Resolved at mouseup (finishRubberBand), against whatever the box ends up covering — nothing
+    // about the CURRENT selection is touched here, so the existing one stays visible while dragging.
+    mapDrag = { mode: "rubberband", startWorld: world, currentWorld: world };
+    return;
+  }
+  // Placing into a HIDDEN layer would violate mapLayerVisible's own contract (see its comment) —
+  // the new patch would exist in the data (and get saved) while being invisible, unclickable, and
+  // absent from the list, which is a much worse surprise than just refusing the click.
+  if (!mapLayerVisible[toolLayerKind(tool)]) {
+    toast(`The ${toolLayerKind(tool)} layer is hidden — show it before adding to it`, true);
+    return;
+  }
+  if (STAMPS[tool]) {
+    placeStamp(tool, Math.round(world.x), Math.round(world.y));
     return;
   }
   deselectPatch();
@@ -1852,14 +2066,28 @@ mapCanvasEl.addEventListener("mousedown", (e) => {
   renderMapEditor();
 });
 
+// Idle hover only (mapDrag is null) — the placement-ghost/coords-readout logic below only means
+// anything while the cursor is actually over the canvas, so this one stays canvas-scoped.
+// Continuing an ACTIVE drag is a separate, window-scoped listener right after this one — see its
+// own comment for why it can't just be folded in here.
 mapCanvasEl.addEventListener("mousemove", (e) => {
+  if (mapDrag) return;
   const world = worldFromEvent(e);
   updateMapCoordsReadout(world);
-  if (!mapDrag) {
-    mapHoverWorld = world;
-    renderMapEditor();
-    return;
-  }
+  mapHoverWorld = world;
+  renderMapEditor();
+});
+
+// window-scoped, not canvas-scoped, DELIBERATELY: .map-tools floats ON TOP of the canvas
+// (position:absolute, z-index:1 — see style.css), so once the cursor slides under it mid-drag, the
+// browser stops delivering mousemove to the canvas element at all (it goes to whatever's on top
+// instead) — a canvas-only listener would freeze the drag right there until the cursor came back
+// out from under the panel. worldFromEvent's own math (canvas.getBoundingClientRect()) is already
+// coordinate-space-correct regardless of which element the event actually landed on.
+window.addEventListener("mousemove", (e) => {
+  if (!mapDrag) return;
+  const world = worldFromEvent(e);
+  updateMapCoordsReadout(world);
   if (mapDrag.mode === "pan") {
     mapView.offsetX = mapDrag.startOffsetX - (e.clientX - mapDrag.startClientX) / mapView.scale;
     mapView.offsetY = mapDrag.startOffsetY - (e.clientY - mapDrag.startClientY) / mapView.scale;
@@ -1868,10 +2096,26 @@ mapCanvasEl.addEventListener("mousemove", (e) => {
     const dist = Math.round(Math.hypot(world.x - mapDrag.startWorld.x, world.y - mapDrag.startWorld.y));
     mapPendingPatch.radius = dist >= 1 ? dist : currentRadius();
   } else if (mapDrag.mode === "move") {
-    mapDrag.patch.cx = clampCell(Math.round(mapDrag.startCenter.x + (world.x - mapDrag.startWorld.x)));
-    mapDrag.patch.cy = clampCell(Math.round(mapDrag.startCenter.y + (world.y - mapDrag.startWorld.y)));
+    // Clamp the DELTA against the group's shared bounds, not each patch's new position on its
+    // own — clamping per-patch let whichever one was closest to an edge stop first while the
+    // rest kept going, silently squeezing the group's relative layout together every time any
+    // one member neared a map edge (and that squeeze then got saved).
+    let dx = Math.round(world.x - mapDrag.startWorld.x);
+    let dy = Math.round(world.y - mapDrag.startWorld.y);
+    const minStartCx = Math.min(...mapDrag.group.map((g) => g.startCx));
+    const maxStartCx = Math.max(...mapDrag.group.map((g) => g.startCx));
+    const minStartCy = Math.min(...mapDrag.group.map((g) => g.startCy));
+    const maxStartCy = Math.max(...mapDrag.group.map((g) => g.startCy));
+    dx = Math.max(-minStartCx, Math.min(MAP_SIZE - 1 - maxStartCx, dx));
+    dy = Math.max(-minStartCy, Math.min(MAP_SIZE - 1 - maxStartCy, dy));
+    for (const g of mapDrag.group) {
+      g.patch.cx = g.startCx + dx;
+      g.patch.cy = g.startCy + dy;
+    }
   } else if (mapDrag.mode === "resize") {
     mapDrag.patch.radius = Math.max(1, Math.round(Math.hypot(world.x - mapDrag.center.x, world.y - mapDrag.center.y)));
+  } else if (mapDrag.mode === "rubberband") {
+    mapDrag.currentWorld = world;
   }
   renderMapEditor();
 });
@@ -1888,7 +2132,7 @@ mapCanvasEl.addEventListener("contextmenu", (e) => {
   const hit = hitTestPatch(world.x, world.y);
   if (!hit) return;
   hit.list.splice(hit.index, 1);
-  if (mapSelected && mapSelected.patch === hit.patch) deselectPatch();
+  mapSelectedSet = mapSelectedSet.filter((s) => s.patch !== hit.patch);
   markDirty("maps");
   pushMapHistory();
   renderMapEditor();
@@ -1903,15 +2147,60 @@ mapCanvasEl.addEventListener("wheel", (e) => {
   renderMapEditor();
 }, { passive: false });
 
+/** Selects everything (from BOTH lists) whose center falls inside the box the "Select" tool's
+ * drag traced out — the existing selection stays untouched until this runs, so dragging never
+ * flickers it away mid-gesture; a zero-size box (a plain click on empty space) simply selects
+ * nothing, same as clicking empty space with any other tool deselects. */
+function finishRubberBand(drag) {
+  const x1 = Math.min(drag.startWorld.x, drag.currentWorld.x);
+  const x2 = Math.max(drag.startWorld.x, drag.currentWorld.x);
+  const y1 = Math.min(drag.startWorld.y, drag.currentWorld.y);
+  const y2 = Math.max(drag.startWorld.y, drag.currentWorld.y);
+  mapSelectedSet = [];
+  if (mapLayerVisible.ore) {
+    for (const patch of mapOrePatches) {
+      if (patch.cx >= x1 && patch.cx <= x2 && patch.cy >= y1 && patch.cy <= y2) {
+        mapSelectedSet.push({ list: mapOrePatches, patch });
+      }
+    }
+  }
+  if (mapLayerVisible.terrain) {
+    for (const patch of mapTerrainPatches) {
+      if (patch.cx >= x1 && patch.cx <= x2 && patch.cy >= y1 && patch.cy <= y2) {
+        mapSelectedSet.push({ list: mapTerrainPatches, patch });
+      }
+    }
+  }
+}
+
 window.addEventListener("mouseup", () => {
   if (!mapDrag) return;
-  const finishedPlacing = mapDrag.mode === "place";
-  if (finishedPlacing) {
-    commitPendingPatch();
+  const mode = mapDrag.mode;
+  if (mode === "place") {
+    const committed = commitPendingPatch();
     mapPendingPatch = null;
+    if (committed) {
+      markDirty("maps");
+      pushMapHistory();
+    }
+  } else if (mode === "move") {
+    // Only if something actually moved — a plain click-to-select starts and immediately ends a
+    // "move" drag with zero distance, and that's a selection change, not an edit; pushing history
+    // for it would silently eat a redo step every time someone just clicks a patch.
+    const moved = mapDrag.group.some((g) => g.patch.cx !== g.startCx || g.patch.cy !== g.startCy);
+    if (moved) {
+      markDirty("maps");
+      pushMapHistory();
+    }
+  } else if (mode === "resize") {
+    if (mapDrag.patch.radius !== mapDrag.startRadius) {
+      markDirty("maps");
+      pushMapHistory();
+    }
+  } else if (mode === "rubberband") {
+    finishRubberBand(mapDrag);
   }
-  markDirty("maps");
-  pushMapHistory();
+  // "pan" touches no patch data at all — nothing here to mark dirty or push to history.
   mapDrag = null;
   renderMapEditor();
 });
@@ -1939,16 +2228,18 @@ document.addEventListener("keydown", (e) => {
   const tag = document.activeElement.tagName;
   const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
   if (e.key === "Escape" && (mapDrag || mapPendingPatch)) {
-    // A "place" drag never writes into an actual patch object until mouseup (see that handler) —
-    // dropping the in-progress state is enough to cancel it. The other three modes mutate real,
-    // already-committed state LIVE on every mousemove, so cancelling has to put it back the way it
-    // was, not just stop moving it further.
+    // A "place"/"rubberband" drag never writes into an actual patch object until mouseup (see that
+    // handler) — dropping the in-progress state is enough to cancel those. "pan"/"move"/"resize"
+    // mutate real, already-committed state LIVE on every mousemove, so cancelling has to put it
+    // back the way it was, not just stop moving it further.
     if (mapDrag && mapDrag.mode === "pan") {
       mapView.offsetX = mapDrag.startOffsetX;
       mapView.offsetY = mapDrag.startOffsetY;
     } else if (mapDrag && mapDrag.mode === "move") {
-      mapDrag.patch.cx = mapDrag.startCenter.x;
-      mapDrag.patch.cy = mapDrag.startCenter.y;
+      for (const g of mapDrag.group) {
+        g.patch.cx = g.startCx;
+        g.patch.cy = g.startCy;
+      }
     } else if (mapDrag && mapDrag.mode === "resize") {
       mapDrag.patch.radius = mapDrag.startRadius;
     }
@@ -1964,22 +2255,32 @@ document.addEventListener("keydown", (e) => {
   }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d" && !typing) {
     e.preventDefault();
-    duplicateSelectedPatch();
+    duplicateSelectedPatches();
     return;
   }
-  if ((e.key === "Delete" || e.key === "Backspace") && !typing && mapSelected) {
+  if ((e.key === "Delete" || e.key === "Backspace") && !typing && mapSelectedSet.length > 0) {
     e.preventDefault();
-    deleteSelectedPatch();
+    deleteSelectedPatches();
     return;
   }
-  if (mapSelected && !typing && (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+  if (mapSelectedSet.length > 0 && !typing && (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
     e.preventDefault();
     const step = e.shiftKey ? 10 : 1;
-    const { patch } = mapSelected;
-    if (e.key === "ArrowUp") patch.cy = clampCell(patch.cy - step);
-    if (e.key === "ArrowDown") patch.cy = clampCell(patch.cy + step);
-    if (e.key === "ArrowLeft") patch.cx = clampCell(patch.cx - step);
-    if (e.key === "ArrowRight") patch.cx = clampCell(patch.cx + step);
+    // Clamp the shared delta against the WHOLE selection's bounds, not each patch on its own —
+    // same reasoning as the mousemove "move" handler: clamping per-patch lets whichever one is
+    // closest to a map edge stop first while the rest keep going, squeezing the group together.
+    let dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+    let dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+    const minCx = Math.min(...mapSelectedSet.map((s) => s.patch.cx));
+    const maxCx = Math.max(...mapSelectedSet.map((s) => s.patch.cx));
+    const minCy = Math.min(...mapSelectedSet.map((s) => s.patch.cy));
+    const maxCy = Math.max(...mapSelectedSet.map((s) => s.patch.cy));
+    dx = Math.max(-minCx, Math.min(MAP_SIZE - 1 - maxCx, dx));
+    dy = Math.max(-minCy, Math.min(MAP_SIZE - 1 - maxCy, dy));
+    for (const { patch } of mapSelectedSet) {
+      patch.cx += dx;
+      patch.cy += dy;
+    }
     // History is pushed on keyUP below, not here — holding a key auto-repeats keydown many times a
     // second, and one undo step per repeat would blow through MAP_HISTORY_LIMIT in under a second
     // (the same "one entry per gesture" rule a mouse drag already gets, which only pushes on mouseup).
@@ -1990,6 +2291,36 @@ document.addEventListener("keydown", (e) => {
     mapNudgePending = true;
     markDirty("maps");
     renderMapEditor();
+    return;
+  }
+  // Every branch below also excludes metaKey/ctrlKey — plain +/-/0/f are free real estate, but
+  // ⌘+/⌘−/⌘0 are the BROWSER's own zoom shortcuts and ⌘F/Ctrl+F is find-on-page; stealing those
+  // from underneath the user because they happen to be on the maps tab would be a bad trade for
+  // one-key map shortcuts that could just as easily ask for a bare keypress instead.
+  const noModifier = !e.metaKey && !e.ctrlKey;
+  // "=" too, not just "+" — on a US keyboard "+" needs Shift, "=" doesn't, and zooming shouldn't
+  // require holding a modifier the wheel never needed either.
+  if (!typing && noModifier && (e.key === "+" || e.key === "=")) {
+    e.preventDefault();
+    zoomAt(mapCanvasWidth / 2, mapCanvasHeight / 2, 1.2);
+    renderMapEditor();
+    return;
+  }
+  if (!typing && noModifier && e.key === "-") {
+    e.preventDefault();
+    zoomAt(mapCanvasWidth / 2, mapCanvasHeight / 2, 1 / 1.2);
+    renderMapEditor();
+    return;
+  }
+  if (!typing && noModifier && e.key === "0") {
+    e.preventDefault();
+    resetView();
+    renderMapEditor();
+    return;
+  }
+  if (!typing && noModifier && e.key.toLowerCase() === "f") {
+    e.preventDefault();
+    focusOnSelection();
   }
 });
 
@@ -2012,42 +2343,88 @@ document.getElementById("map-clear-all").addEventListener("click", async () => {
   renderMapEditor();
 });
 
+/** Toggles one layer's visibility — display-only, see mapLayerVisible's own comment. Drops any
+ * currently-selected patch that belongs to the layer being hidden: nudging/deleting something you
+ * can no longer see on the canvas is more confusing than just losing its selection. */
+function toggleLayer(kind) {
+  mapLayerVisible[kind] = !mapLayerVisible[kind];
+  const btn = document.getElementById(`toggle-layer-${kind}`);
+  btn.classList.toggle("active", mapLayerVisible[kind]);
+  btn.title = mapLayerVisible[kind] ? `Hide ${kind} patches` : `Show ${kind} patches`;
+  const list = kind === "ore" ? mapOrePatches : mapTerrainPatches;
+  mapSelectedSet = mapSelectedSet.filter((s) => s.list !== list);
+  renderMapEditor();
+}
+document.getElementById("toggle-layer-ore").addEventListener("click", () => toggleLayer("ore"));
+document.getElementById("toggle-layer-terrain").addEventListener("click", () => toggleLayer("terrain"));
+
+/* ---- resizable tools panel — drag the handle on its left edge; width persists across reloads.
+   Resizing never touches the canvas (see .map-tools-resize-handle's own CSS comment), so this is
+   the one map-editor interaction that doesn't call renderMapEditor/resizeMapCanvas at all. ---- */
+
+const MAP_TOOLS_WIDTH_KEY = "rustorio-editor-map-tools-width";
+let mapToolsWidth = Number(localStorage.getItem(MAP_TOOLS_WIDTH_KEY)) || 300;
+document.getElementById("map-tools").style.width = mapToolsWidth + "px";
+
+let mapToolsResizing = false;
+document.getElementById("map-tools-resize-handle").addEventListener("mousedown", (e) => {
+  e.preventDefault(); // dragging shouldn't select the panel's own text
+  mapToolsResizing = true;
+  document.getElementById("map-tools-resize-handle").classList.add("dragging");
+});
+window.addEventListener("mousemove", (e) => {
+  if (!mapToolsResizing) return;
+  const rightEdge = document.getElementById("map-tools").getBoundingClientRect().right;
+  mapToolsWidth = Math.max(260, Math.min(600, rightEdge - e.clientX));
+  document.getElementById("map-tools").style.width = mapToolsWidth + "px";
+});
+window.addEventListener("mouseup", () => {
+  if (!mapToolsResizing) return;
+  mapToolsResizing = false;
+  document.getElementById("map-tools-resize-handle").classList.remove("dragging");
+  localStorage.setItem(MAP_TOOLS_WIDTH_KEY, String(Math.round(mapToolsWidth)));
+});
+
 /* ---- selected-patch inspector: type-in editing instead of drag-only ---- */
 
+// These four fields only ever show/act when EXACTLY one patch is selected (renderPatchInspector
+// hides #patch-inspector-single otherwise), so mapSelectedSet[0] is safe wherever mapSelectedSet
+// itself isn't empty; the length check alone guards against a stray change event firing after the
+// selection changed to 0 or many between focus and blur.
 document.getElementById("patch-cx").addEventListener("change", (e) => {
-  if (!mapSelected) return;
-  mapSelected.patch.cx = clampCell(Math.round(Number(e.target.value)) || 0);
+  if (mapSelectedSet.length !== 1) return;
+  mapSelectedSet[0].patch.cx = clampCell(Math.round(Number(e.target.value)) || 0);
   markDirty("maps");
   pushMapHistory();
   renderMapEditor();
 });
 
 document.getElementById("patch-cy").addEventListener("change", (e) => {
-  if (!mapSelected) return;
-  mapSelected.patch.cy = clampCell(Math.round(Number(e.target.value)) || 0);
+  if (mapSelectedSet.length !== 1) return;
+  mapSelectedSet[0].patch.cy = clampCell(Math.round(Number(e.target.value)) || 0);
   markDirty("maps");
   pushMapHistory();
   renderMapEditor();
 });
 
 document.getElementById("patch-radius").addEventListener("change", (e) => {
-  if (!mapSelected) return;
-  mapSelected.patch.radius = Math.max(1, Math.round(Number(e.target.value)) || 1);
+  if (mapSelectedSet.length !== 1) return;
+  mapSelectedSet[0].patch.radius = Math.max(1, Math.round(Number(e.target.value)) || 1);
   markDirty("maps");
   pushMapHistory();
   renderMapEditor();
 });
 
 document.getElementById("patch-ore-item").addEventListener("change", (e) => {
-  if (!mapSelected) return;
-  mapSelected.patch.ore = e.target.value;
+  if (mapSelectedSet.length !== 1) return;
+  mapSelectedSet[0].patch.ore = e.target.value;
   markDirty("maps");
   pushMapHistory();
   renderMapEditor();
 });
 
-document.getElementById("patch-duplicate").addEventListener("click", duplicateSelectedPatch);
-document.getElementById("patch-delete").addEventListener("click", deleteSelectedPatch);
+document.getElementById("patch-duplicate").addEventListener("click", duplicateSelectedPatches);
+document.getElementById("patch-delete").addEventListener("click", deleteSelectedPatches);
 
 function selectMap(map) {
   fillMap(map);
@@ -2083,9 +2460,13 @@ function fillMap(body) {
   f.label.value = labelText(body.label);
   mapOrePatches = (body.orePatches || []).map((p) => ({ ...p }));
   mapTerrainPatches = (body.terrainPatches || []).map((p) => ({ ...p }));
-  mapSelected = null;
+  mapSelectedSet = [];
   mapDrag = null;
   mapPendingPatch = null;
+  // Otherwise a layer hidden on one map stays hidden (with no visible cue why) on the NEXT map you
+  // open — the patch count would say "12 ore patches" while the canvas/list quietly show none.
+  if (!mapLayerVisible.ore) toggleLayer("ore");
+  if (!mapLayerVisible.terrain) toggleLayer("terrain");
   resetView();
   resetMapHistory();
   renderMapEditor();
@@ -2126,8 +2507,31 @@ document.querySelector('[data-new="maps"]').addEventListener("click", openNewMap
 document.getElementById("new-map-blank").addEventListener("click", () => startNewMap({}));
 
 document.getElementById("maps-picker").addEventListener("change", (e) => {
+  // Both this select AND #maps-picker-filter live inside <form id="maps-form"> (so their own
+  // fields can sit next to Path/Label in the same floating panel) — wireDirtyTracking listens for
+  // "change"/"input" on the WHOLE form, so without stopPropagation, switching maps here (or
+  // typing/blurring the filter below) would mark the map you just SWITCHED TO as "unsaved" before
+  // you've touched a single field of it.
+  e.stopPropagation();
   const map = state.maps.find((m) => entryKey(m) === e.target.value);
   if (map) selectMap(map);
+});
+function stopMapsPickerFilterPropagation(e) {
+  e.stopPropagation();
+}
+document.getElementById("maps-picker-filter").addEventListener("input", (e) => {
+  stopMapsPickerFilterPropagation(e);
+  renderMapsPicker();
+});
+// "change" too, not just "input" — a text input fires "change" on blur if its value was edited
+// since focus, which happens whenever you finish typing a filter and click elsewhere (the canvas,
+// say) — that blur-triggered "change" bubbles to the form exactly like the picker's own does above.
+document.getElementById("maps-picker-filter").addEventListener("change", stopMapsPickerFilterPropagation);
+document.getElementById("maps-picker-filter").addEventListener("keydown", (e) => {
+  // This input lives inside <form id="maps-form">, which has a submit button (Save) — without
+  // this, Enter here (the obvious thing to press after typing a search) does an implicit form
+  // submission instead of just... being a filter box.
+  if (e.key === "Enter") e.preventDefault();
 });
 document.getElementById("maps-picker-new").innerHTML = icon("plus", 15);
 document.getElementById("maps-picker-new").addEventListener("click", openNewMapModal);
