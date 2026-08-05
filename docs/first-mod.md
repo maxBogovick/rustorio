@@ -107,6 +107,7 @@ JSON-файла и один рецепт. Каждый шаг проверяет
 
 - Своя картинка предмета или здания — [howto/textures.md](howto/textures.md).
 - Своё здание без Java — [howto/building.md](howto/building.md).
+- Мод с кодом (свой jar, новое поведение, события) — [howto/code-mod.md](howto/code-mod.md).
 - Изменить чужой рецепт — [howto/patch-recipe.md](howto/patch-recipe.md).
 - Полный список полей каждого файла — [schemas/](schemas/), см. [reference.md](reference.md).
 - Почему всё устроено через реестры и идентификаторы — [why-registries.md](why-registries.md).
