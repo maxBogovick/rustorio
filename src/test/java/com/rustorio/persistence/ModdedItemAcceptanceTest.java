@@ -8,7 +8,6 @@ import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.OreLayoutId;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.Terrain;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingFactory;
@@ -62,8 +61,8 @@ class ModdedItemAcceptanceTest {
             }
 
             @Override
-            public Terrain terrainAt(int x, int y) {
-                return Terrain.GROUND;
+            public Optional<ItemType> terrainAt(int x, int y) {
+                return Optional.empty();
             }
 
             @Override
@@ -115,7 +114,7 @@ class ModdedItemAcceptanceTest {
     void fixtureRegistryHasVanillaItemsPlusTheNewOre() {
         Registry<ItemType> items = gameItems();
 
-        assertEquals(12, items.size(), "11 vanilla items + copper_ore");
+        assertEquals(14, items.size(), "13 vanilla items + copper_ore");
         assertEquals(COPPER_ORE, items.get(ContentId.of("test:copper_ore")));
         assertEquals(VanillaItems.IRON_ORE, items.get(ContentId.of("rustorio:iron_ore")));
     }

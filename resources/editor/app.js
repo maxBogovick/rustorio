@@ -594,13 +594,21 @@ function collectItem() {
   const label = editingItemLabel && typeof editingItemLabel === "object" && typed === labelText(editingItemLabel)
       ? editingItemLabel
       : typed;
-  return {
+  const body = {
     path: f.path.value.trim(),
     label,
     colorRgb: f.colorRgb.value,
     shape: f.shape.value,
     researchGrade: f.researchGrade.checked,
   };
+  // Only written out when the author actually picked something. "Auto" is the ABSENCE of the
+  // field, not a third value stored in it (see oreItemPool): every item file authored before this
+  // field existed means auto, so auto has to be spelled the same way they already spell it, or
+  // the two would be different states that behave identically.
+  if (f.tool.value) {
+    body.tool = f.tool.value;
+  }
+  return body;
 }
 collectors.items = collectItem;
 
@@ -611,6 +619,7 @@ function fillItem(body) {
   f.label.value = labelText(body.label);
   f.colorRgb.value = body.colorRgb || "#aaaaaa";
   f.shape.value = body.shape || "CIRCLE";
+  f.tool.value = body.tool || ""; // "" is the Auto option — see collectItem on why absence is the auto state
   f.researchGrade.checked = !!body.researchGrade;
   updateItemGlyphPreview();
 }
@@ -1324,7 +1333,17 @@ wireJsonToggle("kinds");
 let mapOrePatches = [];
 let mapTerrainPatches = [];
 
-const TERRAIN_COLORS = { WATER: "#3a6ea5", ROCK: "#7a7a76" };
+/** The two spellings terrain had before it became content, and the colors they drew as. A patch
+ * saved by an older editor still says {@code "WATER"} / {@code "ROCK"} instead of an item
+ * reference, and the game still loads those (MapJsonLoader keeps the same legacy shortcut) — so
+ * the canvas has to keep drawing them, or an existing map would open full of gray blanks. New
+ * patches never write these: they carry whichever item the tool's own picker offered. */
+const LEGACY_TERRAIN_COLORS = { WATER: "#3a6ea5", ROCK: "#7a7a76" };
+
+/** The map tools that place something, and the layer each one places into. Terrain is no longer a
+ * closed pair of enum names — these are TOOL names now, and what a patch of that kind actually
+ * contains is an item picked from {@link toolItemPool}, exactly like ore already worked. */
+const PLACING_TOOLS = { ore: "ore", water: "terrain", rock: "terrain" };
 
 /**
  * One-click multi-patch drops — "как обычно сделано" for a lake/ore-vein instead of placing every
@@ -1336,17 +1355,23 @@ const TERRAIN_COLORS = { WATER: "#3a6ea5", ROCK: "#7a7a76" };
 const STAMPS = {
   "stamp-ore-cluster": { kind: "ore", radiusDelta: 0, offsets: [[0, 0], [3, 1], [-2, 2], [2, -2], [-3, -1]] },
   "stamp-ore-seam": { kind: "ore", radiusDelta: -1, offsets: [[-4, 0], [-1, 1], [2, 0], [5, -1]] },
-  "stamp-lake": { kind: "terrain", terrain: "WATER", radiusDelta: 3, offsets: [[0, 0], [2, 1], [-2, 1], [0, -2]] },
-  "stamp-ridge": { kind: "terrain", terrain: "ROCK", radiusDelta: 0, offsets: [[-5, -2], [-2, 0], [1, 1], [4, 2]] },
+  "stamp-lake": { kind: "terrain", tool: "water", radiusDelta: 3, offsets: [[0, 0], [2, 1], [-2, 1], [0, -2]] },
+  "stamp-ridge": { kind: "terrain", tool: "rock", radiusDelta: 0, offsets: [[-5, -2], [-2, 0], [1, 1], [4, 2]] },
 };
 
 /** Which layer (see mapLayerVisible) a given #map-tool value would actually draw into — "ore" for
  * the Ore tool and the two ore-flavored stamps, "terrain" for Water/Rock and the two
  * terrain-flavored stamps. Used to refuse placing into a currently-hidden layer (mousedown). */
 function toolLayerKind(tool) {
-  if (tool === "ore") return "ore";
   if (STAMPS[tool]) return STAMPS[tool].kind;
-  return "terrain";
+  return PLACING_TOOLS[tool] || "terrain";
+}
+
+/** The plain tool a value stands for — a stamp answers with the tool it paints as ({@code "ore"},
+ * {@code "water"}, {@code "rock"}), everything else with itself. One place that knows the mapping,
+ * so the item picker, the preview color and the commit all read the same pool. */
+function baseToolOf(tool) {
+  return STAMPS[tool] ? (STAMPS[tool].kind === "ore" ? "ore" : STAMPS[tool].tool) : tool;
 }
 
 /** The canvas element's own drawing-buffer resolution, recomputed by {@link resizeMapCanvas} to
@@ -1375,8 +1400,16 @@ function mapMaxScale() {
   return Math.min(mapCanvasWidth, mapCanvasHeight) / 16;
 }
 
+/** The zoom a map opens at, as a multiple of {@link mapMinScale} — i.e. exactly what the HUD reads
+ * as 200%. "Fit whole map" (100%) shows all 256x256 cells at once, which is right for finding your
+ * way around but too small to place anything precisely; twice that still shows a quarter of the map
+ * while cells are big enough to aim at. Owner's choice, 04.08.2026. Deliberately expressed as a
+ * multiple of the fit scale rather than an absolute one: the fit scale itself depends on the canvas
+ * size (see mapCanvasWidth), so a hardcoded number would mean a different zoom on every panel size. */
+const DEFAULT_ZOOM = 2;
+
 /** Pan/zoom camera over the 256x256 world — this mapping changes on wheel/shift-drag; the canvas element's OWN size is {@link mapCanvasWidth}/{@link mapCanvasHeight}, changed separately by {@link resizeMapCanvas}. */
-let mapView = { scale: mapMinScale(), offsetX: 0, offsetY: 0 };
+let mapView = { scale: mapMinScale() * DEFAULT_ZOOM, offsetX: 0, offsetY: 0 };
 /** Every currently selected patch, as {@code {list, patch}} pairs — keyed by the patch OBJECT
  * itself, not its index: an index goes stale the moment any OTHER row in the same list is deleted
  * or drag-reordered, silently "selecting" whatever patch happens to have slid into that slot. A
@@ -1387,8 +1420,11 @@ let mapView = { scale: mapMinScale(), offsetX: 0, offsetY: 0 };
 let mapSelectedSet = [];
 /** In-progress mouse interaction — {@code null} when idle. See the canvas {@code mousedown} handler for the shapes this takes. */
 let mapDrag = null;
-/** The not-yet-committed patch a "place" drag is sizing live — drawn as a translucent ghost, pushed into the real array on mouseup. */
-let mapPendingPatch = null;
+/** The not-yet-committed patches a "place" drag has painted so far — drawn as translucent ghosts,
+ * pushed into the real array together on mouseup. An array rather than the single patch it used to
+ * be: dragging now stamps copies along the path (see {@link extendPlaceStroke}) instead of resizing
+ * one patch. Empty, not null, when idle — one shape to test everywhere. */
+let mapPendingPatches = [];
 /** World coordinates under the cursor right now (idle hover, not dragging) — drives the coordinate readout and the placement preview ghost. */
 let mapHoverWorld = null;
 /** {@link hitTestPatch}'s own result for the CURRENT idle hover — {@code null} off the map, over
@@ -1455,32 +1491,96 @@ function renderMapsPicker() {
   }
 }
 
-/** The ore-item <select> the "Ore" tool (and the ore-flavored stamps) read from — refreshed whenever the item list changes, same reasoning as renderKindSelectOptions. */
+/**
+ * Which items an ore patch may actually name. An item's own {@code tool} field decides it — {@code
+ * "ore"} means this tool lists it, {@code "none"} means no map tool ever offers it — and an item
+ * WITHOUT that field (every item authored before the field existed, vanilla included) falls back
+ * to the rule that used to apply to all of them: a raw resource is one that no recipe produces.
+ * Absence is the fallback rather than a stored {@code "auto"} value on purpose — see collectItem.
+ *
+ * <p>Nothing in the GAME's item format says "this one is an ore" (ItemJsonLoader reads path,
+ * label, researchGrade, colorRgb, shape, and ignores the rest), so {@code tool} is authoring
+ * metadata: it steers this editor's tool lists, and the game neither reads it nor cares.
+ *
+ * <p>Every listed item stays cross-mod, same as the full list was — the pool is narrowed by what
+ * items ARE, never by which mod owns them.
+ */
+function toolItemPool(tool) {
+  if (tool === "ore") return oreItemPool();
+  // A terrain tool's list is exactly the items that declared themselves for it. No derivation to
+  // fall back on here, unlike ore: "nothing crafts it" says an item comes out of the ground, not
+  // that it IS ground, so a terrain tool only ever offers what an author explicitly put in it.
+  return state.items.filter((i) => i.tool === tool);
+}
+
+function oreItemPool() {
+  // A recipe's `output` is bare when it means the recipe's OWN mod — the same rule resolveKindRef
+  // implements for any reference stored inside a mod file. Deliberately NOT resolveItemRef here:
+  // that one resolves a bare ref against the ACTIVE mod, so with sandbox active, vanilla's bare
+  // "iron_plate" would resolve to a sandbox item that doesn't exist — and iron_plate, produced by
+  // a recipe, would show up in the ore list as if nothing made it.
+  const crafted = new Set(state.recipes.map((r) => resolveKindRef(r.output, r.__mod)));
+  return state.items.filter((i) => (i.tool ? i.tool === "ore" : !crafted.has(entryKey(i))));
+}
+
+/** Fills a map <select> with {@link oreItemPool}, plus {@code keep} (a ref an already-saved patch
+ * holds) when the pool doesn't contain it: maps authored before the pool was narrowed can name a
+ * crafted item as their ore, and dropping that option would show the patch's real item as an empty
+ * box. Returns the refs actually listed, in listed order. */
+function fillOreSelect(select, keep, tool) {
+  const pool = toolItemPool(tool || "ore");
+  const options = pool.map((i) => ({ value: refValueFor(i), text: labelText(i.label) + originSuffix(i) }));
+  if (keep && !options.some((o) => o.value === keep)) {
+    // itemLabelByPath falls back to the raw ref for an item that no longer exists at all, which is
+    // exactly what a stale reference should read as here too.
+    // Includes the pre-content spellings ("WATER"/"ROCK"), which resolve to no item at all and so
+    // read as their own raw text — accurate: that is exactly what the file still says.
+    options.push({ value: keep, text: `${itemLabelByPath(keep)} — not in this tool's list` });
+  }
+  select.innerHTML = options.map((o) => `<option value="${o.value}"></option>`).join("");
+  [...select.options].forEach((opt, idx) => (opt.textContent = options[idx].text));
+  return options.map((o) => o.value);
+}
+
+/** The item <select> the currently selected tool reads from — ore for the Ore tool and its stamps,
+ * that terrain tool's own items for Water/Rock and theirs. Refreshed whenever the item list or the
+ * tool changes, same reasoning as renderKindSelectOptions.
+ *
+ * <p>One picker for every placing tool rather than one per tool: what changes between them is only
+ * which pool it lists, and a second <select> would be a second place to keep in sync with it. The
+ * value it holds per tool is remembered (see mapToolItemChoice) so switching Ore -> Water -> Ore
+ * doesn't quietly reset what you were painting with. */
 function renderMapOreItemSelect() {
   const select = document.getElementById("map-ore-item");
-  const previous = select.value;
-  const pool = state.items;
-  select.innerHTML = pool.map((i) => `<option value="${refValueFor(i)}"></option>`).join("");
-  [...select.options].forEach((opt, idx) => (opt.textContent = labelText(pool[idx].label) + originSuffix(pool[idx])));
-  const refs = pool.map(refValueFor);
+  const tool = baseToolOf(document.getElementById("map-tool").value);
+  const previous = mapToolItemChoice[tool] || select.value;
+  const refs = fillOreSelect(select, null, tool);
   select.value = refs.includes(previous) ? previous : (refs[0] || "");
+  mapToolItemChoice[tool] = select.value;
 }
+
+/** What each tool was last painting with — see renderMapOreItemSelect. Keyed by base tool name. */
+const mapToolItemChoice = {};
 
 /** The selected-patch inspector's OWN ore <select> — same item pool as {@link renderMapOreItemSelect}
  * but refreshed separately from {@link renderPatchInspector} (called on every render, including every
  * mousemove while dragging): rebuilding a <select>'s full option list is real DOM work, so it only
- * happens here, when the item list itself actually changed, not on every frame. */
+ * happens here, when the item list itself actually changed, not on every frame. Also rebuilt from
+ * {@link renderPatchInspector} whenever the selected patch's own ore isn't in the pool — see
+ * {@link fillOreSelect}. */
 function renderPatchInspectorOreOptions() {
-  const select = document.getElementById("patch-ore-item");
-  const pool = state.items;
-  select.innerHTML = pool.map((i) => `<option value="${refValueFor(i)}"></option>`).join("");
-  [...select.options].forEach((opt, idx) => (opt.textContent = labelText(pool[idx].label) + originSuffix(pool[idx])));
+  fillOreSelect(document.getElementById("patch-ore-item"), selectionOre(), selectionType() || "ore");
 }
 
 function updateMapToolFieldVisibility() {
   const tool = document.getElementById("map-tool").value;
-  const needsItem = tool === "ore" || (STAMPS[tool] && STAMPS[tool].kind === "ore");
+  // Every placing tool has an item to choose now, terrain included — only Select has nothing to
+  // pick. Re-filled here, not just shown: Water's list is not Ore's.
+  const needsItem = Boolean(PLACING_TOOLS[baseToolOf(tool)]);
   document.getElementById("map-ore-item-field").classList.toggle("hidden", !needsItem);
+  if (needsItem) {
+    renderMapOreItemSelect();
+  }
   updateMapCursor();
 }
 
@@ -1498,9 +1598,25 @@ function updateMapCursor() {
     canvas.style.cursor = "grabbing";
     return;
   }
+  if (mapDrag && mapDrag.mode === "scale") {
+    canvas.style.cursor = "nwse-resize";
+    return;
+  }
   if (spaceHeld) {
     canvas.style.cursor = "grab";
     return;
+  }
+  // The selection frame's corner handles are the only discoverability cue they get — nothing in the
+  // panel says "this area can be scaled," so the cursor has to say it on approach. Diagonal
+  // direction per corner, the convention every editor's own resize handles use.
+  if (mapHoverWorld) {
+    const handle = selectionHandleAt(
+        (mapHoverWorld.x - mapView.offsetX) * mapView.scale,
+        (mapHoverWorld.y - mapView.offsetY) * mapView.scale);
+    if (handle) {
+      canvas.style.cursor = handle.id === "nw" || handle.id === "se" ? "nwse-resize" : "nesw-resize";
+      return;
+    }
   }
   // Crosshair reads as "about to draw"; Select isn't drawing anything, so it gets the ordinary
   // pointer instead — a small cue for which mode a freshly-opened map defaults into.
@@ -1518,17 +1634,23 @@ function oreColorFor(ref) {
   return item ? item.colorRgb : "#999999";
 }
 
+/** A terrain patch's color. Its {@code terrain} is an item reference now, exactly like an ore
+ * patch's {@code ore} — with the two pre-content spellings still understood, since map files
+ * written before the change (including the ones shipped in this repository) still hold them. */
+function terrainColorFor(ref) {
+  const item = resolveItemRef(ref);
+  if (item) return item.colorRgb;
+  return LEGACY_TERRAIN_COLORS[ref] || "#7a7a76";
+}
+
+/** Every placing tool now paints whatever its own picker holds, so all of them — ore, terrain and
+ * both flavors of stamp — resolve their preview color the same way: from that item. Select, which
+ * places nothing, is the only value left without one. */
 function previewColorForTool(tool) {
-  if (tool === "ore") return oreColorFor(document.getElementById("map-ore-item").value);
-  if (STAMPS[tool]) {
-    // A stamp is either ore-flavored (cluster/seam) or terrain-flavored (lake/ridge) — same color
-    // resolution as its own two kinds, just keyed off the stamp definition instead of the raw tool
-    // value directly. Previously fell through to the terrain branch below, which doesn't know
-    // "stamp-ore-cluster" from any other unrecognized string and returned a flat white.
-    const stamp = STAMPS[tool];
-    return stamp.kind === "ore" ? oreColorFor(document.getElementById("map-ore-item").value) : (TERRAIN_COLORS[stamp.terrain] || "#ffffff");
-  }
-  return TERRAIN_COLORS[tool] || "#ffffff";
+  const base = baseToolOf(tool);
+  if (!PLACING_TOOLS[base]) return "#ffffff";
+  const ref = document.getElementById("map-ore-item").value;
+  return base === "ore" ? oreColorFor(ref) : terrainColorFor(ref);
 }
 
 function currentRadius() {
@@ -1570,6 +1692,110 @@ function deselectPatch() {
   }
 }
 
+/**
+ * Turns everything selected into {@code type} — one of the {@link PLACING_TOOLS} names — so an
+ * area drag-boxed with the Select tool can become water, rock or ore in one go, instead of being
+ * deleted and redrawn with the right tool. What each converted patch ends up CONTAINING is that
+ * tool's own current pick, the same item a fresh patch drawn with it would get.
+ *
+ * <p>Patches ALREADY of that type are left exactly where they are: re-inserting an ore patch as
+ * "ore" would overwrite its own item with whatever the toolbar happens to hold and shuffle it to
+ * the front of the paint order, and water becoming rock only needs its own field rewritten in
+ * place. Only patches that actually cross between {@code mapOrePatches} and {@code
+ * mapTerrainPatches} are rebuilt — those two hold differently shaped objects ({@code ore} vs
+ * {@code terrain}), so a crossing patch is a new object, not a mutated one.
+ */
+function convertSelectionTo(type) {
+  if (mapSelectedSet.length === 0) return;
+  const toOre = type === "ore";
+  const layer = toOre ? "ore" : "terrain";
+  // Same contract placement already honors (see the mousedown handler): a patch that exists in the
+  // data while being invisible, unclickable and absent from the list is a worse surprise than a
+  // refusal. Converting INTO a hidden layer would do exactly that to the whole selection at once.
+  if (!mapLayerVisible[layer]) {
+    toast(`The ${layer} layer is hidden — show it before converting into it`, true);
+    return;
+  }
+  // What a crossing patch becomes: the target tool's own pick. Read from that tool's pool rather
+  // than from whatever the picker happens to be showing — converting to Water while the Ore tool
+  // is selected must not fill the patches with iron ore.
+  const pool = toolItemPool(type);
+  const fill = (mapToolItemChoice[type] && pool.some((i) => refValueFor(i) === mapToolItemChoice[type]))
+      ? mapToolItemChoice[type]
+      : (pool[0] ? refValueFor(pool[0]) : "");
+  const crossesOver = mapSelectedSet.some((s) => (s.list === mapOrePatches) !== toOre);
+  if (crossesOver && !fill) {
+    toast(`Nothing for the ${type} tool to place — add an item for it on the Items tab first`, true);
+    return;
+  }
+  const crossing = [];
+  for (const selected of mapSelectedSet) {
+    const isOre = selected.list === mapOrePatches;
+    if (toOre === isOre) {
+      if (!toOre) {
+        selected.patch.terrain = fill; // water <-> rock: one field, same list, paint order untouched
+      }
+      continue;
+    }
+    crossing.push(selected);
+  }
+  if (crossing.length > 0) {
+    const doomed = new Set(crossing.map((s) => s.patch));
+    const shape = (p) => ({ cx: p.cx, cy: p.cy, radius: p.radius });
+    const rebuilt = crossing.map((s) => (toOre
+        ? { ...shape(s.patch), ore: fill }
+        : { ...shape(s.patch), terrain: fill }));
+    mapOrePatches = mapOrePatches.filter((p) => !doomed.has(p));
+    mapTerrainPatches = mapTerrainPatches.filter((p) => !doomed.has(p));
+    const target = toOre ? mapOrePatches : mapTerrainPatches;
+    // One unshift for the whole batch, front of the list (same "just placed wins an overlap"
+    // priority as anything freshly drawn) — one unshift per patch would reverse their order, the
+    // same trap duplicateSelectedPatches' own comment documents.
+    target.unshift(...rebuilt);
+    // Every {list, patch} pair the selection holds went stale, not just the crossing ones: those
+    // patches are new objects in the other array, and the filters above REPLACED both arrays, so
+    // even an untouched entry is left pointing at a dead copy (see liveListOf). Rebuilt in the same
+    // order, so the selection the user sees doesn't reshuffle under them.
+    const replacement = new Map();
+    crossing.forEach((s, index) => replacement.set(s.patch, rebuilt[index]));
+    mapSelectedSet = mapSelectedSet.map((s) => {
+      const patch = replacement.get(s.patch) || s.patch;
+      return { list: liveListOf(patch), patch };
+    });
+  }
+  markDirty("maps");
+  pushMapHistory();
+  renderMapEditor();
+}
+
+/** Applies one radius to every selected patch — the "изменить размер" half of a selection-wide
+ * edit, next to {@link convertSelectionTo}. Dragging an edge still resizes a single patch. */
+function resizeSelectedPatches(radius) {
+  if (mapSelectedSet.length === 0) return;
+  for (const selected of mapSelectedSet) {
+    selected.patch.radius = radius;
+  }
+  markDirty("maps");
+  pushMapHistory();
+  renderMapEditor();
+}
+
+/** Applies one item to every selected ORE patch, leaving terrain in the selection alone (water has
+ * no item to set) — convert it to ore first if that's what was meant. */
+function setSelectedPatchesOre(ore) {
+  if (mapSelectedSet.length === 0) return;
+  for (const selected of mapSelectedSet) {
+    if (selected.list === mapOrePatches) {
+      selected.patch.ore = ore;
+    } else {
+      selected.patch.terrain = ore; // terrain names an item too — same field, different array
+    }
+  }
+  markDirty("maps");
+  pushMapHistory();
+  renderMapEditor();
+}
+
 function deleteSelectedPatches() {
   if (mapSelectedSet.length === 0) return;
   // ⌘D/Delete are reachable via keydown WHILE a mouse drag is still held (mapDrag.group holds the
@@ -1588,7 +1814,7 @@ function deleteSelectedPatches() {
 }
 
 /** Offsets every copy a few cells over (clamped) so none lands exactly on its original — front of
- * its own list, same "just placed" priority as any freshly drawn patch (see commitPendingPatch).
+ * its own list, same "just placed" priority as any freshly drawn patch (see commitPendingPatches).
  * The new copies become the selection, same as a single duplicate did before multi-select existed.
  * Copies for the SAME list are batched into one unshift(...copies) at the end, preserving their
  * relative order — one unshift per COPY (in a loop) would reverse that order, same trap
@@ -1622,25 +1848,195 @@ function duplicateSelectedPatches() {
  * renderMapEditor} (including every mousemove while idle), so it only ever sets values/toggles
  * visibility — the ore <select>'s own <option> list is rebuilt separately, by {@link
  * renderPatchInspectorOreOptions}, only when the item list itself changes. */
+/**
+ * The world-space box covering every patch in {@code patches}, in the same coordinates {@code
+ * drawPatch} draws them (a patch's circle is centered on the MIDDLE of its cell, {@code cx + 0.5},
+ * with {@code radius} in world units) — so the frame this produces lands exactly on the circles
+ * rather than half a cell off them. {@code null} for an empty list.
+ *
+ * <p>One helper for both users on purpose: the selection frame drawn on the canvas and the floating
+ * Duplicate/Delete pill anchored to it are the same box, and computing it twice is how the pill
+ * ends up visibly detached from the frame it is supposed to be attached to.
+ */
+function patchesBounds(patches) {
+  if (patches.length === 0) return null;
+  let x1 = Infinity;
+  let y1 = Infinity;
+  let x2 = -Infinity;
+  let y2 = -Infinity;
+  for (const patch of patches) {
+    x1 = Math.min(x1, patch.cx + 0.5 - patch.radius);
+    y1 = Math.min(y1, patch.cy + 0.5 - patch.radius);
+    x2 = Math.max(x2, patch.cx + 0.5 + patch.radius);
+    y2 = Math.max(y2, patch.cy + 0.5 + patch.radius);
+  }
+  return { x1, y1, x2, y2 };
+}
+
+/** {@link patchesBounds} of whatever is selected right now, {@code null} with nothing selected. */
+function selectionBounds() {
+  return patchesBounds(mapSelectedSet.map((s) => s.patch));
+}
+
+/** Half the side of a selection-frame corner handle, in screen pixels — the frame is canvas-drawn,
+ * so its handles are too, and everything about them lives in screen space. */
+const SELECTION_HANDLE = 5;
+
+/** Where the selection frame sits on screen, in canvas pixels, padding included — the one
+ * definition of that rectangle, shared by the drawing, the corner-handle hit test and the cursor,
+ * so a handle can't end up somewhere the frame isn't. {@code null} with nothing selected. */
+function selectionFrameRect() {
+  const bounds = selectionBounds();
+  if (!bounds) return null;
+  const topLeft = worldToScreen(bounds.x1, bounds.y1);
+  const bottomRight = worldToScreen(bounds.x2, bounds.y2);
+  const pad = 3; // a hair of air, so the frame reads as around the patches rather than clipping them
+  return { x: topLeft.x - pad, y: topLeft.y - pad,
+    w: bottomRight.x - topLeft.x + pad * 2, h: bottomRight.y - topLeft.y + pad * 2 };
+}
+
+/** The four corners of {@link selectionFrameRect}, each with the corner OPPOSITE it — dragging a
+ * handle scales the selection around that opposite corner, which is what makes the far side of the
+ * frame stay put while the grabbed one follows the cursor. */
+function selectionHandles() {
+  const rect = selectionFrameRect();
+  if (!rect) return [];
+  const left = rect.x;
+  const right = rect.x + rect.w;
+  const top = rect.y;
+  const bottom = rect.y + rect.h;
+  return [
+    { id: "nw", x: left, y: top, anchorX: right, anchorY: bottom },
+    { id: "ne", x: right, y: top, anchorX: left, anchorY: bottom },
+    { id: "sw", x: left, y: bottom, anchorX: right, anchorY: top },
+    { id: "se", x: right, y: bottom, anchorX: left, anchorY: top },
+  ];
+}
+
+/** Which corner handle is under a canvas-space point, or null. The grab area is a little larger
+ * than the handle is drawn — a 10px square is hard to hit exactly, and being slightly generous
+ * costs nothing here since the handles sit outside the patches they belong to. */
+function selectionHandleAt(px, py) {
+  if (mapSelectedSet.length < 2) return null; // handles are drawn with the frame, and the frame needs two patches
+  const grab = SELECTION_HANDLE + 3;
+  return selectionHandles().find((h) => Math.abs(px - h.x) <= grab && Math.abs(py - h.y) <= grab) || null;
+}
+
+/**
+ * Scales the whole selection by {@code factor} around the world point {@code anchor}, reading every
+ * patch's size and position from {@code drag.start} rather than from where it currently sits.
+ *
+ * <p>Recomputed from the originals on every mousemove, never applied incrementally: centers and
+ * radii are whole cells, so an incremental version would round on every single event and the area
+ * would visibly crawl away from the cursor over one drag (the same reasoning behind the move drag's
+ * own {@code startCx + dx}).
+ *
+ * <p>One factor for both axes because a patch is a circle: this map format has no way to express an
+ * ellipse, so a frame that stretched on one axis would be showing something that can't be saved.
+ */
+function applySelectionScale(drag, factor) {
+  for (const start of drag.start) {
+    // The circle's real center is the MIDDLE of its cell (see drawPatch), so it's the middle that
+    // gets scaled — scaling the raw index and rounding back would drift half a cell per operation.
+    const centerX = drag.anchor.x + (start.cx + 0.5 - drag.anchor.x) * factor;
+    const centerY = drag.anchor.y + (start.cy + 0.5 - drag.anchor.y) * factor;
+    start.patch.cx = clampCell(Math.round(centerX - 0.5));
+    start.patch.cy = clampCell(Math.round(centerY - 0.5));
+    start.patch.radius = Math.max(1, Math.round(start.radius * factor));
+  }
+}
+
+/** The largest factor that still leaves the whole scaled frame on the map. Clamps the FACTOR, not
+ * each patch: clamping patch by patch lets whichever one reaches the edge first stop while the rest
+ * keep growing, quietly deforming the area's own layout — the trap the group-move drag documents. */
+function maxSelectionScale(drag) {
+  let limit = Infinity;
+  const edges = [
+    { value: drag.bounds.x1, anchor: drag.anchor.x },
+    { value: drag.bounds.x2, anchor: drag.anchor.x },
+    { value: drag.bounds.y1, anchor: drag.anchor.y },
+    { value: drag.bounds.y2, anchor: drag.anchor.y },
+  ];
+  for (const edge of edges) {
+    const reach = edge.value - edge.anchor;
+    if (reach > 0) limit = Math.min(limit, (MAP_SIZE - edge.anchor) / reach);
+    if (reach < 0) limit = Math.min(limit, edge.anchor / -reach);
+  }
+  return limit;
+}
+
+/**
+ * Whichever of the two live arrays holds {@code patch} right now, or null if neither does any more.
+ *
+ * <p>Looked up instead of remembered because {@link deleteSelectedPatches} and {@link
+ * convertSelectionTo} REPLACE {@code mapOrePatches}/{@code mapTerrainPatches} (filter, not splice):
+ * a {@code {list, patch}} pair captured before either ran can hold an array that is no longer the
+ * one the editor draws from. That stale array still contains the patch, so every {@code
+ * list.includes(patch)} check on it answers "still there" — and anything that then WRITES through
+ * that reference (a duplicate unshifted into it) writes into a copy nothing renders.
+ */
+function liveListOf(patch) {
+  if (mapOrePatches.includes(patch)) return mapOrePatches;
+  if (mapTerrainPatches.includes(patch)) return mapTerrainPatches;
+  return null;
+}
+
+/** The value {@code read} returns for every selected patch, or {@code null} when they disagree —
+ * what a field shared by the whole selection has to show. "Mixed" is deliberately not a value of
+ * its own: the caller renders it as an empty field, so committing one only ever writes something
+ * the user actually typed. */
+function commonAcrossSelection(read) {
+  if (mapSelectedSet.length === 0) return null;
+  const first = read(mapSelectedSet[0]);
+  return mapSelectedSet.every((s) => read(s) === first) ? first : null;
+}
+
+/** The type every selected patch shares — {@code "ore"}, {@code "WATER"}, {@code "ROCK"}, or null
+ * for a mixed selection. The same three values the {@code #patch-type} select and {@link
+ * convertSelectionTo} speak, so nothing has to translate between "which list is it in" and "what
+ * does the dropdown call it" more than once. */
+function selectionType() {
+  return commonAcrossSelection((s) => (s.list === mapOrePatches ? "ore" : terrainToolOf(s.patch)));
+}
+
+/** Which terrain TOOL a terrain patch belongs to — the tool its item declared itself for, with the
+ * two pre-content spellings mapped onto the tools that replaced them. Null for a patch whose item
+ * declares no tool at all (a hand-edited file, or an item whose tool was changed afterwards): the
+ * inspector shows that as a mixed/unset Type rather than guessing one. */
+function terrainToolOf(patch) {
+  const legacy = { WATER: "water", ROCK: "rock" }[patch.terrain];
+  if (legacy) return legacy;
+  const item = resolveItemRef(patch.terrain);
+  return item && PLACING_TOOLS[item.tool] ? item.tool : null;
+}
+
+/** The ore reference every selected ore patch shares, or null (mixed, or nothing ore is selected). */
+function selectionOre() {
+  if (mapSelectedSet.length === 0) return null;
+  // Ore patches and terrain patches both carry an item reference now, just under their own field
+  // name — so the Item field means something for either kind, and a selection of one kind reads
+  // the same way whichever kind it is.
+  return commonAcrossSelection((s) => (s.list === mapOrePatches ? s.patch.ore : s.patch.terrain));
+}
+
 function renderPatchInspector() {
   const panel = document.getElementById("map-patch-inspector");
-  const single = document.getElementById("patch-inspector-single");
+  const position = document.getElementById("patch-inspector-position");
   const multi = document.getElementById("patch-inspector-multi");
   if (mapSelectedSet.length === 0) {
     panel.classList.add("hidden");
     return;
   }
   panel.classList.remove("hidden");
-  if (mapSelectedSet.length > 1) {
-    single.classList.add("hidden");
-    multi.classList.remove("hidden");
+  const many = mapSelectedSet.length > 1;
+  // X/Y are the only single-patch fields left: one exact coordinate typed into several
+  // differently-placed patches has no single right answer, whereas one radius, one type and one
+  // item all do. Moving a whole selection is the canvas drag and the arrow keys instead.
+  position.classList.toggle("hidden", many);
+  multi.classList.toggle("hidden", !many);
+  if (many) {
     document.getElementById("patch-inspector-count").textContent = `${mapSelectedSet.length} patches selected`;
-    return;
   }
-  single.classList.remove("hidden");
-  multi.classList.add("hidden");
-  const { list, patch } = mapSelectedSet[0];
-  const isOre = list === mapOrePatches;
   // This runs on every renderMapEditor, including plain mouse hover — writing into a field the
   // user is mid-edit in (before its own "change" commits) would silently overwrite what they just
   // typed. Only fields NOT currently focused get their value replaced.
@@ -1648,12 +2044,41 @@ function renderPatchInspector() {
     const el = document.getElementById(id);
     if (el !== document.activeElement) el.value = value;
   };
-  writeIfIdle("patch-cx", patch.cx);
-  writeIfIdle("patch-cy", patch.cy);
-  writeIfIdle("patch-radius", patch.radius);
-  document.getElementById("patch-ore-field").classList.toggle("hidden", !isOre);
-  if (isOre) {
-    writeIfIdle("patch-ore-item", patch.ore);
+  if (!many) {
+    writeIfIdle("patch-cx", mapSelectedSet[0].patch.cx);
+    writeIfIdle("patch-cy", mapSelectedSet[0].patch.cy);
+  }
+  const radius = commonAcrossSelection((s) => s.patch.radius);
+  writeIfIdle("patch-radius", radius === null ? "" : radius); // "" leaves the "mixed" placeholder showing
+  const type = selectionType();
+  const typeSelect = document.getElementById("patch-type");
+  if (typeSelect !== document.activeElement) {
+    // -1, not a made-up "mixed" option: an option would be a value the change handler could be
+    // asked to apply, and "make these patches mixed" isn't an operation. Same trick renderMapsPicker
+    // uses for a map that matches nothing in its own list.
+    typeSelect.selectedIndex = -1;
+    if (type !== null) typeSelect.value = type;
+  }
+  const ore = selectionOre();
+  document.getElementById("patch-ore-field").classList.toggle("hidden", false); // every patch names an item now, terrain included
+  if (ore !== null) {
+    const select = document.getElementById("patch-ore-item");
+    // Cheap on purpose (this runs on every frame, hence the plain loop rather than a spread into
+    // [...select.options]): the full rebuild happens only when the selection's item genuinely
+    // isn't among the options — a map authored before the list was narrowed to raw resources can
+    // name a crafted item, and without an option of its own the <select> would render as an empty
+    // box over a patch that does have an item. At most one rebuild per selection: after it, the
+    // value is there (fillOreSelect keeps it), so the next frame finds it and does nothing.
+    let listed = false;
+    for (let i = 0; i < select.options.length && !listed; i++) {
+      listed = select.options[i].value === ore;
+    }
+    if (!listed) {
+      renderPatchInspectorOreOptions();
+    }
+    writeIfIdle("patch-ore-item", ore);
+  } else if (document.getElementById("patch-ore-item") !== document.activeElement) {
+    document.getElementById("patch-ore-item").selectedIndex = -1; // ore patches selected, but not all the same item
   }
 }
 
@@ -1687,9 +2112,52 @@ function clampView() {
   mapView.offsetY = visibleY >= MAP_SIZE ? (MAP_SIZE - visibleY) / 2 : Math.max(0, Math.min(MAP_SIZE - visibleY, mapView.offsetY));
 }
 
+/** Pans (without changing zoom) so a world point sits at the canvas center. {@link clampView} still
+ * has the last word, so asking for a point near an edge lands as close as the map allows. */
+function centerViewOn(wx, wy) {
+  mapView.offsetX = wx - mapCanvasWidth / mapView.scale / 2;
+  mapView.offsetY = wy - mapCanvasHeight / mapView.scale / 2;
+  clampView();
+}
+
+/** "Fit whole map" — the button's own meaning, and what clicking the zoom percentage or pressing 0
+ * does. Kept as its own function, NOT merged with {@link defaultView}: a control that says it fits
+ * the whole map has to keep fitting the whole map, whatever zoom a freshly opened map starts at. */
 function resetView() {
   mapView = { scale: mapMinScale(), offsetX: 0, offsetY: 0 };
   clampView(); // centers whichever axis has room to spare — see clampView's own comment
+}
+
+/** The camera the editor sets ITSELF — opening a map, and the canvas changing size underneath one.
+ * {@link DEFAULT_ZOOM}, centered on the middle of the map: past "fit," offset 0,0 would park the
+ * view in the map's top-left corner, which is the emptiest part of most authored maps. */
+function defaultView() {
+  mapView = { scale: mapMinScale() * DEFAULT_ZOOM, offsetX: 0, offsetY: 0 };
+  centerViewOn(MAP_SIZE / 2, MAP_SIZE / 2);
+}
+
+/**
+ * How much one notch of a standard mouse wheel (a 100-pixel delta) zooms — 1.1x, down from the flat
+ * 1.2x this used to apply per EVENT, because the owner asked for a slower, less twitchy zoom.
+ * Expressed per pixel of scroll so the factor scales with how hard the gesture actually was: a
+ * trackpad pinch arrives as a stream of events carrying single-digit deltas, so charging a full
+ * notch for each of them rocketed through the whole zoom range on the smallest pinch, while one
+ * mouse notch moved sensibly. The buttons and the +/- keys keep their own fixed 1.2 step — those
+ * are one deliberate press, not a gesture with a magnitude to be proportional to.
+ */
+const ZOOM_PER_PIXEL = Math.log(1.1) / 100;
+
+/** The zoom factor for one wheel/pinch event. {@code exp} rather than a linear multiplier keeps the
+ * gesture reversible: scrolling out by the same distance you scrolled in lands on exactly the scale
+ * you started from, which a linear factor doesn't. Deltas are normalized to pixels first — {@code
+ * deltaMode} is LINES for a mouse wheel in Firefox (deltaY of ~3, not ~100), and reading it as
+ * pixels would make the wheel there feel about thirty times weaker than it does here. */
+function wheelZoomFactor(e) {
+  const perLine = 16; // a typical line box; the browsers that report lines don't say how tall theirs is
+  const pixels = e.deltaMode === 1 ? e.deltaY * perLine
+      : e.deltaMode === 2 ? e.deltaY * mapCanvasHeight
+      : e.deltaY;
+  return Math.exp(-pixels * ZOOM_PER_PIXEL);
 }
 
 function zoomAt(px, py, factor) {
@@ -1709,9 +2177,7 @@ function focusOnSelection() {
   if (mapSelectedSet.length === 0) return;
   const cx = mapSelectedSet.reduce((sum, s) => sum + s.patch.cx, 0) / mapSelectedSet.length;
   const cy = mapSelectedSet.reduce((sum, s) => sum + s.patch.cy, 0) / mapSelectedSet.length;
-  mapView.offsetX = cx - mapCanvasWidth / mapView.scale / 2;
-  mapView.offsetY = cy - mapCanvasHeight / mapView.scale / 2;
-  clampView();
+  centerViewOn(cx, cy);
   renderMapEditor();
 }
 
@@ -1721,8 +2187,8 @@ function focusOnSelection() {
  * instead of a fixed box (see {@link mapCanvasWidth}'s own comment). Called whenever the maps tab
  * becomes visible and on window resize while it's active. A no-op if the measured size didn't
  * actually change, so switching back to an unchanged window doesn't reset the camera on every tab
- * click. Resets to "fit whole map" rather than trying to preserve the exact pan/zoom across a
- * resolution change — simpler, and a resize is rare enough that losing the current pan isn't a
+ * click. Goes back to {@link defaultView} rather than trying to preserve the exact pan/zoom across
+ * a resolution change — simpler, and a resize is rare enough that losing the current pan isn't a
  * real cost. */
 function resizeMapCanvas() {
   const wrap = mapCanvasEl.parentElement; // .map-canvas-wrap
@@ -1745,7 +2211,7 @@ function resizeMapCanvas() {
   mapCanvasHeight = availableH;
   mapCanvasEl.width = availableW;
   mapCanvasEl.height = availableH;
-  resetView();
+  defaultView();
   renderMapEditor();
 }
 
@@ -1886,7 +2352,7 @@ function drawMapCanvas() {
   if (mapLayerVisible.terrain) {
     for (let i = mapTerrainPatches.length - 1; i >= 0; i--) {
       const p = mapTerrainPatches[i];
-      drawPatch(p, TERRAIN_COLORS[p.terrain] || "#7a7a76", isSelectedPatch(mapTerrainPatches, p));
+      drawPatch(p, terrainColorFor(p.terrain), isSelectedPatch(mapTerrainPatches, p));
     }
   }
   if (mapLayerVisible.ore) {
@@ -1896,8 +2362,11 @@ function drawMapCanvas() {
     }
   }
 
-  if (mapPendingPatch) {
-    drawPatch(mapPendingPatch, previewColorForTool(document.getElementById("map-tool").value) + "aa", false);
+  if (mapPendingPatches.length > 0) {
+    const ghost = previewColorForTool(document.getElementById("map-tool").value) + "aa";
+    for (const pending of mapPendingPatches) {
+      drawPatch(pending, ghost, false);
+    }
   } else if (mapHoverWorld && !mapDrag && isInsideMap(mapHoverWorld.x, mapHoverWorld.y) && !hitTestPatch(mapHoverWorld.x, mapHoverWorld.y)) {
     // isInsideMap here, not just at click time — showing a "you could place here" ghost over the
     // pasteboard would be a lie now that clicking there is a no-op (see the mousedown handler).
@@ -1944,6 +2413,32 @@ function drawMapCanvas() {
     ctx.lineWidth = 1;
     ctx.strokeRect(x, y, w, h);
   }
+
+  // The selection's own frame, which OUTLIVES the drag that made it — the rubber band above exists
+  // only while the button is down, and without this the moment you let go there was nothing left
+  // saying "this area is what the panel is about to act on". Deliberately the selection's bounding
+  // box, not the rectangle that was dragged: patches move, get deleted, get added by Shift-click,
+  // and a frozen copy of the original drag rectangle would start lying about the selection the
+  // first time any of that happens. No fill, unlike the live band — a tint that never goes away
+  // would dim the map underneath for as long as anything stays selected. Two patches minimum: a
+  // box drawn snugly around ONE circle says nothing its own dashed outline doesn't already say.
+  if (mapSelectedSet.length > 1) {
+    const rect = selectionFrameRect();
+    ctx.strokeStyle = "rgba(239,155,61,0.9)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+    ctx.setLineDash([]);
+    // Corner handles: solid squares, so they read as grabbable against the dashed frame they sit
+    // on. Filled AND stroked because the map underneath them is any color at all — a plain white
+    // square disappears over pale terrain, a plain dark one over the pasteboard.
+    for (const handle of selectionHandles()) {
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = "rgba(239,155,61,1)";
+      ctx.fillRect(handle.x - SELECTION_HANDLE, handle.y - SELECTION_HANDLE, SELECTION_HANDLE * 2, SELECTION_HANDLE * 2);
+      ctx.strokeRect(handle.x - SELECTION_HANDLE, handle.y - SELECTION_HANDLE, SELECTION_HANDLE * 2, SELECTION_HANDLE * 2);
+    }
+  }
 }
 
 function updateMapCoordsReadout(world) {
@@ -1973,8 +2468,8 @@ function renderMapPatchList() {
       desc: `${itemLabelByPath(p.ore)} ore @ (${p.cx}, ${p.cy}) r=${p.radius}`,
     })) : []),
     ...(mapLayerVisible.terrain ? mapTerrainPatches.map((p, index) => ({
-      index, patch: p, list: mapTerrainPatches, color: TERRAIN_COLORS[p.terrain] || "#7a7a76",
-      desc: `${p.terrain} @ (${p.cx}, ${p.cy}) r=${p.radius}`,
+      index, patch: p, list: mapTerrainPatches, color: terrainColorFor(p.terrain),
+      desc: `${itemLabelByPath(p.terrain)} terrain @ (${p.cx}, ${p.cy}) r=${p.radius}`,
     })) : []),
   ];
   for (const row of rows) {
@@ -2043,37 +2538,54 @@ function renderMapZoomHud() {
   document.getElementById("map-zoom-level").textContent = `${Math.round((mapView.scale / mapMinScale()) * 100)}%`;
 }
 
-/** Whichever patch {@link renderHoverToolbar} is CURRENTLY showing its pill for — set by that
- * function on every render, read by the pill's own two button click handlers (wired once, below,
- * not per-render) so they act on the right patch without re-deriving "which one" themselves. */
+/** What {@link renderHoverToolbar} is CURRENTLY showing its pill for — {@code {kind: "selection"}}
+ * for the whole selection, {@code {kind: "hover", list, patch}} for one patch under the cursor with
+ * nothing selected. Set by that function on every render and read by the pill's own two button
+ * handlers (wired once, below, not per-render), so they never re-derive "act on what?" themselves —
+ * and, more to the point, can't disagree with what the user is looking at. */
 let currentHoverToolbarTarget = null;
 
-/** The quick Duplicate/Delete pill positioned at whichever patch is hovered or singly selected —
- * selection wins over hover (so it reads as "acting on what's selected," not flickering to
- * "whatever the mouse happens to be sitting on" while adjusting the inspector fields next to it).
- * A stale {@link mapHoverPatch} left over from a since-deleted patch (deleted via the keyboard, the
- * side panel, OR this very toolbar) is caught here with one {@code list.includes} check rather than
- * hunting down and clearing it in every one of those separate deletion code paths. */
+/**
+ * The quick Duplicate/Delete pill. Anchored to the SELECTION's own frame (see {@link
+ * patchesBounds}) whenever anything is selected, and only otherwise to the patch under the cursor.
+ *
+ * <p>That anchor is the whole point: previously the pill appeared for a single selected patch or
+ * for whatever the mouse was over, so after painting a stroke — which selects every patch in it —
+ * it either hid entirely or hopped from circle to circle as the cursor crossed them. Pinned to the
+ * selection's box, it doesn't move unless the selection itself does, and its buttons act on all of
+ * it (the frame drawn on the canvas is the same box, so what it acts on is exactly what's outlined).
+ *
+ * <p>A stale {@link mapHoverPatch} left over from a since-deleted patch (deleted via the keyboard,
+ * the side panel, OR this very pill) is caught here with one {@link liveListOf} lookup rather than
+ * hunting it down in every one of those separate deletion code paths. That lookup, not the {@code
+ * mapHoverPatch.list.includes(...)} this used to do: the list captured at hover time can itself be
+ * a dead copy, and a dead copy still contains the deleted patch, so the check passed and the pill
+ * kept offering Duplicate/Delete for something that no longer existed.
+ */
 function renderHoverToolbar() {
-  let target = null;
-  if (mapSelectedSet.length === 1) {
-    target = mapSelectedSet[0];
-  } else if (mapHoverPatch && mapHoverPatch.list.includes(mapHoverPatch.patch)) {
-    target = { list: mapHoverPatch.list, patch: mapHoverPatch.patch };
-  } else {
+  const hoverList = mapHoverPatch ? liveListOf(mapHoverPatch.patch) : null;
+  if (mapHoverPatch && !hoverList) {
     mapHoverPatch = null;
   }
-  if (!target || mapDrag || mapPendingPatch) {
+  let target = null;
+  let bounds = null;
+  if (mapSelectedSet.length > 0) {
+    target = { kind: "selection" };
+    bounds = selectionBounds();
+  } else if (mapHoverPatch) {
+    target = { kind: "hover", list: hoverList, patch: mapHoverPatch.patch };
+    bounds = patchesBounds([mapHoverPatch.patch]);
+  }
+  if (!target || mapDrag || mapPendingPatches.length > 0) {
     hoverToolbarEl.classList.add("hidden");
     currentHoverToolbarTarget = null;
     return;
   }
   currentHoverToolbarTarget = target;
-  const { patch } = target;
-  const above = worldToScreen(patch.cx + 0.5, patch.cy - patch.radius);
-  const below = worldToScreen(patch.cx + 0.5, patch.cy + patch.radius);
-  // Flips below the patch instead of above whenever "above" would run the pill off the canvas's own
-  // top edge (a patch sitting near world y=0) — same reasoning a tooltip/popover flips an
+  const above = worldToScreen((bounds.x1 + bounds.x2) / 2, bounds.y1);
+  const below = worldToScreen((bounds.x1 + bounds.x2) / 2, bounds.y2);
+  // Flips below the target instead of above whenever "above" would run the pill off the canvas's own
+  // top edge (a selection sitting near world y=0) — same reasoning a tooltip/popover flips an
   // edge-anchored target, just on the one axis that actually needs it (the pill is narrow enough
   // never to run off the left/right edges at any zoom level this tool allows).
   const flipped = above.y < 44;
@@ -2133,12 +2645,14 @@ function restoreMapSnapshot(snapshot) {
 function placeStamp(toolKey, centerX, centerY) {
   const stamp = STAMPS[toolKey];
   const radius = Math.max(1, currentRadius() + stamp.radiusDelta);
+  // Both flavors of stamp read the same picker now — a lake is made of whatever the Water tool is
+  // set to, exactly as a vein is made of whatever the Ore tool is set to.
+  const ore = document.getElementById("map-ore-item").value;
+  if (!ore) {
+    toast(`Nothing for the ${baseToolOf(toolKey)} tool to place — add an item for it on the Items tab first`, true);
+    return;
+  }
   if (stamp.kind === "ore") {
-    const ore = document.getElementById("map-ore-item").value;
-    if (!ore) {
-      toast("Add an item on the Items tab first", true);
-      return;
-    }
     // Front of the list, not the back: paint priority is index order (see the class-level comment
     // on the canvas draw loop), so a patch appended at the end used to lose any overlap against
     // everything already there — the opposite of what drawing on top of something means everywhere
@@ -2146,7 +2660,7 @@ function placeStamp(toolKey, centerX, centerY) {
     const placed = stamp.offsets.map(([dx, dy]) => ({ cx: clampCell(centerX + dx), cy: clampCell(centerY + dy), radius, ore }));
     mapOrePatches.unshift(...placed);
   } else {
-    const placed = stamp.offsets.map(([dx, dy]) => ({ cx: clampCell(centerX + dx), cy: clampCell(centerY + dy), radius, terrain: stamp.terrain }));
+    const placed = stamp.offsets.map(([dx, dy]) => ({ cx: clampCell(centerX + dx), cy: clampCell(centerY + dy), radius, terrain: ore }));
     mapTerrainPatches.unshift(...placed);
   }
   markDirty("maps");
@@ -2154,27 +2668,89 @@ function placeStamp(toolKey, centerX, centerY) {
   renderMapEditor();
 }
 
-/** Returns whether a patch actually got committed — false for the "no item registered yet" bail
+/**
+ * How far the cursor travels between two stamps of a stroke, in cells. Equal to the patch's own
+ * radius on purpose: circles of radius r whose centers sit r apart merge into one continuous band
+ * 2r wide, which is what dragging a brush is supposed to leave behind. A full 2r (circles merely
+ * touching) leaves pinched gaps at every seam once the game rasterizes them into cells, and
+ * anything much below r just piles up near-identical patches that all have to be saved.
+ */
+function brushSpacing(radius) {
+  return Math.max(1, radius);
+}
+
+/** One stamp of the stroke's brush, at a world point. Off-map points stamp nothing at all (same
+ * rule as the mousedown handler: placing out on the pasteboard means nothing) rather than being
+ * clamped onto the nearest edge cell, which would pile a drag's whole overshoot into one spot.
+ * {@code drag.stamped} remembers the cells this stroke already covered: a spacing of 1 can round
+ * two steps onto the same cell, and dragging back over your own trail crosses cells it painted on
+ * the way out — either way the result would be two patches saying exactly the same thing, both
+ * saved into the map file. */
+function stampPlaceStroke(drag, x, y) {
+  if (!isInsideMap(x, y)) return;
+  const cx = clampCell(Math.round(x));
+  const cy = clampCell(Math.round(y));
+  const cell = `${cx},${cy}`;
+  if (drag.stamped.has(cell)) return;
+  drag.stamped.add(cell);
+  mapPendingPatches.push({ cx, cy, radius: drag.radius });
+}
+
+/**
+ * Continues the current "place" stroke up to {@code world}, stamping a copy of the stroke's patch
+ * every {@link brushSpacing} cells along the way. Steps along the straight segment from the last
+ * stamp to the cursor rather than stamping the cursor position itself: mousemove fires at whatever
+ * rate the browser feels like, so a fast drag delivers samples tens of cells apart and stamping
+ * only those would leave a dotted line with holes in it.
+ *
+ * <p>{@code drag.brush} walks in unrounded world coordinates, and only the stamp it produces is
+ * rounded to a cell — advancing a ROUNDED cursor would let rounding eat part of each step, and a
+ * step that doesn't shorten the remaining distance by the full spacing is a loop that might not
+ * end. The cursor keeps advancing across off-map stretches even though those stamp nothing, so
+ * dragging out over the pasteboard and back resumes painting on the far side.
+ */
+function extendPlaceStroke(drag, world) {
+  const spacing = brushSpacing(drag.radius);
+  let dx = world.x - drag.brush.x;
+  let dy = world.y - drag.brush.y;
+  let remaining = Math.hypot(dx, dy);
+  while (remaining >= spacing) {
+    drag.brush.x += dx / remaining * spacing;
+    drag.brush.y += dy / remaining * spacing;
+    stampPlaceStroke(drag, drag.brush.x, drag.brush.y);
+    dx = world.x - drag.brush.x;
+    dy = world.y - drag.brush.y;
+    remaining = Math.hypot(dx, dy);
+  }
+}
+
+/** Returns whether the stroke actually got committed — false for the "no item registered yet" bail
  * (toast only), so the mouseup handler knows not to mark the map dirty or push a no-op history
  * entry for a placement that never happened. */
-function commitPendingPatch() {
-  const tool = document.getElementById("map-tool").value; // guaranteed "ore"/"WATER"/"ROCK" — stamps commit on mousedown, never reach a "place" drag
+function commitPendingPatches() {
+  const tool = document.getElementById("map-tool").value; // guaranteed a plain placing tool — stamps commit on mousedown, never reach a "place" drag
+  // Copies, not the ghost objects themselves: the ghosts are cleared right after this, and handing
+  // the map's real array objects that something else still holds a reference to is how a "cleared"
+  // preview ends up mutating committed patches.
+  const shape = (p) => ({ cx: p.cx, cy: p.cy, radius: p.radius });
+  const ore = document.getElementById("map-ore-item").value;
+  if (!ore) {
+    toast(`Nothing for the ${tool} tool to place — add an item for it on the Items tab first`, true);
+    return false;
+  }
   if (tool === "ore") {
-    const ore = document.getElementById("map-ore-item").value;
-    if (!ore) {
-      toast("Add an item on the Items tab first", true);
-      return false;
-    }
-    // unshift (front = top priority), not push — see placeStamp's own comment on why. Auto-select
-    // the result so the new patch's exact position/radius is immediately visible and nudgeable in
-    // the inspector, instead of needing a second click to find what you just drew.
-    const patch = { cx: mapPendingPatch.cx, cy: mapPendingPatch.cy, radius: mapPendingPatch.radius, ore };
-    mapOrePatches.unshift(patch);
-    mapSelectedSet = [{ list: mapOrePatches, patch }];
+    // unshift (front = top priority), not push — see placeStamp's own comment on why; the stroke
+    // keeps its own painting order within that. Auto-select the result so the new patches' exact
+    // positions/radius are immediately visible and nudgeable in the inspector, instead of needing
+    // a second click to find what you just drew — a whole stroke selects as a group, so it can be
+    // nudged or deleted in one go.
+    const placed = mapPendingPatches.map((p) => ({ ...shape(p), ore }));
+    mapOrePatches.unshift(...placed);
+    mapSelectedSet = placed.map((patch) => ({ list: mapOrePatches, patch }));
   } else {
-    const patch = { cx: mapPendingPatch.cx, cy: mapPendingPatch.cy, radius: mapPendingPatch.radius, terrain: tool };
-    mapTerrainPatches.unshift(patch);
-    mapSelectedSet = [{ list: mapTerrainPatches, patch }];
+    const placed = mapPendingPatches.map((p) => ({ ...shape(p), terrain: ore }));
+    mapTerrainPatches.unshift(...placed);
+    mapSelectedSet = placed.map((patch) => ({ list: mapTerrainPatches, patch }));
   }
   return true;
 }
@@ -2212,6 +2788,28 @@ mapCanvasEl.addEventListener("mousedown", (e) => {
     return;
   }
   const world = worldFromEvent(e);
+  // Corner handles are checked BEFORE any patch hit test: they're drawn on top of the frame, which
+  // is drawn on top of the patches, and a handle sitting over a circle has to win the click it
+  // visually invites. Screen space, like the handles themselves — see selectionFrameRect.
+  const rect = mapCanvasEl.getBoundingClientRect();
+  const handle = selectionHandleAt(
+      (e.clientX - rect.left) / rect.width * mapCanvasEl.width,
+      (e.clientY - rect.top) / rect.height * mapCanvasEl.height);
+  if (handle) {
+    const bounds = selectionBounds();
+    const anchor = { x: mapView.offsetX + handle.anchorX / mapView.scale, y: mapView.offsetY + handle.anchorY / mapView.scale };
+    mapDrag = {
+      mode: "scale",
+      anchor,
+      bounds,
+      // Distance from the anchor to the corner actually grabbed — the denominator of the factor, so
+      // the very first mousemove reports 1x and the area doesn't jump the instant it's touched.
+      grabDistance: Math.max(0.001, Math.hypot(world.x - anchor.x, world.y - anchor.y)),
+      start: mapSelectedSet.map((s) => ({ patch: s.patch, cx: s.patch.cx, cy: s.patch.cy, radius: s.patch.radius })),
+    };
+    updateMapCursor();
+    return;
+  }
   const hit = hitTestPatch(world.x, world.y);
   // Shift+empty-space still pans; Shift+an-actual-patch toggles it in/out of the selection instead
   // (checked below, once hit is known) — the two never conflict, since they're on different targets.
@@ -2277,9 +2875,14 @@ mapCanvasEl.addEventListener("mousedown", (e) => {
     return;
   }
   deselectPatch();
-  const start = { x: clampCell(Math.round(world.x)), y: clampCell(Math.round(world.y)) };
-  mapDrag = { mode: "place", startWorld: start };
-  mapPendingPatch = { cx: start.x, cy: start.y, radius: currentRadius() };
+  // The radius is read ONCE, here, and stays fixed for the whole stroke — a drag now stamps copies
+  // of this patch (see extendPlaceStroke) instead of sizing one live. Resizing didn't disappear
+  // with it: the Radius field sets the size before you draw, and dragging an existing patch's edge
+  // still resizes that patch.
+  const radius = currentRadius();
+  mapDrag = { mode: "place", radius, brush: { x: world.x, y: world.y }, stamped: new Set() };
+  mapPendingPatches = [];
+  stampPlaceStroke(mapDrag, world.x, world.y); // the click itself is the stroke's first stamp — a click that never moves places exactly this one patch
   renderMapEditor();
 });
 
@@ -2293,6 +2896,7 @@ mapCanvasEl.addEventListener("mousemove", (e) => {
   updateMapCoordsReadout(world);
   mapHoverWorld = world;
   mapHoverPatch = isInsideMap(world.x, world.y) ? hitTestPatch(world.x, world.y) : null;
+  updateMapCursor(); // the cursor now depends on the hover position too — see its own comment on the scale handles
   renderMapEditor();
 });
 
@@ -2311,8 +2915,7 @@ window.addEventListener("mousemove", (e) => {
     mapView.offsetY = mapDrag.startOffsetY - (e.clientY - mapDrag.startClientY) / mapView.scale;
     clampView();
   } else if (mapDrag.mode === "place") {
-    const dist = Math.round(Math.hypot(world.x - mapDrag.startWorld.x, world.y - mapDrag.startWorld.y));
-    mapPendingPatch.radius = dist >= 1 ? dist : currentRadius();
+    extendPlaceStroke(mapDrag, world);
   } else if (mapDrag.mode === "move") {
     // Clamp the DELTA against the group's shared bounds, not each patch's new position on its
     // own — clamping per-patch let whichever one was closest to an edge stop first while the
@@ -2332,6 +2935,13 @@ window.addEventListener("mousemove", (e) => {
     }
   } else if (mapDrag.mode === "resize") {
     mapDrag.patch.radius = Math.max(1, Math.round(Math.hypot(world.x - mapDrag.center.x, world.y - mapDrag.center.y)));
+  } else if (mapDrag.mode === "scale") {
+    // Distance ratio, not a per-axis one: it behaves the same whichever corner was grabbed, and it
+    // has no discontinuity when the cursor crosses the anchor's own row or column. The floor keeps
+    // a drag through the anchor from collapsing the area onto a single cell.
+    const reach = Math.hypot(world.x - mapDrag.anchor.x, world.y - mapDrag.anchor.y);
+    const factor = Math.max(0.05, Math.min(reach / mapDrag.grabDistance, maxSelectionScale(mapDrag)));
+    applySelectionScale(mapDrag, factor);
   } else if (mapDrag.mode === "rubberband") {
     mapDrag.currentWorld = world;
   }
@@ -2377,7 +2987,7 @@ mapCanvasEl.addEventListener("wheel", (e) => {
     // deltaY's sign is what both a real Ctrl+wheel AND a trackpad pinch already use for "in"/"out"
     // (pinching out — spreading fingers — reports negative deltaY, same as scrolling up) — no
     // separate gesture-direction mapping needed beyond what zoomAt/the plain-scroll branch already do.
-    zoomAt(px, py, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+    zoomAt(px, py, wheelZoomFactor(e));
   } else {
     // Screen-pixel deltas straight off the event, converted through the current scale — matches the
     // WASD pan step's own conversion (see the keydown handler) so the two feel like the same camera
@@ -2419,8 +3029,8 @@ window.addEventListener("mouseup", () => {
   if (!mapDrag) return;
   const mode = mapDrag.mode;
   if (mode === "place") {
-    const committed = commitPendingPatch();
-    mapPendingPatch = null;
+    const committed = commitPendingPatches();
+    mapPendingPatches = [];
     if (committed) {
       markDirty("maps");
       pushMapHistory();
@@ -2436,6 +3046,14 @@ window.addEventListener("mouseup", () => {
     }
   } else if (mode === "resize") {
     if (mapDrag.patch.radius !== mapDrag.startRadius) {
+      markDirty("maps");
+      pushMapHistory();
+    }
+  } else if (mode === "scale") {
+    // Same "only if something actually changed" rule the move drag explains: grabbing a handle and
+    // letting go without moving is not an edit, and a history entry for it would eat a redo step.
+    const scaled = mapDrag.start.some((s) => s.patch.cx !== s.cx || s.patch.cy !== s.cy || s.patch.radius !== s.radius);
+    if (scaled) {
       markDirty("maps");
       pushMapHistory();
     }
@@ -2509,24 +3127,32 @@ document.getElementById("map-zoom-level").addEventListener("click", () => {
 document.getElementById("map-hover-toolbar-duplicate").innerHTML = icon("copy", 14);
 document.getElementById("map-hover-toolbar-delete").innerHTML = icon("trash", 14);
 
-// Both buttons act on currentHoverToolbarTarget (set by renderHoverToolbar, not re-derived here) —
-// selecting it first, even when it was already the hover target rather than the selection, keeps
-// duplicateSelectedPatches/deleteSelectedPatches as the ONE place that actually knows how to mutate
-// mapOrePatches/mapTerrainPatches and push history, instead of a second copy of that logic living here.
-document.getElementById("map-hover-toolbar-duplicate").addEventListener("click", () => {
+// Both buttons act on currentHoverToolbarTarget (set by renderHoverToolbar, not re-derived here),
+// through duplicateSelectedPatches/deleteSelectedPatches — the ONE place that knows how to mutate
+// mapOrePatches/mapTerrainPatches and push history, instead of a second copy of that logic here.
+// A "hover" target is selected first so those two have something to act on; a "selection" target
+// must NOT be, because selectPatch collapses a whole selection down to one patch — the pill would
+// then delete a single circle out of an area the user had just outlined and aimed this at.
+function actOnHoverToolbarTarget(act) {
   if (!currentHoverToolbarTarget) return;
-  selectPatch(currentHoverToolbarTarget.list, currentHoverToolbarTarget.patch);
-  duplicateSelectedPatches();
+  if (currentHoverToolbarTarget.kind === "hover") {
+    selectPatch(currentHoverToolbarTarget.list, currentHoverToolbarTarget.patch);
+  }
+  act();
+}
+
+document.getElementById("map-hover-toolbar-duplicate").addEventListener("click", () => {
+  actOnHoverToolbarTarget(duplicateSelectedPatches);
 });
 document.getElementById("map-hover-toolbar-delete").addEventListener("click", () => {
-  if (!currentHoverToolbarTarget) return;
-  selectPatch(currentHoverToolbarTarget.list, currentHoverToolbarTarget.patch);
-  // The patch this pill was showing for is about to stop existing — clear the hover reference to it
-  // explicitly rather than relying on next mousemove: renderHoverToolbar's own list.includes guard
-  // WOULD catch it either way, but only once something re-renders, and nothing does until the mouse
-  // actually moves again if the click came from a hover (not a selection).
-  mapHoverPatch = null;
-  deleteSelectedPatches();
+  actOnHoverToolbarTarget(() => {
+    // Whatever this pill was showing for is about to stop existing — clear the hover reference
+    // explicitly rather than relying on the next mousemove: renderHoverToolbar's own list.includes
+    // guard WOULD catch it either way, but only once something re-renders, and nothing does until
+    // the mouse actually moves again if the click came from a hover (not a selection).
+    mapHoverPatch = null;
+    deleteSelectedPatches();
+  });
 });
 
 // Moving from the canvas onto this floating pill fires the canvas's own "mouseleave" (see its
@@ -2555,7 +3181,7 @@ document.addEventListener("keydown", (e) => {
   if (activeTab() !== "maps") return;
   const tag = document.activeElement.tagName;
   const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
-  if (e.key === "Escape" && (mapDrag || mapPendingPatch)) {
+  if (e.key === "Escape" && (mapDrag || mapPendingPatches.length > 0)) {
     // A "place"/"rubberband" drag never writes into an actual patch object until mouseup (see that
     // handler) — dropping the in-progress state is enough to cancel those. "pan"/"move"/"resize"
     // mutate real, already-committed state LIVE on every mousemove, so cancelling has to put it
@@ -2570,9 +3196,15 @@ document.addEventListener("keydown", (e) => {
       }
     } else if (mapDrag && mapDrag.mode === "resize") {
       mapDrag.patch.radius = mapDrag.startRadius;
+    } else if (mapDrag && mapDrag.mode === "scale") {
+      for (const start of mapDrag.start) {
+        start.patch.cx = start.cx;
+        start.patch.cy = start.cy;
+        start.patch.radius = start.radius;
+      }
     }
     mapDrag = null;
-    mapPendingPatch = null;
+    mapPendingPatches = [];
     updateMapCursor();
     renderMapEditor();
     return;
@@ -2753,10 +3385,11 @@ window.addEventListener("mouseup", () => {
 
 /* ---- selected-patch inspector: type-in editing instead of drag-only ---- */
 
-// These four fields only ever show/act when EXACTLY one patch is selected (renderPatchInspector
-// hides #patch-inspector-single otherwise), so mapSelectedSet[0] is safe wherever mapSelectedSet
-// itself isn't empty; the length check alone guards against a stray change event firing after the
-// selection changed to 0 or many between focus and blur.
+// X and Y only ever show/act when EXACTLY one patch is selected (renderPatchInspector hides
+// #patch-inspector-position otherwise), so mapSelectedSet[0] is safe wherever mapSelectedSet itself
+// isn't empty; the length check alone guards against a stray change event firing after the
+// selection changed to 0 or many between focus and blur. Type/Radius/Item below act on the whole
+// selection, however big it is — see convertSelectionTo and its two neighbors.
 document.getElementById("patch-cx").addEventListener("change", (e) => {
   if (mapSelectedSet.length !== 1) return;
   mapSelectedSet[0].patch.cx = clampCell(Math.round(Number(e.target.value)) || 0);
@@ -2774,19 +3407,19 @@ document.getElementById("patch-cy").addEventListener("change", (e) => {
 });
 
 document.getElementById("patch-radius").addEventListener("change", (e) => {
-  if (mapSelectedSet.length !== 1) return;
-  mapSelectedSet[0].patch.radius = Math.max(1, Math.round(Number(e.target.value)) || 1);
-  markDirty("maps");
-  pushMapHistory();
-  renderMapEditor();
+  // Empty means the field is showing its "mixed" placeholder and the user tabbed straight back out
+  // of it — leaving several different radii alone is the right answer there, not collapsing them
+  // all onto 1 because Number("") is 0.
+  if (e.target.value.trim() === "") return;
+  resizeSelectedPatches(Math.max(1, Math.round(Number(e.target.value)) || 1));
+});
+
+document.getElementById("patch-type").addEventListener("change", (e) => {
+  convertSelectionTo(e.target.value);
 });
 
 document.getElementById("patch-ore-item").addEventListener("change", (e) => {
-  if (mapSelectedSet.length !== 1) return;
-  mapSelectedSet[0].patch.ore = e.target.value;
-  markDirty("maps");
-  pushMapHistory();
-  renderMapEditor();
+  setSelectedPatchesOre(e.target.value);
 });
 
 document.getElementById("patch-duplicate").addEventListener("click", duplicateSelectedPatches);
@@ -2828,12 +3461,12 @@ function fillMap(body) {
   mapTerrainPatches = (body.terrainPatches || []).map((p) => ({ ...p }));
   mapSelectedSet = [];
   mapDrag = null;
-  mapPendingPatch = null;
+  mapPendingPatches = [];
   // Otherwise a layer hidden on one map stays hidden (with no visible cue why) on the NEXT map you
   // open — the patch count would say "12 ore patches" while the canvas/list quietly show none.
   if (!mapLayerVisible.ore) toggleLayer("ore");
   if (!mapLayerVisible.terrain) toggleLayer("terrain");
-  resetView();
+  defaultView(); // opening a map is the editor setting the camera itself — see defaultView vs resetView
   resetMapHistory();
   renderMapEditor();
 }

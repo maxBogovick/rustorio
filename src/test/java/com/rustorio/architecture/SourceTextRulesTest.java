@@ -44,7 +44,7 @@ class SourceTextRulesTest {
      * content, taking its own heavily-cited javadoc with it, and {@code Research}/{@code
      * ResearchView} were rewritten around ids in the same move.
      */
-    private static final int DOC_ID_CITATION_BASELINE = 693;
+    private static final int DOC_ID_CITATION_BASELINE = 708;
 
     /**
      * Explicit types are the rule; these are the exceptions that survived review. A new one is not

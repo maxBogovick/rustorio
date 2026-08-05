@@ -49,9 +49,16 @@ class WorldStateHashDeterminismTest {
      * WorldReplayTest#EXPECTED_HASH}'s latest entry — {@code canonicalState} now prints each
      * building's own state record directly instead of the old {@code BuildingMemento} wrapper.
      * Format change, not a behavior one.
+     *
+     * <p>Updated again (terrain became content): {@code canonicalState} walks every registered
+     * vanilla item, and {@code VanillaItems} gained {@code water}/{@code rock} — the two obstacle
+     * kinds that used to be {@code Terrain} enum constants. Both are always produced 0 times, so
+     * the dump gained two constant {@code =0;} entries and nothing else. Verified, not assumed:
+     * deleting exactly those two entries from the new dump reproduces the PREVIOUS baseline hash
+     * byte for byte. Format change, not a behavior one.
      */
     private static final String EXPECTED_HASH =
-            "114e4b99d410d78aabe4e4e9467c55fb783827d97d28a47bb8df37d5b8b9eda7";
+            "c0b85b5429ae856e26645820cfcc7f9883304e8d07de4d52fd7876188445817e";
 
     @Test
     void sameSceneHashedTwiceInOneJvmLaunchProducesIdenticalHash() {

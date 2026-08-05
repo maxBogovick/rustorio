@@ -24,7 +24,8 @@ public final class AuthoredOreLayout implements OreLayout {
     private final int width;
     private final int height;
     private final @Nullable ItemType[] grid;
-    private final Terrain[] terrainGrid;
+    /** Null means plain ground — see {@link OreLayout#terrainAt}. */
+    private final @Nullable ItemType[] terrainGrid;
     /** Calls to {@link #extract} per cell so far, parallel to {@link #grid} — see {@link OreDepletion}. */
     private final int[] extractedCount;
 
@@ -34,8 +35,7 @@ public final class AuthoredOreLayout implements OreLayout {
         this.height = PatchOreLayout.STANDARD_HEIGHT;
         this.grid = new ItemType[width * height];
         this.extractedCount = new int[width * height];
-        this.terrainGrid = new Terrain[width * height];
-        Arrays.fill(terrainGrid, Terrain.GROUND);
+        this.terrainGrid = new ItemType[width * height]; // all null = all plain ground, no fill needed
 
         for (OrePatch patch : map.orePatches()) {
             rasterizeOre(patch);
@@ -127,10 +127,10 @@ public final class AuthoredOreLayout implements OreLayout {
     }
 
     @Override
-    public Terrain terrainAt(int x, int y) {
+    public Optional<ItemType> terrainAt(int x, int y) {
         if (x < 0 || y < 0 || x >= width || y >= height) {
-            return Terrain.ROCK; // fail closed — off the generated grid entirely, never buildable
+            return Optional.of(VanillaItems.ROCK); // fail closed — off the generated grid entirely, never buildable
         }
-        return terrainGrid[y * width + x];
+        return Optional.ofNullable(terrainGrid[y * width + x]);
     }
 }

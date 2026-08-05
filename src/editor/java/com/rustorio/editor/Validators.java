@@ -6,6 +6,7 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.ItemShape;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -22,6 +23,24 @@ import java.util.Set;
 final class Validators {
 
     private static final Set<String> PLACEMENT_RULES = Set.of("ALWAYS", "NEEDS_ORE", "NEEDS_PASSABLE_TERRAIN");
+
+    /**
+     * Which map-editor tool offers an item ({@code "tool"}, optional — an item without it counts as
+     * an ore exactly when no recipe produces it, see the editor's own oreItemPool). {@code "water"}
+     * and {@code "rock"} put it in the terrain tools' own lists, which became real lists once
+     * terrain stopped being a closed enum and started naming items like ore already did (see
+     * {@code com.rustorio.mod.MapJsonLoader}); {@code "none"} keeps it off the map entirely.
+     *
+     * <p>Authoring metadata only: {@code com.rustorio.mod.ItemJsonLoader} reads five fields and
+     * ignores everything else, so the game itself never reads this one — what an item DOES on a map
+     * is decided by the patch that names it, not by this field.
+     *
+     * <p>A {@link java.util.List}, not a {@link Set} like {@link #PLACEMENT_RULES} above: this one
+     * gets printed into the 400 message below, and {@code Set.of}'s iteration order is randomized
+     * per JVM run — the same rejected value would list its options in a different order every time
+     * the editor restarts.
+     */
+    private static final List<String> ITEM_TOOLS = List.of("ore", "water", "rock", "none");
 
     private Validators() {
     }
@@ -42,6 +61,11 @@ final class Validators {
         JsonNode researchGrade = body.get("researchGrade");
         if (researchGrade != null && !researchGrade.isNull() && !researchGrade.isBoolean()) {
             throw new ApiException(400, "researchGrade must be a boolean");
+        }
+        JsonNode tool = body.get("tool");
+        if (tool != null && !tool.isNull() && (!tool.isTextual() || !ITEM_TOOLS.contains(tool.asText()))) {
+            throw new ApiException(400, "unknown tool \"" + tool.asText() + "\" (expected one of " + ITEM_TOOLS
+                    + ", or no 'tool' field at all — an item without one counts as an ore exactly when no recipe makes it)");
         }
     }
 
@@ -93,8 +117,6 @@ final class Validators {
         EditorJson.requireLabel(body, "label");
     }
 
-    private static final Set<String> PAINTABLE_TERRAIN = Set.of("WATER", "ROCK");
-
     /**
      * Per-field checks for a map's own {@code orePatches}/{@code terrainPatches} circles — whether
      * an {@code ore} reference actually names a registered item is, like a recipe's {@code kind},
@@ -129,11 +151,13 @@ final class Validators {
                 if (!patch.hasNonNull("ore") || !patch.get("ore").isTextual()) {
                     throw new ApiException(400, "every entry of 'orePatches' must have a string 'ore' item reference");
                 }
-            } else {
-                String terrain = patch.path("terrain").asText("");
-                if (!PAINTABLE_TERRAIN.contains(terrain)) {
-                    throw new ApiException(400, "unknown terrain \"" + terrain + "\" (expected one of " + PAINTABLE_TERRAIN + ")");
-                }
+            } else if (!patch.hasNonNull("terrain") || !patch.get("terrain").isTextual()) {
+                // A content reference now, not one of two enum names — so this is the same
+                // shape-only check the 'ore' branch above gets, and whether the reference names
+                // something that exists is left to ValidateHandler's real ModLoader.loadAll pass
+                // (see this method's own javadoc). The old closed list would now reject every
+                // legitimate modded terrain.
+                throw new ApiException(400, "every entry of 'terrainPatches' must have a string 'terrain' item reference");
             }
         }
     }

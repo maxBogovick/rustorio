@@ -6,7 +6,6 @@ import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.OreLayoutId;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.Terrain;
 import com.rustorio.domain.building.Belt;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.world.World;
@@ -183,8 +182,8 @@ public final class Benchmark {
         }
 
         @Override
-        public Terrain terrainAt(int x, int y) {
-            return Terrain.GROUND;
+        public java.util.Optional<ItemType> terrainAt(int x, int y) {
+            return java.util.Optional.empty();
         }
 
         @Override

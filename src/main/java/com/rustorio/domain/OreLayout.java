@@ -47,12 +47,19 @@ public interface OreLayout {
     /** Which map this is — see {@link OreLayoutId} for why a save needs to know. */
     OreLayoutId id();
 
-    /** What kind of ground lies under cell {@code (x, y)} — see {@link Terrain}. Must be deterministic and never mutate state. */
-    Terrain terrainAt(int x, int y);
+    /**
+     * What lies on cell {@code (x, y)} as terrain — see {@link TerrainPatch}. Empty means plain,
+     * buildable ground, which is what a cell is when no terrain patch claims it.
+     *
+     * <p>Empty rather than a {@code GROUND} constant because terrain stopped being a closed enum:
+     * with any item namable as terrain, "no obstacle here" is not one of the values a mod could
+     * supply, it's the absence of all of them. Must be deterministic and never mutate state.
+     */
+    Optional<ItemType> terrainAt(int x, int y);
 
     /** Whether a building may stand on {@code (x, y)} at all, terrain-wise — {@code PlacementRule} is the one caller. */
     default boolean isPassable(int x, int y) {
-        return terrainAt(x, y).isPassable();
+        return terrainAt(x, y).isEmpty();
     }
 
     /**

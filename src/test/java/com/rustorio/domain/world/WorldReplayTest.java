@@ -165,7 +165,13 @@ class WorldReplayTest {
     // (kind/prototypeId included) either moved onto the new record unchanged or became genuinely
     // redundant with the outer save envelope (see BuildingPrototype/VanillaBuildings javadoc) —
     // no production/research/placement logic changed.
-    private static final String EXPECTED_HASH = "9e7651e659b2311d76e2e50e4861b719fecbb5b99455cf177a1009987d7c1825";
+    //
+    // Updated again (terrain became content): canonicalState() walks every registered vanilla item,
+    // and VanillaItems gained water/rock — the two obstacle kinds that used to be Terrain enum
+    // constants. Nothing produces either, so the dump gained exactly two constant "=0;" entries.
+    // Verified rather than assumed: deleting those two entries from the new dump reproduces the
+    // previous baseline hash byte for byte. Format change, not a behavior one.
+    private static final String EXPECTED_HASH = "99a7298746698f5e389dc6d66eedcd5add9833ced2d2b0f3b0dbbba8e2d43c49";
 
     @Test
     void factoryStateAfterFixedTicksMatchesRecordedBaseline() {

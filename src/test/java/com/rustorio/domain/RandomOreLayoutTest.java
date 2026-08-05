@@ -86,9 +86,9 @@ class RandomOreLayoutTest {
         boolean sawRock = false;
         for (int x = 0; x < 96; x++) {
             for (int y = 0; y < 64; y++) {
-                Terrain terrain = a.terrainAt(x, y);
-                sawWater |= terrain == Terrain.WATER;
-                sawRock |= terrain == Terrain.ROCK;
+                Optional<ItemType> terrain = a.terrainAt(x, y);
+                sawWater |= terrain.equals(Optional.of(VanillaItems.WATER));
+                sawRock |= terrain.equals(Optional.of(VanillaItems.ROCK));
                 assertEquals(terrain, b.terrainAt(x, y), "same seed must roll the same terrain too, not just the same ore");
             }
         }

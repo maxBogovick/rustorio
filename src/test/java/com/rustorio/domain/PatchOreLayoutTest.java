@@ -76,8 +76,8 @@ class PatchOreLayoutTest {
     void standardMapHasWaterAndRockObstacles() {
         PatchOreLayout layout = PatchOreLayout.standard();
 
-        assertEquals(Terrain.WATER, layout.terrainAt(130, 90));
-        assertEquals(Terrain.ROCK, layout.terrainAt(210, 150));
+        assertEquals(Optional.of(VanillaItems.WATER), layout.terrainAt(130, 90));
+        assertEquals(Optional.of(VanillaItems.ROCK), layout.terrainAt(210, 150));
         assertTrue(layout.isPassable(6, 5), "the known iron ore cell must remain buildable ground");
     }
 

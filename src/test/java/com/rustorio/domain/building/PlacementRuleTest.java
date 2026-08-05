@@ -5,7 +5,6 @@ import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.OreLayoutId;
-import com.rustorio.domain.Terrain;
 import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -27,7 +26,7 @@ class PlacementRuleTest {
         return VanillaBuildings.frozen().get(VanillaBuildings.idFor(type)).placementRule();
     }
 
-    private static OreLayout layoutAt(int atX, int atY, Terrain terrain, @Nullable ItemType ore) {
+    private static OreLayout layoutAt(int atX, int atY, @Nullable ItemType terrain, @Nullable ItemType ore) {
         return new OreLayout() {
             @Override
             public Optional<ItemType> oreAt(int x, int y) {
@@ -45,8 +44,8 @@ class PlacementRuleTest {
             }
 
             @Override
-            public Terrain terrainAt(int x, int y) {
-                return x == atX && y == atY ? terrain : Terrain.GROUND;
+            public Optional<ItemType> terrainAt(int x, int y) {
+                return x == atX && y == atY ? Optional.ofNullable(terrain) : Optional.empty();
             }
 
             @Override
@@ -63,8 +62,8 @@ class PlacementRuleTest {
 
     @Test
     void mostBuildingsRefuseWaterOrRock() {
-        OreLayout water = layoutAt(0, 0, Terrain.WATER, null);
-        OreLayout rock = layoutAt(0, 0, Terrain.ROCK, null);
+        OreLayout water = layoutAt(0, 0, VanillaItems.WATER, null);
+        OreLayout rock = layoutAt(0, 0, VanillaItems.ROCK, null);
 
         for (BuildingType type : BuildingType.values()) {
             if (type == BuildingType.UNDERGROUND_IN || type == BuildingType.UNDERGROUND_OUT) {
@@ -77,7 +76,7 @@ class PlacementRuleTest {
 
     @Test
     void mostBuildingsAcceptPassableGroundRegardlessOfOre() {
-        OreLayout bareGround = layoutAt(0, 0, Terrain.GROUND, null);
+        OreLayout bareGround = layoutAt(0, 0, null, null);
 
         for (BuildingType type : BuildingType.values()) {
             if (type == BuildingType.MINER) {
@@ -89,8 +88,8 @@ class PlacementRuleTest {
 
     @Test
     void tunnelsIgnoreTerrainEntirely() {
-        OreLayout water = layoutAt(0, 0, Terrain.WATER, null);
-        OreLayout rock = layoutAt(0, 0, Terrain.ROCK, null);
+        OreLayout water = layoutAt(0, 0, VanillaItems.WATER, null);
+        OreLayout rock = layoutAt(0, 0, VanillaItems.ROCK, null);
 
         assertTrue(ruleFor(BuildingType.UNDERGROUND_IN).test(0, 0, water));
         assertTrue(ruleFor(BuildingType.UNDERGROUND_OUT).test(0, 0, rock));
@@ -98,9 +97,9 @@ class PlacementRuleTest {
 
     @Test
     void minerNeedsBothPassableTerrainAndOre() {
-        OreLayout groundWithOre = layoutAt(0, 0, Terrain.GROUND, VanillaItems.IRON_ORE);
-        OreLayout groundNoOre = layoutAt(0, 0, Terrain.GROUND, null);
-        OreLayout waterWithOre = layoutAt(0, 0, Terrain.WATER, VanillaItems.IRON_ORE);
+        OreLayout groundWithOre = layoutAt(0, 0, null, VanillaItems.IRON_ORE);
+        OreLayout groundNoOre = layoutAt(0, 0, null, null);
+        OreLayout waterWithOre = layoutAt(0, 0, VanillaItems.WATER, VanillaItems.IRON_ORE);
 
         assertTrue(ruleFor(BuildingType.MINER).test(0, 0, groundWithOre));
         assertFalse(ruleFor(BuildingType.MINER).test(0, 0, groundNoOre),

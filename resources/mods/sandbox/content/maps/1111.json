@@ -1,0 +1,206 @@
+{
+  "path" : "1111",
+  "label" : "1111",
+  "orePatches" : [ {
+    "cx" : 48,
+    "cy" : 21,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 51,
+    "cy" : 22,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 46,
+    "cy" : 23,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 50,
+    "cy" : 19,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 45,
+    "cy" : 20,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 39,
+    "cy" : 47,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 42,
+    "cy" : 48,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 37,
+    "cy" : 49,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 41,
+    "cy" : 45,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 36,
+    "cy" : 46,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 24,
+    "cy" : 31,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 27,
+    "cy" : 32,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 22,
+    "cy" : 33,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 26,
+    "cy" : 29,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 21,
+    "cy" : 30,
+    "radius" : 3,
+    "ore" : "rustorio:iron_ore"
+  }, {
+    "cx" : 53,
+    "cy" : 34,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 56,
+    "cy" : 35,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 51,
+    "cy" : 36,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 55,
+    "cy" : 32,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 50,
+    "cy" : 33,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 43,
+    "cy" : 33,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 46,
+    "cy" : 34,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 41,
+    "cy" : 35,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 45,
+    "cy" : 31,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 40,
+    "cy" : 32,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 36,
+    "cy" : 21,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 39,
+    "cy" : 22,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 34,
+    "cy" : 23,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 38,
+    "cy" : 19,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 33,
+    "cy" : 20,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 21,
+    "cy" : 58,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 24,
+    "cy" : 59,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 19,
+    "cy" : 60,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 23,
+    "cy" : 56,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 18,
+    "cy" : 57,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 19,
+    "cy" : 49,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 22,
+    "cy" : 50,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 17,
+    "cy" : 51,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 21,
+    "cy" : 47,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  }, {
+    "cx" : 16,
+    "cy" : 48,
+    "radius" : 3,
+    "ore" : "rustorio:coal"
+  } ],
+  "terrainPatches" : [ ]
+}

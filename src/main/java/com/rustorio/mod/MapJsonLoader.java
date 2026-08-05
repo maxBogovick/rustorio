@@ -6,7 +6,6 @@ import com.rustorio.api.mod.RegistrationContext;
 import com.rustorio.domain.AuthoredMap;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OrePatch;
-import com.rustorio.domain.Terrain;
 import com.rustorio.domain.TerrainPatch;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -18,19 +17,30 @@ import java.util.Map;
  * own {@link ContentId} path) and two optional circle-patch arrays, {@code orePatches} ({@code cx},
  * {@code cy}, {@code radius}, {@code ore} — an item reference, same bare/namespaced convention as
  * {@link BuildingJsonLoader}'s {@code cost.item}) and {@code terrainPatches} ({@code cx}, {@code
- * cy}, {@code radius}, {@code terrain} — {@code "WATER"} or {@code "ROCK"}; {@code "GROUND"} is
- * never painted, it's simply what a cell is when no patch claims it, exactly like {@link
- * com.rustorio.domain.PatchOreLayout}'s own hardcoded map).
+ * cy}, {@code radius}, {@code terrain} — an item reference, same convention as {@code ore};
+ * a cell with no patch over it is plain ground, which is not something a patch ever names, exactly
+ * like {@link com.rustorio.domain.PatchOreLayout}'s own hardcoded map).
  *
- * <p>Loaded AFTER items (see {@link ContentJsonLoader}): an ore patch's {@code ore} reference is
- * resolved and validated immediately, against the items already registered so far, the same way
+ * <p>Loaded AFTER items (see {@link ContentJsonLoader}): a patch's {@code ore}/{@code terrain}
+ * reference is resolved and validated immediately, against the items already registered so far, the same way
  * {@link BuildingJsonLoader#resolveItem} validates a building's cost item — a map naming an unknown
  * item fails to load with the file and field named, not silently at some later, harder-to-trace
  * point.
  */
 final class MapJsonLoader {
 
-    private static final Map<String, Terrain> PAINTABLE_TERRAIN = Map.of("WATER", Terrain.WATER, "ROCK", Terrain.ROCK);
+    /**
+     * The two names terrain used to be spelled with, back when it was a closed enum, mapped onto
+     * the vanilla items that replaced them. Every map file written before terrain became content
+     * says {@code "WATER"} / {@code "ROCK"} — including the ones checked into this repository — and
+     * they keep loading unchanged; the alternative was rewriting map files nobody asked to change
+     * and breaking every mod already published against the old spelling.
+     *
+     * <p>Same shape of legacy shortcut {@code RecipeJsonLoader.resolveKind} already keeps for
+     * uppercase {@code BuildingType} names, and it can't collide with a real reference: a content
+     * id is lowercase (see {@code ContentId}), so {@code "WATER"} could never have named one.
+     */
+    private static final Map<String, String> LEGACY_TERRAIN_NAMES = Map.of("WATER", "rustorio:water", "ROCK", "rustorio:rock");
 
     private MapJsonLoader() {
     }
@@ -50,7 +60,7 @@ final class MapJsonLoader {
 
             List<TerrainPatch> terrainPatches = new ArrayList<>();
             for (JsonNode patchNode : optionalArray(root, "terrainPatches", file)) {
-                Terrain terrain = parseTerrain(JsonNodes.requireText(patchNode, "terrain", file), file);
+                ItemType terrain = resolveTerrain(JsonNodes.requireText(patchNode, "terrain", file), modId, context, file);
                 terrainPatches.add(new TerrainPatch(JsonNodes.requireInt(patchNode, "cx", file), JsonNodes.requireInt(patchNode, "cy", file),
                         requirePositiveRadius(patchNode, file), terrain));
             }
@@ -80,12 +90,16 @@ final class MapJsonLoader {
         return radius;
     }
 
-    private static Terrain parseTerrain(String text, Path file) {
-        Terrain terrain = PAINTABLE_TERRAIN.get(text);
-        if (terrain == null) {
-            throw new ModLoadException(file + ": unknown 'terrain' \"" + text + "\" (expected one of " + PAINTABLE_TERRAIN.keySet() + ")");
-        }
-        return terrain;
+    /**
+     * A terrain patch's {@code terrain}: an item reference, resolved exactly like an ore patch's
+     * own {@code ore} (bare = this mod, or {@code "namespace:path"}), with {@link
+     * #LEGACY_TERRAIN_NAMES} translated first so pre-existing map files keep loading.
+     */
+    private static ItemType resolveTerrain(String ref, ModId modId, RegistrationContext context, Path file) {
+        String resolved = LEGACY_TERRAIN_NAMES.getOrDefault(ref, ref);
+        ContentId id = resolveRef(resolved, modId);
+        return context.items().peek(id).orElseThrow(() ->
+                new ModLoadException(file + ": terrain patch references unknown item '" + id + "'"));
     }
 
     private static ItemType resolveItem(String ref, ModId modId, RegistrationContext context, Path file) {
