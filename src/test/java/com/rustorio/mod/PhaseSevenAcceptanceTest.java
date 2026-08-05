@@ -43,7 +43,8 @@ import org.junit.jupiter.api.io.TempDir;
 class PhaseSevenAcceptanceTest {
 
     private static final Path RUSTORIO_MOD_DIR = Path.of("resources", "mods", "rustorio");
-    private static final Path EXAMPLE_MOD_SOURCE = Path.of("src", "test", "resources", "mods", "examplemod");
+    /** The shipped example mod, in the place a modder actually looks — and continuously verified by this test rather than left to rot. */
+    private static final Path EXAMPLE_MOD_SOURCE = Path.of("examples", "examplemod");
 
     @Test
     void newOreAndRecipeDriveARealDataConfiguredBuildingThroughARealRecipe(@TempDir Path tempDir) throws IOException {

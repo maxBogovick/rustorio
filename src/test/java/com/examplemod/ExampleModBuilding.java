@@ -1,5 +1,6 @@
 package com.examplemod;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.VanillaSprites;
@@ -28,6 +29,12 @@ final class ExampleModBuilding implements Building {
         // Borrows a vanilla kind — a real mod would register its own via BuildingPrototype once
         // BuildingFactory.create/restore's own dispatch opens up (E5-07), not this card's job.
         return BuildingType.CHEST;
+    }
+
+    /** Its own namespaced id, not the vanilla chest's — a mod's class naming a vanilla prototype is the very confusion {@link Building#prototypeId} stopped defaulting to. */
+    @Override
+    public ContentId prototypeId() {
+        return ContentId.of("examplemod:stand_in");
     }
 
     @Override

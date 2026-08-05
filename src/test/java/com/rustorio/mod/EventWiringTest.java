@@ -10,7 +10,7 @@ import com.rustorio.api.mod.ResearchCompleteEvent;
 import com.rustorio.api.mod.TickEvent;
 import com.rustorio.api.mod.WorldInitEvent;
 import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaTechs;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.world.World;
@@ -102,14 +102,19 @@ class EventWiringTest {
         List<ResearchCompleteEvent> received = new ArrayList<>();
         events.subscribe(ResearchCompleteEvent.class, received::add);
 
-        boolean refused = world.tryUnlockTech(Tech.FAST_MINING);
+        boolean refused = world.tryUnlockTech(VanillaTechs.FAST_MINING);
         assertFalse(refused, "no research points banked yet — this attempt must be refused");
         assertTrue(received.isEmpty(), "a refused unlock attempt must not publish an event");
 
-        world.addResearchPoints(Tech.FAST_MINING.cost());
-        boolean unlocked = world.tryUnlockTech(Tech.FAST_MINING);
+        world.addResearchPoints(costOf(VanillaTechs.FAST_MINING));
+        boolean unlocked = world.tryUnlockTech(VanillaTechs.FAST_MINING);
 
         assertTrue(unlocked);
-        assertEquals(List.of(new ResearchCompleteEvent(Tech.FAST_MINING)), received);
+        assertEquals(List.of(new ResearchCompleteEvent(VanillaTechs.FAST_MINING)), received);
+    }
+
+    /** A vanilla technology's price, read from the registry the game itself researches through. */
+    private static int costOf(com.rustorio.api.content.ContentId tech) {
+        return VanillaTechs.frozen().get(tech).cost();
     }
 }

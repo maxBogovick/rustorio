@@ -7,8 +7,8 @@ import com.badlogic.gdx.ScreenAdapter;
 import com.graphics.render.MenuLayout;
 import com.graphics.render.MenuRenderer;
 import com.rustorio.domain.AuthoredMap;
+import com.rustorio.game.GameBootstrap;
 import com.rustorio.mod.LoadedGame;
-import com.rustorio.persistence.JsonSaveRepository;
 import com.rustorio.persistence.SaveResult;
 import com.rustorio.persistence.SaveSlotInfo;
 import com.rustorio.persistence.SaveSlots;
@@ -53,17 +53,27 @@ public final class MainMenuScreen extends ScreenAdapter {
     private List<Runnable> actions = List.of();
     private int selectedIndex = 0;
     private @Nullable String status;
+    private boolean disposed;
 
     public MainMenuScreen(Game game, LoadedGame loadedGame, List<Path> modDirectories) {
         this.game = game;
         this.loadedGame = loadedGame;
         this.modDirectories = modDirectories;
         enterRoot();
+        // После enterRoot: он сбрасывает status в null, а пропущенные моды игрок должен увидеть
+        // на первом же экране. Раньше сломанный мод просто ронял игру со стек-трейсом.
+        this.status = MenuStatus.skippedMods(loadedGame.skippedMods());
     }
 
     @Override
     public void render(float delta) {
         handleInput();
+        // handleInput may have started a game (New Game/Load/Continue), which disposes our renderer
+        // and switches screens — but we are still inside this frame's render() call, so drawing now
+        // would flush a SpriteBatch whose GPU buffers are already freed ("No buffer allocated!").
+        if (disposed) {
+            return;
+        }
         renderer.render(title(), items, selectedIndex, hoverIndex(), status);
     }
 
@@ -76,6 +86,10 @@ public final class MainMenuScreen extends ScreenAdapter {
 
     @Override
     public void dispose() {
+        if (disposed) { // startGame calls this explicitly; guard keeps a stray second call from double-freeing
+            return;
+        }
+        disposed = true;
         renderer.dispose();
     }
 
@@ -191,7 +205,7 @@ public final class MainMenuScreen extends ScreenAdapter {
             status = "Cannot load \"" + slot.name() + "\": unknown or removed map.";
             return;
         }
-        SaveResult result = candidate.loadFrom(new JsonSaveRepository(saveSlots.pathFor(slot.name()), loadedGame.items()));
+        SaveResult result = candidate.loadFrom(GameBootstrap.saves(loadedGame, saveSlots.pathFor(slot.name())));
         if (result instanceof SaveResult.Failure failure) {
             candidate.dispose();
             status = "Load failed: " + failure.reason();

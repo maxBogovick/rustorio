@@ -5,12 +5,14 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.ResearchView;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.TechType;
+import java.util.List;
 import java.util.StringJoiner;
 
 /**
- * Tech tree: a translucent panel listing every {@link Tech}, its cost, its prerequisites, and
+ * Tech tree: a translucent panel listing every {@link TechType}, its cost, its prerequisites, and
  * whether it's unlocked, affordable-but-locked-behind-a-prerequisite, or actually unlockable right
  * now — opened and closed with T ({@code com.graphics.input.InputHandler}), which also reads
  * digits 1-9 while this is open to actually spend points on one (P-02, DEV_TASKS.md).
@@ -37,10 +39,12 @@ final class TechTreeRenderer {
     }
 
     void render(ResearchView research) {
-        Tech[] techs = Tech.values();
+        // Живой реестр, а не фиксированный ванильный список: панель, обходящая
+        // встроенные технологии, молча не показала бы ни одной модовой.
+        List<TechType> techs = research.techs().iterate();
         int screenW = Gdx.graphics.getWidth();
         int screenH = Gdx.graphics.getHeight();
-        float panelH = PADDING * 2 + TITLE_HEIGHT + ROW_HEIGHT * techs.length;
+        float panelH = PADDING * 2 + TITLE_HEIGHT + ROW_HEIGHT * techs.size();
         float panelX = (screenW - PANEL_WIDTH) / 2f;
         float panelY = (screenH - panelH) / 2f;
         float firstRowY = panelY + panelH - PADDING - TITLE_HEIGHT;
@@ -63,8 +67,8 @@ final class TechTreeRenderer {
 
         font.getData().setScale(0.8f);
         float y = firstRowY;
-        for (int i = 0; i < techs.length; i++) {
-            Tech tech = techs[i];
+        for (int i = 0; i < techs.size(); i++) {
+            TechType tech = techs.get(i);
             font.setColor(rowColor(research, tech));
             font.draw(batch, describe(research, tech, i + 1), panelX + PADDING, y);
             y -= ROW_HEIGHT;
@@ -75,30 +79,33 @@ final class TechTreeRenderer {
     }
 
     /** Green — unlocked. White — unlockable right now (afford it, prerequisites met). Hint-grey — still locked. */
-    private static Color rowColor(ResearchView research, Tech tech) {
-        if (research.isUnlocked(tech)) {
+    private static Color rowColor(ResearchView research, TechType tech) {
+        if (research.isUnlocked(tech.id())) {
             return Palette.WORKING;
         }
         return isUnlockableNow(research, tech) ? Color.WHITE : Palette.HINT;
     }
 
-    private static boolean isUnlockableNow(ResearchView research, Tech tech) {
+    private static boolean isUnlockableNow(ResearchView research, TechType tech) {
         return research.points() >= tech.cost() && research.unlocked().containsAll(tech.prerequisites());
     }
 
     /** "[3] Big buffers  35 pts  (needs: Fast mining)  — UNLOCKED" and similar, one line per tech. */
-    private static String describe(ResearchView research, Tech tech, int hotkey) {
+    private static String describe(ResearchView research, TechType tech, int hotkey) {
         StringBuilder line = new StringBuilder();
         line.append('[').append(hotkey).append("] ").append(tech.label())
                 .append("  ").append(tech.cost()).append(" pts");
         if (!tech.prerequisites().isEmpty()) {
             StringJoiner names = new StringJoiner(", ");
-            for (Tech prerequisite : tech.prerequisites()) {
-                names.add(prerequisite.label());
+            for (ContentId prerequisite : tech.prerequisites()) {
+                // Подпись, если технология-предшественник существует; иначе сам id —
+                // мод мог назвать чужую технологию, которой в этой сборке нет.
+                names.add(research.techs().peek(prerequisite)
+                        .map(TechType::label).orElseGet(prerequisite::toString));
             }
             line.append("  (needs: ").append(names).append(')');
         }
-        if (research.isUnlocked(tech)) {
+        if (research.isUnlocked(tech.id())) {
             line.append("  — UNLOCKED");
         } else if (isUnlockableNow(research, tech)) {
             line.append("  — press ").append(hotkey).append(" to unlock");

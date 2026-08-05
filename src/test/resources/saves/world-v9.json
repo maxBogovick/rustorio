@@ -1,13 +1,16 @@
 {
-  "version" : 8,
+  "version" : 9,
   "stats" : {
     "totals" : {
-      "rustorio:iron_ore" : 40
+      "rustorio:iron_ore" : 106
     }
   },
   "research" : {
     "points" : 0,
-    "unlocked" : [ ]
+    "unlocked" : [ {
+      "namespace" : "rustorio",
+      "path" : "fast_mining"
+    } ]
   },
   "buildings" : [ {
     "x" : 6,
@@ -18,8 +21,8 @@
     },
     "state" : {
       "direction" : "RIGHT",
-      "cooldown" : 3,
-      "held" : null,
+      "cooldown" : 1,
+      "held" : "rustorio:iron_ore",
       "speedLevel" : 0
     }
   }, {
@@ -32,7 +35,7 @@
     "state" : {
       "direction" : "RIGHT",
       "contents" : {
-        "rustorio:iron_ore" : 35
+        "rustorio:iron_ore" : 100
       },
       "speedLevel" : 0
     }
@@ -87,7 +90,7 @@
     "rustorio:iron_plate" : 30
   },
   "oreDepletion" : {
-    "1286" : 40
+    "1286" : 106
   },
   "tickCount" : 120
 }

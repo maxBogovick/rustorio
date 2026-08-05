@@ -1,10 +1,11 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaTechs;
 import com.rustorio.domain.VanillaItems;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -31,7 +32,7 @@ import org.jspecify.annotations.Nullable;
  * be told apart when their turn comes.
  *
  * <p>Matches {@link Furnace}'s {@code ProcessTimer} policy (P2-05, BUG_FIX_PROGRESS.md): the timer
- * is created lazily, on the first {@link #accept}, from whatever {@link Tech#FAST_LAB} state holds
+ * is created lazily, on the first {@link #accept}, from whatever {@link VanillaTechs#FAST_LAB} state holds
  * at that moment — not eagerly at construction. A lab built after the tech is already unlocked
  * must not cook its first batch at the un-halved rate just because nobody had fed it yet.
  */
@@ -48,7 +49,7 @@ public final class Lab implements Building {
      * <p>It used to be 1, which made the whole scale useless below a 50% depth difference: an item
      * 45% deeper than a {@code GEAR} rounded to the same single point, so "points are proportional
      * to production cost" (P-01) held only for the few items that happened to be far enough apart.
-     * Ten points per {@code GEAR} gives the ratio a place to land — every {@link Tech#cost()} was
+     * Ten points per {@code GEAR} gives the ratio a place to land — every {@link com.rustorio.domain.TechType#cost()} was
      * multiplied by ten in the same change, so the tree costs the same number of lab batches as
      * before; only the resolution changed, not the pacing.
      */
@@ -161,7 +162,7 @@ public final class Lab implements Building {
     }
 
     private static int effectiveTime(TickContext world) {
-        return world.research().fasterIfUnlocked(Tech.FAST_LAB, RESEARCH_TIME);
+        return world.research().fasterIfUnlocked(VanillaTechs.FAST_LAB, RESEARCH_TIME);
     }
 
     @Override
@@ -172,6 +173,11 @@ public final class Lab implements Building {
     @Override
     public BuildingType type() {
         return BuildingType.LAB;
+    }
+
+    @Override
+    public ContentId prototypeId() {
+        return prototype.id();
     }
 
     @Override

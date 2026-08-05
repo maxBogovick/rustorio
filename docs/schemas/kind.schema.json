@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rustorio.invalid/schemas/kind.schema.json",
+  "title": "Rustorio recipe kind",
+  "description": "content/kinds/*.json — a named recipe pool several buildings can share.",
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$",
+      "description": "This pool's id under the owning mod's namespace."
+    },
+    "label": {
+      "description": "A plain string, or an object of locale code to string. Falls back to \"en\", then to the id.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 1
+        }
+      ]
+    }
+  },
+  "required": [
+    "path",
+    "label"
+  ],
+  "additionalProperties": false
+}

@@ -1,5 +1,6 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
@@ -7,7 +8,7 @@ import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaTechs;
 import com.rustorio.domain.world.World;
 import java.util.List;
 import java.util.Optional;
@@ -87,10 +88,10 @@ class FurnaceTest {
         // момент раньше терял тех-эффект (см. javadoc Furnace.accept про ProcessTimer). Разблокировка
         // теперь явное действие игрока (P-02, DEV_TASKS.md), не автоматическая, и FAST_SMELTING
         // требует уже открытого FAST_MINING.
-        world.addResearchPoints(Tech.FAST_MINING.cost());
-        assertTrue(world.tryUnlockTech(Tech.FAST_MINING));
-        world.addResearchPoints(Tech.FAST_SMELTING.cost());
-        assertTrue(world.tryUnlockTech(Tech.FAST_SMELTING));
+        world.addResearchPoints(costOf(VanillaTechs.FAST_MINING));
+        assertTrue(world.tryUnlockTech(VanillaTechs.FAST_MINING));
+        world.addResearchPoints(costOf(VanillaTechs.FAST_SMELTING));
+        assertTrue(world.tryUnlockTech(VanillaTechs.FAST_SMELTING));
 
         Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES);
         assertTrue(furnace.accept(world, VanillaItems.IRON_ORE));
@@ -268,7 +269,7 @@ class FurnaceTest {
     @Test
     void pressWithARecipeThatTakesTwoOfTheSameItemFillsBothBuffers() {
         RecipeBook doubleInput = new RecipeBook(java.util.List.of(
-                new Recipe(VanillaItems.IRON_PLATE, VanillaItems.IRON_PLATE, VanillaItems.ALLOY_PLATE, 3, BuildingType.PRESS)));
+                new Recipe(testRecipeId(1), VanillaItems.IRON_PLATE, VanillaItems.IRON_PLATE, VanillaItems.ALLOY_PLATE, 3, BuildingType.PRESS)));
         World world = new World(4, 4);
         Chest chest = new Chest();
         world.restoreBuilding(1, 0, chest);
@@ -294,7 +295,7 @@ class FurnaceTest {
      */
     @Test
     void aRecipeWithThreeIngredientsCommitsAndCooksCorrectly() {
-        Recipe tripleInput = new Recipe(
+        Recipe tripleInput = new Recipe(testRecipeId(2), 
                 List.of(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.GEAR),
                 VanillaItems.CHASSIS, 6, BuildingType.PRESS);
         RecipeBook customBook = new RecipeBook(List.of(tripleInput));
@@ -316,7 +317,7 @@ class FurnaceTest {
     /** The other half of the same guarantee: two out of three ingredients must NOT be enough. */
     @Test
     void aRecipeWithThreeIngredientsRefusesToCookWithOnlyTwoDelivered() {
-        Recipe tripleInput = new Recipe(
+        Recipe tripleInput = new Recipe(testRecipeId(3), 
                 List.of(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.GEAR),
                 VanillaItems.CHASSIS, 6, BuildingType.PRESS);
         RecipeBook customBook = new RecipeBook(List.of(tripleInput));
@@ -651,5 +652,15 @@ class FurnaceTest {
         assertEquals(0, chest.count(), "must not finish before the sped-up time");
         furnace.tick(world, 0, 0);
         assertEquals(1, chest.count(), "must finish in roughly half the vanilla recipe time");
+    }
+
+    /** A distinct id per fixture recipe — recipes are addressable content now, and a fixture still has to say which one it means. */
+    private static ContentId testRecipeId(int index) {
+        return new ContentId("test", "fixture_recipe_" + index);
+    }
+
+    /** A vanilla technology's price, read from the registry the game itself researches through. */
+    private static int costOf(com.rustorio.api.content.ContentId tech) {
+        return VanillaTechs.frozen().get(tech).cost();
     }
 }

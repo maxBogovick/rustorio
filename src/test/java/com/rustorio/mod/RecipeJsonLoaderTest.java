@@ -35,8 +35,9 @@ class RecipeJsonLoaderTest {
 
         RecipeJsonLoader.loadInto(tempDir, modId, context);
 
-        assertEquals(1, context.recipes().size());
-        Recipe recipe = context.recipes().get(0);
+        // peek(), not get(0): this test drives the loader straight, with no freeze() after it,
+        // and the id below is the one the loader derives from the file name.
+        Recipe recipe = context.recipes().peek(ContentId.of("testmod:smelt")).orElseThrow();
         assertEquals(plateId, recipe.output().id());
         assertEquals(5, recipe.time());
         assertEquals(BuildingType.FURNACE.contentId(), recipe.type(), "a BuildingType name joins that kind's own shared vanilla pool");
@@ -55,7 +56,8 @@ class RecipeJsonLoaderTest {
 
         RecipeJsonLoader.loadInto(tempDir, modId, context);
 
-        assertEquals(vanillaIron, context.recipes().get(0).ingredients().get(0).id());
+        assertEquals(vanillaIron,
+                context.recipes().peek(ContentId.of("testmod:gizmo")).orElseThrow().ingredients().get(0).id());
     }
 
     @Test
@@ -88,7 +90,8 @@ class RecipeJsonLoaderTest {
 
         RecipeJsonLoader.loadInto(tempDir, modId, context);
 
-        assertEquals(ContentId.of("testmod:replicator"), context.recipes().get(0).type());
+        assertEquals(ContentId.of("testmod:replicator"),
+                context.recipes().peek(ContentId.of("testmod:weird")).orElseThrow().type());
     }
 
     private Path write(String fileName, String content) throws IOException {

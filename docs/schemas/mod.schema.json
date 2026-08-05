@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rustorio.invalid/schemas/mod.schema.json",
+  "title": "Rustorio mod manifest",
+  "description": "mod.json — one per mod directory. Read by com.rustorio.mod.ModJsonReader.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$",
+      "description": "This mod's id, and the namespace every piece of its content is registered under."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version, major.minor.patch."
+    },
+    "entryPoint": {
+      "type": "string",
+      "description": "Fully-qualified RustorioMod class inside <id>.jar. Omit for a data-only mod."
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "modId": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+          },
+          "range": {
+            "type": "string",
+            "description": "Version range, e.g. \">=1.0.0\". Defaults to \"*\"."
+          }
+        },
+        "required": [
+          "modId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "renames": {
+      "type": "object",
+      "description": "oldId -> newId for building prototypes this mod renamed, so old saves still load.",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-z0-9_]+:[a-z0-9_]+$"
+      }
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name shown in a mod list. Defaults to the id."
+    },
+    "description": {
+      "type": "string"
+    },
+    "authors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "author": {
+      "type": "string",
+      "description": "Shorthand for a single-author mod; ignored when \"authors\" is present."
+    },
+    "homepage": {
+      "type": "string"
+    },
+    "license": {
+      "type": "string"
+    },
+    "minEngineVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Oldest engine this mod works against. An older engine refuses to load it, with a message naming both versions."
+    }
+  },
+  "required": [
+    "id",
+    "version"
+  ],
+  "additionalProperties": false
+}

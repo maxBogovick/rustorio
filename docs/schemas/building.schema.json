@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rustorio.invalid/schemas/building.schema.json",
+  "title": "Rustorio building prototype",
+  "description": "content/buildings/*.json — data for a building reusing an existing archetype's Java behavior.",
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "label": {
+      "description": "A plain string, or an object of locale code to string. Falls back to \"en\", then to the id.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 1
+        }
+      ]
+    },
+    "archetype": {
+      "enum": [
+        "MINER",
+        "CHEST",
+        "FURNACE",
+        "BELT",
+        "SPLITTER",
+        "PRESS",
+        "UNDERGROUND_IN",
+        "UNDERGROUND_OUT",
+        "LAB",
+        "FILTER",
+        "INSERTER",
+        "ASSEMBLER"
+      ],
+      "description": "Whose Java behavior this building borrows. Genuinely new behavior needs a jar mod."
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "item": {
+          "type": "string",
+          "pattern": "^([a-z0-9_]+:)?[a-z0-9_]+$",
+          "description": "Bare name (this mod's own namespace) or a full namespace:path reference."
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "item",
+        "amount"
+      ],
+      "additionalProperties": false
+    },
+    "placement": {
+      "enum": [
+        "ALWAYS",
+        "NEEDS_ORE",
+        "NEEDS_PASSABLE_TERRAIN"
+      ]
+    },
+    "texture": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+:[a-z0-9_]+$",
+      "description": "Sprite id. A mod's own PNG under <mod>/textures/<name>.png registers as <mod>:<name>."
+    },
+    "footprintWidth": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "footprintHeight": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "bufferMax": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Furnace-archetype only."
+    },
+    "speedMultiplier": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1,
+      "description": "Furnace-archetype only."
+    },
+    "acceptsSpeedEffects": {
+      "type": "boolean",
+      "default": false
+    },
+    "kind": {
+      "type": "string",
+      "description": "This building's recipe pool. Defaults to its own id — a private pool nothing else shares."
+    },
+    "fuel": {
+      "type": "string",
+      "pattern": "^([a-z0-9_]+:)?[a-z0-9_]+$",
+      "description": "Bare name (this mod's own namespace) or a full namespace:path reference."
+    }
+  },
+  "required": [
+    "path",
+    "label",
+    "archetype",
+    "cost",
+    "placement",
+    "texture"
+  ],
+  "additionalProperties": false
+}

@@ -1,12 +1,13 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaTechs;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -118,7 +119,7 @@ public final class Miner implements Building {
     }
 
     private static int effectiveTime(TickContext world) {
-        return world.research().isUnlocked(Tech.FAST_MINING) ? Math.max(1, MINE_TIME / 2) : MINE_TIME;
+        return world.research().isUnlocked(VanillaTechs.FAST_MINING) ? Math.max(1, MINE_TIME / 2) : MINE_TIME;
     }
 
     @Override
@@ -154,6 +155,11 @@ public final class Miner implements Building {
     @Override
     public BuildingType type() {
         return BuildingType.MINER;
+    }
+
+    @Override
+    public ContentId prototypeId() {
+        return prototype.id();
     }
 
     @Override

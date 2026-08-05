@@ -82,6 +82,12 @@ final class JsonNodes {
         return value.asInt();
     }
 
+    /** {@code field} as text, or {@code defaultValue} when it is absent, null or not a string. */
+    static String optionalText(JsonNode node, String field, String defaultValue) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() || !value.isTextual() ? defaultValue : value.asText();
+    }
+
     static boolean optionalBoolean(JsonNode node, String field, boolean defaultValue) {
         JsonNode value = node.get(field);
         return value == null || value.isNull() ? defaultValue : value.asBoolean(defaultValue);

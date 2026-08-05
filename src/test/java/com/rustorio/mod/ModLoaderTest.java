@@ -1,7 +1,6 @@
 package com.rustorio.mod;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -74,7 +73,9 @@ class ModLoaderTest {
                         ctx.items().register(ownId, new com.rustorio.domain.ItemType(
                                 ownId, "Widget", false, 0xABCDEF, com.rustorio.domain.ItemShape.TRIANGLE));
                         com.rustorio.domain.ItemType widget = ctx.items().peek(ownId).orElseThrow();
-                        ctx.addRecipe(new com.rustorio.domain.Recipe(alloy, widget, 4, com.rustorio.domain.BuildingType.PRESS));
+                        com.rustorio.api.content.ContentId recipeId = com.rustorio.api.content.ContentId.of("alpha_uses:widget");
+                        ctx.recipes().register(recipeId, new com.rustorio.domain.Recipe(
+                                recipeId, alloy, widget, 4, com.rustorio.domain.BuildingType.PRESS));
                     }
                 }
                 """);
@@ -98,13 +99,21 @@ class ModLoaderTest {
                         com.rustorio.api.content.ContentId ghostId = com.rustorio.api.content.ContentId.of("bad_mod:ghost");
                         com.rustorio.domain.ItemType ghost = new com.rustorio.domain.ItemType(
                                 ghostId, "Ghost", false, 0, com.rustorio.domain.ItemShape.CIRCLE);
-                        ctx.addRecipe(new com.rustorio.domain.Recipe(ghost, ghost, 1, com.rustorio.domain.BuildingType.FURNACE));
+                        com.rustorio.api.content.ContentId recipeId = com.rustorio.api.content.ContentId.of("bad_mod:ghost_recipe");
+                        ctx.recipes().register(recipeId, new com.rustorio.domain.Recipe(
+                                recipeId, ghost, ghost, 1, com.rustorio.domain.BuildingType.FURNACE));
                     }
                 }
                 """);
 
-        ModLoadException thrown = assertThrows(ModLoadException.class, () -> ModLoader.loadAll(List.of(badMod)));
-        assertTrue(thrown.getMessage().contains("bad_mod:ghost"));
+        LoadedGame game = ModLoader.loadAll(List.of(badMod));
+
+        assertEquals(1, game.skippedMods().size(),
+                "мод, чей рецепт ссылается на незарегистрированный предмет, не должен попасть в игру");
+        SkippedMod skipped = game.skippedMods().get(0);
+        assertEquals(new ModId("bad_mod"), skipped.id(), "пропущен должен быть автор рецепта");
+        assertTrue(skipped.reason().contains("bad_mod:ghost"),
+                "причина должна называть висящую ссылку: " + skipped.reason());
     }
 
     @Test

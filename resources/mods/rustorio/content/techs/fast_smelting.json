@@ -1,0 +1,11 @@
+{
+  "path": "fast_smelting",
+  "label": {
+    "en": "Fast smelting",
+    "ru": "Быстрая плавка"
+  },
+  "cost": 200,
+  "prerequisites": [
+    "fast_mining"
+  ]
+}

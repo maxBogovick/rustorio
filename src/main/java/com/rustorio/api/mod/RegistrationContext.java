@@ -5,8 +5,8 @@ import com.rustorio.domain.AuthoredMap;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeKind;
+import com.rustorio.domain.TechType;
 import com.rustorio.domain.building.BuildingPrototype;
-import java.util.List;
 
 /**
  * What a {@link RustorioMod} registers content through, during any of its three lifecycle rounds —
@@ -15,13 +15,15 @@ import java.util.List;
  * earlier mod already registered — mutual moddability without a content-level dependency graph:
  * the dependency graph only orders mod LOADING, not who can see what inside a round.
  *
- * <p>{@code items()}/{@code buildings()} are the mutable, pre-{@code freeze()} registries
- * themselves (not a copy) — a mod calls {@code register}/{@code update} on them directly, same as
- * {@code VanillaItems}/{@code VanillaBuildings} already do outside the mod system. {@code Recipe}
- * has no {@link com.rustorio.api.content.ContentId} of its own (see its own javadoc), so it can't
- * live in a {@code Registry} — {@link #addRecipe} accumulates a plain list instead, in call order,
- * which is why load order has to be deterministic (see {@code ModLoader}) for the resulting {@code
- * RecipeBook} to come out the same regardless of which mods happen to be installed.
+ * <p>Every accessor here is the mutable, pre-{@code freeze()} registry itself (not a copy) — a mod
+ * calls {@code register}/{@code update}/{@code remove} on it directly, same as {@code
+ * VanillaItems}/{@code VanillaBuildings} already do outside the mod system.
+ *
+ * <p>{@link #recipes()} is a registry like the rest, which is what makes a balance mod possible at
+ * all: a recipe is addressed by its own {@link com.rustorio.api.content.ContentId}, so "make
+ * vanilla smelting twice as slow" is {@code recipes().update(id, ...)} rather than a copy of the
+ * definition someone else owns. It used to be an append-only list, and an appended recipe could
+ * never be adjusted or taken back out.
  */
 public interface RegistrationContext {
 
@@ -29,15 +31,15 @@ public interface RegistrationContext {
 
     Registry<BuildingPrototype> buildings();
 
+    /** Every technology in the game — a mod registers its own here; see {@link com.rustorio.domain.TechType} for what a mod's technology can and cannot do yet. */
+    Registry<TechType> techs();
+
     /** Every registered recipe pool ("kind") — see {@link RecipeKind}'s own javadoc for what this is and why it exists as a real registered thing now. */
     Registry<RecipeKind> kinds();
 
     /** Every mod-authored map — see {@link AuthoredMap}'s own javadoc. Nothing in the base game reads this yet (the shipped {@code GameScreen} still picks its {@code OreLayout} before mods load); a mod's own bootstrap, or a later engine feature that lets a player pick a map, is what resolves one from here. */
     Registry<AuthoredMap> maps();
 
-    /** Adds a recipe to the game's recipe book — see the class javadoc for why this isn't a {@code Registry}. */
-    void addRecipe(Recipe recipe);
-
-    /** Every recipe added so far, in the order {@link #addRecipe} was called — read-only view for a later round to inspect. */
-    List<Recipe> recipes();
+    /** Every recipe in the game, keyed by its own id — register, adjust or remove one here; see the class javadoc. */
+    Registry<Recipe> recipes();
 }

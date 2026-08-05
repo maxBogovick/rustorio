@@ -6,15 +6,13 @@ import com.rustorio.domain.AuthoredMap;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeKind;
+import com.rustorio.domain.TechType;
 import com.rustorio.domain.building.BuildingPrototype;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * The one {@link RegistrationContext} instance shared by every mod across all three lifecycle
  * rounds (see {@link ModLoader}) — a later-loaded mod's round sees exactly what an earlier one
- * already registered, because both write into these same two {@link Registry} instances and this
- * same recipe list.
+ * already registered, because every one of them writes into these same {@link Registry} instances.
  */
 final class GameRegistrationContext implements RegistrationContext {
 
@@ -22,7 +20,8 @@ final class GameRegistrationContext implements RegistrationContext {
     private final Registry<BuildingPrototype> buildings = new Registry<>();
     private final Registry<RecipeKind> kinds = new Registry<>();
     private final Registry<AuthoredMap> maps = new Registry<>();
-    private final List<Recipe> recipes = new ArrayList<>();
+    private final Registry<Recipe> recipes = new Registry<>();
+    private final Registry<TechType> techs = new Registry<>();
 
     @Override
     public Registry<ItemType> items() {
@@ -45,12 +44,12 @@ final class GameRegistrationContext implements RegistrationContext {
     }
 
     @Override
-    public void addRecipe(Recipe recipe) {
-        recipes.add(recipe);
+    public Registry<Recipe> recipes() {
+        return recipes;
     }
 
     @Override
-    public List<Recipe> recipes() {
-        return List.copyOf(recipes);
+    public Registry<TechType> techs() {
+        return techs;
     }
 }

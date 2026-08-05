@@ -1,10 +1,11 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaTechs;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -142,7 +143,7 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
     }
 
     private static int effectiveRange(TickContext world) {
-        return world.research().isUnlocked(Tech.LONG_TUNNEL) ? MAX_RANGE * 2 : MAX_RANGE;
+        return world.research().isUnlocked(VanillaTechs.LONG_TUNNEL) ? MAX_RANGE * 2 : MAX_RANGE;
     }
 
     private void tickOut(TickContext world, int x, int y) {
@@ -178,6 +179,11 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
     @Override
     public BuildingType type() {
         return kind == Kind.IN ? BuildingType.UNDERGROUND_IN : BuildingType.UNDERGROUND_OUT;
+    }
+
+    @Override
+    public ContentId prototypeId() {
+        return prototype.id();
     }
 
     /**

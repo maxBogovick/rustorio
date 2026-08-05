@@ -20,7 +20,7 @@ import java.util.List;
  * "abstraction for a future that isn't this card's job" the project's own design checklist warns
  * against — a real need for {@code 2x IRON_PLATE} can add one later, as a genuine requirement.
  */
-public record Recipe(List<ItemType> ingredients, ItemType output, int time, ContentId type) {
+public record Recipe(ContentId id, List<ItemType> ingredients, ItemType output, int time, ContentId type) {
 
     public Recipe {
         if (ingredients.isEmpty()) {
@@ -30,17 +30,17 @@ public record Recipe(List<ItemType> ingredients, ItemType output, int time, Cont
     }
 
     /** Single-ingredient recipe in one of the 12 vanilla kinds' own SHARED pool — most vanilla recipes need only one input. */
-    public Recipe(ItemType input, ItemType output, int time, BuildingType type) {
-        this(List.of(input), output, time, type.contentId());
+    public Recipe(ContentId id, ItemType input, ItemType output, int time, BuildingType type) {
+        this(id, List.of(input), output, time, type.contentId());
     }
 
     /** Two-ingredient recipe in one of the 12 vanilla kinds' own SHARED pool — e.g. {@code ENGINE} (a {@code GEAR} and a {@code MECHANISM}). */
-    public Recipe(ItemType input, ItemType input2, ItemType output, int time, BuildingType type) {
-        this(List.of(input, input2), output, time, type.contentId());
+    public Recipe(ContentId id, ItemType input, ItemType input2, ItemType output, int time, BuildingType type) {
+        this(id, List.of(input, input2), output, time, type.contentId());
     }
 
     /** Arbitrary-length-ingredient-list recipe in one of the 12 vanilla kinds' own SHARED pool — a test fixture's three-plus-ingredient recipe, say. */
-    public Recipe(List<ItemType> ingredients, ItemType output, int time, BuildingType type) {
-        this(ingredients, output, time, type.contentId());
+    public Recipe(ContentId id, List<ItemType> ingredients, ItemType output, int time, BuildingType type) {
+        this(id, ingredients, output, time, type.contentId());
     }
 }

@@ -22,18 +22,32 @@ import java.util.Optional;
  */
 public final class RecipeBook {
 
-    private static final Recipe IRON = new Recipe(VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, 5, BuildingType.FURNACE);
-    private static final Recipe GEAR = new Recipe(VanillaItems.IRON_PLATE, VanillaItems.GEAR, 8, BuildingType.PRESS);
-    private static final Recipe BRONZE = new Recipe(VanillaItems.BRONZE_ORE, VanillaItems.BRONZE_PLATE, 5, BuildingType.FURNACE);
-    private static final Recipe MECHANISM = new Recipe(VanillaItems.BRONZE_PLATE, VanillaItems.MECHANISM, 8, BuildingType.PRESS);
+    /**
+     * A vanilla recipe's own id. Matches the file name of the same recipe under {@code
+     * resources/mods/rustorio/content/recipes} — the two describe the same recipe and {@code
+     * VanillaAsModParityTest} holds them to it, so a mod that adjusts "the vanilla iron recipe"
+     * names one thing whichever path the game was loaded through.
+     */
+    private static ContentId recipeId(String path) {
+        return new ContentId("rustorio", path);
+    }
+
+    private static final Recipe IRON =
+            new Recipe(recipeId("iron_plate"), VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, 5, BuildingType.FURNACE);
+    private static final Recipe GEAR =
+            new Recipe(recipeId("gear"), VanillaItems.IRON_PLATE, VanillaItems.GEAR, 8, BuildingType.PRESS);
+    private static final Recipe BRONZE =
+            new Recipe(recipeId("bronze_plate"), VanillaItems.BRONZE_ORE, VanillaItems.BRONZE_PLATE, 5, BuildingType.FURNACE);
+    private static final Recipe MECHANISM =
+            new Recipe(recipeId("mechanism"), VanillaItems.BRONZE_PLATE, VanillaItems.MECHANISM, 8, BuildingType.PRESS);
     private static final Recipe ENGINE =
-            new Recipe(VanillaItems.GEAR, VanillaItems.MECHANISM, VanillaItems.ENGINE, 12, BuildingType.PRESS);
+            new Recipe(recipeId("engine"), VanillaItems.GEAR, VanillaItems.MECHANISM, VanillaItems.ENGINE, 12, BuildingType.PRESS);
     private static final Recipe CHASSIS =
-            new Recipe(VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15, BuildingType.PRESS);
+            new Recipe(recipeId("chassis_press"), VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15, BuildingType.PRESS);
     private static final Recipe ALLOY =
-            new Recipe(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.ALLOY_PLATE, 10, BuildingType.FURNACE);
+            new Recipe(recipeId("alloy_plate"), VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.ALLOY_PLATE, 10, BuildingType.FURNACE);
     private static final Recipe ALLOY_GEAR =
-            new Recipe(VanillaItems.ALLOY_PLATE, VanillaItems.ALLOY_GEAR, 10, BuildingType.PRESS);
+            new Recipe(recipeId("alloy_gear"), VanillaItems.ALLOY_PLATE, VanillaItems.ALLOY_GEAR, 10, BuildingType.PRESS);
     /**
      * (X-03, DEV_TASKS.md) Same ingredients/output/time as {@link #CHASSIS} — deliberately: this
      * doesn't give {@code ASSEMBLER} a new item to make, only a second, four-cell-footprint MACHINE
@@ -47,7 +61,8 @@ public final class RecipeBook {
      * and this one is declared after it.
      */
     private static final Recipe CHASSIS_ASSEMBLED =
-            new Recipe(VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15, BuildingType.ASSEMBLER);
+            new Recipe(recipeId("chassis_assembler"), VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15,
+                    BuildingType.ASSEMBLER);
 
     private static final RecipeBook STANDARD = new RecipeBook(
             List.of(IRON, GEAR, BRONZE, MECHANISM, ENGINE, CHASSIS, ALLOY, ALLOY_GEAR, CHASSIS_ASSEMBLED));

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rustorio.invalid/schemas/item.schema.json",
+  "title": "Rustorio item",
+  "description": "content/items/*.json — one item per file.",
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$",
+      "description": "This item's id under the owning mod's namespace."
+    },
+    "label": {
+      "description": "A plain string, or an object of locale code to string. Falls back to \"en\", then to the id.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 1
+        }
+      ]
+    },
+    "researchGrade": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether a Lab accepts this item for research points."
+    },
+    "colorRgb": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "shape": {
+      "enum": [
+        "CIRCLE",
+        "SQUARE",
+        "TRIANGLE"
+      ]
+    }
+  },
+  "required": [
+    "path",
+    "label",
+    "colorRgb",
+    "shape"
+  ],
+  "additionalProperties": false
+}

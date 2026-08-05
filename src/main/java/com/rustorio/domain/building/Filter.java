@@ -1,5 +1,6 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
@@ -118,6 +119,11 @@ public final class Filter implements Building, SettlesEachTick {
     @Override
     public BuildingType type() {
         return BuildingType.FILTER;
+    }
+
+    @Override
+    public ContentId prototypeId() {
+        return prototype.id();
     }
 
     @Override

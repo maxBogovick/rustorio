@@ -83,6 +83,14 @@ import org.jspecify.annotations.Nullable;
  * is meant to be the LAST such break: any future change to a prototype's state SHAPE is supposed
  * to travel as a migration function on that prototype (a later card), not another version bump
  * here.
+ *
+ * <p><b>Bumped a ninth time</b> — for {@code research.unlocked}, not for a building's state, so the
+ * rule above still holds. Technologies stopped being {@code enum} constants and became registered
+ * content addressed by {@code ContentId}, so the set is written as ids ({@code {"namespace":
+ * "rustorio", "path": "fast_mining"}}, the same shape a row's {@code prototypeId} already used)
+ * instead of enum names. An old save's {@code "FAST_MINING"} string cannot be read as an id
+ * without knowing which mod would have owned it, which is exactly the "reject the whole snapshot"
+ * case rather than something a default could paper over.
  */
 record WorldSnapshot(
         int version,
@@ -95,5 +103,5 @@ record WorldSnapshot(
         long tickCount) {
 
     /** Bump this whenever the save format changes — see the class javadoc's bump history. */
-    static final int CURRENT_VERSION = 8;
+    static final int CURRENT_VERSION = 9;
 }

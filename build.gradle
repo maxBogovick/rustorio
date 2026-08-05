@@ -81,6 +81,11 @@ dependencies {
     implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
     // Нативные библиотеки движка для десктопа (OpenGL/окно/ввод).
     runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+    // ANGLE (GLES→Metal): системный OpenGL macOS на Apple Silicon падает с SIGSEGV в
+    // gleRunVertexSubmitImmediate на immediate-mode пути libGDX; ANGLE уводит рендер на Metal и
+    // обходит этот драйвер. Включается в Main через setOpenGLEmulation(ANGLE_GLES20, ...) — без
+    // этой зависимости вызов бросит на старте, поэтому одно без другого не имеет смысла.
+    runtimeOnly "com.badlogicgames.gdx:gdx-lwjgl3-angle:$gdxVersion"
 
     // JSpecify: стандартные аннотации null-безопасности (@Nullable/@NullMarked).
     // Проверяются IDE и статическими анализаторами — контракт «может быть null»
@@ -219,6 +224,13 @@ tasks.named('test') {
     // и перезапускать из-за них весь набор незачем.
     inputs.dir('resources/mods')
             .withPropertyName('modContent')
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+
+    // То же самое и по той же причине для `examples/`: пример мода переехал туда из тестовых
+    // ресурсов (его читает PhaseSevenAcceptanceTest), и без этой строки правка примера снова не
+    // делала бы тест-задачу устаревшей — ровно та ловушка, что описана выше.
+    inputs.dir('examples')
+            .withPropertyName('exampleMods')
             .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 

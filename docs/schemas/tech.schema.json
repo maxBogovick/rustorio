@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rustorio.invalid/schemas/tech.schema.json",
+  "title": "Rustorio technology",
+  "description": "content/techs/*.json — a node of the research tree.",
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "label": {
+      "description": "A plain string, or an object of locale code to string. Falls back to \"en\", then to the id.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 1
+        }
+      ]
+    },
+    "cost": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Research points spent to unlock it."
+    },
+    "prerequisites": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^([a-z0-9_]+:)?[a-z0-9_]+$",
+        "description": "Bare name (this mod's own namespace) or a full namespace:path reference."
+      },
+      "description": "Technologies that must be unlocked first. References only, resolved after every mod has loaded."
+    }
+  },
+  "required": [
+    "path",
+    "label",
+    "cost"
+  ],
+  "additionalProperties": false
+}

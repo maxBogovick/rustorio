@@ -6,7 +6,7 @@
  *
  * <p>Wider than a typical "api" package today: it depends on {@code com.rustorio.domain} and
  * {@code com.rustorio.domain.building} (for {@code ItemType}/{@code BuildingPrototype}/{@code
- * Recipe}/{@code Tech}), not just {@code com.rustorio.api.content}/{@code api.registry}. Those
+ * Recipe}/{@code TechType}), not just {@code com.rustorio.api.content}/{@code api.registry}. Those
  * content types physically live in the domain today because no standalone {@code rustorio-api}
  * Gradle artifact exists yet — a mod cannot register an item or a building prototype without
  * naming its type, so this package has to see it. Narrowing this back down to a real,

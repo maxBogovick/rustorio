@@ -71,6 +71,26 @@ public final class Registry<T> {
     }
 
     /**
+     * Un-registers {@code id}, so content another mod added is gone from the game rather than
+     * merely overwritten. Only legal before {@link #freeze()}; {@code id} must already be
+     * registered, for the same reason {@link #update} insists — a remove that silently does
+     * nothing is a typo the author never finds out about.
+     *
+     * <p>Records the removal in {@link #updateLog()} alongside overwrites: from the point of view
+     * of "who changed content I registered", losing it entirely and having it rewritten are the
+     * same question. Removing content OTHER content still points at (a recipe's ingredient, a
+     * building's cost) is not detected here — {@code ModLoader}'s own validation pass, which runs
+     * after every mod has had its say, is where a dangling reference surfaces.
+     */
+    public void remove(ContentId id) {
+        requireNotFrozen("remove");
+        if (registered.remove(id) == null) {
+            throw new NoSuchElementException("cannot remove content that was never registered: " + id);
+        }
+        updateLog.add(id);
+    }
+
+    /**
      * Closes the data stage: assigns {@code rawId} {@code 0..size()-1} in sorted-{@link ContentId}
      * order (independent of registration/mod-load order) and switches every read method on from
      * throwing to working. A second call is refused, not silently ignored — it would mean

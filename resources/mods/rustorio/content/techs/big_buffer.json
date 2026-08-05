@@ -1,0 +1,11 @@
+{
+  "path": "big_buffer",
+  "label": {
+    "en": "Big buffers",
+    "ru": "Большие буферы"
+  },
+  "cost": 350,
+  "prerequisites": [
+    "fast_mining"
+  ]
+}

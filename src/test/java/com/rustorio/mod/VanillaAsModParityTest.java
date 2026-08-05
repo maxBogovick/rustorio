@@ -7,7 +7,9 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeBook;
+import com.rustorio.domain.TechType;
 import com.rustorio.domain.VanillaItems;
+import com.rustorio.domain.VanillaTechs;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.VanillaBuildings;
 import java.io.IOException;
@@ -76,6 +78,24 @@ class VanillaAsModParityTest {
     }
 
     @Test
+    void techsMatchVanillaTechsNumberForNumber() {
+        LoadedGame game = ModLoader.loadAll(List.of(RUSTORIO_MOD_DIR));
+
+        List<TechType> fromJson = game.techs().iterate();
+        List<TechType> fromJava = VanillaTechs.frozen().iterate();
+
+        assertEquals(fromJava.size(), fromJson.size(), "same number of technologies");
+        for (int i = 0; i < fromJava.size(); i++) {
+            TechType java = fromJava.get(i);
+            TechType json = fromJson.get(i);
+            assertEquals(java.id(), json.id());
+            assertEquals(java.label(), json.label(), java.id() + ": label");
+            assertEquals(java.cost(), json.cost(), java.id() + ": cost");
+            assertEquals(java.prerequisites(), json.prerequisites(), java.id() + ": prerequisites");
+        }
+    }
+
+    @Test
     void buildingsMatchVanillaBuildingsNumberForNumber() {
         LoadedGame game = ModLoader.loadAll(List.of(RUSTORIO_MOD_DIR));
 
@@ -116,13 +136,21 @@ class VanillaAsModParityTest {
         return book.all().stream().map(VanillaAsModParityTest::canonicalForm).collect(java.util.stream.Collectors.toSet());
     }
 
-    /** A recipe's content, independent of declaration order — ingredient order is sorted too, since {@code Recipe}'s own javadoc says it's display-only. */
+    /**
+     * A recipe's content, independent of declaration order — ingredient order is sorted too, since
+     * {@code Recipe}'s own javadoc says it's display-only.
+     *
+     * <p>Includes the recipe's own id. A mod that adjusts "the vanilla iron recipe" names it by id,
+     * so the two loading paths agreeing on ingredients while disagreeing on the NAME would leave
+     * that mod working through one path and silently doing nothing through the other.
+     */
     private static String canonicalForm(Recipe recipe) {
         String ingredients = recipe.ingredients().stream()
                 .map(item -> item.id().toString())
                 .sorted(Comparator.naturalOrder())
                 .reduce((a, b) -> a + "+" + b)
                 .orElse("");
-        return ingredients + "->" + recipe.output().id() + "@" + recipe.time() + "#" + recipe.type();
+        return recipe.id() + ": " + ingredients + "->" + recipe.output().id() + "@" + recipe.time()
+                + "#" + recipe.type();
     }
 }

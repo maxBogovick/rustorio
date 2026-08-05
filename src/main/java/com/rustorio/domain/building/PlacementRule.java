@@ -8,7 +8,7 @@ import com.rustorio.domain.OreLayout;
  * bounds" — {@code World} already checks that universally, the same way, for every kind, so it
  * isn't this rule's job to repeat it.
  *
- * <p><b>Owner decision (X-02, DEV_TASKS.md):</b> {@link Terrain#WATER}/{@link Terrain#ROCK} block
+ * <p><b>Owner decision (X-02, DEV_TASKS.md):</b> {@link com.rustorio.domain.Terrain#WATER}/{@link com.rustorio.domain.Terrain#ROCK} block
  * every kind except {@link UndergroundBelt} — the one building whose entire point is going UNDER
  * an obstacle rather than around it (§4.2 of the design audit: before terrain existed, a tunnel
  * solved no spatial problem at all, since there was nothing terrain-wise to route around). A

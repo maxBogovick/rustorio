@@ -15,7 +15,7 @@ import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.TechType;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.action.ActionHistory;
 import com.rustorio.domain.action.CompositeAction;
@@ -468,10 +468,13 @@ public final class InputHandler {
      * уже открыт, или не хватает предпосылок — экран дерева техов покажет игроку, почему именно.
      */
     private void handleTechSelection(World world) {
-        Tech[] techs = Tech.values();
-        for (int i = 0; i < techs.length && i < 9; i++) {
+        // Тот же живой реестр и в том же порядке, что рисует TechTreeRenderer: номер строки на
+        // экране и номер клавиши обязаны совпадать, а ванильный список разошёлся бы с панелью,
+        // как только мод добавит свою технологию.
+        List<TechType> techs = world.research().techs().iterate();
+        for (int i = 0; i < techs.size() && i < 9; i++) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1 + i)) {
-                world.tryUnlockTech(techs[i]);
+                world.tryUnlockTech(techs.get(i).id());
             }
         }
     }

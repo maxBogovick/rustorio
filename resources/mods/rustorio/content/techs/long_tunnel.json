@@ -1,0 +1,11 @@
+{
+  "path": "long_tunnel",
+  "label": {
+    "en": "Long tunnels",
+    "ru": "Длинные подземки"
+  },
+  "cost": 550,
+  "prerequisites": [
+    "big_buffer"
+  ]
+}

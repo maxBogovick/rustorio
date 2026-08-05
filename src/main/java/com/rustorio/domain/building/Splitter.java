@@ -1,5 +1,6 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
@@ -120,6 +121,11 @@ public final class Splitter implements Building, SettlesEachTick {
     @Override
     public BuildingType type() {
         return BuildingType.SPLITTER;
+    }
+
+    @Override
+    public ContentId prototypeId() {
+        return prototype.id();
     }
 
     @Override

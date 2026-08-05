@@ -3,7 +3,7 @@ package com.rustorio.domain.building;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaTechs;
 import com.rustorio.domain.world.World;
 import org.junit.jupiter.api.Test;
 
@@ -70,10 +70,10 @@ class LabTest {
         // момент раньше терял тех-эффект (см. javadoc Lab про ProcessTimer, P2-05). Разблокировка
         // теперь явный выбор игрока (P-02, DEV_TASKS.md), и FAST_LAB требует и FAST_SMELTING, и
         // BIG_BUFFER, каждый из которых требует FAST_MINING — открываем всю цепочку по порядку.
-        unlockWithPoints(world, Tech.FAST_MINING);
-        unlockWithPoints(world, Tech.FAST_SMELTING);
-        unlockWithPoints(world, Tech.BIG_BUFFER);
-        unlockWithPoints(world, Tech.FAST_LAB);
+        unlockWithPoints(world, VanillaTechs.FAST_MINING);
+        unlockWithPoints(world, VanillaTechs.FAST_SMELTING);
+        unlockWithPoints(world, VanillaTechs.BIG_BUFFER);
+        unlockWithPoints(world, VanillaTechs.FAST_LAB);
         assertEquals(0, world.research().points(), "цепочка потратила ровно столько очков, сколько было начислено");
 
         Lab lab = new Lab(RECIPES);
@@ -89,9 +89,9 @@ class LabTest {
                 "первая же порция обязана учитывать уже открытую технологию");
     }
 
-    /** Начислить ровно {@code tech.cost()} очков и тут же потратить их на {@code tech} (P-02, DEV_TASKS.md). */
-    private static void unlockWithPoints(World world, Tech tech) {
-        world.addResearchPoints(tech.cost());
+    /** Начислить ровно столько очков, сколько стоит {@code tech}, и тут же потратить их на него. */
+    private static void unlockWithPoints(World world, com.rustorio.api.content.ContentId tech) {
+        world.addResearchPoints(costOf(tech));
         assertTrue(world.tryUnlockTech(tech), tech + " must unlock — its prerequisites were unlocked first, in order");
     }
 
@@ -190,5 +190,10 @@ class LabTest {
         assertFalse(lab.accept(world, VanillaItems.IRON_PLATE));
         assertFalse(lab.accept(world, VanillaItems.BRONZE_ORE));
         assertFalse(lab.accept(world, VanillaItems.ALLOY_PLATE));
+    }
+
+    /** A vanilla technology's price, read from the registry the game itself researches through. */
+    private static int costOf(com.rustorio.api.content.ContentId tech) {
+        return VanillaTechs.frozen().get(tech).cost();
     }
 }

@@ -2,6 +2,7 @@ package com.rustorio.persistence;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
+import com.rustorio.domain.VanillaTechs;
 import com.rustorio.domain.world.World;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -46,7 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GoldenSaveTest {
 
     /** Checked-in save written by an earlier build; regenerated only through the property below. */
-    private static final Path FIXTURE = Path.of("src", "test", "resources", "saves", "world-v8.json");
+    private static final Path FIXTURE = Path.of("src", "test", "resources", "saves", "world-v9.json");
 
     /**
      * An environment variable, not a system property: Gradle forks the test JVM, so a
@@ -84,6 +85,10 @@ class GoldenSaveTest {
         assertEquals(120L, world.currentTick(),
                 "the world clock is part of the snapshot; a restored clock that differs puts "
                         + "timestamped production stats permanently out of step");
+        assertTrue(world.research().isUnlocked(VanillaTechs.FAST_MINING),
+                "an unlocked technology has to survive the round trip — the fixture used to record "
+                        + "an EMPTY research set, so nothing about how technologies are written was "
+                        + "actually being checked here");
     }
 
     /**
@@ -101,12 +106,15 @@ class GoldenSaveTest {
 
     /**
      * The world the fixture records: one of each of the load-bearing building kinds at fixed
-     * coordinates, plus a non-zero clock. Deliberately small and deliberately stable — this method
-     * changing is what makes an old fixture stop being comparable, so change it only when the
-     * fixture is regenerated on purpose.
+     * coordinates, a non-zero clock, and one unlocked technology. Deliberately small and
+     * deliberately stable — this method changing is what makes an old fixture stop being
+     * comparable, so change it only when the fixture is regenerated on purpose.
      */
     private static World buildFixtureWorld() {
         World world = new World(20, 20);
+        // A real unlocked technology, so the fixture actually contains one written-out tech id.
+        world.addResearchPoints(VanillaTechs.frozen().get(VanillaTechs.FAST_MINING).cost());
+        world.tryUnlockTech(VanillaTechs.FAST_MINING);
         world.placeMiner(6, 5); // (6, 5) is the centre of the standard map's first iron patch
         world.placeChest(7, 5);
         world.placeFurnace(8, 5, Direction.RIGHT);

@@ -1,0 +1,12 @@
+{
+  "path": "fast_lab",
+  "label": {
+    "en": "Fast research",
+    "ru": "Быстрые исследования"
+  },
+  "cost": 800,
+  "prerequisites": [
+    "fast_smelting",
+    "big_buffer"
+  ]
+}

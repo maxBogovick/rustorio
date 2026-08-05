@@ -59,7 +59,7 @@ class ModdedFurnaceAcceptanceTest {
                 // this prototype must search that SAME pool, not its own private default.
                 VanillaBuildings.idFor(BuildingType.PRESS), null);
 
-        Recipe tripleInput = new Recipe(
+        Recipe tripleInput = new Recipe(testRecipeId(1), 
                 List.of(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.GEAR),
                 VanillaItems.CHASSIS, 6, BuildingType.PRESS);
         RecipeBook recipeBook = new RecipeBook(List.of(tripleInput));
@@ -104,5 +104,10 @@ class ModdedFurnaceAcceptanceTest {
         assertEquals(1, chest.amount(VanillaItems.CHASSIS), "still only the first batch — restored press must not have finished yet");
         restored.tick(world, 0, 0);
         assertEquals(2, chest.amount(VanillaItems.CHASSIS), "restored press must still cook at the sped-up rate, not the vanilla default");
+    }
+
+    /** A distinct id per fixture recipe — recipes are addressable content now, and a fixture still has to say which one it means. */
+    private static ContentId testRecipeId(int index) {
+        return new ContentId("test", "fixture_recipe_" + index);
     }
 }

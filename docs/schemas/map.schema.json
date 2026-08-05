@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rustorio.invalid/schemas/map.schema.json",
+  "title": "Rustorio authored map",
+  "description": "content/maps/*.json — a hand-authored ore and terrain layout.",
+  "type": "object",
+  "properties": {
+    "label": {
+      "description": "A plain string, or an object of locale code to string. Falls back to \"en\", then to the id.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 1
+        }
+      ]
+    },
+    "orePatches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ore": {
+            "type": "string",
+            "pattern": "^([a-z0-9_]+:)?[a-z0-9_]+$",
+            "description": "Bare name (this mod's own namespace) or a full namespace:path reference."
+          },
+          "cx": {
+            "type": "integer"
+          },
+          "cy": {
+            "type": "integer"
+          },
+          "radius": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "ore",
+          "cx",
+          "cy",
+          "radius"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "terrainPatches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "terrain": {
+            "enum": [
+              "GROUND",
+              "WATER",
+              "ROCK"
+            ]
+          },
+          "cx": {
+            "type": "integer"
+          },
+          "cy": {
+            "type": "integer"
+          },
+          "radius": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "terrain",
+          "cx",
+          "cy",
+          "radius"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    }
+  },
+  "required": [
+    "path",
+    "label"
+  ],
+  "additionalProperties": false
+}

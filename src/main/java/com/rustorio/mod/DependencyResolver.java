@@ -46,13 +46,17 @@ public final class DependencyResolver {
         for (ModDescriptor mod : byId.values()) {
             for (ModDependency dependency : mod.dependencies()) {
                 ModDescriptor found = byId.get(dependency.modId());
+                // Culprit is the DEPENDENT, not the dependency: the missing or wrong-version mod
+                // may not be installed at all, and removing the mod that asked for it is what
+                // actually makes the set loadable again. This is also how a mod skipped for its own
+                // reasons cascades to everything that needed it, without a second cascade pass.
                 if (found == null) {
                     throw new ModLoadException("mod '" + mod.id() + "' depends on '" + dependency.modId()
-                            + "' (" + dependency.range() + "), which is not present");
+                            + "' (" + dependency.range() + "), which is not present", mod.id());
                 }
                 if (!dependency.range().matches(found.version())) {
                     throw new ModLoadException("mod '" + mod.id() + "' requires '" + dependency.modId() + "' "
-                            + dependency.range() + ", but the present version is " + found.version());
+                            + dependency.range() + ", but the present version is " + found.version(), mod.id());
                 }
             }
         }

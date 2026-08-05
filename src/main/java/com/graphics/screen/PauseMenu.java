@@ -6,8 +6,8 @@ import com.badlogic.gdx.Input;
 import com.graphics.render.MenuLayout;
 import com.graphics.render.PauseMenuView;
 import com.rustorio.domain.world.World;
+import com.rustorio.game.GameBootstrap;
 import com.rustorio.mod.LoadedGame;
-import com.rustorio.persistence.JsonSaveRepository;
 import com.rustorio.persistence.SaveResult;
 import com.rustorio.persistence.SaveSlotInfo;
 import com.rustorio.persistence.SaveSlots;
@@ -240,7 +240,7 @@ final class PauseMenu {
     }
 
     private void doSave(String name) {
-        SaveResult result = new JsonSaveRepository(saveSlots.prepareForSave(name), loadedGame.items()).save(world);
+        SaveResult result = GameBootstrap.saves(loadedGame, saveSlots.prepareForSave(name)).save(world);
         enterSave();
         status = result instanceof SaveResult.Failure failure
                 ? "Save failed: " + failure.reason()
@@ -278,7 +278,7 @@ final class PauseMenu {
             status = "Cannot load \"" + slot.name() + "\": unknown or removed map.";
             return;
         }
-        SaveResult result = candidate.loadFrom(new JsonSaveRepository(saveSlots.pathFor(slot.name()), loadedGame.items()));
+        SaveResult result = candidate.loadFrom(GameBootstrap.saves(loadedGame, saveSlots.pathFor(slot.name())));
         if (result instanceof SaveResult.Failure failure) {
             candidate.dispose();
             status = "Load failed: " + failure.reason();
@@ -314,6 +314,11 @@ final class PauseMenu {
     }
 
     private void confirmDelete(String name) {
+        // This confirm sub-screen keeps Mode.LOAD (its parent), but the slot list is no longer what's
+        // showing — clear loadListSlots so the R/Delete hotkeys in handleInput can't rename or delete
+        // a now-hidden slot by its old index off a yes/no dialog. Same safety confirmOverwrite gets
+        // for free by borrowing Mode.SAVE, which carries no such hotkeys.
+        loadListSlots = List.of();
         setItems(List.of("Delete \"" + name + "\"? Yes", "No, go back"),
                 List.of(() -> doDelete(name), this::enterLoad));
     }

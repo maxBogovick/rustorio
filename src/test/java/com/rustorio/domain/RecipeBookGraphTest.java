@@ -1,5 +1,6 @@
 package com.rustorio.domain;
 
+import com.rustorio.api.content.ContentId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -48,8 +49,8 @@ class RecipeBookGraphTest {
     @Test
     void detectsAnArtificiallyIntroducedCycle() {
         RecipeBook cyclic = new RecipeBook(List.of(
-                new Recipe(VanillaItems.IRON_ORE, VanillaItems.GEAR, 1, BuildingType.FURNACE),
-                new Recipe(VanillaItems.GEAR, VanillaItems.IRON_ORE, 1, BuildingType.PRESS)));
+                new Recipe(testRecipeId(1), VanillaItems.IRON_ORE, VanillaItems.GEAR, 1, BuildingType.FURNACE),
+                new Recipe(testRecipeId(2), VanillaItems.GEAR, VanillaItems.IRON_ORE, 1, BuildingType.PRESS)));
 
         assertTrue(hasCycle(cyclic), "the detector must catch IRON_ORE -> GEAR -> IRON_ORE");
     }
@@ -67,8 +68,8 @@ class RecipeBookGraphTest {
     @Test
     void detectsAnItemWithNoPathBackToOre() {
         RecipeBook gapped = new RecipeBook(List.of(
-                new Recipe(VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, 1, BuildingType.FURNACE),
-                new Recipe(VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 1, BuildingType.PRESS)));
+                new Recipe(testRecipeId(3), VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, 1, BuildingType.FURNACE),
+                new Recipe(testRecipeId(4), VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 1, BuildingType.PRESS)));
 
         Set<ItemType> reachable = reachableItems(gapped);
 
@@ -155,5 +156,10 @@ class RecipeBookGraphTest {
             }
         }
         return reachable;
+    }
+
+    /** A distinct id per fixture recipe — recipes are addressable content now, and a fixture still has to say which one it means. */
+    private static ContentId testRecipeId(int index) {
+        return new ContentId("test", "fixture_recipe_" + index);
     }
 }

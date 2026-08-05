@@ -1,7 +1,7 @@
 package com.rustorio.mod;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.rustorio.api.content.ContentId;
@@ -26,25 +26,33 @@ class ModLoaderKindValidationTest {
     Path tempDir;
 
     @Test
-    void recipeWithAnUnknownKindFailsWithAClearMessage() throws IOException {
+    void recipeWithAnUnknownKindSkipsThatModAndSaysWhy() throws IOException {
         Path mod = modDir("test_mod");
         writeModJson(mod, "test_mod");
         writeItem(mod, "gadget", "Gadget", "#112233", "SQUARE");
         writeRecipe(mod, "gadget", "gadget", 5, "totally_bogus_kind");
 
-        ModLoadException thrown = assertThrows(ModLoadException.class, () -> ModLoader.loadAll(List.of(mod)));
-        assertTrue(thrown.getMessage().contains("totally_bogus_kind"), thrown.getMessage());
+        LoadedGame game = ModLoader.loadAll(List.of(mod));
+
+        assertEquals(1, game.skippedMods().size(), "мод с несуществующим пулом рецептов не должен попасть в игру");
+        SkippedMod skipped = game.skippedMods().get(0);
+        assertEquals(new ModId("test_mod"), skipped.id(), "пропущен должен быть именно виновный мод");
+        assertTrue(skipped.reason().contains("totally_bogus_kind"),
+                "причина должна называть опечатку, а не общие слова: " + skipped.reason());
     }
 
     @Test
-    void buildingWithAnUnknownExplicitKindFailsWithAClearMessage() throws IOException {
+    void buildingWithAnUnknownExplicitKindSkipsThatModAndSaysWhy() throws IOException {
         Path mod = modDir("test_mod");
         writeModJson(mod, "test_mod");
         writeItem(mod, "gadget", "Gadget", "#112233", "SQUARE");
         writeBuilding(mod, "my_furnace", "gadget", "totally_bogus_kind", null);
 
-        ModLoadException thrown = assertThrows(ModLoadException.class, () -> ModLoader.loadAll(List.of(mod)));
-        assertTrue(thrown.getMessage().contains("totally_bogus_kind"), thrown.getMessage());
+        LoadedGame game = ModLoader.loadAll(List.of(mod));
+
+        assertEquals(1, game.skippedMods().size(), "мод со зданием, указавшим несуществующий пул, не должен попасть в игру");
+        assertTrue(game.skippedMods().get(0).reason().contains("totally_bogus_kind"),
+                "причина должна называть опечатку: " + game.skippedMods().get(0).reason());
     }
 
     @Test

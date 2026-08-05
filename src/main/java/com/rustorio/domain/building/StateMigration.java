@@ -14,7 +14,7 @@ import java.util.Map;
  *
  * <p>Not yet wired to any real prototype — none of the 12 vanilla ones need an actual state
  * reshape today (see this mechanism's own card, E6-05, ENGINE_TASKS.md) — proven here on a
- * synthetic shape change instead ({@link StateMigrationTest}), the same way {@link Codec} itself
+ * synthetic shape change instead ({@code StateMigrationTest}), the same way {@link Codec} itself
  * was proven on a synthetic {@code Point} before any real archetype had one (E6-01).
  */
 public interface StateMigration {

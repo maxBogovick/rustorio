@@ -1,0 +1,8 @@
+{
+  "path": "fast_mining",
+  "label": {
+    "en": "Fast mining",
+    "ru": "Быстрая добыча"
+  },
+  "cost": 80
+}

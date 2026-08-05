@@ -34,14 +34,26 @@ class SourceTextRulesTest {
      * untouched, so the rule this project can actually enforce is "no new ones", and that is a
      * ratchet. Removing occurrences is welcome — it just has to be recorded here in the same
      * commit, the way the content-coupling ratchet records its own decreases.
+     *
+     * <p>712 -> 709: three citations left with the comments that carried them, not by a cleanup
+     * pass — the windowed game's world assembly and the headless demo's furnace-fuel note were
+     * rewritten when both moved onto the shared bootstrap, and {@code Building.prototypeId}'s
+     * javadoc was replaced outright when that method stopped having a (wrong) default.
+     *
+     * <p>709 -> 693: the {@code Tech} enum was deleted when technologies became registered
+     * content, taking its own heavily-cited javadoc with it, and {@code Research}/{@code
+     * ResearchView} were rewritten around ids in the same move.
      */
-    private static final int DOC_ID_CITATION_BASELINE = 712;
+    private static final int DOC_ID_CITATION_BASELINE = 693;
 
     /**
      * Explicit types are the rule; these are the exceptions that survived review. A new one is not
      * forbidden by nature, but it has to be argued for in review rather than appear unnoticed.
+     *
+     * <p>3 -> 2: {@code Research.Snapshot}'s {@code var copy = EnumSet.noneOf(...)} went away with
+     * the {@code EnumSet} itself, once the unlocked set became a set of ids.
      */
-    private static final int VAR_BASELINE = 3;
+    private static final int VAR_BASELINE = 2;
 
     @Test
     void wildcardImportIsDetected() {

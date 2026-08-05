@@ -27,6 +27,7 @@ final class RecipeJsonLoader {
     static void loadInto(Path recipesDir, ModId modId, RegistrationContext context) {
         for (Path file : JsonNodes.listJsonFilesSorted(recipesDir)) {
             JsonNode root = JsonNodes.readTree(file);
+            ContentId id = new ContentId(modId.value(), JsonNodes.optionalText(root, "path", fileBaseName(file)));
             List<String> ingredientRefs = JsonNodes.requireTextArray(root, "ingredients", file);
             String outputRef = JsonNodes.requireText(root, "output", file);
             int time = JsonNodes.requireInt(root, "time", file);
@@ -36,8 +37,24 @@ final class RecipeJsonLoader {
                     .map(ref -> resolveItem(ref, modId, context.items(), file))
                     .toList();
             ItemType output = resolveItem(outputRef, modId, context.items(), file);
-            context.addRecipe(new Recipe(ingredients, output, time, kind));
+            if (context.recipes().peek(id).isPresent()) {
+                throw new ModLoadException(file + ": a recipe with id '" + id
+                        + "' is already registered — two recipe files in one mod cannot share a name");
+            }
+            context.recipes().register(id, new Recipe(id, ingredients, output, time, kind));
         }
+    }
+
+    /**
+     * The file's own name without {@code .json} — a recipe's id when the file doesn't state a
+     * {@code "path"}. Unlike an item or a building, a recipe has no natural name of its own to
+     * repeat inside the file, and the file name is already unique within the directory the loader
+     * lists; deriving it is the same rule Minecraft datapacks use, and it means every recipe file
+     * written before recipes had ids at all keeps working unchanged.
+     */
+    private static String fileBaseName(Path file) {
+        String name = file.getFileName().toString();
+        return name.endsWith(".json") ? name.substring(0, name.length() - ".json".length()) : name;
     }
 
     private static ItemType resolveItem(String ref, ModId modId, Registry<ItemType> items, Path file) {

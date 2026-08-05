@@ -9,8 +9,12 @@ import java.nio.file.Path;
  * to join one declared in this same mod, though nothing actually REQUIRES that ordering to
  * resolve — see {@code RecipeKindJsonLoader}'s own javadoc; a recipe can reference an item this
  * same call just registered, a building's cost can reference either) — into the shared {@link
- * RegistrationContext}. A missing {@code content/} directory, or any of its four subdirectories,
+ * RegistrationContext}. A missing {@code content/} directory, or any of its subdirectories,
  * isn't an error: a mod can be code-only, and a data mod need not use every content kind.
+ *
+ * <p>{@code techs/} is loaded last and its position doesn't matter: a technology references only
+ * other technologies, and those references are resolved after every mod has loaded (see {@code
+ * TechJsonLoader}), not while this call runs.
  */
 final class ContentJsonLoader {
 
@@ -24,5 +28,6 @@ final class ContentJsonLoader {
         MapJsonLoader.loadInto(content.resolve("maps"), modId, context);
         RecipeJsonLoader.loadInto(content.resolve("recipes"), modId, context);
         BuildingJsonLoader.loadInto(content.resolve("buildings"), modId, context);
+        TechJsonLoader.loadInto(content.resolve("techs"), modId, context);
     }
 }

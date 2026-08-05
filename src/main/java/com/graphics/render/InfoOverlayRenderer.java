@@ -9,7 +9,7 @@ import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.ResearchView;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.TechType;
 import com.rustorio.domain.world.PlayerInventoryView;
 import com.rustorio.domain.world.ProductionLogView;
 import com.rustorio.domain.world.ProductionStatsView;
@@ -237,8 +237,9 @@ final class InfoOverlayRenderer {
         if (research.unlocked().isEmpty()) {
             sb.append('-');
         } else {
-            for (Tech tech : Tech.values()) {
-                if (research.isUnlocked(tech)) {
+            // Живой реестр, а не ванильный набор: технология мода иначе не попала бы в строку.
+            for (TechType tech : research.techs().iterate()) {
+                if (research.isUnlocked(tech.id())) {
                     sb.append(tech.label()).append("  ");
                 }
             }

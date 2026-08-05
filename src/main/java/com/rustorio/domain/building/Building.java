@@ -116,16 +116,19 @@ public interface Building {
 
     /**
      * This building's own governing {@link BuildingPrototype}'s id — what a save writes as
-     * {@code proto}, and what {@code BuildingFactory.restore} resolves against on load. Defaults
-     * to the vanilla id for this building's own {@link #type()}, which is correct for every
-     * archetype except one that can ALSO be built from a DIFFERENT (e.g. modded) prototype than
-     * its {@code type()} alone would suggest — {@link Furnace} is the only one today (a "steel
-     * press" still reports {@code type() == PRESS}, but was built from a different, non-vanilla
-     * prototype) — see its own override.
+     * {@code proto}, what {@code BuildingFactory.restore} resolves against on load, and what a
+     * {@code BuildingPlacedEvent} names.
+     *
+     * <p>Deliberately abstract, with no default. It used to default to the vanilla id for this
+     * building's own {@link #type()}, which is wrong the moment a building is built from a
+     * prototype other than its kind's vanilla one — exactly what a JSON-defined mod building
+     * borrowing an archetype is. Every archetype except {@link Furnace} inherited that default, so
+     * a modded chest, belt, miner, splitter, filter, inserter, tunnel or lab was saved under the
+     * VANILLA id and came back as the vanilla building, losing its own cost, texture and tuning.
+     * A building that cannot name the prototype it was built from has no identity worth writing to
+     * a save, so the interface asks for one rather than guessing.
      */
-    default ContentId prototypeId() {
-        return VanillaBuildings.idFor(type());
-    }
+    ContentId prototypeId();
 
     /**
      * Whether this building doesn't care what order it's ticked in relative to its neighbors this

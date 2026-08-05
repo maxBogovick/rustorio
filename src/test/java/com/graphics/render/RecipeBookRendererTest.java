@@ -1,5 +1,6 @@
 package com.graphics.render;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.VanillaItems;
@@ -23,8 +24,8 @@ class RecipeBookRendererTest {
     @Test
     void aShortListIsReturnedAsIs() {
         List<Recipe> few = List.of(
-                new Recipe(VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, 5, BuildingType.FURNACE),
-                new Recipe(VanillaItems.IRON_PLATE, VanillaItems.GEAR, 5, BuildingType.PRESS));
+                new Recipe(testRecipeId(1), VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, 5, BuildingType.FURNACE),
+                new Recipe(testRecipeId(2), VanillaItems.IRON_PLATE, VanillaItems.GEAR, 5, BuildingType.PRESS));
 
         assertSame(few, RecipeBookRenderer.visibleRecipes(few), "no truncation needed, returns the same list");
     }
@@ -32,7 +33,7 @@ class RecipeBookRendererTest {
     @Test
     void aListLongerThanTheCapIsTruncatedNotHidden() {
         List<Recipe> tooMany = java.util.stream.IntStream.range(0, RecipeBookRenderer.MAX_VISIBLE_RECIPES + 7)
-                .mapToObj(i -> new Recipe(VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, i + 1, BuildingType.FURNACE))
+                .mapToObj(i -> new Recipe(testRecipeId(3), VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, i + 1, BuildingType.FURNACE))
                 .toList();
 
         List<Recipe> visible = RecipeBookRenderer.visibleRecipes(tooMany);
@@ -45,9 +46,14 @@ class RecipeBookRendererTest {
     @Test
     void exactlyAtTheCapIsNotTruncated() {
         List<Recipe> exact = java.util.stream.IntStream.range(0, RecipeBookRenderer.MAX_VISIBLE_RECIPES)
-                .mapToObj(i -> new Recipe(VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, i + 1, BuildingType.FURNACE))
+                .mapToObj(i -> new Recipe(testRecipeId(4), VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, i + 1, BuildingType.FURNACE))
                 .toList();
 
         assertEquals(RecipeBookRenderer.MAX_VISIBLE_RECIPES, RecipeBookRenderer.visibleRecipes(exact).size());
+    }
+
+    /** A distinct id per fixture recipe — recipes are addressable content now, and a fixture still has to say which one it means. */
+    private static ContentId testRecipeId(int index) {
+        return new ContentId("test", "fixture_recipe_" + index);
     }
 }

@@ -8,7 +8,7 @@ import com.rustorio.domain.ItemType;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RandomOreLayout;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaTechs;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.action.UpgradeSpeedAction;
@@ -196,16 +196,16 @@ class JsonSaveRepositoryTest {
     void statsAndResearchSurviveARoundTrip(@TempDir Path dir) {
         SaveRepository repository = new JsonSaveRepository(dir.resolve("save.json"));
         World world = new World(4, 4);
-        world.addResearchPoints(Tech.FAST_MINING.cost());
+        world.addResearchPoints(costOf(VanillaTechs.FAST_MINING));
         // Unlocking is the player's explicit choice, not automatic (P-02, DEV_TASKS.md) — and it
         // SPENDS the cost, so points end up at 0, not still sitting at FAST_MINING's cost.
-        assertTrue(world.tryUnlockTech(Tech.FAST_MINING));
+        assertTrue(world.tryUnlockTech(VanillaTechs.FAST_MINING));
 
         assertTrue(repository.save(world).succeeded());
         World reloaded = new World(4, 4);
         assertTrue(repository.load(reloaded).succeeded());
 
-        assertTrue(reloaded.research().isUnlocked(Tech.FAST_MINING));
+        assertTrue(reloaded.research().isUnlocked(VanillaTechs.FAST_MINING));
         assertEquals(0, reloaded.research().points());
     }
 
@@ -527,5 +527,10 @@ class JsonSaveRepositoryTest {
 
     private static BuildingType typeAt(World world, int x, int y) {
         return world.peek(x, y).orElseThrow().type();
+    }
+
+    /** A vanilla technology's price, read from the registry the game itself researches through. */
+    private static int costOf(com.rustorio.api.content.ContentId tech) {
+        return VanillaTechs.frozen().get(tech).cost();
     }
 }

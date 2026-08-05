@@ -193,6 +193,11 @@ public final class Belt implements Building, TransportNode, SettlesEachTick {
         return BuildingType.BELT;
     }
 
+    @Override
+    public ContentId prototypeId() {
+        return prototype.id();
+    }
+
     /**
      * A rightward/downward belt fits the world's default traversal (high coordinates first); a
      * leftward/upward one needs the reverse, or it would push a neighbor that hasn't ticked yet

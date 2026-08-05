@@ -10,7 +10,7 @@ import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.VanillaSprites;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaTechs;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -373,11 +373,11 @@ public final class Furnace implements Building, RecipeSelectable {
     /** {@code recipe.time()}, halved again by {@link #prototype}'s own {@code speedMultiplier} — the "twice as fast" a modded furnace variant asks for stacks with, not instead of, the {@code FAST_SMELTING} tech bonus. */
     private int effectiveTime(Recipe recipe, TickContext world) {
         int baseTime = Math.max(1, recipe.time() / prototype.speedMultiplier());
-        return world.research().fasterIfUnlocked(Tech.FAST_SMELTING, baseTime);
+        return world.research().fasterIfUnlocked(VanillaTechs.FAST_SMELTING, baseTime);
     }
 
     private int effectiveBufferMax(TickContext world) {
-        return world.research().biggerIfUnlocked(Tech.BIG_BUFFER, prototype.bufferMax());
+        return world.research().biggerIfUnlocked(VanillaTechs.BIG_BUFFER, prototype.bufferMax());
     }
 
     /** Sum of every ingredient's buffered count (0 with no recipe committed yet) — shown as the furnace's badge; the method name predates recipes taking more than one ingredient. */

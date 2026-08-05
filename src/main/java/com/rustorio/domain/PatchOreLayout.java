@@ -10,7 +10,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The game's real {@link OreLayout}: a fixed set of circular ore patches, the same map every
  * playthrough. Deterministic by construction — a cell's answer depends only on its coordinates,
- * never on call order, so {@link Miner} can ask again on every tick instead of caching the
+ * never on call order, so {@code Miner} can ask again on every tick instead of caching the
  * answer itself.
  *
  * <p>The map is precomputed once, at construction, into a flat array indexed by cell (P4-03,

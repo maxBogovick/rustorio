@@ -1,28 +1,45 @@
 package com.rustorio.domain;
 
+import com.rustorio.api.content.ContentId;
+import com.rustorio.api.registry.Registry;
 import java.util.Collections;
-import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * Research progress: accumulated points and the set of unlocked {@link Tech}.
+ * Research progress: accumulated points and the set of unlocked technologies.
  *
- * <p><b>Owner decision (P-02, DEV_TASKS.md):</b> unlocking used to be automatic — {@code addPoints}
- * opened every technology whose cost was already covered, in ascending cost order, with no
- * separate "choose what to research" screen (§2.4 of the design audit: this left the player no
- * agency at all — accumulate enough points and everything unlocks itself). Now {@link #addPoints}
- * only accumulates; {@link #unlock} is the explicit, player-triggered action that actually SPENDS
- * a tech's cost out of the pool. Spending, not just gating the same never-shrinking total behind a
- * button press, is deliberate: if points were never actually deducted, the eventual end state
- * (every tech unlocked once lifetime points cross the sum of every cost) would be identical no
- * matter what the player chose or in what order — a button press with no real tradeoff behind it,
- * which wouldn't have fixed the audit's actual complaint. Spending means an early, avoidable choice
- * can leave a later, pricier tech permanently out of reach for that playthrough.
+ * <p><b>Owner decision:</b> unlocking used to be automatic — {@code addPoints} opened every
+ * technology whose cost was already covered, which left the player no agency at all. Now {@link
+ * #addPoints} only accumulates; {@link #unlock} is the explicit, player-triggered action that
+ * actually SPENDS a tech's cost out of the pool. Spending, not just gating the same never-shrinking
+ * total behind a button press, is deliberate: if points were never deducted, the eventual end state
+ * would be identical no matter what the player chose or in what order — a button press with no real
+ * tradeoff behind it. Spending means an early, avoidable choice can leave a later, pricier tech
+ * permanently out of reach for that playthrough.
+ *
+ * <p>Keyed by {@link ContentId} against an injected {@link Registry} of {@link TechType}, not by an
+ * {@code enum} constant against a fixed list. The registry is a constructor argument for the same
+ * reason {@code RecipeBook} is one: a game running mods researches through a different set than a
+ * game running none, and no static field can be both.
+ *
+ * <p>{@link LinkedHashSet}, not {@code Set.of} or a hash set: {@link #unlocked()} is iterated by
+ * the tech-tree panel and written to the save, and both have to come out the same on every run.
  */
 public final class Research implements ResearchView {
 
+    private final Registry<TechType> techs;
     private int points;
-    private final Set<Tech> unlocked = EnumSet.noneOf(Tech.class);
+    private final Set<ContentId> unlocked = new LinkedHashSet<>();
+
+    public Research(Registry<TechType> techs) {
+        this.techs = techs;
+    }
+
+    @Override
+    public Registry<TechType> techs() {
+        return techs;
+    }
 
     @Override
     public int points() {
@@ -30,32 +47,29 @@ public final class Research implements ResearchView {
     }
 
     /**
-     * Currently unlocked technologies — an unmodifiable view, not a copy (P4-05,
-     * BUG_FIX_PROGRESS.md): {@code HudRenderer} calls this once a frame, and {@code
-     * EnumSet.copyOf} allocated a fresh set every single time for no reason nobody ever mutates
-     * through the returned reference (callers only read). {@link #snapshot()} still makes a REAL,
-     * independent copy — {@code Snapshot}'s compact constructor does that regardless of what's
-     * passed in, so wrapping instead of copying here doesn't weaken that guarantee.
+     * Currently unlocked technologies — an unmodifiable view, not a copy: the HUD calls this once a
+     * frame, and copying allocated a fresh set every time for a caller that only reads. {@link
+     * #snapshot()} still makes a REAL, independent copy.
      */
     @Override
-    public Set<Tech> unlocked() {
+    public Set<ContentId> unlocked() {
         return Collections.unmodifiableSet(unlocked);
     }
 
     @Override
-    public boolean isUnlocked(Tech tech) {
+    public boolean isUnlocked(ContentId tech) {
         return unlocked.contains(tech);
     }
 
     /** {@code baseTime} halved (floor 1) if {@code tech} is unlocked, otherwise unchanged. */
     @Override
-    public int fasterIfUnlocked(Tech tech, int baseTime) {
+    public int fasterIfUnlocked(ContentId tech, int baseTime) {
         return isUnlocked(tech) ? Math.max(1, baseTime / 2) : baseTime;
     }
 
     /** {@code baseCapacity} doubled if {@code tech} is unlocked, otherwise unchanged. */
     @Override
-    public int biggerIfUnlocked(Tech tech, int baseCapacity) {
+    public int biggerIfUnlocked(ContentId tech, int baseCapacity) {
         return isUnlocked(tech) ? baseCapacity * 2 : baseCapacity;
     }
 
@@ -65,19 +79,23 @@ public final class Research implements ResearchView {
     }
 
     /**
-     * Spend {@code tech}'s {@link Tech#cost()} out of the pool to unlock it — the player's
-     * explicit choice (P-02, DEV_TASKS.md). Refuses, spending and unlocking nothing, unless BOTH
-     * hold: enough points are banked, and every one of {@link Tech#prerequisites()} is already
-     * unlocked. Already-unlocked also refuses (there's nothing left to spend on it) rather than
-     * silently re-charging the player for a tech they already have.
+     * Spend {@code tech}'s {@link TechType#cost()} out of the pool to unlock it — the player's
+     * explicit choice. Refuses, spending and unlocking nothing, unless all three hold: the id names
+     * a registered technology, enough points are banked, and every one of its prerequisites is
+     * already unlocked. Already-unlocked also refuses, rather than silently re-charging the player
+     * for a tech they already have.
+     *
+     * <p>An unregistered id refuses instead of throwing: a save can name a technology whose mod was
+     * removed, and the tech-tree panel should go quiet about it rather than take the game down.
      *
      * @return whether the tech was actually unlocked just now
      */
-    public boolean unlock(Tech tech) {
-        if (isUnlocked(tech) || points < tech.cost() || !unlocked.containsAll(tech.prerequisites())) {
+    public boolean unlock(ContentId tech) {
+        TechType type = techs.peek(tech).orElse(null);
+        if (type == null || isUnlocked(tech) || points < type.cost() || !unlocked.containsAll(type.prerequisites())) {
             return false;
         }
-        points -= tech.cost();
+        points -= type.cost();
         unlocked.add(tech);
         return true;
     }
@@ -89,28 +107,33 @@ public final class Research implements ResearchView {
     }
 
     /** Immutable point-in-time snapshot for persistence (Memento pattern) — see {@code JsonSaveRepository}. */
-    public record Snapshot(int points, Set<Tech> unlocked) {
+    public record Snapshot(int points, Set<ContentId> unlocked) {
         public Snapshot {
-            // EnumSet.copyOf refuses an empty non-EnumSet Set (it can't infer the element type
-            // from zero elements) — build an empty EnumSet directly instead of copying in that case.
-            var copy = EnumSet.noneOf(Tech.class);
-            copy.addAll(unlocked);
-            // Wrapped, not handed out bare (N5, NEW_BUGS_PROGRESS.md): copying on the way IN only
-            // stops the caller's set from changing this snapshot later — the accessor still handed
-            // back a live, mutable EnumSet anyone could add to or clear, which is exactly what a
-            // point-in-time record must not allow. Same discipline as PlayerInventory.Snapshot.
-            unlocked = Collections.unmodifiableSet(copy);
+            // Copied on the way in AND wrapped on the way out: copying alone only stops the
+            // caller's set from changing this snapshot later, while the accessor still handed back
+            // a live, mutable set anyone could add to — which is exactly what a point-in-time
+            // record must not allow. LinkedHashSet for the same save-order reason as the field.
+            unlocked = Collections.unmodifiableSet(new LinkedHashSet<>(unlocked));
         }
     }
 
     @Override
     public Snapshot snapshot() {
-        return new Snapshot(points, unlocked());
+        return new Snapshot(points, unlocked);
     }
 
+    /**
+     * Overwrite progress wholesale from a save. Ids naming a technology this game no longer has
+     * (its mod was removed) are dropped rather than kept: keeping one would let it come back out
+     * in the next save and outlive the mod indefinitely, and nothing can act on it meanwhile.
+     */
     public void restore(Snapshot snapshot) {
         clear();
         points = snapshot.points();
-        unlocked.addAll(snapshot.unlocked());
+        for (ContentId id : snapshot.unlocked()) {
+            if (techs.peek(id).isPresent()) {
+                unlocked.add(id);
+            }
+        }
     }
 }

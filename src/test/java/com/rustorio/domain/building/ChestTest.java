@@ -5,7 +5,7 @@ import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.VanillaSprites;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaTechs;
 import com.rustorio.domain.world.World;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -90,12 +90,12 @@ class ChestTest {
     @Test
     void bigBufferDoublesTheCapacity() {
         World world = new World(4, 4);
-        world.addResearchPoints(Tech.FAST_MINING.cost());
-        assertTrue(world.tryUnlockTech(Tech.FAST_MINING));
-        world.addResearchPoints(Tech.FAST_SMELTING.cost());
-        assertTrue(world.tryUnlockTech(Tech.FAST_SMELTING));
-        world.addResearchPoints(Tech.BIG_BUFFER.cost());
-        assertTrue(world.tryUnlockTech(Tech.BIG_BUFFER));
+        world.addResearchPoints(costOf(VanillaTechs.FAST_MINING));
+        assertTrue(world.tryUnlockTech(VanillaTechs.FAST_MINING));
+        world.addResearchPoints(costOf(VanillaTechs.FAST_SMELTING));
+        assertTrue(world.tryUnlockTech(VanillaTechs.FAST_SMELTING));
+        world.addResearchPoints(costOf(VanillaTechs.BIG_BUFFER));
+        assertTrue(world.tryUnlockTech(VanillaTechs.BIG_BUFFER));
         Chest chest = new Chest();
 
         for (int i = 0; i < CAPACITY; i++) {
@@ -236,5 +236,10 @@ class ChestTest {
         world.tick();
 
         assertEquals(BuildingStatus.WORKING, chest.appearance().status());
+    }
+
+    /** A vanilla technology's price, read from the registry the game itself researches through. */
+    private static int costOf(com.rustorio.api.content.ContentId tech) {
+        return VanillaTechs.frozen().get(tech).cost();
     }
 }

@@ -1,13 +1,15 @@
 package com.rustorio.domain.world;
 
 import com.rustorio.api.content.ContentId;
+import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Research;
 import com.rustorio.domain.ResearchView;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.TechType;
+import com.rustorio.domain.VanillaTechs;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.building.Belt;
 import com.rustorio.domain.building.Building;
@@ -111,7 +113,7 @@ public final class World implements TickContext {
     private final ProductionStats stats = new ProductionStats();
 
     /** Research points and unlocked technologies — also survives individual demolitions. */
-    private final Research research = new Research();
+    private final Research research;
 
     /**
      * What the player has to spend on construction (D-03, DEV_TASKS.md) — see {@link
@@ -137,6 +139,9 @@ public final class World implements TickContext {
 
     /** Who wants to hear about a building actually being placed by {@link #place} — see that method and {@link BuildingPlacedListener}'s own javadoc for what does and doesn't count. */
     private final List<BuildingPlacedListener> buildingPlacedListeners = new ArrayList<>();
+
+    /** Who may refuse a placement before it happens — see {@link PlacementVeto}. Empty in a game with no mods, so the loop below costs nothing. */
+    private final List<PlacementVeto> placementVetoes = new ArrayList<>();
 
     /** Who wants to hear that a world tick just finished — see {@link #tick()} and {@link TickListener}. */
     private final List<TickListener> tickListeners = new ArrayList<>();
@@ -183,10 +188,16 @@ public final class World implements TickContext {
         this(width, height, BuildingFactory.standard());
     }
 
+    /** Researches through the built-in technologies — see the 4-arg constructor for a world running a mod's own. */
     public World(int width, int height, BuildingFactory buildingFactory) {
+        this(width, height, buildingFactory, VanillaTechs.frozen());
+    }
+
+    public World(int width, int height, BuildingFactory buildingFactory, Registry<TechType> techs) {
         this.width = width;
         this.height = height;
         this.buildingFactory = buildingFactory;
+        this.research = new Research(techs);
         productionListeners.add(stats);
         STARTING_INVENTORY.forEach(inventory::add);
     }
@@ -194,6 +205,11 @@ public final class World implements TickContext {
     /** Subscribe an independent listener to "item produced" — in addition to statistics, not instead of it. */
     public void addProductionListener(ProductionListener listener) {
         productionListeners.add(listener);
+    }
+
+    /** Register a veto over placement — see {@link PlacementVeto}. Every registered veto must agree for a building to go up. */
+    public void addPlacementVeto(PlacementVeto veto) {
+        placementVetoes.add(veto);
     }
 
     /** Subscribe a listener to "a building was placed" — see {@link BuildingPlacedListener}'s own javadoc for exactly which calls fire it. */
@@ -302,7 +318,7 @@ public final class World implements TickContext {
      * actually happens. The cell must be free and in bounds (universal, checked here), and satisfy
      * the kind's own extra precondition, if it has one — see {@link BuildingFactory#canPlace} and
      * {@link PlacementRule}. A belt additionally joins the segment its same-direction neighbors (if
-     * any) belong to — see {@link BuildingFactory#attachBelt}. Collapses what used to be nine
+     * any) belong to — see {@link #attachToSegment}. Collapses what used to be nine
      * separate {@code place*} methods and a {@code switch} dispatching between them (P3-04,
      * BUG_FIX_PROGRESS.md).
      */
@@ -321,6 +337,13 @@ public final class World implements TickContext {
                 if (!inBounds(cx, cy) || !isFree(cx, cy) || !buildingFactory.canPlace(prototypeId, cx, cy)) {
                     return false;
                 }
+            }
+        }
+        // Asked once the placement is known to be legal and before anything is committed: a veto
+        // that refused after the fact would leave the caller to undo a half-placed building.
+        for (PlacementVeto veto : placementVetoes) {
+            if (!veto.allowPlacement(prototypeId, x, y)) {
+                return false;
             }
         }
         Coord anchor = new Coord(x, y);
@@ -437,6 +460,10 @@ public final class World implements TickContext {
      * corrupting the segment's tile list.
      */
     public void restoreBuilding(int x, int y, Building building) {
+        // No PlacementVeto here, deliberately, and for the same reason BuildingPlacedListener
+        // doesn't fire either: restoring a save or an undone action is not a player placing
+        // something. A veto that ran here would let a mod quietly delete buildings out of an
+        // existing factory just by being installed.
         Coord anchor = new Coord(x, y);
         buildings.put(anchor, building);
         occupyFootprint(anchor, building.footprintWidth(), building.footprintHeight());
@@ -684,7 +711,7 @@ public final class World implements TickContext {
      * can't afford it, already has it, or hasn't unlocked its prerequisites yet. Only a genuine
      * unlock notifies {@link #researchCompleteListeners} — a refused attempt is not an event.
      */
-    public boolean tryUnlockTech(Tech tech) {
+    public boolean tryUnlockTech(ContentId tech) {
         boolean unlocked = research.unlock(tech);
         if (unlocked) {
             for (ResearchCompleteListener listener : researchCompleteListeners) {

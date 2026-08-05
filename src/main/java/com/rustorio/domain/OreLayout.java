@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Strategy pattern: where ore lies on the map and of which kind. {@link World} depends on this
+ * Strategy pattern: where ore lies on the map and of which kind. {@code World} depends on this
  * interface, not on {@link PatchOreLayout} directly — a test can hand it a fixed, tiny layout
  * instead of the real map, and a future "random seed" world generator is a second implementation,
  * not a change to {@code World} or {@code Miner}.
@@ -50,7 +50,7 @@ public interface OreLayout {
     /** What kind of ground lies under cell {@code (x, y)} — see {@link Terrain}. Must be deterministic and never mutate state. */
     Terrain terrainAt(int x, int y);
 
-    /** Whether a building may stand on {@code (x, y)} at all, terrain-wise — {@link PlacementRule} is the one caller. */
+    /** Whether a building may stand on {@code (x, y)} at all, terrain-wise — {@code PlacementRule} is the one caller. */
     default boolean isPassable(int x, int y) {
         return terrainAt(x, y).isPassable();
     }

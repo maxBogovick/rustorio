@@ -20,6 +20,7 @@ import com.rustorio.domain.RandomOreLayout;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.world.ProductionLog;
 import com.rustorio.domain.world.World;
+import com.rustorio.game.GameBootstrap;
 import com.rustorio.mod.LoadedGame;
 import com.rustorio.persistence.JsonSaveRepository;
 import com.rustorio.persistence.SaveRepository;
@@ -65,6 +66,7 @@ public final class GameScreen extends ScreenAdapter {
     private float upsTimer;
     private int ticksThisSecond;
     private int lastUps;
+    private boolean disposed;
     /**
      * Обработчик колеса мыши, сохранённый ради {@link #dispose}/{@link #hide} (P4-07,
      * BUG_FIX_PROGRESS.md): раньше конструктор ставил его в {@code Gdx.input} и никогда не снимал
@@ -96,7 +98,7 @@ public final class GameScreen extends ScreenAdapter {
 
     /**
      * Dev-mode showcase ({@code --dev}, {@code com.graphics.Main}) — фиксированная карта, как у
-     * {@link #GameScreen(LoadedGame, List)}: {@link DevScene}'s coordinates assume the standard
+     * {@link #GameScreen(Game, LoadedGame, List)}: {@link DevScene}'s coordinates assume the standard
      * map's real ore patches, so this can't be combined with a random seed.
      */
     public GameScreen(Game game, LoadedGame loadedGame, List<Path> modDirectories, boolean devMode) {
@@ -123,20 +125,20 @@ public final class GameScreen extends ScreenAdapter {
      * com.rustorio.editor}) adds or changes a {@code content/*.json} file.
      */
     private GameScreen(Game game, LoadedGame loadedGame, List<Path> modDirectories, OreLayout oreLayout, boolean devMode) {
-        BuildingFactory buildingFactory = new BuildingFactory(
-                oreLayout, loadedGame.recipes(), loadedGame.items(), loadedGame.buildings());
-        this.world = new World(GfxConfig.GRID_W, GfxConfig.GRID_H, buildingFactory);
+        // GameBootstrap, а не сборка мира здесь: он же цепляет шину событий мода к миру
+        // (EventWiring), про которую этот конструктор раньше не знал — и ни одно событие в
+        // запущенной игре до мода не доезжало.
+        this.world = GameBootstrap.createWorld(loadedGame, oreLayout, GfxConfig.GRID_W, GfxConfig.GRID_H);
         world.addProductionListener(productionLog);
         if (devMode) {
             DevScene.build(world);
         }
         this.camera = new GameCamera(GfxConfig.GRID_W, GfxConfig.GRID_H);
-        // loadedGame.items(), not VanillaItems.frozen() (JsonSaveRepository's own no-arg default):
-        // a quicksave (F5/F9) written with modded items in the world must round-trip against the
-        // SAME item registry the world was built with, or a load would reject every modded
-        // ItemType key as unknown — this GameScreen already builds buildingFactory against
-        // loadedGame.items() above, so the quicksave repository has to agree.
-        this.input = new InputHandler(camera, new JsonSaveRepository(JsonSaveRepository.DEFAULT_PATH, loadedGame.items()));
+        // GameBootstrap.saves, а не конструктор напрямую: быстрое сохранение (F5/F9) должно
+        // читаться и писаться тем же реестром предметов, на котором построен мир, И применять
+        // переименования прототипов, объявленные модами, — забыть второе из четырёх мест вызова
+        // ровно так и получилось.
+        this.input = new InputHandler(camera, GameBootstrap.saves(loadedGame, JsonSaveRepository.DEFAULT_PATH));
         this.pauseMenu = new PauseMenu(game, loadedGame, modDirectories, world, this::dispose);
         this.textures = Textures.loadFrom(modDirectories);
         this.renderer = new Renderer(textures, camera, world.buildingFactory().oreLayout(), world.width(), world.height());
@@ -153,7 +155,10 @@ public final class GameScreen extends ScreenAdapter {
                 return true;
             }
         };
-        Gdx.input.setInputProcessor(inputProcessor);
+        // Процессор ввода регистрируется в show(), НЕ здесь: forSave строит экран-кандидата ещё до
+        // показа, и захват глобального ввода в конструкторе крал его у текущего экрана — а на
+        // неудачной загрузке dispose() кандидата обнулял процессор, оставляя живую игру без колеса
+        // мыши (зум/скролл меню построек). Экран, который не показан, ввод не трогает.
     }
 
     /**
@@ -209,6 +214,12 @@ public final class GameScreen extends ScreenAdapter {
                 pauseMenu.open();
             }
         }
+        // pauseMenu.handleInput выше мог загрузить сейв или выйти в меню — освободив этот экран
+        // (disposeOwningScreen) и переключив screen — а мы всё ещё внутри кадра: и тик, и рендер
+        // ниже пошли бы по уже освобождённым ресурсам ("No buffer allocated!").
+        if (disposed) {
+            return;
+        }
         // 2. тик: фиксированным шагом (P4-06) — на паузе (обычной или через паузу-меню) аккумулятор
         // не растёт и тиков не будет; иначе на каждый накопленный TICK_SECONDS мир тикает столько
         // раз, сколько просит скорость (1×/2×/4×), но не больше MAX_CATCHUP_TICKS раз за этот кадр.
@@ -242,12 +253,23 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     @Override
+    public void show() {
+        // Пара к hide(): экран берёт ввод, когда его показывают, и отдаёт, когда прячут — а не
+        // держит с момента конструктора (см. его конец, про forSave-кандидата).
+        Gdx.input.setInputProcessor(inputProcessor);
+    }
+
+    @Override
     public void hide() {
         clearInputProcessorIfOurs();
     }
 
     @Override
     public void dispose() {
+        if (disposed) { // called by disposeOwningScreen and possibly again by a load-failure caller — free once
+            return;
+        }
+        disposed = true;
         clearInputProcessorIfOurs();
         renderer.dispose();
         textures.dispose();

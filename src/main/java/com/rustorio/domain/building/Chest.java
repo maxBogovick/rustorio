@@ -1,11 +1,12 @@
 package com.rustorio.domain.building;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
-import com.rustorio.domain.Tech;
+import com.rustorio.domain.VanillaTechs;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -14,7 +15,7 @@ import java.util.Optional;
  * A real buffer: stores what it's handed, by kind, up to a total capacity, and gives it back out
  * — the fix for §2.5 of the design audit, which called the old {@code Chest} "not a container, an
  * incinerator": item type was thrown away on {@link #accept}, capacity was infinite (so {@link
- * Tech#BIG_BUFFER} did nothing to it), and nothing could ever be taken back out.
+ * VanillaTechs#BIG_BUFFER} did nothing to it), and nothing could ever be taken back out.
  *
  * <p><b>Owner decision (D-02, DEV_TASKS.md):</b> a chest is now directional, like {@link Miner}
  * became in D-01 — {@link #tick} pushes ONE item per tick out through {@link #direction} via
@@ -232,7 +233,7 @@ public final class Chest implements Building {
     }
 
     private static int effectiveCapacity(TickContext world) {
-        return world.research().biggerIfUnlocked(Tech.BIG_BUFFER, CAPACITY);
+        return world.research().biggerIfUnlocked(VanillaTechs.BIG_BUFFER, CAPACITY);
     }
 
     @Override
@@ -264,6 +265,11 @@ public final class Chest implements Building {
     @Override
     public BuildingType type() {
         return BuildingType.CHEST;
+    }
+
+    @Override
+    public ContentId prototypeId() {
+        return prototype.id();
     }
 
     @Override

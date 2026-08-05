@@ -40,6 +40,11 @@ public final class Main {
 
     public static void main(String[] args) {
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
+        // ANGLE (GLES поверх Metal), а не системный OpenGL: на Apple Silicon драйвер Apple падает
+        // с SIGSEGV на immediate-mode пути libGDX (ShapeRenderer/SpriteBatch → glDrawArrays). ANGLE
+        // уводит весь рендер на Metal и обходит этот драйвер. Требует зависимости gdx-lwjgl3-angle
+        // (build.gradle). Проверяется только запуском окна вручную — headless-сессия его не поднимает.
+        config.setOpenGLEmulation(Lwjgl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20, 2, 0);
         config.setTitle("Rustorio");
         config.setWindowedMode(GfxConfig.WINDOW_W, GfxConfig.WINDOW_H);
         config.setResizable(true); // камера умеет пересчитываться под новый размер
