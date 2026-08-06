@@ -1,0 +1,10 @@
+{
+  "path": "tank",
+  "label": { "en": "Tank", "ru": "Бак" },
+  "archetype": "TANK",
+  "cost": { "item": "iron_plate", "amount": 5 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:tank",
+  "bufferMax": 2500,
+  "acceptsSpeedEffects": false
+}

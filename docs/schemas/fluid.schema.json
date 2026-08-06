@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rustorio.invalid/schemas/fluid.schema.json",
+  "title": "Rustorio fluid prototype",
+  "description": "content/fluids/*.json — a fluid: a continuous volume carried by pipes, never by belts. Separate content from an item on purpose; see FluidType.",
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "label": {
+      "description": "A plain string, or an object of locale code to string. Falls back to \"en\", then to the id.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 1
+        }
+      ]
+    },
+    "colorRgb": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    }
+  },
+  "required": [
+    "path",
+    "label",
+    "colorRgb"
+  ],
+  "additionalProperties": false
+}

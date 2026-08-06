@@ -3,6 +3,7 @@ package com.rustorio.mod;
 import com.rustorio.api.mod.RegistrationContext;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.AuthoredMap;
+import com.rustorio.domain.FluidType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeKind;
@@ -17,6 +18,7 @@ import com.rustorio.domain.building.BuildingPrototype;
 final class GameRegistrationContext implements RegistrationContext {
 
     private final Registry<ItemType> items = new Registry<>();
+    private final Registry<FluidType> fluids = new Registry<>();
     private final Registry<BuildingPrototype> buildings = new Registry<>();
     private final Registry<RecipeKind> kinds = new Registry<>();
     private final Registry<AuthoredMap> maps = new Registry<>();
@@ -26,6 +28,11 @@ final class GameRegistrationContext implements RegistrationContext {
     @Override
     public Registry<ItemType> items() {
         return items;
+    }
+
+    @Override
+    public Registry<FluidType> fluids() {
+        return fluids;
     }
 
     @Override

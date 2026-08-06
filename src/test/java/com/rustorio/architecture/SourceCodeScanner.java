@@ -259,7 +259,7 @@ final class SourceCodeScanner {
     }
 
     /**
-     * Simple names of the nine vanilla {@code Building} implementations. Used to reflect this off
+     * Simple names of the vanilla {@code Building} implementations. Used to reflect this off
      * {@code Building.class.getPermittedSubclasses()} — {@code Building} was {@code sealed} and
      * this list was exactly its {@code permits} clause, so it couldn't drift from the domain by
      * construction. {@code Building} stopped being {@code sealed} on purpose — the whole point is
@@ -271,6 +271,6 @@ final class SourceCodeScanner {
      */
     static Set<String> buildingSubtypeNames() {
         return Set.of("Miner", "Chest", "Furnace", "Belt", "Splitter", "Filter", "Inserter", "Lab",
-                "UndergroundBelt");
+                "UndergroundBelt", "Pipe", "Pump", "Boiler", "Pole", "Generator");
     }
 }

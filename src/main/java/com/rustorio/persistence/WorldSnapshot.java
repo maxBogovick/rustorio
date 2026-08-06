@@ -84,6 +84,14 @@ import org.jspecify.annotations.Nullable;
  * to travel as a migration function on that prototype (a later card), not another version bump
  * here.
  *
+ * <p><b>Not bumped for fluids.</b> Pipes and tanks brought a new prototype with a state of its own,
+ * and under the codec design that is not a format change at all: a row was already {@code
+ * {"x", "y", "prototypeId", "state"}} with {@code state} written by whichever codec the prototype
+ * names, so a new prototype adds new rows, not a new shape. A save written before fluids existed
+ * loads unchanged and completely — {@code GoldenSaveTest}, reading a file checked in before this
+ * work, is the proof, and it is exactly the test a real format change would have turned red.
+ * Bumping anyway would have rejected every save on disk to protect against nothing.
+ *
  * <p><b>Bumped a ninth time</b> — for {@code research.unlocked}, not for a building's state, so the
  * rule above still holds. Technologies stopped being {@code enum} constants and became registered
  * content addressed by {@code ContentId}, so the set is written as ids ({@code {"namespace":

@@ -57,7 +57,7 @@ public final class InputHandler {
     private final CameraController cameraController;
     private final SimulationControls simulationControls = new SimulationControls();
     /**
-     * Настраиваемый хотбар — по умолчанию 12 ванильных прототипов, тем же порядком, что
+     * Настраиваемый хотбар — по умолчанию все ванильные прототипы, тем же порядком, что
      * {@code BuildingType.values()} раньше давал напрямую, чтобы клавиши 1-9 ощущались как прежде.
      * Закрепление в слот (клик по меню построек) заменяет элемент этого списка, не сам список.
      */
@@ -87,7 +87,7 @@ public final class InputHandler {
         this.cameraController = new CameraController(camera);
     }
 
-    /** 12 ванильных прототипов, тем же порядком, что {@code BuildingType.values()} — хотбар-слоты 1-9(+2 мышью) на новой игре. */
+    /** Все ванильные прототипы, тем же порядком, что {@code BuildingType.values()} — слоты 1-9 клавишами, остальные мышью. */
     private static List<ContentId> defaultHotbarSlots() {
         List<ContentId> slots = new ArrayList<>();
         for (BuildingType type : BuildingType.values()) {

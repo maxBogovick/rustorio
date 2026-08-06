@@ -1,0 +1,6 @@
+{
+  "ingredients": ["water"],
+  "output": "steam",
+  "time": 8,
+  "kind": "boiler"
+}

@@ -279,6 +279,7 @@ final class InfoOverlayRenderer {
             case NO_FUEL -> "no fuel";
             case NO_INPUT -> "no input";
             case OUTPUT_FULL -> "output full";
+            case NO_POWER -> "no power";
             case WORKING -> throw new IllegalArgumentException("WORKING never reaches an alert row");
         };
     }

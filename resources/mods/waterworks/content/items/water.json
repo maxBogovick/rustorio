@@ -1,0 +1,6 @@
+{
+  "path": "water",
+  "label": { "en": "Water", "ru": "Вода" },
+  "colorRgb": "#3aa0e0",
+  "shape": "CIRCLE"
+}

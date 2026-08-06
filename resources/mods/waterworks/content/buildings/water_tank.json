@@ -1,0 +1,9 @@
+{
+  "path": "water_tank",
+  "label": { "en": "Water tank", "ru": "Бак" },
+  "archetype": "CHEST",
+  "cost": { "item": "rustorio:iron_plate", "amount": 5 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:chest",
+  "acceptsSpeedEffects": true
+}

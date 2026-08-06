@@ -35,6 +35,8 @@ public final class Miner implements Building {
 
     private static final int MINE_TIME = 3;
 
+    /** Which kind this miner reports as — injected like {@link Furnace}'s, so a second registration (an electric one) is a prototype rather than a second class. */
+    private final BuildingType type;
     private final OreLayout oreLayout;
     private final Direction direction;
     /** Which sprite {@link #appearance} draws — see {@link Furnace}'s own field javadoc for why this is injected rather than a hardcoded sprite constant. */
@@ -53,6 +55,12 @@ public final class Miner implements Building {
     }
 
     public Miner(OreLayout oreLayout, Direction direction, BuildingPrototype prototype) {
+        this(BuildingType.MINER, oreLayout, direction, prototype);
+    }
+
+    /** The general form: a miner that reports {@code type} rather than the vanilla {@code MINER} kind. */
+    public Miner(BuildingType type, OreLayout oreLayout, Direction direction, BuildingPrototype prototype) {
+        this.type = type;
         this.oreLayout = oreLayout;
         this.direction = direction;
         this.prototype = prototype;
@@ -67,6 +75,13 @@ public final class Miner implements Building {
     /** Package-private restore constructor used by {@link BuildingFactory#restore}. */
     Miner(OreLayout oreLayout, Direction direction, int cooldown, @Nullable ItemType held, int speedLevel,
             BuildingPrototype prototype) {
+        this(BuildingType.MINER, oreLayout, direction, cooldown, held, speedLevel, prototype);
+    }
+
+    /** The general form of the restore constructor — see the {@code type}-taking create constructor above. */
+    Miner(BuildingType type, OreLayout oreLayout, Direction direction, int cooldown, @Nullable ItemType held,
+            int speedLevel, BuildingPrototype prototype) {
+        this.type = type;
         this.oreLayout = oreLayout;
         this.direction = direction;
         this.cooldown = cooldown;
@@ -89,6 +104,15 @@ public final class Miner implements Building {
     }
 
     private void tickOnce(TickContext world, int x, int y) {
+        // Electricity is opt-in (owner decision): a prototype that declares no demand never asks for
+        // power and behaves exactly as every miner did before there was any. One that does declare
+        // one pays for every tick up front, and stops outright when its grid cannot cover it —
+        // which is what makes an electric variant a registration rather than a second class.
+        PowerSpec spec = prototype.power();
+        if (spec != null && spec.demand() > 0 && !world.drawPower(x, y, spec.demand())) {
+            status = BuildingStatus.NO_POWER;
+            return;
+        }
         if (held == null) {
             if (--cooldown > 0) {
                 return;
@@ -139,7 +163,7 @@ public final class Miner implements Building {
 
     @Override
     public Optional<Building> rotatedClockwise() {
-        return Optional.of(new Miner(oreLayout, direction.rotate(), cooldown, held, speedLevel, prototype));
+        return Optional.of(new Miner(type, oreLayout, direction.rotate(), cooldown, held, speedLevel, prototype));
     }
 
     @Override
@@ -149,12 +173,12 @@ public final class Miner implements Building {
 
     @Override
     public Building withSpeedLevel(int newSpeedLevel) {
-        return new Miner(oreLayout, direction, cooldown, held, newSpeedLevel, prototype);
+        return new Miner(type, oreLayout, direction, cooldown, held, newSpeedLevel, prototype);
     }
 
     @Override
     public BuildingType type() {
-        return BuildingType.MINER;
+        return type;
     }
 
     @Override

@@ -28,33 +28,44 @@ import org.jspecify.annotations.Nullable;
  * UndergroundBelt}, {@code Lab}) have no meaningful "stuck" state or recipe choice of their own to
  * report and keep calling these unchanged; only {@code Miner}, {@code Chest} needed a real status,
  * and only {@code Furnace} needs both status and a recipe hint.
+ *
+ * <p>{@code fill} is the same shape of optional as {@code recipeHint} — a {@code @Nullable} field,
+ * null for every building that holds no fluid — carrying a {@link FluidFill} (which fluid, how
+ * full) so a pipe or tank can draw a real bar in the fluid's colour instead of the bare percentage
+ * badge it stood in for before this field existed. See {@link #of(ContentId, FluidFill)}.
  */
-public record Appearance(ContentId sprite, int badge, BuildingStatus status, @Nullable ItemType recipeHint) {
+public record Appearance(ContentId sprite, int badge, BuildingStatus status,
+        @Nullable ItemType recipeHint, @Nullable FluidFill fill) {
 
     private static final int NO_BADGE = -1;
 
     public static Appearance of(ContentId sprite) {
-        return new Appearance(sprite, NO_BADGE, BuildingStatus.WORKING, null);
+        return new Appearance(sprite, NO_BADGE, BuildingStatus.WORKING, null, null);
     }
 
     public static Appearance of(ContentId sprite, int badge) {
-        return new Appearance(sprite, badge, BuildingStatus.WORKING, null);
+        return new Appearance(sprite, badge, BuildingStatus.WORKING, null, null);
     }
 
     public static Appearance of(ContentId sprite, BuildingStatus status) {
-        return new Appearance(sprite, NO_BADGE, status, null);
+        return new Appearance(sprite, NO_BADGE, status, null, null);
     }
 
     public static Appearance of(ContentId sprite, BuildingStatus status, @Nullable ItemType recipeHint) {
-        return new Appearance(sprite, NO_BADGE, status, recipeHint);
+        return new Appearance(sprite, NO_BADGE, status, recipeHint, null);
     }
 
     public static Appearance of(ContentId sprite, int badge, BuildingStatus status) {
-        return new Appearance(sprite, badge, status, null);
+        return new Appearance(sprite, badge, status, null, null);
     }
 
     public static Appearance of(ContentId sprite, int badge, BuildingStatus status, @Nullable ItemType recipeHint) {
-        return new Appearance(sprite, badge, status, recipeHint);
+        return new Appearance(sprite, badge, status, recipeHint, null);
+    }
+
+    /** A fluid tile's look: its sprite plus a {@link FluidFill} bar; no badge, no status, no recipe hint. */
+    public static Appearance of(ContentId sprite, FluidFill fill) {
+        return new Appearance(sprite, NO_BADGE, BuildingStatus.WORKING, null, fill);
     }
 
     public boolean hasBadge() {

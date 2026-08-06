@@ -40,6 +40,15 @@
         "SQUARE",
         "TRIANGLE"
       ]
+    },
+    "tool": {
+      "enum": [
+        "ore",
+        "water",
+        "rock",
+        "none"
+      ],
+      "description": "Which map-editor tool offers this item. Authoring metadata only — the game's item loader reads the five fields above and ignores this one, so what an item does on a map is decided by the patch that names it. Omitted means the editor treats the item as an ore exactly when no recipe produces it."
     }
   },
   "required": [

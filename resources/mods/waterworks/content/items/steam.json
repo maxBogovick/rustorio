@@ -1,0 +1,7 @@
+{
+  "path": "steam",
+  "label": { "en": "Steam", "ru": "Пар" },
+  "researchGrade": true,
+  "colorRgb": "#dfe8ef",
+  "shape": "TRIANGLE"
+}

@@ -4,7 +4,9 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
+import com.rustorio.domain.FluidType;
 import com.rustorio.domain.ItemType;
+import com.rustorio.domain.VanillaFluids;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.VanillaSprites;
 import java.util.ArrayList;
@@ -243,6 +245,94 @@ public final class VanillaBuildings {
         }
     };
 
+    private static final Codec<PipeState> PIPE_CODEC = new Codec<>() {
+        @Override
+        public Object encode(PipeState state) {
+            Map<String, Object> data = new LinkedHashMap<>();
+            ContentId fluid = state.fluid();
+            data.put("fluid", fluid == null ? null : fluid.toString());
+            data.put("amount", state.amount());
+            return data;
+        }
+
+        @Override
+        public PipeState decode(Object raw, Registry<ItemType> items) {
+            Map<?, ?> data = (Map<?, ?>) raw;
+            Object fluid = data.get("fluid");
+            // Read as a Number, not cast straight to Long: a JSON writer stores 5 as an int and a
+            // reader hands it back as an Integer, so a save written with a small volume would fail
+            // a Long cast while one written with a large volume passed.
+            Number amount = Codec.requireField(data, "amount");
+            return new PipeState(fluid == null ? null : ContentId.of((String) fluid), amount.longValue());
+        }
+    };
+
+    private static final Codec<PumpState> PUMP_CODEC = new Codec<>() {
+        @Override
+        public Object encode(PumpState state) {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("direction", state.direction().name());
+            data.put("cooldown", state.cooldown());
+            return data;
+        }
+
+        @Override
+        public PumpState decode(Object raw, Registry<ItemType> items) {
+            Map<?, ?> data = (Map<?, ?>) raw;
+            return new PumpState(
+                    Direction.valueOf(Codec.requireField(data, "direction")),
+                    Codec.requireField(data, "cooldown"));
+        }
+    };
+
+    private static final Codec<BoilerState> BOILER_CODEC = new Codec<>() {
+        @Override
+        public Object encode(BoilerState state) {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("direction", state.direction().name());
+            data.put("fuelBuffer", state.fuelBuffer());
+            data.put("burnTicksLeft", state.burnTicksLeft());
+            return data;
+        }
+
+        @Override
+        public BoilerState decode(Object raw, Registry<ItemType> items) {
+            Map<?, ?> data = (Map<?, ?>) raw;
+            return new BoilerState(
+                    Direction.valueOf(Codec.requireField(data, "direction")),
+                    Codec.requireField(data, "fuelBuffer"),
+                    Codec.requireField(data, "burnTicksLeft"));
+        }
+    };
+
+    /** A pole keeps no state at all — see {@link PoleState}. The encoded shape is an empty object, not a missing field. */
+    private static final Codec<PoleState> POLE_CODEC = new Codec<>() {
+        @Override
+        public Object encode(PoleState state) {
+            return new LinkedHashMap<String, Object>();
+        }
+
+        @Override
+        public PoleState decode(Object raw, Registry<ItemType> items) {
+            return new PoleState();
+        }
+    };
+
+    private static final Codec<GeneratorState> GENERATOR_CODEC = new Codec<>() {
+        @Override
+        public Object encode(GeneratorState state) {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("direction", state.direction().name());
+            return data;
+        }
+
+        @Override
+        public GeneratorState decode(Object raw, Registry<ItemType> items) {
+            Map<?, ?> data = (Map<?, ?>) raw;
+            return new GeneratorState(Direction.valueOf(Codec.requireField(data, "direction")));
+        }
+    };
+
     // FROZEN must be declared (and therefore initialized) after every shared RestoreFactory/Codec
     // constant above and before anything that calls frozen() — same top-to-bottom
     // initialization-order trap already caught once in VanillaItems.
@@ -270,8 +360,9 @@ public final class VanillaBuildings {
     }
 
     /**
-     * Registers all 12 vanilla building prototypes into {@code prototypes}. For tests/custom
-     * assemblies that want their own isolated (unfrozen) copy instead of sharing {@link #frozen()}.
+     * Registers one vanilla building prototype per {@link BuildingType} constant into {@code
+     * prototypes}. For tests/custom assemblies that want their own isolated (unfrozen) copy instead
+     * of sharing {@link #frozen()}.
      *
      * <p>{@code acceptsSpeedEffects} is {@code true} exactly for the six kinds {@code
      * UpgradeSpeedAction} already accepts today ({@code MINER}/{@code CHEST}/{@code FURNACE}/
@@ -362,6 +453,108 @@ public final class VanillaBuildings {
                 INSERTER_CODEC);
         registerFurnaceLike(prototypes, BuildingType.ASSEMBLER, new BuildingCost(VanillaItems.GEAR, 15),
                 VanillaSprites.ASSEMBLER, 5, 1, null);
+        registerFluidNode(prototypes, BuildingType.PIPE, new BuildingCost(VanillaItems.IRON_PLATE, 1),
+                VanillaSprites.PIPE, PIPE_CAPACITY);
+        registerFluidNode(prototypes, BuildingType.TANK, new BuildingCost(VanillaItems.IRON_PLATE, 5),
+                VanillaSprites.TANK, TANK_CAPACITY);
+        register(prototypes, BuildingType.PUMP, new BuildingCost(VanillaItems.IRON_PLATE, 5),
+                PlacementRule.ADJACENT_TO_WATER, VanillaSprites.PUMP, 0, 1, false,
+                (self, direction, factory) -> new Pump(BuildingType.PUMP, direction, self),
+                (self, decodedState, factory) -> {
+                    PumpState state = (PumpState) decodedState;
+                    return new Pump(BuildingType.PUMP, state.direction(), state.cooldown(), self);
+                },
+                PUMP_CODEC, null, null, VanillaFluids.WATER);
+        register(prototypes, BuildingType.BOILER, new BuildingCost(VanillaItems.IRON_PLATE, 8),
+                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.BOILER, 0, 1, false,
+                (self, direction, factory) -> new Boiler(BuildingType.BOILER, direction, self),
+                (self, decodedState, factory) -> {
+                    BoilerState state = (BoilerState) decodedState;
+                    return new Boiler(BuildingType.BOILER, state, self);
+                },
+                BOILER_CODEC, VanillaItems.COAL, VanillaFluids.WATER, VanillaFluids.STEAM);
+        register(prototypes, BuildingType.POLE, new BuildingCost(VanillaItems.IRON_PLATE, 1),
+                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.POLE, 0, 1, false,
+                (self, direction, factory) -> new Pole(BuildingType.POLE, self),
+                (self, decodedState, factory) -> new Pole(BuildingType.POLE, self),
+                POLE_CODEC, null, null, null, PowerSpec.pole(POLE_RADIUS));
+        register(prototypes, BuildingType.GENERATOR, new BuildingCost(VanillaItems.GEAR, 10),
+                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.GENERATOR, 0, 1, false,
+                (self, direction, factory) -> new Generator(BuildingType.GENERATOR, direction, self),
+                (self, decodedState, factory) -> {
+                    GeneratorState state = (GeneratorState) decodedState;
+                    return new Generator(BuildingType.GENERATOR, state.direction(), self);
+                },
+                GENERATOR_CODEC, null, VanillaFluids.STEAM, null, PowerSpec.generator(GENERATOR_OUTPUT));
+        // The same Miner archetype as the plain one, and deliberately so: what makes this one
+        // electric is a declared demand, which is data. If an electric variant needed its own Java
+        // class, "electricity is opt-in" would be a claim about one hardcoded building rather than
+        // about every building a mod might write.
+        register(prototypes, BuildingType.ELECTRIC_MINER, new BuildingCost(VanillaItems.GEAR, 5),
+                PlacementRule.NEEDS_ORE, VanillaSprites.ELECTRIC_MINER, 0, 1, true,
+                (self, direction, factory) ->
+                        new Miner(BuildingType.ELECTRIC_MINER, factory.oreLayout(), direction, self),
+                (self, decodedState, factory) -> {
+                    MinerState state = (MinerState) decodedState;
+                    return new Miner(BuildingType.ELECTRIC_MINER, factory.oreLayout(), state.direction(),
+                            state.cooldown(), state.held(), state.speedLevel(), self);
+                },
+                MINER_CODEC, null, null, null, PowerSpec.consumer(ELECTRIC_MINER_DEMAND));
+    }
+
+    /**
+     * How far a pole reaches, in cells. Not a balance pass — five cells means a pole covers an 11x11
+     * square, so a modest factory needs a handful of them and planning where they go is a real
+     * question without being a chore.
+     */
+    private static final int POLE_RADIUS = 5;
+
+    /**
+     * One generator's output per tick, and one electric machine's demand. A balance pass now,
+     * anchored on Factorio's 900 kW steam engine to 90 kW mining drill — ten to one — so one
+     * generator carries exactly ten electric miners and the grid is something to plan against.
+     */
+    private static final int GENERATOR_OUTPUT = 100;
+
+    private static final int ELECTRIC_MINER_DEMAND = 10;
+
+    /**
+     * One pipe tile's volume. Not derived from anything — no balance pass has run on fluids yet —
+     * so it is a starting proposal, chosen so a short run of pipe is a line, not a reservoir: a
+     * player who wants to store fluid should have to build the thing meant for storing it.
+     */
+    private static final int PIPE_CAPACITY = 100;
+
+    /** A tank holds a whole line's worth of pipe — the same "storage is a deliberate building" proposal as {@link #PIPE_CAPACITY}, seen from the other end. */
+    private static final int TANK_CAPACITY = 2500;
+
+    /**
+     * A {@link Pipe}-archetype tile (PIPE/TANK, one class for both) — always {@link
+     * PlacementRule#NEEDS_PASSABLE_TERRAIN}, never accepts speed effects (there is no {@code tick}
+     * to run twice; see {@link Pipe}'s own javadoc).
+     *
+     * <p>{@code capacity} rides in on {@code bufferMax}, the field a {@link Furnace}-kind uses for
+     * its input buffer, rather than on a new prototype component of its own: both are the same
+     * question — how much does this building hold — asked of archetypes that can never be the same
+     * building, and a JSON-authored pipe therefore needs no field the loader doesn't already read.
+     */
+    private static void registerFluidNode(Registry<BuildingPrototype> prototypes, BuildingType type,
+            BuildingCost cost, ContentId texture, int capacity) {
+        register(prototypes, type, cost, PlacementRule.NEEDS_PASSABLE_TERRAIN, texture, capacity, 1, false,
+                (self, direction, factory) -> new Pipe(type, self),
+                (self, decodedState, factory) -> {
+                    PipeState state = (PipeState) decodedState;
+                    ContentId fluidId = state.fluid();
+                    // getOrUnknown, not get: a save may name a fluid whose mod has since been
+                    // removed, and that is content merely ABSENT, not a file that is unreadable —
+                    // get() would throw, JsonSaveRepository would turn it into a Failure, and the
+                    // whole factory would be rejected over one pipe. A missing prototype already
+                    // degrades this way; the tile comes back, empty, with the volume it held gone
+                    // along with the fluid that no longer has a name.
+                    FluidType fluid = fluidId == null ? null : factory.fluids().getOrUnknown(fluidId).orElse(null);
+                    return new Pipe(type, self, fluid, fluid == null ? 0 : state.amount());
+                },
+                PIPE_CODEC, null);
     }
 
     private static Registry<BuildingPrototype> buildFrozen() {
@@ -410,9 +603,28 @@ public final class VanillaBuildings {
             BuildingCost cost, PlacementRule placementRule, ContentId texture, int bufferMax, int speedMultiplier,
             boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec,
             @Nullable ItemType fuelItem) {
+        register(prototypes, type, cost, placementRule, texture, bufferMax, speedMultiplier, acceptsSpeedEffects,
+                behavior, restoreBehavior, codec, fuelItem, null, null);
+    }
+
+    /** The form for the archetypes that name a fluid port but nothing electrical — see {@link BuildingPrototype#fluidInput()}. */
+    private static void register(Registry<BuildingPrototype> prototypes, BuildingType type,
+            BuildingCost cost, PlacementRule placementRule, ContentId texture, int bufferMax, int speedMultiplier,
+            boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec,
+            @Nullable ItemType fuelItem, @Nullable FluidType fluidInput, @Nullable FluidType fluidOutput) {
+        register(prototypes, type, cost, placementRule, texture, bufferMax, speedMultiplier, acceptsSpeedEffects,
+                behavior, restoreBehavior, codec, fuelItem, fluidInput, fluidOutput, null);
+    }
+
+    /** The full form, for the three archetypes that say something about electricity — see {@link PowerSpec}. */
+    private static void register(Registry<BuildingPrototype> prototypes, BuildingType type,
+            BuildingCost cost, PlacementRule placementRule, ContentId texture, int bufferMax, int speedMultiplier,
+            boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec,
+            @Nullable ItemType fuelItem, @Nullable FluidType fluidInput, @Nullable FluidType fluidOutput,
+            @Nullable PowerSpec power) {
         ContentId id = idFor(type);
         prototypes.register(id, new BuildingPrototype(id, type.label(), cost, placementRule, texture,
                 type.footprintWidth(), type.footprintHeight(), bufferMax, speedMultiplier,
-                acceptsSpeedEffects, behavior, restoreBehavior, codec, id, fuelItem));
+                acceptsSpeedEffects, behavior, restoreBehavior, codec, id, fuelItem, fluidInput, fluidOutput, power));
     }
 }

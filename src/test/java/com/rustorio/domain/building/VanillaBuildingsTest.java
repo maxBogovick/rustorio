@@ -44,10 +44,14 @@ class VanillaBuildingsTest {
     @Test
     void placementRuleMatchesTheOwnerDecisionOnTerrain() {
         assertSame(PlacementRule.NEEDS_ORE, prototypeFor(BuildingType.MINER).placementRule());
+        assertSame(PlacementRule.NEEDS_ORE, prototypeFor(BuildingType.ELECTRIC_MINER).placementRule());
         assertSame(PlacementRule.ALWAYS, prototypeFor(BuildingType.UNDERGROUND_IN).placementRule());
         assertSame(PlacementRule.ALWAYS, prototypeFor(BuildingType.UNDERGROUND_OUT).placementRule());
+        assertSame(PlacementRule.ADJACENT_TO_WATER, prototypeFor(BuildingType.PUMP).placementRule());
         for (BuildingType type : BuildingType.values()) {
-            if (type == BuildingType.MINER || type == BuildingType.UNDERGROUND_IN || type == BuildingType.UNDERGROUND_OUT) {
+            if (type == BuildingType.MINER || type == BuildingType.ELECTRIC_MINER
+                    || type == BuildingType.UNDERGROUND_IN
+                    || type == BuildingType.UNDERGROUND_OUT || type == BuildingType.PUMP) {
                 continue;
             }
             assertSame(PlacementRule.NEEDS_PASSABLE_TERRAIN, prototypeFor(type).placementRule(),

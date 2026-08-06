@@ -34,7 +34,7 @@ class ContentSchemaTest {
     private static final Path SCHEMAS = Path.of("docs", "schemas");
     /** Content directory name to the schema that describes one file in it. */
     private static final Map<String, String> SCHEMA_BY_DIRECTORY = Map.of(
-            "items", "item", "recipes", "recipe", "buildings", "building",
+            "items", "item", "fluids", "fluid", "recipes", "recipe", "buildings", "building",
             "kinds", "kind", "maps", "map", "techs", "tech");
     /** Every mod shipped in this repository: the vanilla game, the sandbox, and the example a modder is pointed at. */
     private static final List<Path> SHIPPED_MOD_ROOTS =

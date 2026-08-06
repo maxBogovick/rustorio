@@ -11,6 +11,7 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.Cell;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
@@ -19,9 +20,11 @@ import com.rustorio.domain.building.BuildingCost;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.building.PlacementRule;
+import com.rustorio.domain.building.PowerSpec;
 import com.rustorio.domain.building.UndergroundBelt;
 import com.rustorio.domain.world.World;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Слой «поверх мира» (подсветки, линии, тосты). Красит две вещи: стрелку направления над каждым
@@ -132,8 +135,55 @@ final class OverlayRenderer {
         shapes.end();
 
         if (hud.altOverlay()) {
+            renderNetworkOverlay(world, visible, tile);
             renderInfoLabels(world, visible, tile);
         }
+    }
+
+    /**
+     * Under Alt, two things that are otherwise invisible on the map: which fluid network each pipe
+     * or tank belongs to (a faint fill in the network's colour), and how far each pole's grid
+     * reaches (a square outline in the grid's colour). Both colours come from {@link
+     * Palette#networkHue} of the network's anchor, so every tile of one network — and every pole of
+     * one grid — is drawn the same, deterministically (see {@link NetworkTint}).
+     *
+     * <p>Two passes because a filled tint and a line outline are different {@link ShapeRenderer}
+     * modes that cannot share one {@code begin}/{@code end}. Both walk only the visible range and
+     * only while Alt is held, the same budget the label pass below already spends — this is an
+     * on-demand overlay, not the per-frame hot path.
+     *
+     * <p>A pole is spotted by its data, not its class: any prototype whose {@link PowerSpec} has a
+     * coverage {@code radius} draws a reach square, so a mod's own pole works here with no change.
+     */
+    private void renderNetworkOverlay(World world, TileRange visible, float tile) {
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        world.forEachBuildingIn(visible.minX(), visible.minY(), visible.maxX(), visible.maxY(), (x, y, building) -> {
+            Optional<Cell> fluidNet = world.fluidNetworkAt(x, y);
+            if (fluidNet.isPresent()) {
+                Color hue = Palette.networkHue(fluidNet.get());
+                shapes.setColor(hue.r, hue.g, hue.b, 0.30f);
+                shapes.rect(grid.x(x), grid.yBottom(y), tile, tile);
+            }
+        });
+        shapes.end();
+
+        shapes.begin(ShapeRenderer.ShapeType.Line);
+        world.forEachBuildingIn(visible.minX(), visible.minY(), visible.maxX(), visible.maxY(), (x, y, building) -> {
+            PowerSpec spec = world.buildingFactory().prototype(building.prototypeId()).power();
+            if (spec == null || spec.radius() <= 0) {
+                return;
+            }
+            Optional<Cell> grid_ = world.powerNetworkAt(x, y);
+            if (grid_.isEmpty()) {
+                return;
+            }
+            int r = spec.radius();
+            Color hue = Palette.networkHue(grid_.get());
+            shapes.setColor(hue.r, hue.g, hue.b, 0.85f);
+            float side = tile * (2 * r + 1);
+            shapes.rect(grid.x(x - r), grid.yBottom(y + r), side, side);
+        });
+        shapes.end();
     }
 
     /**

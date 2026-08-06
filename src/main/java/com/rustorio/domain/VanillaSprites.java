@@ -26,6 +26,13 @@ public final class VanillaSprites {
     public static final ContentId UNDERGROUND_OUT = ContentId.of("rustorio:underground_out");
     public static final ContentId LAB = ContentId.of("rustorio:lab");
     public static final ContentId ASSEMBLER = ContentId.of("rustorio:assembler");
+    public static final ContentId PIPE = ContentId.of("rustorio:pipe");
+    public static final ContentId TANK = ContentId.of("rustorio:tank");
+    public static final ContentId PUMP = ContentId.of("rustorio:pump");
+    public static final ContentId BOILER = ContentId.of("rustorio:boiler");
+    public static final ContentId POLE = ContentId.of("rustorio:pole");
+    public static final ContentId GENERATOR = ContentId.of("rustorio:generator");
+    public static final ContentId ELECTRIC_MINER = ContentId.of("rustorio:electric_miner");
 
     private VanillaSprites() {
     }

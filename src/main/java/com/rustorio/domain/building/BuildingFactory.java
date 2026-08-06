@@ -3,12 +3,16 @@ package com.rustorio.domain.building;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.Cell;
 import com.rustorio.domain.Direction;
+import com.rustorio.domain.FluidType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
+import com.rustorio.domain.VanillaFluids;
 import com.rustorio.domain.VanillaItems;
+import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -31,23 +35,31 @@ public final class BuildingFactory {
     private final RecipeBook recipeBook;
     private final Registry<ItemType> items;
     private final Registry<BuildingPrototype> prototypes;
+    private final Registry<FluidType> fluids;
 
-    /** Convenience for callers that only care about the vanilla item/building sets — see the 4-arg constructor for real injection. */
+    /** Convenience for callers that only care about the vanilla item/building sets — see the 5-arg constructor for real injection. */
     public BuildingFactory(OreLayout oreLayout, RecipeBook recipeBook) {
         this(oreLayout, recipeBook, VanillaItems.frozen(), VanillaBuildings.frozen());
     }
 
-    /** Convenience for callers that only care about the vanilla building set — see the 4-arg constructor for real injection. */
+    /** Convenience for callers that only care about the vanilla building set — see the 5-arg constructor for real injection. */
     public BuildingFactory(OreLayout oreLayout, RecipeBook recipeBook, Registry<ItemType> items) {
         this(oreLayout, recipeBook, items, VanillaBuildings.frozen());
     }
 
+    /** Convenience for callers that only care about the vanilla fluid set — see the 5-arg constructor for real injection. */
     public BuildingFactory(OreLayout oreLayout, RecipeBook recipeBook, Registry<ItemType> items,
             Registry<BuildingPrototype> prototypes) {
+        this(oreLayout, recipeBook, items, prototypes, VanillaFluids.frozen());
+    }
+
+    public BuildingFactory(OreLayout oreLayout, RecipeBook recipeBook, Registry<ItemType> items,
+            Registry<BuildingPrototype> prototypes, Registry<FluidType> fluids) {
         this.oreLayout = oreLayout;
         this.recipeBook = recipeBook;
         this.items = items;
         this.prototypes = prototypes;
+        this.fluids = fluids;
     }
 
     /** The game's default factory: the standard ore map and the standard recipe set. */
@@ -66,6 +78,15 @@ public final class BuildingFactory {
     /** The item registry this factory's buildings were built with — what {@link Filter#cycleFilterItem()} cycles through. */
     public Registry<ItemType> items() {
         return items;
+    }
+
+    /**
+     * The fluid registry this factory's buildings were built with — what a {@link Pipe}'s own
+     * {@code RestoreFactory} resolves a save's recorded fluid id against (see {@link PipeState} for
+     * why the resolution happens there rather than inside the {@link Codec}).
+     */
+    public Registry<FluidType> fluids() {
+        return fluids;
     }
 
     /** The building prototype registry this factory was built with — every registered prototype, vanilla or modded, for a UI that lists them all (a build menu) rather than looking one up by id. */
@@ -161,6 +182,40 @@ public final class BuildingFactory {
      */
     public static void detachTransportNode(TransportNode node) {
         node.leaveSegment();
+    }
+
+    /**
+     * The fluid counterpart to {@link #attachTransportNode}, and a narrow door for the same reason:
+     * {@code World} owns the cell map, so only it can find which of the four neighboring cells hold
+     * fluid tiles — everything past that (merging networks, splitting them) is this package's
+     * business. {@code neighbors} are those tiles in a fixed side order; see {@link
+     * FluidNetwork#attach} for why the side each came from is deliberately not passed along.
+     */
+    public static void attachFluidNode(FluidNode node, int x, int y, List<FluidNode> neighbors) {
+        FluidNetwork.attach(node, new Cell(x, y), neighbors);
+    }
+
+    /** The fluid counterpart to {@link #detachTransportNode} — on demolition, or to make a re-restore idempotent (see {@code World.restoreBuilding}). */
+    public static void detachFluidNode(FluidNode node, int x, int y) {
+        FluidNetwork.detach(node, new Cell(x, y));
+    }
+
+    /**
+     * The electrical counterpart to {@link #attachFluidNode}: {@code World} finds the already-placed
+     * poles close enough to connect (it knows where poles stand), and everything past that — merging
+     * grids — stays in this package.
+     */
+    public static void attachPowerNode(PowerNode node, int x, int y, List<PowerNode> neighbors) {
+        PowerNetwork.attach(node, new Cell(x, y), neighbors);
+    }
+
+    /**
+     * The electrical counterpart to {@link #detachFluidNode}. {@code reach} answers "do these two
+     * poles see each other" for whatever poles are left, which is again a question about positions
+     * and therefore {@code World}'s to answer.
+     */
+    public static void detachPowerNode(PowerNode node, int x, int y, PowerNetwork.Reach reach) {
+        PowerNetwork.detach(node, new Cell(x, y), reach);
     }
 
     /**

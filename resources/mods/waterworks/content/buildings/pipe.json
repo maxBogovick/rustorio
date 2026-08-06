@@ -1,0 +1,9 @@
+{
+  "path": "pipe",
+  "label": { "en": "Pipe", "ru": "Труба" },
+  "archetype": "BELT",
+  "cost": { "item": "rustorio:iron_plate", "amount": 1 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:belt_empty",
+  "acceptsSpeedEffects": false
+}

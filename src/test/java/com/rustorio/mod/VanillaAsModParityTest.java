@@ -4,10 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.rustorio.api.content.ContentId;
+import com.rustorio.domain.FluidType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.TechType;
+import com.rustorio.domain.VanillaFluids;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.VanillaTechs;
 import com.rustorio.domain.building.BuildingPrototype;
@@ -78,6 +80,23 @@ class VanillaAsModParityTest {
     }
 
     @Test
+    void fluidsMatchVanillaFluidsNumberForNumber() {
+        LoadedGame game = ModLoader.loadAll(List.of(RUSTORIO_MOD_DIR));
+
+        List<FluidType> fromJson = game.fluids().iterate();
+        List<FluidType> fromJava = VanillaFluids.frozen().iterate();
+
+        assertEquals(fromJava.size(), fromJson.size(), "same number of fluids");
+        for (int i = 0; i < fromJava.size(); i++) {
+            FluidType java = fromJava.get(i);
+            FluidType json = fromJson.get(i);
+            assertEquals(java.id(), json.id());
+            assertEquals(java.label(), json.label());
+            assertEquals(java.colorRgb(), json.colorRgb(), java.id() + ": colorRgb");
+        }
+    }
+
+    @Test
     void techsMatchVanillaTechsNumberForNumber() {
         LoadedGame game = ModLoader.loadAll(List.of(RUSTORIO_MOD_DIR));
 
@@ -116,6 +135,13 @@ class VanillaAsModParityTest {
             assertEquals(java.bufferMax(), json.bufferMax(), java.id() + ": bufferMax");
             assertEquals(java.speedMultiplier(), json.speedMultiplier(), java.id() + ": speedMultiplier");
             assertEquals(java.acceptsSpeedEffects(), json.acceptsSpeedEffects(), java.id() + ": acceptsSpeedEffects");
+            // The fluid ports are what make a pump a pump rather than a differently-priced miner:
+            // if the JSON path lost them, the vanilla-as-data claim would be false in exactly the
+            // place a fluid mod would try to copy from.
+            assertEquals(java.fluidInput(), json.fluidInput(), java.id() + ": fluidInput");
+            assertEquals(java.fluidOutput(), json.fluidOutput(), java.id() + ": fluidOutput");
+            assertEquals(java.fuelItem(), json.fuelItem(), java.id() + ": fuelItem");
+            assertEquals(java.power(), json.power(), java.id() + ": power");
         }
     }
 

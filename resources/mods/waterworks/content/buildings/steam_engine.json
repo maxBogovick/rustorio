@@ -1,0 +1,9 @@
+{
+  "path": "steam_engine",
+  "label": { "en": "Steam engine", "ru": "Паровой двигатель" },
+  "archetype": "LAB",
+  "cost": { "item": "rustorio:gear", "amount": 10 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:lab",
+  "acceptsSpeedEffects": true
+}

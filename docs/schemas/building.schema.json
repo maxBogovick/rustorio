@@ -37,7 +37,14 @@
         "LAB",
         "FILTER",
         "INSERTER",
-        "ASSEMBLER"
+        "ASSEMBLER",
+        "PIPE",
+        "TANK",
+        "PUMP",
+        "BOILER",
+        "POLE",
+        "GENERATOR",
+        "ELECTRIC_MINER"
       ],
       "description": "Whose Java behavior this building borrows. Genuinely new behavior needs a jar mod."
     },
@@ -64,7 +71,8 @@
       "enum": [
         "ALWAYS",
         "NEEDS_ORE",
-        "NEEDS_PASSABLE_TERRAIN"
+        "NEEDS_PASSABLE_TERRAIN",
+        "ADJACENT_TO_WATER"
       ]
     },
     "texture": {
@@ -86,7 +94,7 @@
       "type": "integer",
       "minimum": 0,
       "default": 0,
-      "description": "Furnace-archetype only."
+      "description": "How much this building holds: a Furnace-archetype's input buffer, a Pipe-archetype's fluid volume."
     },
     "speedMultiplier": {
       "type": "integer",
@@ -106,6 +114,41 @@
       "type": "string",
       "pattern": "^([a-z0-9_]+:)?[a-z0-9_]+$",
       "description": "Bare name (this mod's own namespace) or a full namespace:path reference."
+    },
+    "fluidInput": {
+      "type": "string",
+      "pattern": "^([a-z0-9_]+:)?[a-z0-9_]+$",
+      "description": "Which fluid this building draws from the network behind it. Boiler-archetype only."
+    },
+    "fluidOutput": {
+      "type": "string",
+      "pattern": "^([a-z0-9_]+:)?[a-z0-9_]+$",
+      "description": "Which fluid this building pushes into the network it faces. Pump- and Boiler-archetype only."
+    },
+    "power": {
+      "type": "object",
+      "description": "What this building does with electricity. A building without this key is not electrical at all, which is what keeps power opt-in.",
+      "properties": {
+        "radius": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Pole-archetype: how many cells around itself it covers and connects across."
+        },
+        "output": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Generator-archetype: power produced per tick."
+        },
+        "demand": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Power needed per tick. A machine that does not get it stops and reports NO_POWER."
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [

@@ -114,6 +114,7 @@ public final class ModLoader {
         runRound(loadOrder, entryPoints, RustorioMod::finalFixes, context);
 
         context.items().freeze();
+        context.fluids().freeze();
         context.buildings().freeze();
         context.kinds().freeze();
         context.maps().freeze();
@@ -131,8 +132,8 @@ public final class ModLoader {
         }
 
         logLoadSummary(loadOrder, context, recipeBook, skipped);
-        return new LoadedGame(context.items(), context.buildings(), context.kinds(), context.maps(), context.techs(),
-                recipeBook, events,
+        return new LoadedGame(context.items(), context.fluids(), context.buildings(), context.kinds(), context.maps(),
+                context.techs(), recipeBook, events,
                 mergeRenames(loadOrder), List.copyOf(skipped));
     }
 
@@ -215,13 +216,15 @@ public final class ModLoader {
     private static void logLoadSummary(List<ModDescriptor> loadOrder, GameRegistrationContext context,
             RecipeBook recipeBook, List<SkippedMod> skipped) {
         LOGGER.log(System.Logger.Level.INFO,
-                "Loaded {0} mod(s) [{1}]: {2} items, {3} buildings, {4} recipes, {5} kinds, {6} maps, {7} techs",
-                loadOrder.size(), describeLoadOrder(loadOrder), context.items().size(), context.buildings().size(),
-                context.recipes().size(), context.kinds().size(), context.maps().size(), context.techs().size());
+                "Loaded {0} mod(s) [{1}]: {2} items, {3} fluids, {4} buildings, {5} recipes, {6} kinds, {7} maps, {8} techs",
+                loadOrder.size(), describeLoadOrder(loadOrder), context.items().size(), context.fluids().size(),
+                context.buildings().size(), context.recipes().size(), context.kinds().size(), context.maps().size(),
+                context.techs().size());
         for (SkippedMod mod : skipped) {
             LOGGER.log(System.Logger.Level.WARNING, "Mod ''{0}'' was skipped: {1}", mod.id(), mod.reason());
         }
         logOverwrites("item", context.items().updateLog());
+        logOverwrites("fluid", context.fluids().updateLog());
         logOverwrites("building", context.buildings().updateLog());
         logOverwrites("recipe", context.recipes().updateLog());
         logOverwrites("tech", context.techs().updateLog());

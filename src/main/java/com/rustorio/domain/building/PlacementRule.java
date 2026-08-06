@@ -1,14 +1,16 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.Direction;
 import com.rustorio.domain.OreLayout;
+import com.rustorio.domain.VanillaItems;
 
 /**
  * Whether a {@link BuildingType} may be placed at a cell, beyond "the cell is free and in
  * bounds" — {@code World} already checks that universally, the same way, for every kind, so it
  * isn't this rule's job to repeat it.
  *
- * <p><b>Owner decision (X-02, DEV_TASKS.md):</b> {@link com.rustorio.domain.Terrain#WATER}/{@link com.rustorio.domain.Terrain#ROCK} block
+ * <p><b>Owner decision (X-02, DEV_TASKS.md):</b> {@link com.rustorio.domain.VanillaItems#WATER}/{@link com.rustorio.domain.VanillaItems#ROCK} block
  * every kind except {@link UndergroundBelt} — the one building whose entire point is going UNDER
  * an obstacle rather than around it (§4.2 of the design audit: before terrain existed, a tunnel
  * solved no spatial problem at all, since there was nothing terrain-wise to route around). A
@@ -33,6 +35,28 @@ public interface PlacementRule {
 
     /** A miner needs passable ground AND ore under it to do anything; placing it elsewhere would idle forever. */
     PlacementRule NEEDS_ORE = (x, y, oreLayout) -> oreLayout.isPassable(x, y) && oreLayout.hasOre(x, y);
+
+    /**
+     * A pump stands on dry ground but has to REACH water — so it needs a {@link
+     * com.rustorio.domain.VanillaItems#WATER} cell on one of its four sides. The same shape as {@link
+     * #NEEDS_ORE} (something must be under, or next to, this cell for the building to do anything at
+     * all), and the reason water finally has a use beyond being an obstacle to route around.
+     *
+     * <p>This is engine code, not something a data mod can express: the rules a JSON building may
+     * name are a fixed set (see {@code BuildingJsonLoader}), so a genuinely new placement CONDITION
+     * is a new constant here. A mod's own pump reuses this one by naming it.
+     */
+    PlacementRule ADJACENT_TO_WATER = (x, y, oreLayout) -> {
+        if (!oreLayout.isPassable(x, y)) {
+            return false;
+        }
+        for (Direction side : Direction.values()) {
+            if (oreLayout.terrainAt(x + side.dx(), y + side.dy()).filter(VanillaItems.WATER::equals).isPresent()) {
+                return true;
+            }
+        }
+        return false;
+    };
 
     /** Whether {@code (x, y)} satisfies this rule, beyond the free+in-bounds check {@code World} already made. */
     boolean test(int x, int y, OreLayout oreLayout);

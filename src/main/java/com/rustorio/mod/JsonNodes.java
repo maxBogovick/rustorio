@@ -82,6 +82,23 @@ final class JsonNodes {
         return value.asInt();
     }
 
+    /**
+     * {@code field} as a packed {@code 0xRRGGBB} int, written {@code "#RRGGBB"} — the form both an
+     * item's and a fluid's color take. Shared here rather than parsed in each loader: the two would
+     * otherwise disagree about which spellings are legal the first time one of them was fixed.
+     */
+    static int requireColorRgb(JsonNode node, String field, Path file) {
+        String text = requireText(node, field, file);
+        if (text.length() != 7 || text.charAt(0) != '#') {
+            throw new ModLoadException(file + ": field '" + field + "' must be \"#RRGGBB\": \"" + text + "\"");
+        }
+        try {
+            return Integer.parseInt(text.substring(1), 16);
+        } catch (NumberFormatException e) {
+            throw new ModLoadException(file + ": field '" + field + "' is not valid hex: \"" + text + "\"");
+        }
+    }
+
     /** {@code field} as text, or {@code defaultValue} when it is absent, null or not a string. */
     static String optionalText(JsonNode node, String field, String defaultValue) {
         JsonNode value = node.get(field);

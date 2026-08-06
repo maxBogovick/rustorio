@@ -3,13 +3,17 @@
 Здание описывается данными, если его поведение совпадает с одним из существующих архетипов.
 Новое **поведение** данными выразить нельзя — для него нужен jar-мод.
 
-## Двенадцать архетипов
+## Архетипы
 
 `MINER`, `CHEST`, `FURNACE`, `BELT`, `SPLITTER`, `PRESS`, `UNDERGROUND_IN`, `UNDERGROUND_OUT`,
-`LAB`, `FILTER`, `INSERTER`, `ASSEMBLER`.
+`LAB`, `FILTER`, `INSERTER`, `ASSEMBLER` — и жидкостно-электрические `PIPE`, `TANK`, `PUMP`,
+`BOILER`, `GENERATOR`, `POLE`, `ELECTRIC_MINER`.
 
 Поле `archetype` называет, чью Java-логику здание одалживает. Всё остальное — цена, картинка,
 размер, скорость, пул рецептов — твоё.
+
+Жидкостные и электрические поля (`fluidInput`, `fluidOutput`, `power`) и их архетипы вынесены в
+отдельный howto — [howto/fluid.md](fluid.md).
 
 ## Печь со своим пулом рецептов
 

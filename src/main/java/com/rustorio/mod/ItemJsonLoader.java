@@ -27,21 +27,10 @@ final class ItemJsonLoader {
             ContentId id = new ContentId(modId.value(), path);
             String label = JsonNodes.requireLocalizedText(root, "label", file, id.toString(), ContentLocale.current());
             boolean researchGrade = JsonNodes.optionalBoolean(root, "researchGrade", false);
-            int colorRgb = parseColor(JsonNodes.requireText(root, "colorRgb", file), file);
+            int colorRgb = JsonNodes.requireColorRgb(root, "colorRgb", file);
             ItemShape shape = parseShape(JsonNodes.requireText(root, "shape", file), file);
 
             items.register(id, new ItemType(id, label, researchGrade, colorRgb, shape));
-        }
-    }
-
-    private static int parseColor(String text, Path file) {
-        if (text.length() != 7 || text.charAt(0) != '#') {
-            throw new ModLoadException(file + ": field 'colorRgb' must be \"#RRGGBB\": \"" + text + "\"");
-        }
-        try {
-            return Integer.parseInt(text.substring(1), 16);
-        } catch (NumberFormatException e) {
-            throw new ModLoadException(file + ": field 'colorRgb' is not valid hex: \"" + text + "\"");
         }
     }
 

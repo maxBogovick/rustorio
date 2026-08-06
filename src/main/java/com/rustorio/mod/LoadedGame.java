@@ -4,6 +4,7 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.mod.EventBus;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.AuthoredMap;
+import com.rustorio.domain.FluidType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.RecipeKind;
@@ -15,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * What {@link ModLoader#loadAll} produces: the frozen, merged item/building/kind/map registries, the
+ * What {@link ModLoader#loadAll} produces: the frozen, merged item/fluid/building/kind/map registries, the
  * merged recipe book, the event bus every loaded mod already subscribed to, and the merged prototype
  * renames — everything a game bootstrap needs to build a {@code BuildingFactory}/{@code World} and a
  * save repository from mod-loaded content instead of {@code VanillaItems.frozen()}/{@code
@@ -28,7 +29,8 @@ import java.util.Map;
  * repository was exactly the defect this component exists to make impossible to repeat.
  */
 public record LoadedGame(
-        Registry<ItemType> items, Registry<BuildingPrototype> buildings, Registry<RecipeKind> kinds,
+        Registry<ItemType> items, Registry<FluidType> fluids,
+        Registry<BuildingPrototype> buildings, Registry<RecipeKind> kinds,
         Registry<AuthoredMap> maps, Registry<TechType> techs, RecipeBook recipes, EventBus events,
         Map<ContentId, ContentId> prototypeRenames, List<SkippedMod> skippedMods) {
 

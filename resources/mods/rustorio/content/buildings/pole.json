@@ -1,0 +1,10 @@
+{
+  "path": "pole",
+  "label": { "en": "Pole", "ru": "Столб" },
+  "archetype": "POLE",
+  "cost": { "item": "iron_plate", "amount": 1 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:pole",
+  "power": { "radius": 5 },
+  "acceptsSpeedEffects": false
+}

@@ -4,8 +4,8 @@ import com.rustorio.api.mod.RegistrationContext;
 import java.nio.file.Path;
 
 /**
- * Loads one mod's {@code content/} directory — {@code kinds/}, then {@code items/}, then {@code
- * recipes/}, then {@code buildings/} (that order: kinds first since a recipe or building may want
+ * Loads one mod's {@code content/} directory — {@code kinds/}, then {@code items/}, {@code fluids/},
+ * then {@code recipes/}, then {@code buildings/} (that order: kinds first since a recipe or building may want
  * to join one declared in this same mod, though nothing actually REQUIRES that ordering to
  * resolve — see {@code RecipeKindJsonLoader}'s own javadoc; a recipe can reference an item this
  * same call just registered, a building's cost can reference either) — into the shared {@link
@@ -25,6 +25,7 @@ final class ContentJsonLoader {
         Path content = modDirectory.resolve("content");
         RecipeKindJsonLoader.loadInto(content.resolve("kinds"), modId, context.kinds());
         ItemJsonLoader.loadInto(content.resolve("items"), modId, context.items());
+        FluidJsonLoader.loadInto(content.resolve("fluids"), modId, context.fluids());
         MapJsonLoader.loadInto(content.resolve("maps"), modId, context);
         RecipeJsonLoader.loadInto(content.resolve("recipes"), modId, context);
         BuildingJsonLoader.loadInto(content.resolve("buildings"), modId, context);

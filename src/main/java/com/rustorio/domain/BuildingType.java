@@ -24,7 +24,21 @@ public enum BuildingType {
     INSERTER("Inserter"),
     // Same mouse-only tradeoff as FILTER/INSERTER above — occupies 2x2 cells (X-03, DEV_TASKS.md,
     // see Building#footprintWidth), the first building kind for which that's true.
-    ASSEMBLER("Assembler");
+    ASSEMBLER("Assembler"),
+    // Appended for the same reason and with the same tradeoff as everything above the first nine:
+    // plumbing is mouse-only from the hotbar. Both are the Pipe archetype and differ only in how
+    // much they hold — see that class and BuildingPrototype#bufferMax.
+    PIPE("Pipe"),
+    TANK("Tank"),
+    // The two ends of the fluid chain: one lifts water off the map into plumbing, the other burns
+    // fuel to turn it into steam. Appended for the same hotbar reason as everything above.
+    PUMP("Pump"),
+    BOILER("Boiler"),
+    // Electricity, appended for the same hotbar reason. ELECTRIC_MINER reuses the Miner archetype
+    // outright: it differs from the plain one only in declaring a power demand, which is data.
+    POLE("Pole"),
+    GENERATOR("Generator"),
+    ELECTRIC_MINER("El. miner");
 
     private final String label;
 

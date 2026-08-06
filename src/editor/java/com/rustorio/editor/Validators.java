@@ -7,7 +7,6 @@ import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.ItemShape;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Per-field shape checks for the "self-named" content kinds (items, buildings, kinds, maps — all
@@ -22,7 +21,17 @@ import java.util.Set;
  */
 final class Validators {
 
-    private static final Set<String> PLACEMENT_RULES = Set.of("ALWAYS", "NEEDS_ORE", "NEEDS_PASSABLE_TERRAIN");
+    /**
+     * The placement rules {@code com.rustorio.mod.BuildingJsonLoader} accepts, and the editor must
+     * accept exactly the same set — a rule missing here rejects a building file the game itself
+     * loads fine, which is how the editor came to refuse the vanilla pump.
+     *
+     * <p>A {@link List}, not a {@code Set.of}, for the same reason {@link #ITEM_TOOLS} below is one:
+     * it gets printed into the 400 message, and {@code Set.of}'s iteration order is randomized per
+     * JVM run, so the same rejected value would list its options in a different order every restart.
+     */
+    private static final List<String> PLACEMENT_RULES =
+            List.of("ALWAYS", "NEEDS_ORE", "NEEDS_PASSABLE_TERRAIN", "ADJACENT_TO_WATER");
 
     /**
      * Which map-editor tool offers an item ({@code "tool"}, optional — an item without it counts as
@@ -35,10 +44,8 @@ final class Validators {
      * ignores everything else, so the game itself never reads this one — what an item DOES on a map
      * is decided by the patch that names it, not by this field.
      *
-     * <p>A {@link java.util.List}, not a {@link Set} like {@link #PLACEMENT_RULES} above: this one
-     * gets printed into the 400 message below, and {@code Set.of}'s iteration order is randomized
-     * per JVM run — the same rejected value would list its options in a different order every time
-     * the editor restarts.
+     * <p>A {@link java.util.List}, not a {@code Set.of}, for the reason spelled out on {@link
+     * #PLACEMENT_RULES} above: this one gets printed into the 400 message below too.
      */
     private static final List<String> ITEM_TOOLS = List.of("ore", "water", "rock", "none");
 

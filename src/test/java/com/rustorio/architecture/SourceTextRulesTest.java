@@ -43,8 +43,13 @@ class SourceTextRulesTest {
      * <p>709 -> 693: the {@code Tech} enum was deleted when technologies became registered
      * content, taking its own heavily-cited javadoc with it, and {@code Research}/{@code
      * ResearchView} were rewritten around ids in the same move.
+     *
+     * <p>708 -> 689: the fluids-and-power feature rewrote and replaced a run of domain and mod
+     * files (terrain became registered content, the placement rules and world plumbing were
+     * reworked), and the task-id citations they had carried went out with the comments that were
+     * rewritten — a decrease, not a new one, so it is recorded here rather than fought.
      */
-    private static final int DOC_ID_CITATION_BASELINE = 708;
+    private static final int DOC_ID_CITATION_BASELINE = 689;
 
     /**
      * Explicit types are the rule; these are the exceptions that survived review. A new one is not

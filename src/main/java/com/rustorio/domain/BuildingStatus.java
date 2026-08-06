@@ -19,5 +19,12 @@ public enum BuildingStatus {
     /** A {@code FURNACE} with ingredients buffered but no coal to burn (D-05). */
     NO_FUEL,
     /** Finished a batch (or a chest reached capacity) but the neighbor it needs to hand off to won't take it. */
-    OUTPUT_FULL
+    OUTPUT_FULL,
+    /**
+     * A machine that declared a power demand and did not get it — either no pole covers it, or its
+     * network is producing less than the machines on it are asking for. Only a building that
+     * declares a demand can ever report this (owner decision: electricity is opt-in), so a factory
+     * built before there was any electricity never shows it.
+     */
+    NO_POWER
 }

@@ -2,6 +2,8 @@ package com.graphics.render;
 
 import com.badlogic.gdx.graphics.Color;
 import com.rustorio.domain.BuildingStatus;
+import com.rustorio.domain.Cell;
+import com.rustorio.domain.FluidType;
 import com.rustorio.domain.ItemShape;
 import com.rustorio.domain.ItemType;
 import java.util.HashMap;
@@ -45,6 +47,22 @@ final class Palette {
     static final Color STATUS_NO_FUEL = rgb(201, 80, 47);     // ржавчина — нужен уголь (тот же тон, что IDLE)
     static final Color STATUS_NO_INPUT = rgb(232, 196, 90);   // светлый янтарь — ждёт материал
     static final Color STATUS_OUTPUT_FULL = rgb(158, 100, 199); // фиолетовый — некуда сдать
+    static final Color STATUS_NO_POWER = rgb(96, 176, 232);   // холодная синь — обесточено, ни один тон выше не занят
+
+    // Подложка полоски заполнения трубы/бака: полупрозрачная темнота, чтобы пустая часть шкалы
+    // читалась как «дно», а не сливалась с землёй. Сам заполненный кусок красится цветом жидкости.
+    static final Color FLUID_BAR_TRACK = new Color(0f, 0f, 0f, 0.45f);
+
+    // Стык трубы: нейтральная сталь, НЕ цвет жидкости — стык рисуется и у пустой трубы, где
+    // жидкости ещё нет, а «здесь соединено» нужно видеть всегда, как направление ленты.
+    static final Color PIPE_JOINT = rgb(150, 160, 170);
+
+    // Полоска-акцент сверху здания: к какой системе оно относится. Спрайт говорит «машина», но не
+    // говорит, что именно эта машина — трубопроводная, а соседняя запитана; членство в системе
+    // иначе с одного взгляда не читается. Электрожёлтый — ток, тил — жидкостная машина.
+    // См. BuildingAccent (там же — почему у трубы полоски нет).
+    static final Color ACCENT_POWER = rgb(240, 214, 92);
+    static final Color ACCENT_FLUID = rgb(96, 190, 214);
 
     // Подсветка непарного входа подземки (см. OverlayRenderer).
     static final Color T_BAD = new Color(1.00f, 0.30f, 0.30f, 0.35f);
@@ -99,6 +117,38 @@ final class Palette {
     }
 
     /**
+     * A fill bar's colour — the fluid's own {@link FluidType#colorRgb()}, decoded and memoized by
+     * the packed int exactly as {@link #itemColor} does it, for the same per-frame reasons. Shares
+     * that cache on purpose: a colour is a colour, and two content kinds that happen to name the
+     * same {@code 0xRRGGBB} should resolve to the same {@link Color} instance, not two.
+     */
+    static Color fluidColor(FluidType fluid) {
+        return ITEM_COLORS.computeIfAbsent(fluid.colorRgb(),
+                rgb -> rgb((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF));
+    }
+
+    /**
+     * Opaque hues the network overlay tells one network from another by — six is enough that a
+     * screen's worth of grids rarely collides, and a small fixed set keeps the overlay from turning
+     * into confetti. Which hue a network gets is {@link NetworkTint#paletteIndex} of its anchor, so
+     * the choice is deterministic; the caller dials in its own alpha with {@code setColor(r,g,b,a)}
+     * (a faint fill for fluid membership, a firmer line for a pole's reach) rather than this holding
+     * two tinted copies of every colour.
+     */
+    private static final Color[] NETWORK_HUES = {
+        rgb(90, 200, 250),   // cyan
+        rgb(250, 170, 60),   // amber
+        rgb(140, 220, 120),  // green
+        rgb(220, 120, 210),  // magenta
+        rgb(240, 220, 90),   // yellow
+        rgb(120, 150, 250),  // indigo
+    };
+
+    static Color networkHue(Cell anchor) {
+        return NETWORK_HUES[NetworkTint.paletteIndex(anchor, NETWORK_HUES.length)];
+    }
+
+    /**
      * Which silhouette a cargo circle draws as — {@link ItemType#shape()} directly; see that
      * field's own javadoc (in {@code com.rustorio.domain}) for why shape exists alongside color.
      */
@@ -118,6 +168,16 @@ final class Palette {
             case NO_FUEL -> Optional.of(STATUS_NO_FUEL);
             case NO_INPUT -> Optional.of(STATUS_NO_INPUT);
             case OUTPUT_FULL -> Optional.of(STATUS_OUTPUT_FULL);
+            case NO_POWER -> Optional.of(STATUS_NO_POWER);
+        };
+    }
+
+    /** The accent-stripe colour for a building's system, or empty for a building that belongs to neither. */
+    static Optional<Color> accentColor(BuildingAccent accent) {
+        return switch (accent) {
+            case NONE -> Optional.empty();
+            case POWER -> Optional.of(ACCENT_POWER);
+            case FLUID -> Optional.of(ACCENT_FLUID);
         };
     }
 

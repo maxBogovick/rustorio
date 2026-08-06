@@ -166,6 +166,104 @@ class BuildingJsonLoaderTest {
         assertTrue(thrown.getMessage().contains("cost"));
     }
 
+    /**
+     * The fluid ports are what make a JSON-authored pump a pump, so a misspelled fluid has to be as
+     * loud as a misspelled cost item already is — otherwise the machine loads and silently pumps
+     * nothing, which is the hardest kind of mod bug to find.
+     */
+    @Test
+    void unknownFluidInAPortFailsWithAClearMessage() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        write("derrick.json", """
+                { "path": "derrick", "label": "Derrick", "archetype": "PUMP",
+                  "cost": { "item": "rustorio:iron_plate", "amount": 1 },
+                  "placement": "ADJACENT_TO_WATER", "texture": "rustorio:pump",
+                  "fluidOutput": "rustorio:unobtainium" }
+                """);
+
+        ModLoadException thrown = assertThrows(ModLoadException.class, () -> BuildingJsonLoader.loadInto(tempDir, modId, context));
+        assertTrue(thrown.getMessage().contains("rustorio:unobtainium"), thrown.getMessage());
+        assertTrue(thrown.getMessage().contains("fluidOutput"), "the message has to name the field: " + thrown.getMessage());
+    }
+
+    /**
+     * A bare fluid reference resolves in the CURRENT mod's namespace, exactly as a bare cost item
+     * does. Pinned because it is the trap the fluid howto itself fell into: {@code "water"} in a
+     * mod's own file means that mod's water, not vanilla's, and the resulting error has to say so.
+     */
+    @Test
+    void aBareFluidReferenceResolvesInTheOwningModsNamespace() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        write("derrick.json", """
+                { "path": "derrick", "label": "Derrick", "archetype": "PUMP",
+                  "cost": { "item": "rustorio:iron_plate", "amount": 1 },
+                  "placement": "ADJACENT_TO_WATER", "texture": "rustorio:pump",
+                  "fluidOutput": "water" }
+                """);
+
+        ModLoadException thrown = assertThrows(ModLoadException.class, () -> BuildingJsonLoader.loadInto(tempDir, modId, context));
+        assertTrue(thrown.getMessage().contains("testmod:water"),
+                "a bare name is the mod's own, and the message must show which id it actually looked for: "
+                        + thrown.getMessage());
+    }
+
+    @Test
+    void aPowerBlockThatIsNotAnObjectNamesTheShapeItWanted() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        write("weird.json", """
+                { "path": "weird", "label": "Weird", "archetype": "POLE",
+                  "cost": { "item": "rustorio:iron_plate", "amount": 1 },
+                  "placement": "NEEDS_PASSABLE_TERRAIN", "texture": "rustorio:pole",
+                  "power": 5 }
+                """);
+
+        ModLoadException thrown = assertThrows(ModLoadException.class, () -> BuildingJsonLoader.loadInto(tempDir, modId, context));
+        assertTrue(thrown.getMessage().contains("power"), thrown.getMessage());
+        assertTrue(thrown.getMessage().contains("radius"), "the message shows the shape it wanted: " + thrown.getMessage());
+    }
+
+    /** A negative demand would be a machine that GENERATES by asking for power — rejected at the door, not left to the tick to puzzle over. */
+    @Test
+    void aNegativePowerValueNamesThePathToTheOffendingNumber() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        write("weird.json", """
+                { "path": "weird", "label": "Weird", "archetype": "ELECTRIC_MINER",
+                  "cost": { "item": "rustorio:iron_plate", "amount": 1 },
+                  "placement": "NEEDS_ORE", "texture": "rustorio:electric_miner",
+                  "power": { "demand": -10 } }
+                """);
+
+        ModLoadException thrown = assertThrows(ModLoadException.class, () -> BuildingJsonLoader.loadInto(tempDir, modId, context));
+        assertTrue(thrown.getMessage().contains("power.demand"), thrown.getMessage());
+    }
+
+    /**
+     * Absent {@code power} must stay absent, not become a zeroed spec: "this building has nothing to
+     * do with electricity" and "it is electrical and asks for nothing" are different claims, and the
+     * renderer already tells them apart by drawing an accent stripe for the second.
+     */
+    @Test
+    void aBuildingWithoutAPowerBlockDeclaresNoPowerSpecAtAll() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        write("crate.json", """
+                { "path": "crate", "label": "Crate", "archetype": "CHEST",
+                  "cost": { "item": "rustorio:iron_plate", "amount": 1 },
+                  "placement": "NEEDS_PASSABLE_TERRAIN", "texture": "rustorio:chest" }
+                """);
+
+        BuildingJsonLoader.loadInto(tempDir, modId, context);
+
+        BuildingPrototype crate = context.buildings().peek(ContentId.of("testmod:crate")).orElseThrow();
+        assertEquals(null, crate.power(), "an ordinary building is not electrical, not electrical-asking-for-zero");
+        assertEquals(null, crate.fluidInput(), "and touches no fluid either");
+        assertEquals(null, crate.fluidOutput());
+    }
+
     private void write(String fileName, String content) throws IOException {
         Files.writeString(tempDir.resolve(fileName), content);
     }

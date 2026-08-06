@@ -1,0 +1,12 @@
+{
+  "path": "boiler",
+  "label": { "en": "Boiler", "ru": "Котёл" },
+  "archetype": "BOILER",
+  "cost": { "item": "iron_plate", "amount": 8 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:boiler",
+  "fuel": "coal",
+  "fluidInput": "water",
+  "fluidOutput": "steam",
+  "acceptsSpeedEffects": false
+}

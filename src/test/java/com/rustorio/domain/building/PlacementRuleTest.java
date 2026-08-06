@@ -79,11 +79,26 @@ class PlacementRuleTest {
         OreLayout bareGround = layoutAt(0, 0, null, null);
 
         for (BuildingType type : BuildingType.values()) {
-            if (type == BuildingType.MINER) {
-                continue; // a miner additionally needs ore — covered separately below
+            if (type == BuildingType.MINER || type == BuildingType.ELECTRIC_MINER
+                    || type == BuildingType.PUMP) {
+                continue; // all three additionally need something nearby — covered separately below
             }
             assertTrue(ruleFor(type).test(0, 0, bareGround), type + " must accept plain passable ground");
         }
+    }
+
+    @Test
+    void pumpNeedsPassableGroundWithWaterNextToIt() {
+        // The pump's own cell is dry ground; the cell to its left is the water it reaches into.
+        OreLayout shore = layoutAt(-1, 0, VanillaItems.WATER, null);
+        OreLayout inland = layoutAt(5, 5, VanillaItems.WATER, null);
+        OreLayout onTheWaterItself = layoutAt(0, 0, VanillaItems.WATER, null);
+
+        assertTrue(ruleFor(BuildingType.PUMP).test(0, 0, shore));
+        assertFalse(ruleFor(BuildingType.PUMP).test(0, 0, inland),
+                "dry ground with no water within reach — a pump here would lift nothing");
+        assertFalse(ruleFor(BuildingType.PUMP).test(0, 0, onTheWaterItself),
+                "a pump stands on the shore, not on the water: its own cell still has to be buildable");
     }
 
     @Test
@@ -102,6 +117,8 @@ class PlacementRuleTest {
         OreLayout waterWithOre = layoutAt(0, 0, VanillaItems.WATER, VanillaItems.IRON_ORE);
 
         assertTrue(ruleFor(BuildingType.MINER).test(0, 0, groundWithOre));
+        assertTrue(ruleFor(BuildingType.ELECTRIC_MINER).test(0, 0, groundWithOre),
+                "an electric miner is a miner as far as placement goes — only its power demand differs");
         assertFalse(ruleFor(BuildingType.MINER).test(0, 0, groundNoOre),
                 "passable but no ore — a miner here would idle forever");
         assertFalse(ruleFor(BuildingType.MINER).test(0, 0, waterWithOre),

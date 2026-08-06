@@ -1,0 +1,10 @@
+{
+  "id": "waterworks",
+  "version": "1.0.0",
+  "name": "Waterworks",
+  "description": "Качаем воду из реки: насос на берегу, трубы, бак. Пример data-мода без Java.",
+  "authors": ["rustorio docs"],
+  "dependencies": [
+    { "modId": "rustorio", "range": ">=1.0.0" }
+  ]
+}

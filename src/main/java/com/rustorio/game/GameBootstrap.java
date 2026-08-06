@@ -25,14 +25,14 @@ public final class GameBootstrap {
     }
 
     /**
-     * Builds the world on {@code content}'s registries — items, buildings, recipes and
+     * Builds the world on {@code content}'s registries — items, fluids, buildings, recipes and
      * technologies alike — then attaches {@code content}'s event bus to it, in that order and
      * before the caller places anything: {@code WorldInitEvent} claims to fire on a world where
      * nothing has happened yet (see {@link EventWiring#attach}).
      */
     public static World createWorld(LoadedGame content, OreLayout oreLayout, int width, int height) {
-        BuildingFactory buildingFactory =
-                new BuildingFactory(oreLayout, content.recipes(), content.items(), content.buildings());
+        BuildingFactory buildingFactory = new BuildingFactory(oreLayout, content.recipes(), content.items(),
+                content.buildings(), content.fluids());
         World world = new World(width, height, buildingFactory, content.techs());
         EventWiring.attach(world, content.events());
         return world;

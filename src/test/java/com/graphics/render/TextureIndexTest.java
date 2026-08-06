@@ -23,10 +23,12 @@ class TextureIndexTest {
     void vanillaHasAnEntryForEveryFileBackedSprite() {
         TextureIndex index = TextureIndex.vanilla();
 
-        assertEquals(13, index.sprites().size());
+        assertEquals(20, index.sprites().size());
         assertTrue(index.sprites().contains(VanillaSprites.MINER));
         assertTrue(index.sprites().contains(VanillaSprites.ASSEMBLER));
         assertTrue(index.sprites().contains(VanillaSprites.LAB));
+        assertTrue(index.sprites().contains(VanillaSprites.PIPE),
+                "a building whose sprite has no entry here throws while the atlas is packed, not when it is first drawn");
     }
 
     @Test
@@ -50,7 +52,7 @@ class TextureIndexTest {
         index.put(VanillaSprites.CHEST, "mods/example/chest.png");
 
         assertEquals("mods/example/chest.png", index.path(VanillaSprites.CHEST));
-        assertEquals(13, index.sprites().size(), "overwriting an existing sprite must not add a second entry");
+        assertEquals(20, index.sprites().size(), "overwriting an existing sprite must not add a second entry");
     }
 
     @Test

@@ -1,0 +1,14 @@
+{
+  "path": "riverside",
+  "label": { "en": "Riverside", "ru": "У реки" },
+  "terrainPatches": [
+    { "terrain": "WATER", "cx": 40, "cy": 38, "radius": 6 },
+    { "terrain": "WATER", "cx": 40, "cy": 44, "radius": 6 },
+    { "terrain": "WATER", "cx": 40, "cy": 50, "radius": 6 }
+  ],
+  "orePatches": [
+    { "ore": "water", "cx": 49, "cy": 44, "radius": 3 },
+    { "ore": "rustorio:iron_ore", "cx": 55, "cy": 50, "radius": 3 },
+    { "ore": "rustorio:coal", "cx": 58, "cy": 55, "radius": 3 }
+  ]
+}

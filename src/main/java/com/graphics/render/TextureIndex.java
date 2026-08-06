@@ -40,6 +40,16 @@ final class TextureIndex {
         index.put(VanillaSprites.UNDERGROUND_OUT, "resources/underground_out.png");
         index.put(VanillaSprites.ASSEMBLER, "resources/assembler.png");
         index.put(VanillaSprites.LAB, "resources/lab.png");
+        // Свои спрайты жидкостно-электрических зданий: та же тёмная стальная панель, что у ленты и
+        // печи, плюс акцент по смыслу (вода/пламя/ток). Имена файлов без завершающей цифры —
+        // упаковщик атласа не отрежет её как индекс (см. ловушку в graphics.md).
+        index.put(VanillaSprites.PIPE, "resources/pipe.png");
+        index.put(VanillaSprites.TANK, "resources/tank.png");
+        index.put(VanillaSprites.PUMP, "resources/pump.png");
+        index.put(VanillaSprites.BOILER, "resources/boiler.png");
+        index.put(VanillaSprites.POLE, "resources/pole.png");
+        index.put(VanillaSprites.GENERATOR, "resources/generator.png");
+        index.put(VanillaSprites.ELECTRIC_MINER, "resources/electric_miner.png");
         return index;
     }
 

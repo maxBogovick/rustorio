@@ -2,6 +2,7 @@ package com.rustorio.api.mod;
 
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.AuthoredMap;
+import com.rustorio.domain.FluidType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeKind;
@@ -28,6 +29,14 @@ import com.rustorio.domain.building.BuildingPrototype;
 public interface RegistrationContext {
 
     Registry<ItemType> items();
+
+    /**
+     * Every fluid in the game — a mod registers its own here. Separate from {@link #items()} on
+     * purpose: a fluid is a volume and an item is a count, and keeping them apart is what stops a
+     * pipe and a belt from ever having to ask which of the two they are carrying (see {@link
+     * com.rustorio.domain.FluidType}).
+     */
+    Registry<FluidType> fluids();
 
     Registry<BuildingPrototype> buildings();
 

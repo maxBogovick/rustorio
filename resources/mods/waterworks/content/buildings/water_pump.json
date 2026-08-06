@@ -1,0 +1,9 @@
+{
+  "path": "water_pump",
+  "label": { "en": "Water pump", "ru": "Водяной насос" },
+  "archetype": "MINER",
+  "cost": { "item": "rustorio:iron_plate", "amount": 5 },
+  "placement": "NEEDS_ORE",
+  "texture": "rustorio:miner",
+  "acceptsSpeedEffects": true
+}

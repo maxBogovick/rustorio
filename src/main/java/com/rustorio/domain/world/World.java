@@ -4,6 +4,7 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.Cell;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Research;
@@ -15,7 +16,13 @@ import com.rustorio.domain.building.Belt;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingCost;
 import com.rustorio.domain.building.BuildingFactory;
+import com.rustorio.domain.building.FluidNetwork;
+import com.rustorio.domain.building.FluidNode;
+import com.rustorio.domain.building.FluidPort;
 import com.rustorio.domain.building.PlacementRule;
+import com.rustorio.domain.building.PowerNetwork;
+import com.rustorio.domain.building.PowerNode;
+import com.rustorio.domain.building.PowerProducer;
 import com.rustorio.domain.building.TickContext;
 import com.rustorio.domain.building.TransportNode;
 import com.rustorio.domain.building.VanillaBuildings;
@@ -28,6 +35,7 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The play field: where ore lies and which building sits on which cell.
@@ -63,6 +71,9 @@ public final class World implements TickContext {
             return byX != 0 ? byX : Integer.compare(y, other.y);
         }
     }
+
+    /** Cloned once here rather than per placement: {@code Direction.values()} copies the array on every call. */
+    private static final Direction[] SIDES = Direction.values();
 
     private final int width;
     private final int height;
@@ -108,6 +119,42 @@ public final class World implements TickContext {
      * itself anymore.
      */
     private final Map<BuildingStatus, Integer> statusCounts = new EnumMap<>(BuildingStatus.class);
+
+    /**
+     * Every placed pole, by its own cell — the poles are few (dozens, against thousands of belts),
+     * so the two operations that walk all of them ({@link #powerNeighbors}, rebuilding {@link
+     * #powerCoverage} after a demolition) stay cheap AND happen only on a player action, never in a
+     * tick.
+     */
+    private final NavigableMap<Coord, PowerNode> poles = new TreeMap<>();
+
+    /**
+     * A covered cell's claimant: the pole itself, plus the cell that pole stands on. The pole rather
+     * than its network, because a pole always knows its CURRENT network, so merges and splits need
+     * no update here at all; and the CELL alongside it because {@link #claimCoverage} has to compare
+     * claimants by position, and finding a pole's cell by searching {@link #poles} for it made
+     * claiming a square cost a walk over every pole on the map — quadratic in the number of poles,
+     * for an answer that was already in hand at the only place that writes it.
+     */
+    private record Coverage(Coord poleCell, PowerNode pole) {
+    }
+
+    /**
+     * Which pole covers each cell — the lookup {@link #drawPower} makes once per powered machine per
+     * tick, kept as a map so that lookup is O(1) instead of a walk over every pole on the map.
+     *
+     * <p>Where two poles overlap, the one with the smaller cell wins — an arbitrary rule, but a
+     * fixed one, so the same layout always resolves the same way.
+     */
+    private final Map<Coord, Coverage> powerCoverage = new HashMap<>();
+
+    /**
+     * Every placed generator, in coordinate order — walked once per {@link #tick()}, before any
+     * building ticks, so a machine can never spend power that has not been generated yet. Ordered
+     * because generators draw steam as they produce, and which one drains a shared pipe first has to
+     * be the same on every run.
+     */
+    private final NavigableMap<Coord, PowerProducer> powerProducers = new TreeMap<>();
 
     /** Total items ever produced — survives individual buildings being demolished. */
     private final ProductionStats stats = new ProductionStats();
@@ -353,6 +400,10 @@ public final class World implements TickContext {
         if (building instanceof TransportNode node) {
             attachToSegment(node, x, y, direction);
         }
+        if (building instanceof FluidNode node) {
+            attachToFluidNetwork(node, x, y);
+        }
+        registerPowerRoles(anchor, building);
         for (BuildingPlacedListener listener : buildingPlacedListeners) {
             listener.onBuildingPlaced(building.prototypeId(), x, y);
         }
@@ -412,6 +463,22 @@ public final class World implements TickContext {
         BuildingFactory.attachTransportNode(node, behind, ahead);
     }
 
+    /**
+     * Hand a freshly placed (or restored) fluid tile to its network, along with every already-placed
+     * fluid tile touching it — this class finds them (it owns the cell map), {@code BuildingFactory}'s
+     * narrow door does the rest, exactly the split {@link #attachToSegment} already uses for belts.
+     */
+    private void attachToFluidNetwork(FluidNode node, int x, int y) {
+        List<FluidNode> neighbors = new ArrayList<>(SIDES.length);
+        for (Direction side : SIDES) {
+            Building neighbor = buildings.get(new Coord(x + side.dx(), y + side.dy()));
+            if (neighbor instanceof FluidNode fluidNeighbor && fluidNeighbor.network() != null) {
+                neighbors.add(fluidNeighbor);
+            }
+        }
+        BuildingFactory.attachFluidNode(node, x, y, neighbors);
+    }
+
     /** The neighbor at {@code (x, y)}, if it's a transport node facing the same direction — else empty. */
     private Optional<TransportNode> transportNeighbor(int x, int y, Direction direction) {
         Building neighbor = buildings.get(new Coord(x, y));
@@ -445,6 +512,10 @@ public final class World implements TickContext {
         if (removed instanceof TransportNode node) {
             BuildingFactory.detachTransportNode(node);
         }
+        if (removed instanceof FluidNode node) {
+            BuildingFactory.detachFluidNode(node, anchor.x(), anchor.y());
+        }
+        unregisterPowerRoles(anchor, removed);
         return Optional.of(removed);
     }
 
@@ -472,6 +543,20 @@ public final class World implements TickContext {
             BuildingFactory.detachTransportNode(node);
             attachToSegment(node, x, y, node.direction());
         }
+        // Same idempotence reason as the belt and fluid re-attachment below: a restore may be
+        // handing back a building that was never actually taken out (RotateAction), and a pole
+        // registered twice would sit in two grids at once.
+        unregisterPowerRoles(anchor, building);
+        registerPowerRoles(anchor, building);
+        if (building instanceof FluidNode node) {
+            // Detached first, for the same idempotence reason belts are: RotateAction and friends
+            // hand back a tile that was never actually taken out of its network, and attaching it a
+            // second time would put one tile into two networks at once. Detaching also hands the
+            // tile its own share back, which the attach below immediately pours in again — so a
+            // restore that changes nothing really does change nothing.
+            BuildingFactory.detachFluidNode(node, x, y);
+            attachToFluidNetwork(node, x, y);
+        }
     }
 
     /**
@@ -498,6 +583,9 @@ public final class World implements TickContext {
         // however far back the clock just moved — far more than the "a few ticks early" this
         // field's own javadoc promises.
         manualMineReadyAtTick.clear();
+        poles.clear();
+        powerCoverage.clear();
+        powerProducers.clear();
         // Back to a fresh game's clock. A LOAD immediately follows this with restoreTickCount
         // (N3, NEW_BUGS_PROGRESS.md), so only an actual reset ends up starting from zero.
         tickCount = 0;
@@ -510,6 +598,9 @@ public final class World implements TickContext {
      */
     public void tick() {
         tickCount++;
+        // Before any building ticks: a machine must never be able to spend power that this tick's
+        // generators have not produced yet — see PowerNetwork's own javadoc.
+        supplyPowerNetworks();
         TickScheduler.tick(buildings, this, this::trackStatus);
         for (TickListener listener : tickListeners) {
             listener.onTick(tickCount);
@@ -600,6 +691,229 @@ public final class World implements TickContext {
     public Optional<Building> peek(int x, int y) {
         Coord anchor = occupancy.get(new Coord(x, y));
         return anchor == null ? Optional.empty() : Optional.ofNullable(buildings.get(anchor));
+    }
+
+    /**
+     * The fluid network touching {@code (x, y)} on {@code side}, if that neighbor is a fluid tile
+     * at all — the fluid counterpart to {@link #offerForward}, and the one door a machine reaches
+     * plumbing through. Resolved through {@link #occupancy} like every other cell lookup here, so a
+     * multi-cell machine's every occupied cell can address its own sides.
+     */
+    @Override
+    public Optional<FluidPort> fluidPort(int x, int y, Direction side) {
+        Coord anchor = occupancy.get(new Coord(x + side.dx(), y + side.dy()));
+        Building neighbor = anchor == null ? null : buildings.get(anchor);
+        if (!(neighbor instanceof FluidNode node)) {
+            return Optional.empty();
+        }
+        FluidNetwork network = node.network();
+        return network == null ? Optional.empty() : Optional.of(network);
+    }
+
+    /**
+     * The identity of the fluid network on cell {@code (x, y)} — its {@link FluidNetwork#anchor()} —
+     * or empty if no fluid tile sits there or it has joined no network yet. A render-only query for
+     * the network overlay, which paints every tile of one network the same colour; the fluid twin of
+     * {@link #powerNetworkAt}. Resolved through {@link #occupancy} so a multi-cell tile answers on
+     * any of its own cells, exactly as {@link #fluidPort} does.
+     */
+    public Optional<Cell> fluidNetworkAt(int x, int y) {
+        FluidNetwork network = fluidNetworkObjectAt(x, y);
+        return network == null ? Optional.empty() : Optional.of(network.anchor());
+    }
+
+    /**
+     * Which sides of {@code (x, y)} carry a pipe joint: a set of {@link Direction#ordinal()} bits,
+     * one per neighbour sharing this tile's {@link FluidNetwork} instance. Zero when the cell holds
+     * no fluid tile at all, which is what almost every cell is.
+     *
+     * <p>One call per building per frame, not one per SIDE per building: the renderer walks every
+     * visible building, and asking four separate questions meant four cell lookups — with their
+     * {@code Coord} allocations — even for a belt that was never going to have a joint. Here the
+     * tile's own network is resolved once and an ordinary building leaves immediately.
+     *
+     * <p>A packed {@code int} rather than a set or a {@code boolean[]} for the same reason: this
+     * runs inside the frame loop, where allocating per building is exactly what {@code graphics.md}
+     * forbids.
+     *
+     * <p>Membership is compared by network IDENTITY, not by anchor: two tiles are joined exactly
+     * when they share the one instance, which is what keeps a water pipe and the steam pipe it abuts
+     * (two networks, one border) correctly un-jointed.
+     */
+    public int fluidJoints(int x, int y) {
+        FluidNetwork here = fluidNetworkObjectAt(x, y);
+        if (here == null) {
+            return 0;
+        }
+        int joints = 0;
+        for (Direction side : SIDES) {
+            if (here == fluidNetworkObjectAt(x + side.dx(), y + side.dy())) {
+                joints |= 1 << side.ordinal();
+            }
+        }
+        return joints;
+    }
+
+    /** Whether {@link #fluidJoints} says a joint runs toward {@code side} — the bit test spelled out, so callers never repeat the shift. */
+    public static boolean hasJoint(int joints, Direction side) {
+        return (joints & (1 << side.ordinal())) != 0;
+    }
+
+    /** The {@link FluidNetwork} instance on cell {@code (x, y)}, or null if it holds no fluid tile or none joined yet. */
+    private @Nullable FluidNetwork fluidNetworkObjectAt(int x, int y) {
+        Coord anchor = occupancy.get(new Coord(x, y));
+        Building here = anchor == null ? null : buildings.get(anchor);
+        return here instanceof FluidNode node ? node.network() : null;
+    }
+
+    /**
+     * Pay for one machine's tick out of the grid covering its cell — see {@link
+     * TickContext#drawPower}. A cell no pole reaches has no grid and so no power, which is the
+     * ordinary case for the entire map until somebody builds one.
+     */
+    @Override
+    public boolean drawPower(int x, int y, long amount) {
+        Coverage covering = powerCoverage.get(new Coord(x, y));
+        if (covering == null) {
+            return false;
+        }
+        PowerNetwork network = covering.pole().network();
+        return network != null && network.draw(amount, tickCount);
+    }
+
+    /**
+     * The identity of the power grid covering cell {@code (x, y)} — its {@link PowerNetwork#anchor()}
+     * — or empty if no pole reaches it. A render-only query for the network overlay; uses the same
+     * {@link #powerCoverage} lookup as {@link #drawPower}, so a cell is "on the grid" here exactly
+     * when a machine standing on it could draw power.
+     */
+    public Optional<Cell> powerNetworkAt(int x, int y) {
+        Coverage covering = powerCoverage.get(new Coord(x, y));
+        if (covering == null) {
+            return Optional.empty();
+        }
+        PowerNetwork network = covering.pole().network();
+        return network == null ? Optional.empty() : Optional.of(network.anchor());
+    }
+
+    /**
+     * Fill every grid's pool from its generators — run at the top of {@link #tick()}, before any
+     * building ticks, so that {@link #drawPower} during this tick can only ever hand out power that
+     * was actually generated during it. A generator not covered by any pole produces nothing at all
+     * rather than producing into the void: it is asked only when there is a grid to ask on behalf of.
+     */
+    private void supplyPowerNetworks() {
+        for (Map.Entry<Coord, PowerProducer> entry : powerProducers.entrySet()) {
+            Coord at = entry.getKey();
+            Coverage covering = powerCoverage.get(at);
+            if (covering == null) {
+                continue;
+            }
+            PowerNetwork network = covering.pole().network();
+            if (network == null) {
+                continue; // defensive: a placed pole always has a network
+            }
+            network.contribute(entry.getValue().produce(this, at.x(), at.y()), tickCount);
+        }
+    }
+
+    /**
+     * Take note of whatever electrical role a freshly placed (or restored) building has, if any:
+     * a pole joins the grids around it, a generator joins the list {@link #supplyPowerNetworks}
+     * walks. A building that is neither — almost every building — costs one failed {@code
+     * instanceof} and nothing else.
+     */
+    private void registerPowerRoles(Coord anchor, Building building) {
+        if (building instanceof PowerNode pole) {
+            poles.put(anchor, pole);
+            attachToPowerNetwork(pole, anchor.x(), anchor.y());
+        }
+        if (building instanceof PowerProducer producer) {
+            powerProducers.put(anchor, producer);
+        }
+    }
+
+    /** The inverse of {@link #registerPowerRoles} — a demolished pole leaves its grid, and its coverage is re-resolved from the poles that remain. */
+    private void unregisterPowerRoles(Coord anchor, Building building) {
+        if (building instanceof PowerNode pole) {
+            poles.remove(anchor);
+            BuildingFactory.detachPowerNode(pole, anchor.x(), anchor.y(), this::polesConnect);
+            rebuildPowerCoverage();
+        }
+        if (building instanceof PowerProducer) {
+            powerProducers.remove(anchor);
+        }
+    }
+
+    /** Whether the poles standing on two cells can see each other — what {@code PowerNetwork} asks while re-splitting a grid. */
+    private boolean polesConnect(Cell one, Cell other) {
+        PowerNode first = poles.get(new Coord(one.x(), one.y()));
+        PowerNode second = poles.get(new Coord(other.x(), other.y()));
+        if (first == null || second == null) {
+            return false;
+        }
+        int gap = Math.max(Math.abs(one.x() - other.x()), Math.abs(one.y() - other.y()));
+        return gap <= Math.max(first.coverageRadius(), second.coverageRadius());
+    }
+
+    /**
+     * Wire a freshly placed pole into the grids around it, and claim the cells it now covers.
+     * {@link #powerNeighbors} walks every pole on the map — poles are counted in dozens and this is
+     * a player action, so the simple answer is the right one here.
+     */
+    private void attachToPowerNetwork(PowerNode node, int x, int y) {
+        BuildingFactory.attachPowerNode(node, x, y, powerNeighbors(x, y, node.coverageRadius()));
+        claimCoverage(new Coord(x, y), node);
+    }
+
+    /** Every already-placed pole close enough to connect — either pole's own radius reaching the other is enough, so a big pole is worth building. */
+    private List<PowerNode> powerNeighbors(int x, int y, int radius) {
+        List<PowerNode> neighbors = new ArrayList<>();
+        for (Map.Entry<Coord, PowerNode> entry : poles.entrySet()) {
+            Coord at = entry.getKey();
+            if (at.x() == x && at.y() == y) {
+                continue;
+            }
+            int gap = Math.max(Math.abs(at.x() - x), Math.abs(at.y() - y));
+            if (gap <= Math.max(radius, entry.getValue().coverageRadius())) {
+                neighbors.add(entry.getValue());
+            }
+        }
+        return neighbors;
+    }
+
+    /**
+     * Write {@code pole} into every cell of its coverage, unless a pole standing on a smaller cell
+     * already claimed it — see {@link #powerCoverage}. O(r²) with a constant-time test per cell:
+     * the incumbent's own cell rides along in {@link Coverage}, so deciding who wins never searches
+     * for it.
+     */
+    private void claimCoverage(Coord at, PowerNode pole) {
+        int radius = pole.coverageRadius();
+        Coverage claim = new Coverage(at, pole);
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dy = -radius; dy <= radius; dy++) {
+                Coord cell = new Coord(at.x() + dx, at.y() + dy);
+                Coverage existing = powerCoverage.get(cell);
+                if (existing == null || at.compareTo(existing.poleCell()) < 0) {
+                    powerCoverage.put(cell, claim);
+                }
+            }
+        }
+    }
+
+    /**
+     * Rebuild {@link #powerCoverage} from scratch after a pole was demolished. Rebuilding wholesale
+     * rather than subtracting one pole's square is what makes overlapping coverage come out right
+     * without a second bookkeeping structure to get wrong, and it costs O(poles × r²) — linear in
+     * the poles, not quadratic, since {@link #claimCoverage} no longer searches for the incumbent's
+     * position. Runs on a player action, never in a tick.
+     */
+    private void rebuildPowerCoverage() {
+        powerCoverage.clear();
+        for (Map.Entry<Coord, PowerNode> entry : poles.entrySet()) {
+            claimCoverage(entry.getKey(), entry.getValue());
+        }
     }
 
     /** Read-only view — see {@link ProductionStatsView} for why this isn't {@code ProductionStats} itself. */

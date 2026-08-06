@@ -4,14 +4,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.mod.RegistrationContext;
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.FluidType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.building.BuildingCost;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.PlacementRule;
+import com.rustorio.domain.building.PowerSpec;
 import com.rustorio.domain.building.VanillaBuildings;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Reads {@code content/buildings/*.json} — a building PROTOTYPE as pure data (cost, placement,
@@ -21,6 +24,12 @@ import java.util.Map;
  * the exact mechanism {@code com.examplemod.ExampleMod} already proved for its "steel press" in
  * Phases 5-6, here driven by JSON instead of a Java literal. Genuinely NEW behavior stays a code
  * mod's job, never this loader's — it never constructs a {@code Building} itself, only data.
+ *
+ * <p>Two optional fields, {@code "fluidInput"} and {@code "fluidOutput"}, name the fluids a
+ * {@code Pump}- or {@code Boiler}-archetype building draws and produces — a fluid reference in the
+ * same bare-or-namespaced form as every other reference here. Together with {@code "fuel"} and
+ * {@code "placement": "ADJACENT_TO_WATER"} they are what make a mod's own oil derrick or refinery a
+ * JSON file rather than a Java class.
  *
  * <p>Two more optional fields make a {@code Furnace}-archetype building (FURNACE/PRESS/ASSEMBLER)
  * fully self-contained with no Java at all: {@code "kind"} (bare/namespaced, same convention as
@@ -35,7 +44,8 @@ final class BuildingJsonLoader {
     private static final Map<String, PlacementRule> PLACEMENT_RULES = Map.of(
             "ALWAYS", PlacementRule.ALWAYS,
             "NEEDS_ORE", PlacementRule.NEEDS_ORE,
-            "NEEDS_PASSABLE_TERRAIN", PlacementRule.NEEDS_PASSABLE_TERRAIN);
+            "NEEDS_PASSABLE_TERRAIN", PlacementRule.NEEDS_PASSABLE_TERRAIN,
+            "ADJACENT_TO_WATER", PlacementRule.ADJACENT_TO_WATER);
 
     private BuildingJsonLoader() {
     }
@@ -67,12 +77,63 @@ final class BuildingJsonLoader {
             // Private pool by default (this building's own id) — see the class javadoc.
             ContentId recipeKind = root.has("kind") ? resolveKind(JsonNodes.requireText(root, "kind", file), modId) : id;
             ItemType fuelItem = root.has("fuel") ? resolveItem(JsonNodes.requireText(root, "fuel", file), modId, context, file) : null;
+            FluidType fluidInput = resolveOptionalFluid(root, "fluidInput", modId, context, file);
+            FluidType fluidOutput = resolveOptionalFluid(root, "fluidOutput", modId, context, file);
+            PowerSpec power = readOptionalPower(root, file);
 
             context.buildings().register(id, new BuildingPrototype(id, label, new BuildingCost(costItem, costAmount),
                     placement, texture, footprintWidth, footprintHeight, bufferMax, speedMultiplier, acceptsSpeedEffects,
                     archetypePrototype.behavior(), archetypePrototype.restoreBehavior(), archetypePrototype.codec(),
-                    recipeKind, fuelItem));
+                    recipeKind, fuelItem, fluidInput, fluidOutput, power));
         }
+    }
+
+    /**
+     * {@code "power"} — {@code { "radius": n }} for a pole, {@code { "output": n }} for a
+     * generator, {@code { "demand": n }} for a machine that needs electricity, or absent for a
+     * building with nothing to do with power (which is nearly every one). Absent means {@code null}
+     * rather than a zeroed spec: "not electrical" and "electrical, asking for nothing" are different
+     * claims, and only the first is what an ordinary building means.
+     */
+    private static @Nullable PowerSpec readOptionalPower(JsonNode root, Path file) {
+        JsonNode power = root.get("power");
+        if (power == null || power.isNull()) {
+            return null;
+        }
+        if (!power.isObject()) {
+            throw new ModLoadException(file + ": field 'power' must be an object like "
+                    + "{ \"radius\": 5 }, { \"output\": 100 } or { \"demand\": 10 }");
+        }
+        return new PowerSpec(optionalCount(power, "radius", file), optionalCount(power, "output", file),
+                optionalCount(power, "demand", file));
+    }
+
+    /** One non-negative number inside {@code "power"} — absent means zero, which is what "this building is not that kind of electrical thing" looks like. */
+    private static int optionalCount(JsonNode power, String field, Path file) {
+        if (!power.has(field)) {
+            return 0;
+        }
+        int value = JsonNodes.requireInt(power, field, file);
+        if (value < 0) {
+            throw new ModLoadException(file + ": field 'power." + field + "' must not be negative: " + value);
+        }
+        return value;
+    }
+
+    /**
+     * {@code "fluidInput"}/{@code "fluidOutput"} — a fluid reference in the same bare-or-namespaced
+     * form every other reference in this loader takes, or absent for a building that touches no
+     * fluid (which is almost all of them). Reported against the FILE and the field, like every other
+     * error here, so a modder who misspells a fluid learns which line to fix.
+     */
+    private static @Nullable FluidType resolveOptionalFluid(JsonNode root, String field, ModId modId,
+            RegistrationContext context, Path file) {
+        if (!root.has(field)) {
+            return null;
+        }
+        ContentId id = resolveRef(JsonNodes.requireText(root, field, file), modId);
+        return context.fluids().peek(id).orElseThrow(() -> new ModLoadException(file + ": field '" + field
+                + "' refers to unknown fluid '" + id + "'"));
     }
 
     private static ItemType resolveItem(String ref, ModId modId, RegistrationContext context, Path file) {

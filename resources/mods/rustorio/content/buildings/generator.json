@@ -1,0 +1,11 @@
+{
+  "path": "generator",
+  "label": { "en": "Generator", "ru": "Генератор" },
+  "archetype": "GENERATOR",
+  "cost": { "item": "gear", "amount": 10 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:generator",
+  "fluidInput": "steam",
+  "power": { "output": 100 },
+  "acceptsSpeedEffects": false
+}
