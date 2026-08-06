@@ -77,6 +77,12 @@ public final class Pump implements Building {
         status = accepted > 0 ? BuildingStatus.WORKING : BuildingStatus.OUTPUT_FULL;
     }
 
+    /** The status field this archetype already keeps, handed over without building an {@link Appearance} — see {@link Building#status()}. */
+    @Override
+    public BuildingStatus status() {
+        return status;
+    }
+
     @Override
     public Appearance appearance() {
         return Appearance.of(prototype.texture(), status);

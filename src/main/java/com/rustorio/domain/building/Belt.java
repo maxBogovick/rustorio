@@ -2,6 +2,7 @@ package com.rustorio.domain.building;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
+import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
@@ -168,6 +169,12 @@ public final class Belt implements Building, TransportNode, SettlesEachTick {
     @Override
     public Optional<ItemType> heldItem() {
         return Optional.ofNullable(held);
+    }
+
+    /** Always {@code WORKING}: a belt has no notion of being stuck — a blocked belt is simply a full one. See {@link Building#status()}. */
+    @Override
+    public BuildingStatus status() {
+        return BuildingStatus.WORKING;
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.rustorio.mod;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -17,6 +18,8 @@ import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.building.Furnace;
+import com.rustorio.domain.building.TraitKey;
+import com.rustorio.domain.building.Traits;
 import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.world.World;
 import java.io.IOException;
@@ -139,7 +142,36 @@ class BuildingJsonLoaderTest {
                 """);
 
         ModLoadException thrown = assertThrows(ModLoadException.class, () -> BuildingJsonLoader.loadInto(tempDir, modId, context));
-        assertTrue(thrown.getMessage().contains("NEEDS_PASSABLE_TERRAIN"));
+        assertTrue(thrown.getMessage().contains("rustorio:needs_passable_terrain"),
+                "the message lists the rules actually registered, by id: " + thrown.getMessage());
+    }
+
+    /**
+     * The reason placement rules became registered content: a code mod can contribute a genuinely
+     * new CONDITION, and any data mod — including one that has never heard of it — can then name it
+     * from JSON. Before this, the set of rules a building file could name was a fixed list inside
+     * the loader, and "where may this stand" was the one property of a building nobody could extend.
+     */
+    @Test
+    void aBuildingMayNameAPlacementRuleSomeModRegistered() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        // A rule no vanilla building uses: only the top-left quadrant of the map.
+        context.placementRules().register(ContentId.of("testmod:northwest_only"),
+                (x, y, oreLayout) -> x < 10 && y < 10);
+        write("outpost.json", """
+                { "path": "outpost", "label": "Outpost", "archetype": "CHEST",
+                  "cost": { "item": "rustorio:iron_plate", "amount": 1 },
+                  "placement": "northwest_only", "texture": "rustorio:chest" }
+                """);
+
+        BuildingJsonLoader.loadInto(tempDir, modId, context);
+
+        BuildingPrototype outpost = context.buildings().peek(ContentId.of("testmod:outpost")).orElseThrow();
+        assertTrue(outpost.placementRule().test(1, 1, PatchOreLayout.standard()),
+                "the mod's own rule accepts a cell in its quadrant");
+        assertFalse(outpost.placementRule().test(50, 50, PatchOreLayout.standard()),
+                "and rejects one outside it — the registered rule really is the one being used");
     }
 
     @Test
@@ -262,6 +294,72 @@ class BuildingJsonLoaderTest {
         assertEquals(null, crate.power(), "an ordinary building is not electrical, not electrical-asking-for-zero");
         assertEquals(null, crate.fluidInput(), "and touches no fluid either");
         assertEquals(null, crate.fluidOutput());
+    }
+
+    /**
+     * The typo that used to be invisible from both ends: a misspelled field is read by nobody, so
+     * the building loads and simply does not work — a pump that pumps nothing, with no error
+     * anywhere to explain it. Naming the offending key is the difference between a five-minute fix
+     * and an evening of staring at a machine that looks fine.
+     */
+    @Test
+    void aMisspelledFieldNameIsRejectedRatherThanSilentlyIgnored() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        write("derrick.json", """
+                { "path": "derrick", "label": "Derrick", "archetype": "PUMP",
+                  "cost": { "item": "rustorio:iron_plate", "amount": 1 },
+                  "placement": "ADJACENT_TO_WATER", "texture": "rustorio:pump",
+                  "fluidOutut": "rustorio:water" }
+                """);
+
+        ModLoadException thrown = assertThrows(ModLoadException.class, () -> BuildingJsonLoader.loadInto(tempDir, modId, context));
+        assertTrue(thrown.getMessage().contains("fluidOutut"), "the message names the key as written: " + thrown.getMessage());
+        assertTrue(thrown.getMessage().contains("fluidOutput"), "and lists the one that was meant: " + thrown.getMessage());
+    }
+
+    /** The same protection one level down, where the published schema never reached — {@code ContentSchemaTest} only compares top-level keys. */
+    @Test
+    void aMisspelledFieldInsideThePowerBlockIsRejectedToo() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        write("drill.json", """
+                { "path": "drill", "label": "Drill", "archetype": "ELECTRIC_MINER",
+                  "cost": { "item": "rustorio:iron_plate", "amount": 1 },
+                  "placement": "NEEDS_ORE", "texture": "rustorio:electric_miner",
+                  "power": { "demmand": 10 } }
+                """);
+
+        ModLoadException thrown = assertThrows(ModLoadException.class, () -> BuildingJsonLoader.loadInto(tempDir, modId, context));
+        assertTrue(thrown.getMessage().contains("demmand"), thrown.getMessage());
+    }
+
+    /**
+     * The point of traits, stated as a test: a mod declares a property the engine has never heard
+     * of, hangs it on a prototype, and reads it back — with nothing in {@code BuildingPrototype},
+     * {@code VanillaBuildings}, this loader or the parity test knowing it exists.
+     *
+     * <p>Before traits, the same thing cost a component on the prototype record, a rung on two
+     * telescopes of constructors, a field here and a line in the parity test. That was the whole
+     * complaint this refactor answers, so the proof belongs in a test rather than in a javadoc.
+     */
+    @Test
+    void aModCanHangItsOwnPropertyOnAPrototypeWithoutTouchingTheEngine() {
+        TraitKey<Integer> noiseLevel =
+                new TraitKey<>(ContentId.of("testmod:noise"), "noise", Integer.class);
+
+        BuildingPrototype quiet = VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.CHEST));
+        BuildingPrototype loud = new BuildingPrototype(ContentId.of("testmod:loud_chest"), "Loud Chest",
+                quiet.cost(), quiet.placementRule(), quiet.texture(), 1, 1, quiet.bufferMax(),
+                quiet.speedMultiplier(), quiet.acceptsSpeedEffects(), quiet.behavior(), quiet.restoreBehavior(),
+                quiet.codec(), quiet.recipeKind(), quiet.fuelItem(), Traits.one(noiseLevel, 11));
+
+        assertEquals(11, loud.traits().get(noiseLevel).orElseThrow(),
+                "a mod's own trait comes back typed, with no cast and no engine change");
+        assertTrue(quiet.traits().get(noiseLevel).isEmpty(),
+                "and a building that never declared it says so, rather than answering some default");
+        assertEquals(null, loud.power(),
+                "declaring one trait does not accidentally declare the others");
     }
 
     private void write(String fileName, String content) throws IOException {

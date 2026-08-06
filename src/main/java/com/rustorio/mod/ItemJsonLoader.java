@@ -6,6 +6,7 @@ import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.ItemShape;
 import com.rustorio.domain.ItemType;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Arrays;
 
 /**
@@ -23,6 +24,9 @@ final class ItemJsonLoader {
     static void loadInto(Path itemsDir, ModId modId, Registry<ItemType> items) {
         for (Path file : JsonNodes.listJsonFilesSorted(itemsDir)) {
             JsonNode root = JsonNodes.readTree(file);
+            // "tool" is read by nothing here: it tells the content editor which map brush offers this
+            // item, and is listed so a real, intended field is not mistaken for a typo.
+            JsonNodes.rejectUnknownFields(root, file, "item", List.of("path", "label", "researchGrade", "colorRgb", "shape", "tool"));
             String path = JsonNodes.requireText(root, "path", file);
             ContentId id = new ContentId(modId.value(), path);
             String label = JsonNodes.requireLocalizedText(root, "label", file, id.toString(), ContentLocale.current());

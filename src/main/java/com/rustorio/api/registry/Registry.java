@@ -164,6 +164,19 @@ public final class Registry<T> {
      * answering "is this id registered, and to what" specifically (only {@code rawId} itself is
      * meaningless before freeze, and this method never returns one).
      */
+    /**
+     * Every id registered so far, in registration order — legal at ANY point, including before
+     * {@link #freeze()}, exactly like {@link #peek}. {@link #iterate()} cannot serve this: it is
+     * frozen-only, and the caller that needs this is a content loader still mid-load, writing the
+     * "expected one of ..." half of an error message for a modder who misspelled a reference.
+     *
+     * <p>Ordered because it goes into that message: a list of allowed values that comes out in a
+     * different order every run is a list nobody can diff against yesterday's log.
+     */
+    public List<ContentId> knownIds() {
+        return List.copyOf(registered.keySet());
+    }
+
     public Optional<T> peek(ContentId id) {
         return Optional.ofNullable(registered.get(id));
     }

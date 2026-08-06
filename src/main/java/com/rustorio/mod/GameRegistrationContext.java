@@ -1,62 +1,70 @@
 package com.rustorio.mod;
 
 import com.rustorio.api.mod.RegistrationContext;
+import com.rustorio.api.mod.RegistryKeys;
 import com.rustorio.api.registry.Registry;
-import com.rustorio.domain.AuthoredMap;
-import com.rustorio.domain.FluidType;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.Recipe;
-import com.rustorio.domain.RecipeKind;
-import com.rustorio.domain.TechType;
-import com.rustorio.domain.building.BuildingPrototype;
+import com.rustorio.api.registry.RegistryKey;
+import com.rustorio.domain.building.VanillaPlacementRules;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.NoSuchElementException;
 
 /**
  * The one {@link RegistrationContext} instance shared by every mod across all three lifecycle
  * rounds (see {@link ModLoader}) — a later-loaded mod's round sees exactly what an earlier one
  * already registered, because every one of them writes into these same {@link Registry} instances.
+ *
+ * <p>A {@link LinkedHashMap} keyed by {@link RegistryKey}, not seven named fields: the seven were
+ * the reason adding one content kind touched half a dozen files. {@code LinkedHashMap} rather than
+ * {@code HashMap} because {@link #keys()} is what the loader freezes and reports in order, and an
+ * order that changes per JVM run is the trap this repository keeps its rules about.
+ *
+ * <p>The unchecked cast in {@link #registry} is the standard typesafe-heterogeneous-container trade
+ * (Effective Java, Item 33): {@link #register} is the only writer and it only ever stores a {@code
+ * Registry<T>} under a {@code RegistryKey<T>}, so the cast cannot fail unless someone bypasses it.
  */
 final class GameRegistrationContext implements RegistrationContext {
 
-    private final Registry<ItemType> items = new Registry<>();
-    private final Registry<FluidType> fluids = new Registry<>();
-    private final Registry<BuildingPrototype> buildings = new Registry<>();
-    private final Registry<RecipeKind> kinds = new Registry<>();
-    private final Registry<AuthoredMap> maps = new Registry<>();
-    private final Registry<Recipe> recipes = new Registry<>();
-    private final Registry<TechType> techs = new Registry<>();
+    private final Map<RegistryKey<?>, Registry<?>> registries = new LinkedHashMap<>();
 
-    @Override
-    public Registry<ItemType> items() {
-        return items;
+    /**
+     * Starts with a registry for every key the base game ships — see {@link RegistryKeys#VANILLA}
+     * for why that list has a fixed order.
+     *
+     * <p>Placement rules arrive already filled, unlike every other registry, which starts empty and
+     * is filled from a mod's {@code content/} directory. A rule is a function of a cell rather than
+     * data, so there is no JSON for one to arrive through; seeding here rather than in {@link
+     * ModLoader} means every context has them, including one a test builds directly, and a mod's
+     * own round still runs afterwards and can add to or replace them.
+     */
+    GameRegistrationContext() {
+        for (RegistryKey<?> key : RegistryKeys.VANILLA) {
+            registries.put(key, new Registry<>());
+        }
+        VanillaPlacementRules.registerAll(placementRules());
     }
 
     @Override
-    public Registry<FluidType> fluids() {
-        return fluids;
+    @SuppressWarnings("unchecked") // see the class javadoc: register() is the only writer
+    public <T> Registry<T> registry(RegistryKey<T> key) {
+        Registry<?> registry = registries.get(key);
+        if (registry == null) {
+            throw new NoSuchElementException("no registry under key: " + key);
+        }
+        return (Registry<T>) registry;
     }
 
-    @Override
-    public Registry<BuildingPrototype> buildings() {
-        return buildings;
+    /**
+     * Add a registry for a content kind the base game does not ship — how a code mod holds its own
+     * kind of content on the same footing as items and buildings, including being frozen and
+     * reported alongside them.
+     */
+    <T> void register(RegistryKey<T> key, Registry<T> registry) {
+        registries.put(key, registry);
     }
 
-    @Override
-    public Registry<RecipeKind> kinds() {
-        return kinds;
-    }
-
-    @Override
-    public Registry<AuthoredMap> maps() {
-        return maps;
-    }
-
-    @Override
-    public Registry<Recipe> recipes() {
-        return recipes;
-    }
-
-    @Override
-    public Registry<TechType> techs() {
-        return techs;
+    /** Every registered key, in declaration order — what {@link ModLoader} freezes and reports over. */
+    Iterable<RegistryKey<?>> keys() {
+        return registries.keySet();
     }
 }

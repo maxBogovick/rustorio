@@ -2,6 +2,7 @@ package com.rustorio.domain.building;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
+import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.FluidFill;
 import com.rustorio.domain.FluidType;
@@ -84,6 +85,12 @@ public final class Pipe implements Building, FluidNode {
     public void setDetached(@Nullable FluidType fluid, long amount) {
         this.detachedFluid = fluid;
         this.detachedAmount = amount;
+    }
+
+    /** Always {@code WORKING}: a pipe has no notion of being stuck — see {@link Building#status()}. */
+    @Override
+    public BuildingStatus status() {
+        return BuildingStatus.WORKING;
     }
 
     /**

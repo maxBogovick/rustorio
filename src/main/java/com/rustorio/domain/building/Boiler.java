@@ -131,6 +131,12 @@ public final class Boiler implements Building {
         return sink.capacity() - sink.amount();
     }
 
+    /** The status field this archetype already keeps, handed over without building an {@link Appearance} — see {@link Building#status()}. */
+    @Override
+    public BuildingStatus status() {
+        return status;
+    }
+
     @Override
     public Appearance appearance() {
         return fuelBuffer > 0 || burnTicksLeft > 0

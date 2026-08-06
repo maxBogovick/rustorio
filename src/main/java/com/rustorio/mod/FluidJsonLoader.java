@@ -5,6 +5,7 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.FluidType;
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Reads {@code content/fluids/*.json} — one fluid per file: {@code path} (this fluid's own {@link
@@ -24,6 +25,7 @@ final class FluidJsonLoader {
     static void loadInto(Path fluidsDir, ModId modId, Registry<FluidType> fluids) {
         for (Path file : JsonNodes.listJsonFilesSorted(fluidsDir)) {
             JsonNode root = JsonNodes.readTree(file);
+            JsonNodes.rejectUnknownFields(root, file, "fluid", List.of("path", "label", "colorRgb"));
             String path = JsonNodes.requireText(root, "path", file);
             ContentId id = new ContentId(modId.value(), path);
             String label = JsonNodes.requireLocalizedText(root, "label", file, id.toString(), ContentLocale.current());

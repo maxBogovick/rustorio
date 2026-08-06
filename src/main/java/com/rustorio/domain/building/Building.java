@@ -2,6 +2,7 @@ package com.rustorio.domain.building;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
+import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
@@ -100,6 +101,25 @@ public interface Building {
 
     /** How this building looks right now — sprite plus an optional numeric badge. */
     Appearance appearance();
+
+    /**
+     * What this building is doing right now, without building a whole {@link Appearance} to ask.
+     *
+     * <p>Exists purely for cost: {@code World} reads the status of EVERY building once per tick to
+     * keep its per-status counts current, and going through {@link #appearance()} for it meant
+     * allocating an {@code Appearance} per building per tick — for a pipe, a {@code FluidFill}
+     * besides. Measured on the benchmark's network scene, that was the single largest per-tick cost
+     * a pipe had, despite a pipe having no {@code tick} at all.
+     *
+     * <p>The default keeps the old path, so a code mod that implements only {@link #appearance()}
+     * needs no change. A vanilla archetype overrides it either with the status field it already
+     * keeps, or with {@code WORKING} when it has no notion of being stuck. That makes two ways to
+     * ask the same question, which is a real cost of this method — {@code BuildingStatusReportTest}
+     * is what stops the two from drifting apart.
+     */
+    default BuildingStatus status() {
+        return appearance().status();
+    }
 
     /** This building's kind, as shown in the hotbar. */
     BuildingType type();

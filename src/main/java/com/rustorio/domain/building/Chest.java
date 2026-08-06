@@ -236,6 +236,12 @@ public final class Chest implements Building {
         return world.research().biggerIfUnlocked(VanillaTechs.BIG_BUFFER, CAPACITY);
     }
 
+    /** The status field this archetype already keeps, handed over without building an {@link Appearance} — see {@link Building#status()}. */
+    @Override
+    public BuildingStatus status() {
+        return status;
+    }
+
     @Override
     public Appearance appearance() {
         int total = totalCount();

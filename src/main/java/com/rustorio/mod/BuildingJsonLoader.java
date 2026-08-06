@@ -10,9 +10,15 @@ import com.rustorio.domain.building.BuildingCost;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.PlacementRule;
 import com.rustorio.domain.building.PowerSpec;
+import com.rustorio.domain.building.TraitKey;
+import com.rustorio.domain.building.Traits;
 import com.rustorio.domain.building.VanillaBuildings;
+import com.rustorio.domain.building.VanillaTraits;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
@@ -41,18 +47,16 @@ import org.jspecify.annotations.Nullable;
  */
 final class BuildingJsonLoader {
 
-    private static final Map<String, PlacementRule> PLACEMENT_RULES = Map.of(
-            "ALWAYS", PlacementRule.ALWAYS,
-            "NEEDS_ORE", PlacementRule.NEEDS_ORE,
-            "NEEDS_PASSABLE_TERRAIN", PlacementRule.NEEDS_PASSABLE_TERRAIN,
-            "ADJACENT_TO_WATER", PlacementRule.ADJACENT_TO_WATER);
-
     private BuildingJsonLoader() {
     }
 
     static void loadInto(Path buildingsDir, ModId modId, RegistrationContext context) {
         for (Path file : JsonNodes.listJsonFilesSorted(buildingsDir)) {
             JsonNode root = JsonNodes.readTree(file);
+            JsonNodes.rejectUnknownFields(root, file, "building", List.of("path", "label", "archetype",
+                    "cost", "placement", "texture", "footprintWidth", "footprintHeight", "bufferMax",
+                    "speedMultiplier", "acceptsSpeedEffects", "kind", "fuel", "fluidInput", "fluidOutput",
+                    "power"));
             String path = JsonNodes.requireText(root, "path", file);
             ContentId id = new ContentId(modId.value(), path);
             String label = JsonNodes.requireLocalizedText(root, "label", file, id.toString(), ContentLocale.current());
@@ -63,11 +67,12 @@ final class BuildingJsonLoader {
             if (costNode == null) {
                 throw new ModLoadException(file + ": missing required object field 'cost'");
             }
+            JsonNodes.rejectUnknownFields(costNode, file, "building 'cost'", List.of("item", "amount"));
             String costItemRef = JsonNodes.requireText(costNode, "item", file);
             int costAmount = JsonNodes.requireInt(costNode, "amount", file);
             ItemType costItem = resolveItem(costItemRef, modId, context, file);
 
-            PlacementRule placement = parsePlacement(JsonNodes.requireText(root, "placement", file), file);
+            PlacementRule placement = parsePlacement(JsonNodes.requireText(root, "placement", file), modId, context, file);
             ContentId texture = ContentId.of(JsonNodes.requireText(root, "texture", file));
             int footprintWidth = root.has("footprintWidth") ? JsonNodes.requireInt(root, "footprintWidth", file) : 1;
             int footprintHeight = root.has("footprintHeight") ? JsonNodes.requireInt(root, "footprintHeight", file) : 1;
@@ -77,14 +82,17 @@ final class BuildingJsonLoader {
             // Private pool by default (this building's own id) — see the class javadoc.
             ContentId recipeKind = root.has("kind") ? resolveKind(JsonNodes.requireText(root, "kind", file), modId) : id;
             ItemType fuelItem = root.has("fuel") ? resolveItem(JsonNodes.requireText(root, "fuel", file), modId, context, file) : null;
-            FluidType fluidInput = resolveOptionalFluid(root, "fluidInput", modId, context, file);
-            FluidType fluidOutput = resolveOptionalFluid(root, "fluidOutput", modId, context, file);
-            PowerSpec power = readOptionalPower(root, file);
+            // A bag, not three named locals: the two fluid ports and the power block are read the
+            // same way any future trait will be, and nothing below this line mentions them by name.
+            Map<TraitKey<?>, Object> traits = new LinkedHashMap<>();
+            traits.put(VanillaTraits.FLUID_INPUT, resolveOptionalFluid(root, "fluidInput", modId, context, file));
+            traits.put(VanillaTraits.FLUID_OUTPUT, resolveOptionalFluid(root, "fluidOutput", modId, context, file));
+            traits.put(VanillaTraits.POWER, readOptionalPower(root, file));
 
             context.buildings().register(id, new BuildingPrototype(id, label, new BuildingCost(costItem, costAmount),
                     placement, texture, footprintWidth, footprintHeight, bufferMax, speedMultiplier, acceptsSpeedEffects,
                     archetypePrototype.behavior(), archetypePrototype.restoreBehavior(), archetypePrototype.codec(),
-                    recipeKind, fuelItem, fluidInput, fluidOutput, power));
+                    recipeKind, fuelItem, Traits.of(traits)));
         }
     }
 
@@ -103,6 +111,15 @@ final class BuildingJsonLoader {
         if (!power.isObject()) {
             throw new ModLoadException(file + ": field 'power' must be an object like "
                     + "{ \"radius\": 5 }, { \"output\": 100 } or { \"demand\": 10 }");
+        }
+        // The nested block the published schema cannot police: ContentSchemaTest only compares
+        // top-level keys, so a misspelled "demmand" inside here was invisible from both ends —
+        // silently a building that declares it is electrical and then asks for nothing.
+        JsonNodes.rejectUnknownFields(power, file, "building 'power'", List.of("radius", "output", "demand"));
+        if (power.isEmpty()) {
+            throw new ModLoadException(file + ": field 'power' is empty — omit it entirely for a "
+                    + "building that has nothing to do with electricity, since an empty block still "
+                    + "declares one that does and asks for nothing");
         }
         return new PowerSpec(optionalCount(power, "radius", file), optionalCount(power, "output", file),
                 optionalCount(power, "demand", file));
@@ -172,12 +189,19 @@ final class BuildingJsonLoader {
         }
     }
 
-    private static PlacementRule parsePlacement(String text, Path file) {
-        PlacementRule rule = PLACEMENT_RULES.get(text);
-        if (rule == null) {
-            throw new ModLoadException(file + ": unknown 'placement' \"" + text + "\" (expected one of "
-                    + PLACEMENT_RULES.keySet() + ")");
-        }
-        return rule;
+    /**
+     * A {@code "placement"} value is either one of the vanilla rule names in the {@code
+     * NEEDS_ORE} spelling every building file has always used, or a bare/namespaced reference to a
+     * rule some code mod registered — resolved exactly the way {@code "kind"} is above, and for the
+     * same reason: the uppercase names predate rules being registered content, and a {@link
+     * ContentId} path is lowercase, so the two spellings can never collide.
+     */
+    private static PlacementRule parsePlacement(String text, ModId modId, RegistrationContext context, Path file) {
+        ContentId id = text.equals(text.toUpperCase(Locale.ROOT))
+                ? new ContentId("rustorio", text.toLowerCase(Locale.ROOT))
+                : resolveRef(text, modId);
+        return context.placementRules().peek(id).orElseThrow(() -> new ModLoadException(
+                file + ": unknown 'placement' \"" + text + "\" (expected one of "
+                        + context.placementRules().knownIds() + ")"));
     }
 }

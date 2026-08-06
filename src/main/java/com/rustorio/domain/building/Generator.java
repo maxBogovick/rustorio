@@ -72,6 +72,12 @@ public final class Generator implements Building, PowerProducer {
         return spec.output();
     }
 
+    /** The status field this archetype already keeps, handed over without building an {@link Appearance} — see {@link Building#status()}. */
+    @Override
+    public BuildingStatus status() {
+        return status;
+    }
+
     @Override
     public Appearance appearance() {
         return Appearance.of(prototype.texture(), status);

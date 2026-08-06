@@ -464,7 +464,7 @@ public final class VanillaBuildings {
                     PumpState state = (PumpState) decodedState;
                     return new Pump(BuildingType.PUMP, state.direction(), state.cooldown(), self);
                 },
-                PUMP_CODEC, null, null, VanillaFluids.WATER);
+                PUMP_CODEC, null, Traits.one(VanillaTraits.FLUID_OUTPUT, VanillaFluids.WATER));
         register(prototypes, BuildingType.BOILER, new BuildingCost(VanillaItems.IRON_PLATE, 8),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.BOILER, 0, 1, false,
                 (self, direction, factory) -> new Boiler(BuildingType.BOILER, direction, self),
@@ -472,12 +472,14 @@ public final class VanillaBuildings {
                     BoilerState state = (BoilerState) decodedState;
                     return new Boiler(BuildingType.BOILER, state, self);
                 },
-                BOILER_CODEC, VanillaItems.COAL, VanillaFluids.WATER, VanillaFluids.STEAM);
+                BOILER_CODEC, VanillaItems.COAL, Traits.of(new LinkedHashMap<>(Map.of(
+                        VanillaTraits.FLUID_INPUT, VanillaFluids.WATER,
+                        VanillaTraits.FLUID_OUTPUT, VanillaFluids.STEAM))));
         register(prototypes, BuildingType.POLE, new BuildingCost(VanillaItems.IRON_PLATE, 1),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.POLE, 0, 1, false,
                 (self, direction, factory) -> new Pole(BuildingType.POLE, self),
                 (self, decodedState, factory) -> new Pole(BuildingType.POLE, self),
-                POLE_CODEC, null, null, null, PowerSpec.pole(POLE_RADIUS));
+                POLE_CODEC, null, Traits.one(VanillaTraits.POWER, PowerSpec.pole(POLE_RADIUS)));
         register(prototypes, BuildingType.GENERATOR, new BuildingCost(VanillaItems.GEAR, 10),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.GENERATOR, 0, 1, false,
                 (self, direction, factory) -> new Generator(BuildingType.GENERATOR, direction, self),
@@ -485,7 +487,9 @@ public final class VanillaBuildings {
                     GeneratorState state = (GeneratorState) decodedState;
                     return new Generator(BuildingType.GENERATOR, state.direction(), self);
                 },
-                GENERATOR_CODEC, null, VanillaFluids.STEAM, null, PowerSpec.generator(GENERATOR_OUTPUT));
+                GENERATOR_CODEC, null, Traits.of(new LinkedHashMap<>(Map.of(
+                        VanillaTraits.FLUID_INPUT, VanillaFluids.STEAM,
+                        VanillaTraits.POWER, PowerSpec.generator(GENERATOR_OUTPUT)))));
         // The same Miner archetype as the plain one, and deliberately so: what makes this one
         // electric is a declared demand, which is data. If an electric variant needed its own Java
         // class, "electricity is opt-in" would be a claim about one hardcoded building rather than
@@ -499,7 +503,7 @@ public final class VanillaBuildings {
                     return new Miner(BuildingType.ELECTRIC_MINER, factory.oreLayout(), state.direction(),
                             state.cooldown(), state.held(), state.speedLevel(), self);
                 },
-                MINER_CODEC, null, null, null, PowerSpec.consumer(ELECTRIC_MINER_DEMAND));
+                MINER_CODEC, null, Traits.one(VanillaTraits.POWER, PowerSpec.consumer(ELECTRIC_MINER_DEMAND)));
     }
 
     /**
@@ -604,27 +608,21 @@ public final class VanillaBuildings {
             boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec,
             @Nullable ItemType fuelItem) {
         register(prototypes, type, cost, placementRule, texture, bufferMax, speedMultiplier, acceptsSpeedEffects,
-                behavior, restoreBehavior, codec, fuelItem, null, null);
+                behavior, restoreBehavior, codec, fuelItem, Traits.NONE);
     }
 
-    /** The form for the archetypes that name a fluid port but nothing electrical — see {@link BuildingPrototype#fluidInput()}. */
+    /**
+     * The full form, for an archetype that declares an optional property — a fluid port, a power
+     * spec. ONE such form now, whatever the property: this used to be a rung per property, and
+     * adding fluids and electricity added two of them at once.
+     */
     private static void register(Registry<BuildingPrototype> prototypes, BuildingType type,
             BuildingCost cost, PlacementRule placementRule, ContentId texture, int bufferMax, int speedMultiplier,
             boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec,
-            @Nullable ItemType fuelItem, @Nullable FluidType fluidInput, @Nullable FluidType fluidOutput) {
-        register(prototypes, type, cost, placementRule, texture, bufferMax, speedMultiplier, acceptsSpeedEffects,
-                behavior, restoreBehavior, codec, fuelItem, fluidInput, fluidOutput, null);
-    }
-
-    /** The full form, for the three archetypes that say something about electricity — see {@link PowerSpec}. */
-    private static void register(Registry<BuildingPrototype> prototypes, BuildingType type,
-            BuildingCost cost, PlacementRule placementRule, ContentId texture, int bufferMax, int speedMultiplier,
-            boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec,
-            @Nullable ItemType fuelItem, @Nullable FluidType fluidInput, @Nullable FluidType fluidOutput,
-            @Nullable PowerSpec power) {
+            @Nullable ItemType fuelItem, Traits traits) {
         ContentId id = idFor(type);
         prototypes.register(id, new BuildingPrototype(id, type.label(), cost, placementRule, texture,
                 type.footprintWidth(), type.footprintHeight(), bufferMax, speedMultiplier,
-                acceptsSpeedEffects, behavior, restoreBehavior, codec, id, fuelItem, fluidInput, fluidOutput, power));
+                acceptsSpeedEffects, behavior, restoreBehavior, codec, id, fuelItem, traits));
     }
 }

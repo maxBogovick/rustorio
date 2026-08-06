@@ -27,6 +27,7 @@ final class RecipeJsonLoader {
     static void loadInto(Path recipesDir, ModId modId, RegistrationContext context) {
         for (Path file : JsonNodes.listJsonFilesSorted(recipesDir)) {
             JsonNode root = JsonNodes.readTree(file);
+            JsonNodes.rejectUnknownFields(root, file, "recipe", List.of("path", "kind", "output", "ingredients", "time"));
             ContentId id = new ContentId(modId.value(), JsonNodes.optionalText(root, "path", fileBaseName(file)));
             List<String> ingredientRefs = JsonNodes.requireTextArray(root, "ingredients", file);
             String outputRef = JsonNodes.requireText(root, "output", file);

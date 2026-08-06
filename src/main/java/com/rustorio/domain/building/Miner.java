@@ -146,6 +146,12 @@ public final class Miner implements Building {
         return world.research().isUnlocked(VanillaTechs.FAST_MINING) ? Math.max(1, MINE_TIME / 2) : MINE_TIME;
     }
 
+    /** The status field this archetype already keeps, handed over without building an {@link Appearance} — see {@link Building#status()}. */
+    @Override
+    public BuildingStatus status() {
+        return status;
+    }
+
     @Override
     public Appearance appearance() {
         return Appearance.of(prototype.texture(), status);

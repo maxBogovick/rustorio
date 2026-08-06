@@ -5,6 +5,7 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.RecipeKind;
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Reads {@code content/kinds/*.json} — one recipe pool per file: {@code path} (this kind's own
@@ -25,6 +26,7 @@ final class RecipeKindJsonLoader {
     static void loadInto(Path kindsDir, ModId modId, Registry<RecipeKind> kinds) {
         for (Path file : JsonNodes.listJsonFilesSorted(kindsDir)) {
             JsonNode root = JsonNodes.readTree(file);
+            JsonNodes.rejectUnknownFields(root, file, "recipe kind", List.of("path", "label"));
             String path = JsonNodes.requireText(root, "path", file);
             ContentId id = new ContentId(modId.value(), path);
             String label = JsonNodes.requireLocalizedText(root, "label", file, id.toString(), ContentLocale.current());

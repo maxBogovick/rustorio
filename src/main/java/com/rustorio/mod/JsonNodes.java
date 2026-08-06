@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -80,6 +81,34 @@ final class JsonNodes {
             throw new ModLoadException(file + ": missing or non-integer required field '" + field + "'");
         }
         return value.asInt();
+    }
+
+    /**
+     * Rejects any field {@code node} carries that is not in {@code allowed}, naming the file, the
+     * offending key and what was expected.
+     *
+     * <p>Without this a misspelled key is simply not read: {@code "fluidOutut"} used to produce a
+     * pump that loaded fine and silently pumped nothing, which is the worst kind of mod bug —
+     * nothing is wrong anywhere, the machine just does not work. Every other error in these loaders
+     * already names the mod, the file and the field, and a typo deserves the same treatment.
+     *
+     * <p>The cost is deliberate: a mod carrying a field the engine has never heard of now fails to
+     * load rather than being quietly tolerated. That is the trade the owner chose, and it is why
+     * {@code allowed} has to include keys nothing reads — an item's {@code "tool"} is authoring
+     * metadata for the content editor, real and intended, just not the game's business.
+     *
+     * @param where what is being read ({@code "item"}, {@code "building"}), for the message
+     */
+    static void rejectUnknownFields(JsonNode node, Path file, String where, List<String> allowed) {
+        Iterator<String> names = node.fieldNames();
+        while (names.hasNext()) {
+            String name = names.next();
+            if (!allowed.contains(name)) {
+                throw new ModLoadException(file + ": unknown " + where + " field '" + name
+                        + "' (expected one of " + allowed + ") — check the spelling: a field this "
+                        + "loader does not know would otherwise be read by nothing at all");
+            }
+        }
     }
 
     /**

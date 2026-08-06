@@ -2,6 +2,7 @@ package com.rustorio.domain.building;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
+import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
@@ -90,6 +91,12 @@ public final class Inserter implements Building, SettlesEachTick {
     @Override
     public Optional<ItemType> heldItem() {
         return Optional.ofNullable(held);
+    }
+
+    /** Always {@code WORKING}: this archetype has no notion of being stuck — see {@link Building#status()}. */
+    @Override
+    public BuildingStatus status() {
+        return BuildingStatus.WORKING;
     }
 
     @Override

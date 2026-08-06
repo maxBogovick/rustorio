@@ -476,6 +476,12 @@ public final class Furnace implements Building, RecipeSelectable {
         return Optional.ofNullable(pendingOutput);
     }
 
+    /** The status field this archetype already keeps, handed over without building an {@link Appearance} — see {@link Building#status()}. */
+    @Override
+    public BuildingStatus status() {
+        return status;
+    }
+
     @Override
     public Appearance appearance() {
         // Committed recipe wins over the standing preference — once a batch is running, THAT'S

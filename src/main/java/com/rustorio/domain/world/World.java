@@ -423,7 +423,10 @@ public final class World implements TickContext {
      * #removeBuilding} does the matching decrement itself, since there's no new status to record.
      */
     private void trackStatus(Coord coord, Building building) {
-        BuildingStatus status = building.appearance().status();
+        // status(), not appearance().status(): this runs for every building every tick, and building
+        // a whole Appearance to read one field off it was measurably the largest per-tick cost a
+        // pipe had — see Building#status().
+        BuildingStatus status = building.status();
         BuildingStatus previous = lastStatus.put(coord, status);
         if (previous == status) {
             return;

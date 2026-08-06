@@ -59,15 +59,17 @@ import org.jspecify.annotations.Nullable;
  * fuelItem} is which item (if any) {@link Furnace} burns as fuel rather than a recipe ingredient
  * — {@code null} for none, same as PRESS/ASSEMBLER today, not hardcoded to {@code COAL} anymore.
  *
- * <p>{@link #fluidInput}/{@link #fluidOutput} are the same idea for fluid: WHICH fluid a machine
- * pulls in and which it pushes out, as data rather than a constant inside the archetype — the
- * reason {@link Pump} contains no mention of water and {@link Boiler} none of steam, so a mod's own
- * "oil derrick" or "cracking plant" is a JSON file on the same two archetypes. {@code null} means
- * this building has no such port; every archetype other than those two leaves both null.
+ * <p>{@link #traits} is where OPTIONAL properties live — which fluid a machine draws, what it asks
+ * of the power grid — instead of each being a component of its own. They were components once, and
+ * the cost showed the moment there were three of them: every new property meant another rung on
+ * this record's telescope of constructors, another on {@code VanillaBuildings}' own, another field
+ * read in the JSON loader and another line in the vanilla-as-data parity test, all before the
+ * property did anything. A trait is one key and one parser; see {@link TraitKey}.
  *
- * <p>{@link #power} is the electrical counterpart, and one grouped {@link PowerSpec} rather than
- * three loose numbers so that "this building has nothing to do with electricity" stays a single
- * {@code null} — which is what almost every building is, and what keeps electricity opt-in.
+ * <p>{@link #fluidInput()}/{@link #fluidOutput()}/{@link #power()} survive as named accessors over
+ * that bag, because those names are public API a mod already calls and a name once shipped is a
+ * promise. A mod's own trait gets no accessor here and needs none — it reads {@link #traits} with
+ * its own key, which is exactly the extension point this replaced three components to gain.
  *
  * <p>WHERE the ports sit is not stored: a machine's own facing is the output side and the cell
  * behind it is the input, the same convention every directional building here already follows. A
@@ -77,8 +79,7 @@ import org.jspecify.annotations.Nullable;
 public record BuildingPrototype(ContentId id, String label, BuildingCost cost, PlacementRule placementRule,
         ContentId texture, int footprintWidth, int footprintHeight, int bufferMax, int speedMultiplier,
         boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec,
-        ContentId recipeKind, @Nullable ItemType fuelItem,
-        @Nullable FluidType fluidInput, @Nullable FluidType fluidOutput, @Nullable PowerSpec power) {
+        ContentId recipeKind, @Nullable ItemType fuelItem, Traits traits) {
 
     /**
      * Convenience for a prototype that doesn't need its OWN private recipe pool or a fuel item —
@@ -96,28 +97,39 @@ public record BuildingPrototype(ContentId id, String label, BuildingCost cost, P
     }
 
     /**
-     * Convenience for a prototype that touches no fluid at all — every archetype except a pump and a
-     * boiler, which are the only two that name a {@link #fluidInput}/{@link #fluidOutput}. Exists so
-     * adding those two ports didn't have to rewrite every registration site that never had an
-     * opinion about fluid in the first place.
+     * Convenience for a prototype that declares no optional property at all — which, before fluids
+     * and electricity, was every prototype in the game. There is exactly ONE rung here now: what
+     * used to be a separate constructor per new property is a {@link Traits} bag, so the next
+     * property adds no rung at all.
      */
     public BuildingPrototype(ContentId id, String label, BuildingCost cost, PlacementRule placementRule,
             ContentId texture, int footprintWidth, int footprintHeight, int bufferMax, int speedMultiplier,
             boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec,
             ContentId recipeKind, @Nullable ItemType fuelItem) {
         this(id, label, cost, placementRule, texture, footprintWidth, footprintHeight, bufferMax, speedMultiplier,
-                acceptsSpeedEffects, behavior, restoreBehavior, codec, recipeKind, fuelItem, null, null, null);
+                acceptsSpeedEffects, behavior, restoreBehavior, codec, recipeKind, fuelItem, Traits.NONE);
     }
 
-    /** Convenience for the archetypes that name fluid ports but nothing electrical — a pump and a boiler today. */
-    public BuildingPrototype(ContentId id, String label, BuildingCost cost, PlacementRule placementRule,
-            ContentId texture, int footprintWidth, int footprintHeight, int bufferMax, int speedMultiplier,
-            boolean acceptsSpeedEffects, BehaviorFactory behavior, RestoreFactory restoreBehavior, Codec<?> codec,
-            ContentId recipeKind, @Nullable ItemType fuelItem,
-            @Nullable FluidType fluidInput, @Nullable FluidType fluidOutput) {
-        this(id, label, cost, placementRule, texture, footprintWidth, footprintHeight, bufferMax, speedMultiplier,
-                acceptsSpeedEffects, behavior, restoreBehavior, codec, recipeKind, fuelItem, fluidInput, fluidOutput,
-                null);
+    /**
+     * Which fluid this building draws, or {@code null} for the vast majority that draw none.
+     *
+     * <p>A named door onto {@link VanillaTraits#FLUID_INPUT} rather than a component of its own: the
+     * name is public API a mod already calls, so it stays, while what backs it moved into the trait
+     * bag. A mod's OWN trait needs no accessor here — it reads {@link #traits} with its own key,
+     * which is the whole reason the bag exists.
+     */
+    public @Nullable FluidType fluidInput() {
+        return traits.get(VanillaTraits.FLUID_INPUT).orElse(null);
+    }
+
+    /** Which fluid this building produces — see {@link #fluidInput()} for why this is a door onto a trait. */
+    public @Nullable FluidType fluidOutput() {
+        return traits.get(VanillaTraits.FLUID_OUTPUT).orElse(null);
+    }
+
+    /** What this building has to do with electricity, or {@code null} for nothing at all — see {@link #fluidInput()}. */
+    public @Nullable PowerSpec power() {
+        return traits.get(VanillaTraits.POWER).orElse(null);
     }
 
     /** Convenience for the common 1×1 footprint — every archetype except {@code ASSEMBLER} today. */

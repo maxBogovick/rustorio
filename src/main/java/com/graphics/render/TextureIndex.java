@@ -25,31 +25,32 @@ final class TextureIndex {
 
     private final Map<ContentId, String> paths = new HashMap<>();
 
+    /**
+     * Имена файлов, не совпадающие с именем спрайта, — все исторические: картинки появились раньше,
+     * чем спрайты стали называться отдельно от них, и переименовать PNG агенту запрещено. Всё
+     * остальное берётся по соглашению, поэтому новый ванильный спрайт добавляется одной строкой в
+     * {@code VanillaSprites}, а не двумя в двух файлах.
+     */
+    private static final Map<ContentId, String> FILE_NAME_EXCEPTIONS = Map.of(
+            VanillaSprites.MINER, "miner_1",
+            VanillaSprites.FURNACE_HOT, "furnace_on",
+            VanillaSprites.FURNACE_COLD, "furnace_off",
+            VanillaSprites.BELT_EMPTY, "belt_1",
+            VanillaSprites.BELT_FULL, "belt_2",
+            VanillaSprites.SPLITTER, "branch_1",
+            VanillaSprites.FILTER, "branch_2",
+            VanillaSprites.INSERTER, "branch_3");
+
+    /**
+     * Соглашение: {@code rustorio:pipe} лежит в {@code resources/pipe.png}. Список спрайтов —
+     * {@link VanillaSprites#all()}, один и тот же на весь проект: раньше здесь стоял второй,
+     * рукописный, и синхронность двух держалась только на внимании ревьюера.
+     */
     static TextureIndex vanilla() {
         TextureIndex index = new TextureIndex();
-        index.put(VanillaSprites.MINER, "resources/miner_1.png");
-        index.put(VanillaSprites.CHEST, "resources/chest.png");
-        index.put(VanillaSprites.FURNACE_HOT, "resources/furnace_on.png");
-        index.put(VanillaSprites.FURNACE_COLD, "resources/furnace_off.png");
-        index.put(VanillaSprites.BELT_EMPTY, "resources/belt_1.png");
-        index.put(VanillaSprites.BELT_FULL, "resources/belt_2.png");
-        index.put(VanillaSprites.SPLITTER, "resources/branch_1.png");
-        index.put(VanillaSprites.FILTER, "resources/branch_2.png");
-        index.put(VanillaSprites.INSERTER, "resources/branch_3.png");
-        index.put(VanillaSprites.UNDERGROUND_IN, "resources/underground_in.png");
-        index.put(VanillaSprites.UNDERGROUND_OUT, "resources/underground_out.png");
-        index.put(VanillaSprites.ASSEMBLER, "resources/assembler.png");
-        index.put(VanillaSprites.LAB, "resources/lab.png");
-        // Свои спрайты жидкостно-электрических зданий: та же тёмная стальная панель, что у ленты и
-        // печи, плюс акцент по смыслу (вода/пламя/ток). Имена файлов без завершающей цифры —
-        // упаковщик атласа не отрежет её как индекс (см. ловушку в graphics.md).
-        index.put(VanillaSprites.PIPE, "resources/pipe.png");
-        index.put(VanillaSprites.TANK, "resources/tank.png");
-        index.put(VanillaSprites.PUMP, "resources/pump.png");
-        index.put(VanillaSprites.BOILER, "resources/boiler.png");
-        index.put(VanillaSprites.POLE, "resources/pole.png");
-        index.put(VanillaSprites.GENERATOR, "resources/generator.png");
-        index.put(VanillaSprites.ELECTRIC_MINER, "resources/electric_miner.png");
+        for (ContentId sprite : VanillaSprites.all()) {
+            index.put(sprite, "resources/" + FILE_NAME_EXCEPTIONS.getOrDefault(sprite, sprite.path()) + ".png");
+        }
         return index;
     }
 

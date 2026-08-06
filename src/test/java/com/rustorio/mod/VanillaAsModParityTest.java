@@ -135,13 +135,15 @@ class VanillaAsModParityTest {
             assertEquals(java.bufferMax(), json.bufferMax(), java.id() + ": bufferMax");
             assertEquals(java.speedMultiplier(), json.speedMultiplier(), java.id() + ": speedMultiplier");
             assertEquals(java.acceptsSpeedEffects(), json.acceptsSpeedEffects(), java.id() + ": acceptsSpeedEffects");
-            // The fluid ports are what make a pump a pump rather than a differently-priced miner:
-            // if the JSON path lost them, the vanilla-as-data claim would be false in exactly the
-            // place a fluid mod would try to copy from.
-            assertEquals(java.fluidInput(), json.fluidInput(), java.id() + ": fluidInput");
-            assertEquals(java.fluidOutput(), json.fluidOutput(), java.id() + ": fluidOutput");
+            // The traits are what make a pump a pump rather than a differently-priced miner: if the
+            // JSON path lost them, the vanilla-as-data claim would be false in exactly the place a
+            // fluid or power mod would try to copy from.
+            //
+            // The whole bag in ONE assertion, not a line per property: a trait added later is
+            // compared here the day it exists, which is the point of the bag. Traits compares by
+            // value and prints itself, so a mismatch names the trait and both sides.
+            assertEquals(java.traits(), json.traits(), java.id() + ": traits");
             assertEquals(java.fuelItem(), json.fuelItem(), java.id() + ": fuelItem");
-            assertEquals(java.power(), json.power(), java.id() + ": power");
         }
     }
 

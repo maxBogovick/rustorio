@@ -48,6 +48,8 @@ final class MapJsonLoader {
     static void loadInto(Path mapsDir, ModId modId, RegistrationContext context) {
         for (Path file : JsonNodes.listJsonFilesSorted(mapsDir)) {
             JsonNode root = JsonNodes.readTree(file);
+            JsonNodes.rejectUnknownFields(root, file, "map",
+                    List.of("path", "label", "orePatches", "terrainPatches"));
             String path = JsonNodes.requireText(root, "path", file);
             ContentId id = new ContentId(modId.value(), path);
 

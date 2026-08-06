@@ -273,15 +273,10 @@ final class InfoOverlayRenderer {
         return rows;
     }
 
+    /** The caption is the status's own — see {@link BuildingStatus#alertLabel()} for why it lives there and not in a case list here. */
     private static String alertLabel(BuildingStatus status) {
-        return switch (status) {
-            case NO_ORE -> "no ore";
-            case NO_FUEL -> "no fuel";
-            case NO_INPUT -> "no input";
-            case OUTPUT_FULL -> "output full";
-            case NO_POWER -> "no power";
-            case WORKING -> throw new IllegalArgumentException("WORKING never reaches an alert row");
-        };
+        return status.alertLabel()
+                .orElseThrow(() -> new IllegalArgumentException("WORKING never reaches an alert row"));
     }
 
     private static int ceilDiv(int a, int b) {

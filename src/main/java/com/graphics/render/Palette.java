@@ -39,15 +39,11 @@ final class Palette {
     // ржавчина IDLE (уже «тревога/пауза») — своя, не пересекающаяся с ними семантика.
     static final Color OK = rgb(122, 176, 100);
 
-    // Индикатор статуса здания (F-01, DEV_TASKS.md, §6.5 аудита): четыре разных цвета, чтобы
-    // причины отличались друг от друга с одного взгляда, не только от «всё в порядке» (для
-    // WORKING индикатор вообще не рисуется — см. BuildingRenderer). Подобраны не пересекающимися
-    // с ORE/TERRAIN_* — руда и статус здания на одной клетке не должны читаться как одно и то же.
-    static final Color STATUS_NO_ORE = rgb(214, 64, 64);      // красный — ресурс кончился
-    static final Color STATUS_NO_FUEL = rgb(201, 80, 47);     // ржавчина — нужен уголь (тот же тон, что IDLE)
-    static final Color STATUS_NO_INPUT = rgb(232, 196, 90);   // светлый янтарь — ждёт материал
-    static final Color STATUS_OUTPUT_FULL = rgb(158, 100, 199); // фиолетовый — некуда сдать
-    static final Color STATUS_NO_POWER = rgb(96, 176, 232);   // холодная синь — обесточено, ни один тон выше не занят
+    // Цвета индикатора статуса здания (F-01, DEV_TASKS.md, §6.5 аудита) переехали на сам
+    // BuildingStatus — там же, где живут цвета предмета и жидкости. Здесь их больше нет намеренно:
+    // держать список и в enum'е, и в палитре значит завести две правды о том, каким цветом
+    // «нет руды», и узнать об их расхождении с экрана. Подбор оттенков (не пересекаться с
+    // ORE/TERRAIN_*, отличаться друг от друга, а не только от «всё в порядке») описан там же.
 
     // Подложка полоски заполнения трубы/бака: полупрозрачная темнота, чтобы пустая часть шкалы
     // читалась как «дно», а не сливалась с землёй. Сам заполненный кусок красится цветом жидкости.
@@ -112,18 +108,26 @@ final class Palette {
      * the int itself means a new color value always gets its own (correct) cache entry.
      */
     static Color itemColor(ItemType item) {
-        return ITEM_COLORS.computeIfAbsent(item.colorRgb(),
-                rgb -> rgb((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF));
+        return packedColor(item.colorRgb());
     }
 
     /**
      * A fill bar's colour — the fluid's own {@link FluidType#colorRgb()}, decoded and memoized by
-     * the packed int exactly as {@link #itemColor} does it, for the same per-frame reasons. Shares
-     * that cache on purpose: a colour is a colour, and two content kinds that happen to name the
-     * same {@code 0xRRGGBB} should resolve to the same {@link Color} instance, not two.
+     * the packed int exactly as {@link #itemColor} is. Shares that cache on purpose: a colour is a
+     * colour, and two content kinds that happen to name the same {@code 0xRRGGBB} should resolve to
+     * the same {@link Color} instance, not two.
      */
     static Color fluidColor(FluidType fluid) {
-        return ITEM_COLORS.computeIfAbsent(fluid.colorRgb(),
+        return packedColor(fluid.colorRgb());
+    }
+
+    /**
+     * The one place a packed {@code 0xRRGGBB} becomes a libGDX {@link Color}, memoized — items,
+     * fluids and status markers all arrive here. Written out three times before this existed, which
+     * is two more chances than anyone needs to get a shift or a mask subtly wrong.
+     */
+    private static Color packedColor(int colorRgb) {
+        return ITEM_COLORS.computeIfAbsent(colorRgb,
                 rgb -> rgb((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF));
     }
 
@@ -162,14 +166,7 @@ final class Palette {
      * healthy building, so a marker's mere PRESENCE already means "look here," not just its color.
      */
     static Optional<Color> statusColor(BuildingStatus status) {
-        return switch (status) {
-            case WORKING -> Optional.empty();
-            case NO_ORE -> Optional.of(STATUS_NO_ORE);
-            case NO_FUEL -> Optional.of(STATUS_NO_FUEL);
-            case NO_INPUT -> Optional.of(STATUS_NO_INPUT);
-            case OUTPUT_FULL -> Optional.of(STATUS_OUTPUT_FULL);
-            case NO_POWER -> Optional.of(STATUS_NO_POWER);
-        };
+        return status.isAlert() ? Optional.of(packedColor(status.colorRgb())) : Optional.empty();
     }
 
     /** The accent-stripe colour for a building's system, or empty for a building that belongs to neither. */

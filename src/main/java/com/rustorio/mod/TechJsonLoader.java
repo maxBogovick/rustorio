@@ -26,6 +26,7 @@ final class TechJsonLoader {
     static void loadInto(Path techsDir, ModId modId, RegistrationContext context) {
         for (Path file : JsonNodes.listJsonFilesSorted(techsDir)) {
             JsonNode root = JsonNodes.readTree(file);
+            JsonNodes.rejectUnknownFields(root, file, "technology", List.of("path", "label", "cost", "prerequisites"));
             ContentId id = new ContentId(modId.value(), JsonNodes.requireText(root, "path", file));
             String label = JsonNodes.requireLocalizedText(root, "label", file, id.toString(), ContentLocale.current());
             int cost = JsonNodes.requireInt(root, "cost", file);

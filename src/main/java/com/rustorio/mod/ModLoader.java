@@ -4,6 +4,7 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.mod.EngineVersion;
 import com.rustorio.api.mod.RustorioMod;
 import com.rustorio.api.registry.Registry;
+import com.rustorio.api.registry.RegistryKey;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
@@ -113,13 +114,12 @@ public final class ModLoader {
         runRound(loadOrder, entryPoints, RustorioMod::modifyContent, context);
         runRound(loadOrder, entryPoints, RustorioMod::finalFixes, context);
 
-        context.items().freeze();
-        context.fluids().freeze();
-        context.buildings().freeze();
-        context.kinds().freeze();
-        context.maps().freeze();
-        context.recipes().freeze();
-        context.techs().freeze();
+        // Every registry the context holds, in its fixed declaration order — including one a code
+        // mod added under a key of its own, which is the point: a mod's content kind is frozen with
+        // the rest rather than staying writable after loading ends.
+        for (RegistryKey<?> key : context.keys()) {
+            context.registry(key).freeze();
+        }
         RecipeBook recipeBook = buildRecipeBook(context.recipes().iterate());
         validateContent(context.items(), context.buildings(), context.kinds(), context.techs(), recipeBook);
 
@@ -215,21 +215,22 @@ public final class ModLoader {
      */
     private static void logLoadSummary(List<ModDescriptor> loadOrder, GameRegistrationContext context,
             RecipeBook recipeBook, List<SkippedMod> skipped) {
-        LOGGER.log(System.Logger.Level.INFO,
-                "Loaded {0} mod(s) [{1}]: {2} items, {3} fluids, {4} buildings, {5} recipes, {6} kinds, {7} maps, {8} techs",
-                loadOrder.size(), describeLoadOrder(loadOrder), context.items().size(), context.fluids().size(),
-                context.buildings().size(), context.recipes().size(), context.kinds().size(), context.maps().size(),
-                context.techs().size());
+        // Counts are assembled from the keys rather than spelled out: the old line carried seven
+        // hand-numbered placeholders, so a new content kind meant renumbering the tail of it, and a
+        // mod's own kind could never appear in the summary at all.
+        StringBuilder counts = new StringBuilder();
+        for (RegistryKey<?> key : context.keys()) {
+            counts.append(counts.isEmpty() ? "" : ", ")
+                    .append(context.registry(key).size()).append(' ').append(key.name());
+        }
+        LOGGER.log(System.Logger.Level.INFO, "Loaded {0} mod(s) [{1}]: {2}",
+                loadOrder.size(), describeLoadOrder(loadOrder), counts);
         for (SkippedMod mod : skipped) {
             LOGGER.log(System.Logger.Level.WARNING, "Mod ''{0}'' was skipped: {1}", mod.id(), mod.reason());
         }
-        logOverwrites("item", context.items().updateLog());
-        logOverwrites("fluid", context.fluids().updateLog());
-        logOverwrites("building", context.buildings().updateLog());
-        logOverwrites("recipe", context.recipes().updateLog());
-        logOverwrites("tech", context.techs().updateLog());
-        logOverwrites("kind", context.kinds().updateLog());
-        logOverwrites("map", context.maps().updateLog());
+        for (RegistryKey<?> key : context.keys()) {
+            logOverwrites(key.name(), context.registry(key).updateLog());
+        }
     }
 
     private static void logOverwrites(String what, List<ContentId> overwritten) {

@@ -1,6 +1,7 @@
 package com.rustorio.domain;
 
 import com.rustorio.api.content.ContentId;
+import java.util.List;
 
 /**
  * The game's own built-in sprite names — replaces the {@code Sprite} enum with plain {@link
@@ -33,6 +34,21 @@ public final class VanillaSprites {
     public static final ContentId POLE = ContentId.of("rustorio:pole");
     public static final ContentId GENERATOR = ContentId.of("rustorio:generator");
     public static final ContentId ELECTRIC_MINER = ContentId.of("rustorio:electric_miner");
+
+    /**
+     * Every constant above, in declaration order — what the renderer's texture index builds itself
+     * from, so a new vanilla sprite is one line HERE and nowhere else. It used to have to be added
+     * twice, once as a constant and once as a file path in {@code TextureIndex}, and the two lists
+     * had nothing but a reviewer's attention holding them together.
+     *
+     * <p>A {@code List}, not a {@code Set.of}: this is iterated to build that index, and a set's
+     * per-run iteration order is exactly the kind of thing this project keeps a rule about.
+     */
+    public static List<ContentId> all() {
+        return List.of(MINER, CHEST, FURNACE_HOT, FURNACE_COLD, BELT_EMPTY, BELT_FULL, SPLITTER, FILTER,
+                INSERTER, UNDERGROUND_IN, UNDERGROUND_OUT, LAB, ASSEMBLER, PIPE, TANK, PUMP, BOILER, POLE,
+                GENERATOR, ELECTRIC_MINER);
+    }
 
     private VanillaSprites() {
     }

@@ -2,6 +2,7 @@ package com.rustorio.domain.building;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
+import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.RecipeBook;
@@ -163,6 +164,12 @@ public final class Lab implements Building {
 
     private static int effectiveTime(TickContext world) {
         return world.research().fasterIfUnlocked(VanillaTechs.FAST_LAB, RESEARCH_TIME);
+    }
+
+    /** Always {@code WORKING}: this archetype has no notion of being stuck — see {@link Building#status()}. */
+    @Override
+    public BuildingStatus status() {
+        return BuildingStatus.WORKING;
     }
 
     @Override
