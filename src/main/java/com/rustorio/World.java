@@ -1,10 +1,7 @@
 package com.rustorio;
 
 import com.rustorio.core.Item;
-import com.rustorio.model.Building;
-import com.rustorio.model.Chest;
-import com.rustorio.model.Furnace;
-import com.rustorio.model.Miner;
+import com.rustorio.model.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -144,6 +141,12 @@ public final class World {
     void clear() {
         buildings.clear();
         stats.clear();
+    }
+
+    public void placeSplitter(int x, int y) {
+        if (inBounds(x, y) && !hasBuilding(x, y)) {
+            buildings.put(key(x, y), new Splitter(SortRule.ORE_FORWARD));
+        }
     }
 
     // --- Ключ карты: две координаты, упакованные в один long ---------------------------------

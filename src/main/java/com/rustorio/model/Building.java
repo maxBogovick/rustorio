@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 
 // model/Building.java
-public sealed interface Building permits Belt, Chest, Furnace, Miner {
+public sealed interface Building permits Belt, Splitter, Chest, Furnace, Miner {
     public final Map<Long, Building> buildings = new HashMap<>();
 
     Optional<Direction> direction(); // у ящика — empty; у будущего бура — сторона выдачи
