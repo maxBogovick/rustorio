@@ -195,10 +195,6 @@ public final class Belt implements Building, TransportNode, SettlesEachTick {
         return held == null ? Appearance.of(VanillaSprites.BELT_EMPTY) : Appearance.of(VanillaSprites.BELT_FULL);
     }
 
-    @Override
-    public BuildingType type() {
-        return BuildingType.BELT;
-    }
 
     @Override
     public ContentId prototypeId() {

@@ -4,9 +4,12 @@ import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.building.Building;
+import com.rustorio.domain.building.EditableBuilding;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.world.World;
+import java.util.List;
 
 /**
  * Dev-mode showcase ({@code --dev} — see {@code com.graphics.Main}): a real, continuously running
@@ -26,6 +29,15 @@ import com.rustorio.domain.world.World;
  * units lasts far longer than anyone will watch it run.
  */
 final class DevScene {
+
+    /**
+     * The {@code webminer} mod's prototypes, by id. Constants rather than imports on purpose: a
+     * mod's content is addressed by {@link ContentId} exactly as a player's save addresses it,
+     * and this package must not — and now cannot — depend on a mod's Java.
+     */
+    private static final ContentId WEB_MINER_ID = ContentId.of("webminer:web_miner");
+    private static final ContentId MONITOR_ID = ContentId.of("webminer:monitor");
+    private static final ContentId INTERPRETER_ID = ContentId.of("webminer:interpreter");
 
     /** Plenty for a furnace/press consuming roughly one unit every 5-15 ticks to run for minutes, not seconds. */
     private static final int SUPPLY_STOCK = 30;
@@ -48,6 +60,7 @@ final class DevScene {
         buildLabShowcase(world);
         buildSpeedModuleShowcase(world);
         buildDeliberatelyBrokenMiner(world);
+        buildWebMinerShowcase(world);
 
         world.addResearchPoints(500); // enough to unlock a couple of early techs straight from the tree screen (T)
     }
@@ -202,5 +215,34 @@ final class DevScene {
     private static void buildDeliberatelyBrokenMiner(World world) {
         Building strandedMiner = world.buildingFactory().create(BuildingType.MINER, Direction.RIGHT);
         world.restoreBuilding(1, 1, strandedMiner); // far from every ore patch in PatchOreLayout.standard()
+    }
+
+    /**
+     * The {@code webminer} mod's own chain — miner, monitor, interpreter, belt, chest — on the map
+     * from the very first frame: a genuine outbound HTTP GET whose result rides the belt like ore,
+     * the same "as real as if a live mine fed it" standard every other chain here follows. Click
+     * the monitor for the raw body, the interpreter for {@code current_user_url} pulled out of it
+     * (a field the default endpoint's response always has).
+     *
+     * <p>Everything here is addressed the way a scene in ANY mod would have to address another
+     * mod's content: prototypes by {@link ContentId}, configuration through {@link
+     * EditableBuilding} — never by importing the mod's Java classes, which this package is now
+     * forbidden to do (see {@code PackageBoundaryRulesTest}) and could not do anyway, since that
+     * mod compiles into its own jar. A silent skip when the mod is absent, for the same reason a
+     * dev scene must not be the one thing that stops the game booting without it.
+     */
+    private static void buildWebMinerShowcase(World world) {
+        if (world.buildingFactory().buildings().peek(WEB_MINER_ID).isEmpty()) {
+            return;
+        }
+        world.place(WEB_MINER_ID, 1, 41, Direction.RIGHT);
+        world.place(MONITOR_ID, 2, 41, Direction.RIGHT);
+        world.place(INTERPRETER_ID, 3, 41, Direction.RIGHT);
+        world.place(BuildingType.BELT, 4, 41, Direction.RIGHT);
+        world.place(BuildingType.CHEST, 5, 41);
+        // The same call the settings modal makes when a player types into it — this scene needs no
+        // more access to a mod's building than a player has.
+        Building interpreter = world.peek(3, 41).orElseThrow();
+        ((EditableBuilding) interpreter).applyEdits(List.of("current_user_url"));
     }
 }

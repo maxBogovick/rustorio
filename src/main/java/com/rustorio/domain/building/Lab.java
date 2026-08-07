@@ -177,10 +177,6 @@ public final class Lab implements Building {
         return buffer.isEmpty() ? Appearance.of(prototype.texture()) : Appearance.of(prototype.texture(), buffer.size());
     }
 
-    @Override
-    public BuildingType type() {
-        return BuildingType.LAB;
-    }
 
     @Override
     public ContentId prototypeId() {

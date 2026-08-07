@@ -48,8 +48,13 @@ class SourceTextRulesTest {
      * files (terrain became registered content, the placement rules and world plumbing were
      * reworked), and the task-id citations they had carried went out with the comments that were
      * rewritten — a decrease, not a new one, so it is recorded here rather than fought.
+     *
+     * <p>689 -> 687: {@code Building.type()} was removed along with all twenty-three of its
+     * implementations, and two of the javadoc blocks that went with them cited task ids. Same shape
+     * as every decrease above: comments carrying citations were deleted outright, so the number
+     * follows them down.
      */
-    private static final int DOC_ID_CITATION_BASELINE = 689;
+    private static final int DOC_ID_CITATION_BASELINE = 687;
 
     /**
      * Explicit types are the rule; these are the exceptions that survived review. A new one is not

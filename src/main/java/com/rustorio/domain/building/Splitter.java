@@ -125,10 +125,6 @@ public final class Splitter implements Building, SettlesEachTick {
         return Appearance.of(prototype.texture());
     }
 
-    @Override
-    public BuildingType type() {
-        return BuildingType.SPLITTER;
-    }
 
     @Override
     public ContentId prototypeId() {

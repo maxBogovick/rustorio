@@ -1,6 +1,7 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
@@ -138,7 +139,7 @@ class BeltTest {
         // segment, sometimes does nothing" isn't a real feature to leave half-supported.
         assertEquals(0, beltAt(world, 0, 0).speedLevel());
         assertEquals(0, beltAt(world, 1, 0).speedLevel());
-        assertEquals(BuildingType.BELT, world.peek(0, 0).orElseThrow().type());
+        assertEquals(VanillaBuildings.idFor(BuildingType.BELT), world.peek(0, 0).orElseThrow().prototypeId());
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.examplemod;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
@@ -72,7 +73,8 @@ class PhaseFiveAcceptanceTest {
         // Renders: a real Appearance, not a crash — headless, so this is as far as "рисуются" goes
         // (no GL context here — AGENTS.md's own trap #4).
         assertNotNull(press.appearance());
-        assertEquals(BuildingType.PRESS, press.type());
+        assertEquals(ContentId.of("examplemod:steel_press"), press.prototypeId(),
+                "a modded prototype identifies as itself, never as the archetype it reuses");
 
         // Ticks: feeds the vanilla PRESS recipe (IRON_PLATE -> GEAR); steel press's own
         // speedMultiplier (2) must actually drive the REAL World's tick loop, not just a

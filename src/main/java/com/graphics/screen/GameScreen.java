@@ -128,6 +128,12 @@ public final class GameScreen extends ScreenAdapter {
         // GameBootstrap, а не сборка мира здесь: он же цепляет шину событий мода к миру
         // (EventWiring), про которую этот конструктор раньше не знал — и ни одно событие в
         // запущенной игре до мода не доезжало.
+        // Every mod's buildings AND its own services come from loadedGame — including code mods,
+        // which register both from inside their own jar (ModdedServiceAcceptanceTest exercises
+        // that whole path end to end against a real one). This constructor
+        // named one mod by hand until that mod became a real jar; now it names none, and a modded
+        // building is placeable from the ordinary build menu (B) with no further UI work —
+        // InputHandler reads world.buildingFactory().buildings() live, not a fixed BuildingType list.
         this.world = GameBootstrap.createWorld(loadedGame, oreLayout, GfxConfig.GRID_W, GfxConfig.GRID_H);
         world.addProductionListener(productionLog);
         if (devMode) {
@@ -138,7 +144,8 @@ public final class GameScreen extends ScreenAdapter {
         // читаться и писаться тем же реестром предметов, на котором построен мир, И применять
         // переименования прототипов, объявленные модами, — забыть второе из четырёх мест вызова
         // ровно так и получилось.
-        this.input = new InputHandler(camera, GameBootstrap.saves(loadedGame, JsonSaveRepository.DEFAULT_PATH));
+        this.input = new InputHandler(camera, GameBootstrap.saves(loadedGame, JsonSaveRepository.DEFAULT_PATH),
+                world.buildingFactory().buildings());
         this.pauseMenu = new PauseMenu(game, loadedGame, modDirectories, world, this::dispose);
         this.textures = Textures.loadFrom(modDirectories);
         this.renderer = new Renderer(textures, camera, world.buildingFactory().oreLayout(), world.width(), world.height());
@@ -271,6 +278,7 @@ public final class GameScreen extends ScreenAdapter {
         }
         disposed = true;
         clearInputProcessorIfOurs();
+        world.closeServices(); // unrelated to the GL context below — order relative to it doesn't matter
         renderer.dispose();
         textures.dispose();
     }

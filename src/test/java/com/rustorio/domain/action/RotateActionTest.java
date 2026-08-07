@@ -1,6 +1,7 @@
 package com.rustorio.domain.action;
 
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
@@ -148,7 +149,7 @@ class RotateActionTest {
 
         action.undo(world);
 
-        assertEquals(BuildingType.CHEST, world.peek(1, 1).orElseThrow().type(),
+        assertEquals(VanillaBuildings.idFor(BuildingType.CHEST), world.peek(1, 1).orElseThrow().prototypeId(),
                 "the newer chest must not be replaced by the un-rotated belt");
     }
 

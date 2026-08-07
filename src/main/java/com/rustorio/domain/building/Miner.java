@@ -182,10 +182,6 @@ public final class Miner implements Building {
         return new Miner(type, oreLayout, direction, cooldown, held, newSpeedLevel, prototype);
     }
 
-    @Override
-    public BuildingType type() {
-        return type;
-    }
 
     @Override
     public ContentId prototypeId() {

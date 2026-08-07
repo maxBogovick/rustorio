@@ -2,7 +2,6 @@ package com.examplemod.jarmod;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
-import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaSprites;
@@ -116,10 +115,6 @@ final class ExampleModConveyor implements Building, TransportNode, SettlesEachTi
         return held == null ? Appearance.of(VanillaSprites.BELT_EMPTY) : Appearance.of(VanillaSprites.BELT_FULL);
     }
 
-    @Override
-    public BuildingType type() {
-        return BuildingType.BELT;
-    }
 
     @Override
     public ContentId prototypeId() {

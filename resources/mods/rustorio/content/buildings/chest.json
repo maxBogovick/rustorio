@@ -1,5 +1,6 @@
 {
   "path": "chest",
+  "category": "logistics",
   "label": { "en": "Chest", "ru": "Сундук" },
   "archetype": "CHEST",
   "cost": { "item": "iron_plate", "amount": 5 },

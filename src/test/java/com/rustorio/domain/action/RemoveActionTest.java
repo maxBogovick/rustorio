@@ -1,6 +1,7 @@
 package com.rustorio.domain.action;
 
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
@@ -186,7 +187,7 @@ class RemoveActionTest {
         remove.undo(world);
 
         Building atThatCell = world.peek(3, 3).orElseThrow();
-        assertEquals(BuildingType.CHEST, atThatCell.type(), "the new chest must survive the refused undo untouched");
+        assertEquals(VanillaBuildings.idFor(BuildingType.CHEST), atThatCell.prototypeId(), "the new chest must survive the refused undo untouched");
         assertTrue(world.isFree(2, 2), "the assembler must NOT have been silently restored over the chest");
     }
 }

@@ -119,6 +119,7 @@ final class HudRenderer {
         renderHotbar(hud.hotbarSlots(), hud.selected(), hud.facing(), world.buildingFactory());
         renderMinimap(world, visible);
         renderInspectionPanel(world, hud.inspected());
+        renderSettingsModal(hud.settingsModal());
     }
 
     /**
@@ -502,6 +503,68 @@ final class HudRenderer {
                     : recipeRow ? Palette.HINT : Color.WHITE);
             font.draw(batch, lines.get(i), panelX + 12f, ty);
             ty -= InspectionPanelLayout.LINE_HEIGHT;
+        }
+        font.getData().setScale(1f);
+        batch.end();
+    }
+
+    /**
+     * The generic settings modal (see {@code com.graphics.input.SettingsModal}'s own javadoc for
+     * the live bug report it closes: "любое редактирование параметров сделано очень неудобно...
+     * тут так и просится общий механизм"). Same three-pass draw {@link #renderInspectionPanel}
+     * already uses (filled box, bordered box, text) — centered on screen instead of tucked in a
+     * corner, since {@code SettingsModal} intercepts ALL other input while open, the same "rest of
+     * the game frozen behind it" a real modal implies. The focused field draws in {@link
+     * Palette#SLOT_SELECTED} with a trailing cursor ({@code "_"}, same convention {@code
+     * PauseMenuRenderer}'s own text entry already uses) rather than a separate highlight band —
+     * enough to read "this one is live" without a second rectangle pass this class would then have
+     * to keep in sync with {@link SettingsModalLayout}'s own row math a third way.
+     */
+    private void renderSettingsModal(@Nullable SettingsModalView view) {
+        if (view == null) {
+            return;
+        }
+        int readOnlyCount = view.readOnlyLines().size();
+        int fieldCount = view.fieldLabels().size();
+        float panelW = SettingsModalLayout.panelWidth();
+        float panelH = SettingsModalLayout.panelHeight(readOnlyCount, fieldCount);
+        int screenW = Gdx.graphics.getWidth();
+        int screenH = Gdx.graphics.getHeight();
+        float panelX = SettingsModalLayout.panelX(screenW);
+        float panelY = SettingsModalLayout.panelY(screenH, readOnlyCount, fieldCount);
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.setColor(Palette.PANEL_BG);
+        shapes.rect(panelX, panelY, panelW, panelH);
+        shapes.end();
+
+        shapes.begin(ShapeRenderer.ShapeType.Line);
+        shapes.setColor(Palette.PANEL_BORDER);
+        shapes.rect(panelX, panelY, panelW, panelH);
+        shapes.end();
+
+        batch.begin();
+        font.getData().setScale(0.85f);
+        float ty = panelY + panelH - 18f;
+        font.setColor(Color.WHITE);
+        font.draw(batch, view.title(), panelX + 12f, ty);
+        ty -= InspectionPanelLayout.LINE_HEIGHT;
+        for (String line : view.readOnlyLines()) {
+            font.setColor(Palette.HINT);
+            font.draw(batch, line, panelX + 12f, ty);
+            ty -= InspectionPanelLayout.LINE_HEIGHT;
+        }
+        for (int i = 0; i < fieldCount; i++) {
+            boolean focused = i == view.focusedIndex();
+            font.setColor(focused ? Palette.SLOT_SELECTED : Color.WHITE);
+            String cursor = focused ? "_" : "";
+            font.draw(batch, view.fieldLabels().get(i) + ": " + view.fieldValues().get(i) + cursor, panelX + 12f, ty);
+            ty -= InspectionPanelLayout.LINE_HEIGHT;
+        }
+        String hint = view.hint();
+        if (hint != null) {
+            font.setColor(Palette.HINT);
+            font.draw(batch, hint, panelX + 12f, ty);
         }
         font.getData().setScale(1f);
         batch.end();

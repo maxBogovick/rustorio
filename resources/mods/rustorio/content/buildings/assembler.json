@@ -1,5 +1,6 @@
 {
   "path": "assembler",
+  "category": "production",
   "label": { "en": "Assembler", "ru": "Сборщик" },
   "archetype": "ASSEMBLER",
   "footprintWidth": 2,

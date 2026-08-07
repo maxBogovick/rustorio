@@ -1,6 +1,7 @@
 package com.examplemod;
 
-import com.rustorio.domain.BuildingType;
+import com.rustorio.api.content.ContentId;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.building.Building;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +20,11 @@ class BuildingOpennessTest {
     void aForeignClassOutsideDomainBuildingCanImplementBuildingDirectly() {
         Building foreign = new ExampleModBuilding();
 
-        assertEquals(BuildingType.CHEST, foreign.type());
+        // Its OWN id, not the vanilla kind it borrows behaviour from. A building used to have to
+        // answer type() with one of twelve vanilla constants, so a foreign class could only ever
+        // identify itself as something it is not; prototypeId() is the identity the registry, the
+        // save file and the player's refund all actually use.
+        assertEquals(ContentId.of("examplemod:stand_in"), foreign.prototypeId());
         assertEquals(0, foreign.speedLevel(), "capability defaults still apply to a foreign implementer");
         assertEquals(1, foreign.footprintWidth());
     }

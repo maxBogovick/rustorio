@@ -1,5 +1,6 @@
 {
   "path": "tank",
+  "category": "fluids",
   "label": { "en": "Tank", "ru": "Бак" },
   "archetype": "TANK",
   "cost": { "item": "iron_plate", "amount": 5 },

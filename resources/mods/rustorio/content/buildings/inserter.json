@@ -1,5 +1,6 @@
 {
   "path": "inserter",
+  "category": "logistics",
   "label": { "en": "Inserter", "ru": "Манипулятор" },
   "archetype": "INSERTER",
   "cost": { "item": "iron_plate", "amount": 2 },

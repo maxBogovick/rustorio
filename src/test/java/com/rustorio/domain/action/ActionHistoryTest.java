@@ -1,6 +1,7 @@
 package com.rustorio.domain.action;
 
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
@@ -112,7 +113,7 @@ class ActionHistoryTest {
         assertFalse(world.peek(0, 0).isPresent());
         assertFalse(world.peek(2, 0).isPresent());
         assertTrue(world.peek(1, 0)
-                .map(b -> b.type() == BuildingType.CHEST)
+                .map(b -> b.prototypeId().equals(VanillaBuildings.idFor(BuildingType.CHEST)))
                 .orElse(false));
     }
 
@@ -218,13 +219,13 @@ class ActionHistoryTest {
 
         history.redo(world); // must fail: PlaceAction charges, can't place, refunds, returns false
         assertTrue(world.peek(1, 1)
-                .map(b -> b.type() == BuildingType.BELT)
+                .map(b -> b.prototypeId().equals(VanillaBuildings.idFor(BuildingType.BELT)))
                 .orElse(false), "the failed redo must not have replaced the belt");
 
         history.undo(world);
 
         assertTrue(world.peek(1, 1)
-                .map(b -> b.type() == BuildingType.BELT)
+                .map(b -> b.prototypeId().equals(VanillaBuildings.idFor(BuildingType.BELT)))
                 .orElse(false), "undo must not demolish a building the failed redo never placed");
         assertEquals(platesAfterUndo, world.inventory().amount(VanillaItems.IRON_PLATE),
                 "a failed redo followed by undo must not refund a cost that was never spent");
@@ -245,7 +246,7 @@ class ActionHistoryTest {
         history.undo(world); // undoes the RemoveAction; the cell is occupied by the new belt
 
         assertTrue(world.peek(1, 1)
-                .map(b -> b.type() == BuildingType.BELT)
+                .map(b -> b.prototypeId().equals(VanillaBuildings.idFor(BuildingType.BELT)))
                 .orElse(false), "the newer belt must not be overwritten by the restored chest");
     }
 }

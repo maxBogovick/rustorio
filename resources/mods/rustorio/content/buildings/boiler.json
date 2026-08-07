@@ -1,5 +1,6 @@
 {
   "path": "boiler",
+  "category": "fluids",
   "label": { "en": "Boiler", "ru": "Котёл" },
   "archetype": "BOILER",
   "cost": { "item": "iron_plate", "amount": 8 },

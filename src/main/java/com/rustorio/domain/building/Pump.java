@@ -98,10 +98,6 @@ public final class Pump implements Building {
         return Optional.of(new Pump(type, direction.rotate(), cooldown, prototype));
     }
 
-    @Override
-    public BuildingType type() {
-        return type;
-    }
 
     @Override
     public ContentId prototypeId() {

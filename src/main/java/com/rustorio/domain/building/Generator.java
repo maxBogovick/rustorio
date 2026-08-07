@@ -93,10 +93,6 @@ public final class Generator implements Building, PowerProducer {
         return Optional.of(new Generator(type, direction.rotate(), prototype));
     }
 
-    @Override
-    public BuildingType type() {
-        return type;
-    }
 
     @Override
     public ContentId prototypeId() {

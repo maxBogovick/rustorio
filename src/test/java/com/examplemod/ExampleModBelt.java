@@ -2,7 +2,6 @@ package com.examplemod;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
-import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaSprites;
@@ -131,13 +130,6 @@ final class ExampleModBelt implements Building, TransportNode, SettlesEachTick {
         return held == null ? Appearance.of(VanillaSprites.BELT_EMPTY) : Appearance.of(VanillaSprites.BELT_FULL);
     }
 
-    @Override
-    public BuildingType type() {
-        // Borrows a vanilla kind — a real mod would register its own via BuildingPrototype once
-        // BuildingFactory.create/restore's own dispatch opens up (E5-07 already lets it — see the
-        // steel press half of this same acceptance test), not this class's job.
-        return BuildingType.BELT;
-    }
 
     /**
      * Overridden for the same reason {@code Furnace} overrides it: {@link #type()} answers {@code

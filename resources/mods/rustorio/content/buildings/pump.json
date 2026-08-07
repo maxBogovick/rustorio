@@ -1,5 +1,6 @@
 {
   "path": "pump",
+  "category": "fluids",
   "label": { "en": "Pump", "ru": "Насос" },
   "archetype": "PUMP",
   "cost": { "item": "iron_plate", "amount": 5 },

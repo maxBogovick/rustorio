@@ -1,5 +1,6 @@
 {
   "path": "press",
+  "category": "production",
   "label": { "en": "Press", "ru": "Пресс" },
   "archetype": "PRESS",
   "cost": { "item": "iron_plate", "amount": 8 },

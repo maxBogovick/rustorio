@@ -27,6 +27,7 @@ import com.rustorio.domain.action.RotateAction;
 import com.rustorio.domain.action.UpgradeSpeedAction;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingPrototype;
+import com.rustorio.domain.building.EditableBuilding;
 import com.rustorio.domain.building.Filter;
 import com.rustorio.domain.building.Furnace;
 import com.rustorio.domain.building.RecipeSelectable;
@@ -61,8 +62,8 @@ public final class InputHandler {
      * {@code BuildingType.values()} раньше давал напрямую, чтобы клавиши 1-9 ощущались как прежде.
      * Закрепление в слот (клик по меню построек) заменяет элемент этого списка, не сам список.
      */
-    private final List<ContentId> hotbarSlots = defaultHotbarSlots();
-    private ContentId selected = hotbarSlots.get(0); // строим это; клавиши 1-9/клик по хотбару меняют
+    private final List<ContentId> hotbarSlots;
+    private ContentId selected; // строим это; клавиши 1-9/клик по хотбару меняют
     private Direction facing = Direction.RIGHT; // важно только ленте; клавиша R меняет
     /** Клетка под панелью инспекции (F-03, DEV_TASKS.md) — {@code null}, пока ничего не открыто. */
     private @Nullable TilePos inspected;
@@ -81,17 +82,43 @@ public final class InputHandler {
     private @Nullable String statusMessage;
     private float statusMessageTimeLeft;
 
-    public InputHandler(GameCamera camera, SaveRepository saveRepository) {
+    /**
+     * The one settings editor every {@link EditableBuilding} shares ({@code WebMiner}, {@code
+     * Interpreter} today) — opened by a plain click via {@link #handleInspectClick}, not a
+     * dedicated hotkey per building anymore. See {@link SettingsModal}'s own javadoc for the live
+     * bug report ("любое редактирование параметров сделано очень неудобно... тут так и просится
+     * общий механизм") that replaced two near-identical hand-written editors with this one class.
+     */
+    private final SettingsModal settingsModal = new SettingsModal();
+
+    public InputHandler(GameCamera camera, SaveRepository saveRepository, Registry<BuildingPrototype> buildings) {
         this.camera = camera;
         this.saveRepository = saveRepository;
         this.cameraController = new CameraController(camera);
+        this.hotbarSlots = defaultHotbarSlots(buildings);
+        this.selected = hotbarSlots.get(0);
     }
 
-    /** Все ванильные прототипы, тем же порядком, что {@code BuildingType.values()} — слоты 1-9 клавишами, остальные мышью. */
-    private static List<ContentId> defaultHotbarSlots() {
+    /**
+     * Ванильные прототипы в порядке {@code BuildingType.values()} — и только они.
+     *
+     * <p>Дописывать сюда ВСЕ зарегистрированные прототипы нельзя, и это записанное решение Фазы 8
+     * (см. {@link com.graphics.render.HotbarLayout}): панель несёт настраиваемый список
+     * закреплённого, а не каталог. Каталог не влезает — 29 прототипов требуют 1848 px, и панель
+     * уезжала за оба края экрана. Модовое здание попадает сюда закреплением из меню построек
+     * ({@code B}), а не тем, что оно существует.
+     *
+     * <p>Ванильный id проверяется на наличие: мод вправе снести ванильное здание из реестра, и
+     * слот, указывающий в никуда, уронил бы отрисовку хотбара. Считается один раз, в конструкторе,
+     * — на кадре этим ходить нельзя.
+     */
+    private static List<ContentId> defaultHotbarSlots(Registry<BuildingPrototype> buildings) {
         List<ContentId> slots = new ArrayList<>();
         for (BuildingType type : BuildingType.values()) {
-            slots.add(VanillaBuildings.idFor(type));
+            ContentId vanillaId = VanillaBuildings.idFor(type);
+            if (buildings.peek(vanillaId).isPresent()) {
+                slots.add(vanillaId);
+            }
         }
         return slots;
     }
@@ -112,7 +139,7 @@ public final class InputHandler {
     public HudState hudState() {
         boolean altOverlay = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
         return simulationControls.hudState(selected, facing, buildDrag.inProgressTiles(), inspected, altOverlay,
-                statsItem, hotbarSlots, statusMessage);
+                statsItem, hotbarSlots, statusMessage, settingsModal.view());
     }
 
     public void handle(World world, float delta) {
@@ -121,6 +148,10 @@ public final class InputHandler {
             if (statusMessageTimeLeft <= 0f) {
                 statusMessage = null;
             }
+        }
+        if (settingsModal.isOpen()) {
+            settingsModal.handleInput(world, history);
+            return;
         }
         cameraController.handle(delta);
         simulationControls.handle();
@@ -384,6 +415,12 @@ public final class InputHandler {
      * возвращает потраченное ({@code PlaceAction.apply}), так что у этого клика уже нет другого
      * осмысленного эффекта на занятой клетке — не нужно ничего блокировать, только добавить сюда
      * инспекцию как дополнительный побочный эффект того же самого нажатия.
+     *
+     * <p>Building an {@link EditableBuilding} ({@code WebMiner}, {@code Interpreter}) opens {@link
+     * #settingsModal} instead of the read-only panel — the live bug report {@link SettingsModal}'s
+     * own javadoc explains ("тут так и просится общий механизм"): a click on one of these used to
+     * open the SAME read-only panel every other building gets, with editing hidden behind a
+     * separate, undiscoverable hotkey. Now the click itself IS the "edit this" affordance.
      */
     private void handleInspectClick(World world) {
         if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
@@ -396,7 +433,14 @@ public final class InputHandler {
             return; // клик по хотбару или по одной из HUD-полос — не по карте
         }
         TilePos tile = camera.pickTile(Gdx.input.getX(), Gdx.input.getY());
-        inspected = tile.equals(inspected) ? null : world.peek(tile.x(), tile.y()).isPresent() ? tile : null;
+        Optional<Building> building = world.peek(tile.x(), tile.y());
+        if (building.isPresent() && building.get() instanceof EditableBuilding) {
+            settingsModal.openIfEditable(building.get(),
+                    world.buildingFactory().prototype(building.get().prototypeId()).label(),
+                    tile.x(), tile.y());
+            return;
+        }
+        inspected = tile.equals(inspected) ? null : building.isPresent() ? tile : null;
     }
 
     /** Курсор между верхней и нижней HUD-полосами — та же проверка, что нужна {@code OverlayRenderer} для F-02 призрака. */

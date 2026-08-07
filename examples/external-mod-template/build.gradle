@@ -1,0 +1,75 @@
+// A complete Rustorio mod, built OUTSIDE the engine's repository. Nothing here refers to the
+// engine's build; the engine's build refers to nothing here. That is the whole point — compare
+// Fabric (a mod is its own Gradle project depending on the loader), or RimWorld (a mod is its own
+// solution producing a .dll you drop in a folder).
+plugins {
+    id 'java'
+}
+
+// The mod's own identity. `modId` has to match `mod.json`'s `id`, because the loader looks for
+// exactly `<modId>.jar` inside the mod's directory.
+ext.modId = 'template'
+
+group = 'com.example'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    // Where `rustorio-api` lands after the engine runs `./gradlew publishToMavenLocal`. A shipped
+    // engine would publish to a real repository instead and this line would be `mavenCentral()`.
+    mavenLocal()
+    mavenCentral()
+}
+
+dependencies {
+    // The one coordinate a mod needs. `compileOnly`, not `implementation`: the engine's classes are
+    // already loaded by the game when this mod runs — bundling a second copy inside the mod jar
+    // would give it types that are not the same types the running game uses, and every `instanceof`
+    // and registry lookup would silently fail.
+    compileOnly 'com.rustorio:rustorio-api:0.1.0'
+
+    // The mod's own libraries, at whatever version it likes — the API jar deliberately declares
+    // none. JSpecify here is only for the @Nullable annotations used in the sources.
+    compileOnly 'org.jspecify:jspecify:1.0.0'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// `<modId>.jar`, exactly as the loader expects to find it.
+tasks.named('jar', Jar) {
+    archiveFileName = "${modId}.jar"
+}
+
+/**
+ * Assembles the installable mod folder — `mod.json`, `content/`, and the built jar — under
+ * `build/mod/<modId>/`. Copy that folder into a game's `resources/mods/` and it loads; that is the
+ * entire installation procedure, the same as dropping a zip into Factorio's `mods/`.
+ */
+tasks.register('assembleMod', Copy) {
+    group = 'build'
+    description = "Assemble the installable mod folder into build/mod/${modId}"
+    into layout.buildDirectory.dir("mod/${modId}")
+    from('mod.json')
+    from('content') { into 'content' }
+    from(tasks.named('jar'))
+}
+
+/**
+ * Installs straight into a game checkout: `./gradlew installMod -PgameDir=/path/to/rustorio`.
+ * Convenience only — copying the folder by hand does the same thing.
+ */
+tasks.register('installMod', Copy) {
+    group = 'build'
+    description = 'Copy the assembled mod into a game checkout (-PgameDir=/path/to/rustorio)'
+    dependsOn tasks.named('assembleMod')
+    onlyIf { project.hasProperty('gameDir') }
+    from layout.buildDirectory.dir("mod/${modId}")
+    into "${project.findProperty('gameDir') ?: '.'}/resources/mods/${modId}"
+}

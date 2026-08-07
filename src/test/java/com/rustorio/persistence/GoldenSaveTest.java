@@ -1,8 +1,10 @@
 package com.rustorio.persistence;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.VanillaTechs;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.world.World;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -77,11 +79,11 @@ class GoldenSaveTest {
                         + "GOLDEN_REGENERATE=1; if not, this change just broke every save on "
                         + "disk. Result: " + result);
 
-        assertEquals(BuildingType.MINER, typeAt(world, 6, 5), "miner moved or lost its kind");
-        assertEquals(BuildingType.FURNACE, typeAt(world, 8, 5), "furnace moved or lost its kind");
-        assertEquals(BuildingType.BELT, typeAt(world, 9, 5), "belt moved or lost its kind");
-        assertEquals(BuildingType.CHEST, typeAt(world, 7, 5), "chest moved or lost its kind");
-        assertEquals(BuildingType.LAB, typeAt(world, 14, 5), "lab moved or lost its kind");
+        assertEquals(VanillaBuildings.idFor(BuildingType.MINER), protoprototypeAt(world, 6, 5), "miner moved or lost its kind");
+        assertEquals(VanillaBuildings.idFor(BuildingType.FURNACE), protoprototypeAt(world, 8, 5), "furnace moved or lost its kind");
+        assertEquals(VanillaBuildings.idFor(BuildingType.BELT), protoprototypeAt(world, 9, 5), "belt moved or lost its kind");
+        assertEquals(VanillaBuildings.idFor(BuildingType.CHEST), protoprototypeAt(world, 7, 5), "chest moved or lost its kind");
+        assertEquals(VanillaBuildings.idFor(BuildingType.LAB), protoprototypeAt(world, 14, 5), "lab moved or lost its kind");
         assertEquals(120L, world.currentTick(),
                 "the world clock is part of the snapshot; a restored clock that differs puts "
                         + "timestamped production stats permanently out of step");
@@ -126,7 +128,7 @@ class GoldenSaveTest {
         return world;
     }
 
-    private static BuildingType typeAt(World world, int x, int y) {
-        return world.peek(x, y).orElseThrow().type();
+    private static ContentId protoprototypeAt(World world, int x, int y) {
+        return world.peek(x, y).orElseThrow().prototypeId();
     }
 }

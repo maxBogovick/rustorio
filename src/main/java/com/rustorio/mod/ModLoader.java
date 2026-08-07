@@ -134,7 +134,7 @@ public final class ModLoader {
         logLoadSummary(loadOrder, context, recipeBook, skipped);
         return new LoadedGame(context.items(), context.fluids(), context.buildings(), context.kinds(), context.maps(),
                 context.techs(), recipeBook, events,
-                mergeRenames(loadOrder), List.copyOf(skipped));
+                mergeRenames(loadOrder), List.copyOf(skipped), context.serviceProviders());
     }
 
     /**

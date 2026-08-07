@@ -57,10 +57,6 @@ public final class Pole implements Building, PowerNode {
         return Appearance.of(prototype.texture());
     }
 
-    @Override
-    public BuildingType type() {
-        return type;
-    }
 
     @Override
     public ContentId prototypeId() {

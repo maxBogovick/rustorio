@@ -1,5 +1,6 @@
 {
   "path": "generator",
+  "category": "power_category",
   "label": { "en": "Generator", "ru": "Генератор" },
   "archetype": "GENERATOR",
   "cost": { "item": "gear", "amount": 10 },

@@ -29,3 +29,11 @@
 # Рабочие записи агентов: карточки, прогресс, аудиты, разовые код-ревью.
 # Одноразовые по решению владельца (01.08.2026) — живут на диске, но не в истории.
 /doc_temp
+
+# Built by the per-mod `<id>ModJar` tasks from src/mods/<id> — outputs, not sources.
+# Also covers a jar a player drops in: a mod's binary is never repository content.
+resources/mods/*/*.jar
+
+# The external mod template is a standalone Gradle build — its outputs are not repo content.
+examples/external-mod-template/build/
+examples/external-mod-template/.gradle/

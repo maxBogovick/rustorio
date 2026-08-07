@@ -63,7 +63,10 @@ public final class UpgradeSpeedAction implements PlayerAction {
         if (removed == null) {
             return false;
         }
-        if (!world.buildingFactory().prototype(removed.type()).acceptsSpeedEffects()) {
+        // prototypeId(), not type(): a modded prototype declares its own acceptsSpeedEffects,
+        // and reading the borrowed archetype's answer instead let a module be spent on a
+        // building that ignores it (or refused one that accepts it).
+        if (!world.buildingFactory().prototype(removed.prototypeId()).acceptsSpeedEffects()) {
             world.restoreBuilding(anchorX, anchorY, removed); // put it right back — see the class javadoc
             return false;
         }

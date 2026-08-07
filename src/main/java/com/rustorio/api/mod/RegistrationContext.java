@@ -10,6 +10,8 @@ import com.rustorio.domain.RecipeKind;
 import com.rustorio.domain.TechType;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.PlacementRule;
+import com.rustorio.domain.building.ServiceKey;
+import java.util.function.Supplier;
 
 /**
  * What a {@link RustorioMod} registers content through, during any of its three lifecycle rounds —
@@ -45,6 +47,34 @@ public interface RegistrationContext {
      *     loud rather than an empty registry that silently swallows everything put into it
      */
     <T> Registry<T> registry(RegistryKey<T> key);
+
+    /**
+     * Registers a capability this mod's own buildings will reach through {@link
+     * com.rustorio.domain.building.TickContext#service} — an HTTP client, a clock, anything that is
+     * neither content nor a cell of the map. The world every mod's content ends up in is built with
+     * whatever was registered here, so a code mod needs no cooperation from the game's own startup
+     * code to make its archetypes work.
+     *
+     * <p>Separate from {@link #registry}: a service is ONE object provided by whoever implements
+     * it, not a collection of addressable content. It gets no {@code rawId}, never reaches a save
+     * file, and is not something another mod can enumerate — only ask for by key.
+     *
+     * <p>A PROVIDER, not a ready-made instance: it is called once per {@code World}, so every game
+     * gets its own. Registering an instance instead made one object shared by every world built
+     * from the same load — closing one game shut its thread pool down for the next, and a new game
+     * inherited the previous one's per-cell state. A mod that genuinely wants one shared instance
+     * returns the same object from its provider, which is then an explicit decision.
+     *
+     * <p>A later mod registering the same {@link ServiceKey} replaces an earlier one's provider,
+     * the same way it may {@code update} content another mod registered. That is deliberate:
+     * replacing the implementation behind a key is how one mod extends or instruments another's
+     * capability.
+     *
+     * <p>If the service holds a background resource (a thread pool, a connection), implement {@link
+     * AutoCloseable} — {@link com.rustorio.domain.building.WorldServices#closeAll} calls it when the
+     * WORLD it belongs to goes away, so a mod never needs its own shutdown hook.
+     */
+    <T> void registerService(ServiceKey<T> key, Supplier<T> provider);
 
     default Registry<ItemType> items() {
         return registry(RegistryKeys.ITEMS);

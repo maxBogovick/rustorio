@@ -11,6 +11,7 @@ import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.PlacementRule;
 import com.rustorio.domain.building.PowerSpec;
 import com.rustorio.domain.building.TraitKey;
+import com.rustorio.domain.building.VanillaCategories;
 import com.rustorio.domain.building.Traits;
 import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.building.VanillaTraits;
@@ -56,7 +57,7 @@ final class BuildingJsonLoader {
             JsonNodes.rejectUnknownFields(root, file, "building", List.of("path", "label", "archetype",
                     "cost", "placement", "texture", "footprintWidth", "footprintHeight", "bufferMax",
                     "speedMultiplier", "acceptsSpeedEffects", "kind", "fuel", "fluidInput", "fluidOutput",
-                    "power"));
+                    "power", "category"));
             String path = JsonNodes.requireText(root, "path", file);
             ContentId id = new ContentId(modId.value(), path);
             String label = JsonNodes.requireLocalizedText(root, "label", file, id.toString(), ContentLocale.current());
@@ -88,6 +89,7 @@ final class BuildingJsonLoader {
             traits.put(VanillaTraits.FLUID_INPUT, resolveOptionalFluid(root, "fluidInput", modId, context, file));
             traits.put(VanillaTraits.FLUID_OUTPUT, resolveOptionalFluid(root, "fluidOutput", modId, context, file));
             traits.put(VanillaTraits.POWER, readOptionalPower(root, file));
+            traits.put(VanillaCategories.CATEGORY, readOptionalCategory(root, modId));
 
             context.buildings().register(id, new BuildingPrototype(id, label, new BuildingCost(costItem, costAmount),
                     placement, texture, footprintWidth, footprintHeight, bufferMax, speedMultiplier, acceptsSpeedEffects,
@@ -143,6 +145,24 @@ final class BuildingJsonLoader {
      * fluid (which is almost all of them). Reported against the FILE and the field, like every other
      * error here, so a modder who misspells a fluid learns which line to fix.
      */
+    /**
+     * Which build-panel tab this building belongs in. Optional, and absent means {@link
+     * VanillaCategories#OTHER} — every mod written before this key existed must keep loading, so a
+     * missing category can never be an error.
+     *
+     * <p>Bare {@code "logistics"} resolves against {@code rustorio}, not against the declaring mod:
+     * a modder writing {@code "category": "logistics"} means the vanilla tab, the same convention
+     * {@code "cost".item} and {@code "kind"} already follow for references. A namespaced value
+     * ({@code "mymod:robots"}) is taken as-is and becomes a tab of its own.
+     */
+    private static @Nullable ContentId readOptionalCategory(JsonNode root, ModId modId) {
+        String text = JsonNodes.optionalText(root, "category", "");
+        if (text.isBlank()) {
+            return null;
+        }
+        return text.indexOf(':') >= 0 ? ContentId.of(text) : new ContentId("rustorio", text);
+    }
+
     private static @Nullable FluidType resolveOptionalFluid(JsonNode root, String field, ModId modId,
             RegistrationContext context, Path file) {
         if (!root.has(field)) {

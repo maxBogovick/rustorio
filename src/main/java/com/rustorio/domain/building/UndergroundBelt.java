@@ -26,6 +26,7 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
     private static final int MAX_RANGE = 4;
 
     private final Kind kind;
+
     private final Direction direction;
     private @Nullable ItemType held;
     /** Which sprite {@link #appearance} draws — see {@link Furnace}'s own field javadoc for why this is injected rather than a hardcoded sprite constant. */
@@ -183,10 +184,17 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
         return Optional.of(new UndergroundBelt(kind, direction.rotate(), held, prototype));
     }
 
-    @Override
-    public BuildingType type() {
-        return kind == Kind.IN ? BuildingType.UNDERGROUND_IN : BuildingType.UNDERGROUND_OUT;
+    /**
+     * Whether this is the entrance of a tunnel pair rather than its exit — the question callers
+     * actually have, answered by the building instead of by comparing its {@code type()} against a
+     * vanilla constant. That comparison is what stopped a modded tunnel from ever being recognised
+     * as an entrance: a mod's prototype borrows {@code UNDERGROUND_IN} only if it happens to, and
+     * its identity is its own id.
+     */
+    public boolean isEntrance() {
+        return kind == Kind.IN;
     }
+
 
     @Override
     public ContentId prototypeId() {

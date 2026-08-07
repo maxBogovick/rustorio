@@ -2,13 +2,13 @@ package com.graphics.render;
 
 import com.graphics.GfxConfig;
 import com.rustorio.api.registry.Registry;
-import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.building.Filter;
 import com.rustorio.domain.building.Furnace;
+import com.rustorio.domain.building.InspectableBuilding;
 import com.rustorio.domain.building.RecipeSelectable;
 import com.rustorio.domain.building.Splitter;
 import com.rustorio.domain.building.UndergroundBelt;
@@ -31,6 +31,12 @@ public final class InspectionPanelLayout {
 
     static final float LINE_HEIGHT = 18f;
     static final float PANEL_WIDTH = 340f; // wide enough for a two-input recipe line ("IRON_ORE + BRONZE_PLATE -> ALLOY_PLATE")
+
+    /** Roughly how many fixed-width HUD glyphs fit across {@link #PANEL_WIDTH} — see {@link #wrapToPanel} for why this counts characters instead of measuring the font. */
+    private static final int MAX_LINE_CHARS = 56;
+    /** How many rows ONE over-long fact may occupy before it is cut — six keeps a raw response body readable without letting it push a chest's contents off the panel. */
+    private static final int MAX_WRAPPED_ROWS = 6;
+    private static final String ELLIPSIS = "...";
 
     private InspectionPanelLayout() {
     }
@@ -122,17 +128,35 @@ public final class InspectionPanelLayout {
      */
     public static List<String> inspectionLines(World world, Registry<ItemType> items, TilePos at, Building building) {
         List<String> lines = new ArrayList<>();
-        lines.add(building.type().label() + "  (" + at.x() + ", " + at.y() + ")");
+        // The PROTOTYPE's label, not the borrowed archetype's: a modded building showed the
+        // vanilla kind it reuses ("Miner") instead of its own name.
+        lines.add(world.buildingFactory().prototype(building.prototypeId()).label()
+                + "  (" + at.x() + ", " + at.y() + ")");
         lines.add("Status: " + building.appearance().status());
         if (building.speedLevel() > 0) {
             lines.add("Speed modules: x" + building.speedLevel());
         }
         building.heldItem().ifPresent(item -> lines.add("Holding: " + item.label()));
 
+        // BEFORE the kind-specific branches below, not after, and the reason is load-bearing:
+        // appendFurnaceDetails must keep emitting the recipe rows LAST, because hitTestRecipe finds
+        // a clicked recipe by counting back from the end of the list ("the last
+        // clickableRecipes(building).size() lines"). Appending anything after it would silently
+        // shift every recipe's click target — and a building that is both RecipeSelectable and
+        // InspectableBuilding is allowed, so "no archetype does that today" is not a guarantee.
+        if (building instanceof InspectableBuilding inspectable) {
+            for (String line : inspectable.inspectionDetails(world, at.x(), at.y())) {
+                lines.addAll(wrapToPanel(line));
+            }
+        }
+
+        // The five branches below are vanilla archetypes that predate InspectableBuilding; they are
+        // not a pattern to extend, and a NEW building describes itself through that interface
+        // instead — which is what lets a mod's own archetype appear here with no edit to this file.
         if (building instanceof Chest chest) {
             appendChestContents(lines, items, chest);
         } else if (building instanceof Furnace furnace) {
-            appendFurnaceDetails(lines, building, furnace);
+            appendFurnaceDetails(lines, world, building, furnace);
         } else if (building instanceof UndergroundBelt tunnel) {
             appendTunnelPairing(lines, world, at, building, tunnel);
         } else if (building instanceof Filter filter) {
@@ -142,6 +166,32 @@ public final class InspectionPanelLayout {
             lines.add("Round-robin: alternates forward / secondary side");
         }
         return lines;
+    }
+
+    /**
+     * {@code line} split across as many panel-width rows as it needs, capped so one very long line
+     * (a raw HTTP response body, say) can't push everything else off the screen. Applied to what
+     * {@link InspectableBuilding} returns and nothing else: a building states a FACT, and how wide
+     * a fact may be drawn is knowledge only this class has.
+     *
+     * <p>Character count, not measured glyph width — the HUD font here is fixed-width, and a
+     * layout that had to measure text would need the {@code BitmapFont} itself, which would drag a
+     * libGDX type into the one class in this package that is deliberately pure enough to unit-test
+     * without a GL context.
+     */
+    private static List<String> wrapToPanel(String line) {
+        if (line.length() <= MAX_LINE_CHARS) {
+            return List.of(line);
+        }
+        List<String> rows = new ArrayList<>();
+        for (int i = 0; i < line.length() && rows.size() < MAX_WRAPPED_ROWS; i += MAX_LINE_CHARS) {
+            rows.add(line.substring(i, Math.min(i + MAX_LINE_CHARS, line.length())));
+        }
+        if (line.length() > MAX_LINE_CHARS * MAX_WRAPPED_ROWS) {
+            int last = rows.size() - 1;
+            rows.set(last, rows.get(last).substring(0, MAX_LINE_CHARS - ELLIPSIS.length()) + ELLIPSIS);
+        }
+        return rows;
     }
 
     private static void appendChestContents(List<String> lines, Registry<ItemType> items, Chest chest) {
@@ -167,7 +217,7 @@ public final class InspectionPanelLayout {
      * selected. This method only builds the TEXT; {@link #clickableRecipes} names these exact same
      * trailing lines as the click targets {@code InputHandler} acts on.
      */
-    private static void appendFurnaceDetails(List<String> lines, Building building, Furnace furnace) {
+    private static void appendFurnaceDetails(List<String> lines, World world, Building building, Furnace furnace) {
         Optional<Recipe> active = furnace.activeRecipe();
         if (active.isPresent()) {
             lines.add("Recipe: " + recipeLine(active.get()) + "  (cooking)");
@@ -178,7 +228,9 @@ public final class InspectionPanelLayout {
                     : "Recipe: none committed yet");
         }
         lines.add("Ore buffer: " + furnace.oreBuffer());
-        if (building.type() == BuildingType.FURNACE) {
+        // Whether this building BURNS anything is data on its own prototype, not a vanilla
+        // constant — sandbox:voron declares coal as fuel and never showed this line.
+        if (world.buildingFactory().prototype(building.prototypeId()).fuelItem() != null) {
             lines.add("Fuel: " + furnace.fuelBuffer());
         }
         lines.add("Click a recipe to select it:");
@@ -194,7 +246,7 @@ public final class InspectionPanelLayout {
 
     private static void appendTunnelPairing(List<String> lines, World world, TilePos at, Building building,
             UndergroundBelt tunnel) {
-        if (building.type() != BuildingType.UNDERGROUND_IN) {
+        if (!tunnel.isEntrance()) {
             lines.add("(exit — pairing shown at its entrance)");
             return;
         }

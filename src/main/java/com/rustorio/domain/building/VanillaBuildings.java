@@ -10,6 +10,7 @@ import com.rustorio.domain.VanillaFluids;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.VanillaSprites;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -336,6 +337,55 @@ public final class VanillaBuildings {
     // FROZEN must be declared (and therefore initialized) after every shared RestoreFactory/Codec
     // constant above and before anything that calls frozen() — same top-to-bottom
     // initialization-order trap already caught once in VanillaItems.
+    // DECLARED BEFORE {@code FROZEN} on purpose, and the ordering is load-bearing: static
+    // initialisers run in textual order, FROZEN calls buildFrozen() -> register() -> withCategory(),
+    // and a category map declared further down is still null at that moment. It was, and the whole
+    // class failed to initialise with ExceptionInInitializerError — the same family of trap this
+    // repository already records for EnumSet inside an enum's own constructor.
+    /**
+     * Every vanilla building's build-panel category, in ONE place rather than as an extra argument
+     * on nineteen registration calls — the category is a fact about the kind, and the kind is
+     * already the key here.
+     *
+     * <p>{@code BOILER} sits under fluids rather than power on purpose: it is a machine that turns
+     * water into steam, and a player hunting for it is looking among pipes and tanks. It feeds the
+     * power chain, but so does coal.
+     *
+     * <p>{@link EnumMap} built empty and filled, never {@code new EnumMap<>(someOtherMap)} — this
+     * repository has a trap recorded for exactly that constructor.
+     */
+    private static final Map<BuildingType, ContentId> CATEGORY_BY_TYPE = categoryByType();
+
+    private static Map<BuildingType, ContentId> categoryByType() {
+        Map<BuildingType, ContentId> byType = new EnumMap<>(BuildingType.class);
+        byType.put(BuildingType.MINER, VanillaCategories.MINING);
+        byType.put(BuildingType.ELECTRIC_MINER, VanillaCategories.MINING);
+
+        byType.put(BuildingType.CHEST, VanillaCategories.LOGISTICS);
+        byType.put(BuildingType.BELT, VanillaCategories.LOGISTICS);
+        byType.put(BuildingType.SPLITTER, VanillaCategories.LOGISTICS);
+        byType.put(BuildingType.FILTER, VanillaCategories.LOGISTICS);
+        byType.put(BuildingType.INSERTER, VanillaCategories.LOGISTICS);
+        byType.put(BuildingType.UNDERGROUND_IN, VanillaCategories.LOGISTICS);
+        byType.put(BuildingType.UNDERGROUND_OUT, VanillaCategories.LOGISTICS);
+
+        byType.put(BuildingType.FURNACE, VanillaCategories.PRODUCTION);
+        byType.put(BuildingType.PRESS, VanillaCategories.PRODUCTION);
+        byType.put(BuildingType.ASSEMBLER, VanillaCategories.PRODUCTION);
+        byType.put(BuildingType.LAB, VanillaCategories.PRODUCTION);
+
+        byType.put(BuildingType.PIPE, VanillaCategories.FLUIDS);
+        byType.put(BuildingType.TANK, VanillaCategories.FLUIDS);
+        byType.put(BuildingType.PUMP, VanillaCategories.FLUIDS);
+        byType.put(BuildingType.BOILER, VanillaCategories.FLUIDS);
+
+        byType.put(BuildingType.POLE, VanillaCategories.POWER);
+        byType.put(BuildingType.GENERATOR, VanillaCategories.POWER);
+        return byType;
+    }
+
+    /** {@code traits} plus this kind's category — the category is added here so no registration site has to remember it. */
+
     private static final Registry<BuildingPrototype> FROZEN = buildFrozen();
 
     private VanillaBuildings() {
@@ -623,6 +673,13 @@ public final class VanillaBuildings {
         ContentId id = idFor(type);
         prototypes.register(id, new BuildingPrototype(id, type.label(), cost, placementRule, texture,
                 type.footprintWidth(), type.footprintHeight(), bufferMax, speedMultiplier,
-                acceptsSpeedEffects, behavior, restoreBehavior, codec, id, fuelItem, traits));
+                acceptsSpeedEffects, behavior, restoreBehavior, codec, id, fuelItem,
+                withCategory(type, traits)));
+    }
+
+    private static Traits withCategory(BuildingType type, Traits traits) {
+        Map<TraitKey<?>, Object> merged = new LinkedHashMap<>(traits.asMap());
+        merged.put(VanillaCategories.CATEGORY, CATEGORY_BY_TYPE.get(type));
+        return Traits.of(merged);
     }
 }

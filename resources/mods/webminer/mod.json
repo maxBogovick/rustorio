@@ -1,0 +1,11 @@
+{
+  "id": "webminer",
+  "version": "1.0.0",
+  "entryPoint": "com.webminer.WebMinerMod",
+  "dependencies": [
+    {
+      "modId": "rustorio",
+      "range": ">=1.0.0"
+    }
+  ]
+}

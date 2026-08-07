@@ -23,9 +23,11 @@ import com.rustorio.domain.building.PlacementRule;
 import com.rustorio.domain.building.PowerNetwork;
 import com.rustorio.domain.building.PowerNode;
 import com.rustorio.domain.building.PowerProducer;
+import com.rustorio.domain.building.ServiceKey;
 import com.rustorio.domain.building.TickContext;
 import com.rustorio.domain.building.TransportNode;
 import com.rustorio.domain.building.VanillaBuildings;
+import com.rustorio.domain.building.WorldServices;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -223,6 +225,18 @@ public final class World implements TickContext {
     private final Map<Coord, Long> manualMineReadyAtTick = new HashMap<>();
 
     /**
+     * Every capability this world was built with — what {@link #service} hands back. Immutable
+     * after construction and never read on the hot path by {@code World} itself: a building
+     * resolves what it needs on its first tick and keeps it (see {@link TickContext#service}).
+     *
+     * <p>This field replaced a {@code FetchExecutor} plus three per-cell maps that lived here
+     * purely so ONE mod's web-fetching archetype could work — state the engine could neither use
+     * nor test, in the class every other subsystem already has to share. Whatever a mod's service
+     * needs to remember per cell is now that service's own business, held inside the mod.
+     */
+    private final WorldServices services;
+
+    /**
      * How long a cell stays on cooldown after a hand-mine, in ticks — 90 at the game's fixed 60
      * ticks/second step (P4-06, BUG_FIX_PROGRESS.md), i.e. 1.5 real seconds. Deliberately close to
      * a {@link com.rustorio.domain.building.Miner}'s own un-teched pace (3-tick batches, but a
@@ -241,10 +255,22 @@ public final class World implements TickContext {
     }
 
     public World(int width, int height, BuildingFactory buildingFactory, Registry<TechType> techs) {
+        this(width, height, buildingFactory, techs, WorldServices.NONE);
+    }
+
+    /**
+     * The general form: a world whose buildings can reach the capabilities their mods registered
+     * (see {@link ServiceKey}). Every other constructor here passes {@link WorldServices#NONE},
+     * which is not a degraded mode — it is what a vanilla game, every test and every dev tool
+     * legitimately runs with.
+     */
+    public World(int width, int height, BuildingFactory buildingFactory, Registry<TechType> techs,
+            WorldServices services) {
         this.width = width;
         this.height = height;
         this.buildingFactory = buildingFactory;
         this.research = new Research(techs);
+        this.services = services;
         productionListeners.add(stats);
         STARTING_INVENTORY.forEach(inventory::add);
     }
@@ -782,6 +808,21 @@ public final class World implements TickContext {
         }
         PowerNetwork network = covering.pole().network();
         return network != null && network.draw(amount, tickCount);
+    }
+
+    /**
+     * See {@link TickContext#service}. A plain delegation to {@link #services} — {@code World}
+     * neither knows nor cares what any given key means, which is the whole point: the three
+     * fetch-shaped methods this replaced forced it to know exactly that about one mod.
+     */
+    @Override
+    public <T> Optional<T> service(ServiceKey<T> key) {
+        return services.get(key);
+    }
+
+    /** Shuts down every service this world was built with — see {@link WorldServices#closeAll}. Called once, when the game owning this world goes away. */
+    public void closeServices() {
+        services.closeAll();
     }
 
     /**

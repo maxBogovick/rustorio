@@ -1,7 +1,11 @@
 package com.rustorio.game;
 
+import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.building.BuildingFactory;
+import com.rustorio.domain.building.BuildingPrototype;
+import com.rustorio.domain.building.ServiceKey;
+import com.rustorio.domain.building.WorldServices;
 import com.rustorio.domain.world.World;
 import com.rustorio.mod.EventWiring;
 import com.rustorio.mod.LoadedGame;
@@ -31,9 +35,25 @@ public final class GameBootstrap {
      * nothing has happened yet (see {@link EventWiring#attach}).
      */
     public static World createWorld(LoadedGame content, OreLayout oreLayout, int width, int height) {
+        return createWorld(content, oreLayout, width, height, content.buildings(), content.newServices());
+    }
+
+    /**
+     * The general form: a caller that needs the world's own {@link BuildingPrototype} registry to
+     * be something OTHER than exactly {@code content.buildings()} — a mod whose archetype the JSON
+     * loader can't register on its own — and/or a set of {@link WorldServices} for that mod's
+     * buildings to reach their own capabilities through, rather than the empty {@link
+     * WorldServices#NONE} every other caller gets.
+     *
+     * <p>{@code services} is deliberately opaque here: this method neither names nor knows any
+     * particular service. It used to take one specific mod's HTTP executor by type, which put a
+     * single mod's vocabulary into the engine's own bootstrap — see {@link ServiceKey}.
+     */
+    public static World createWorld(LoadedGame content, OreLayout oreLayout, int width, int height,
+            Registry<BuildingPrototype> buildings, WorldServices services) {
         BuildingFactory buildingFactory = new BuildingFactory(oreLayout, content.recipes(), content.items(),
-                content.buildings(), content.fluids());
-        World world = new World(width, height, buildingFactory, content.techs());
+                buildings, content.fluids());
+        World world = new World(width, height, buildingFactory, content.techs(), services);
         EventWiring.attach(world, content.events());
         return world;
     }

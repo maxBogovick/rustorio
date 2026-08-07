@@ -102,7 +102,7 @@ class PhaseSixAcceptanceTest {
         assertEquals(1, report.buildingsSkipped());
 
         assertTrue(reloaded.peek(0, 0).isEmpty(), "the crusher's own cell stays empty");
-        assertEquals(BuildingType.CHEST, reloaded.peek(1, 0).orElseThrow().type(),
+        assertEquals(VanillaBuildings.idFor(BuildingType.CHEST), reloaded.peek(1, 0).orElseThrow().prototypeId(),
                 "the rest of the world must still be there");
     }
 

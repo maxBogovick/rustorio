@@ -1,5 +1,6 @@
 {
   "path": "lab",
+  "category": "production",
   "label": { "en": "Lab", "ru": "Лаборатория" },
   "archetype": "LAB",
   "cost": { "item": "gear", "amount": 10 },

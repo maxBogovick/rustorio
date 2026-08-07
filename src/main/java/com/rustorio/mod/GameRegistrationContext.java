@@ -4,10 +4,13 @@ import com.rustorio.api.mod.RegistrationContext;
 import com.rustorio.api.mod.RegistryKeys;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.api.registry.RegistryKey;
+import com.rustorio.domain.building.ServiceKey;
 import com.rustorio.domain.building.VanillaPlacementRules;
+import com.rustorio.domain.building.WorldServices;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.function.Supplier;
 
 /**
  * The one {@link RegistrationContext} instance shared by every mod across all three lifecycle
@@ -26,6 +29,9 @@ import java.util.NoSuchElementException;
 final class GameRegistrationContext implements RegistrationContext {
 
     private final Map<RegistryKey<?>, Registry<?>> registries = new LinkedHashMap<>();
+
+    /** Filled by {@link #registerService}; handed to {@code LoadedGame} as a factory, not as instances — see {@link WorldServices.Builder}. */
+    private final WorldServices.Builder services = WorldServices.builder();
 
     /**
      * Starts with a registry for every key the base game ships — see {@link RegistryKeys#VANILLA}
@@ -66,5 +72,21 @@ final class GameRegistrationContext implements RegistrationContext {
     /** Every registered key, in declaration order — what {@link ModLoader} freezes and reports over. */
     Iterable<RegistryKey<?>> keys() {
         return registries.keySet();
+    }
+
+    /**
+     * See {@link RegistrationContext#registerService}. Collected into a builder rather than a live
+     * {@link com.rustorio.domain.building.WorldServices} because, exactly like the registries above,
+     * a later mod's round must be able to overwrite what an earlier one put here — freezing happens
+     * once, at the end, in {@link ModLoader}.
+     */
+    @Override
+    public <T> void registerService(ServiceKey<T> key, Supplier<T> provider) {
+        services.with(key, provider);
+    }
+
+    /** The provider set {@link #registerService} collected — {@code LoadedGame} keeps it and builds fresh instances per world. */
+    WorldServices.Builder serviceProviders() {
+        return services;
     }
 }

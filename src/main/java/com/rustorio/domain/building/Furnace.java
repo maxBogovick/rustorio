@@ -511,10 +511,6 @@ public final class Furnace implements Building, RecipeSelectable {
                 : Appearance.of(sprite, status, recipeHint);
     }
 
-    @Override
-    public BuildingType type() {
-        return kind;
-    }
 
     /** Not {@code prototype.id()} of the vanilla default for {@link #kind} — the exact prototype this instance was actually built/restored with, modded or not. */
     @Override

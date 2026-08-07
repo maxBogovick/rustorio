@@ -268,10 +268,6 @@ public final class Chest implements Building {
         return new Chest(direction, contents, status, newSpeedLevel, prototype);
     }
 
-    @Override
-    public BuildingType type() {
-        return BuildingType.CHEST;
-    }
 
     @Override
     public ContentId prototypeId() {

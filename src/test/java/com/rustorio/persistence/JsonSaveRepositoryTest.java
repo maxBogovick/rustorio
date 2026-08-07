@@ -75,15 +75,15 @@ class JsonSaveRepositoryTest {
         World reloaded = new World(20, 20);
         assertTrue(repository.load(reloaded).succeeded());
 
-        assertEquals(BuildingType.MINER, typeAt(reloaded, 6, 5));
-        assertEquals(BuildingType.CHEST, typeAt(reloaded, 7, 5));
-        assertEquals(BuildingType.FURNACE, typeAt(reloaded, 8, 5));
-        assertEquals(BuildingType.BELT, typeAt(reloaded, 9, 5));
-        assertEquals(BuildingType.SPLITTER, typeAt(reloaded, 10, 5));
-        assertEquals(BuildingType.PRESS, typeAt(reloaded, 11, 5));
-        assertEquals(BuildingType.UNDERGROUND_IN, typeAt(reloaded, 12, 5));
-        assertEquals(BuildingType.UNDERGROUND_OUT, typeAt(reloaded, 13, 5));
-        assertEquals(BuildingType.LAB, typeAt(reloaded, 14, 5));
+        assertEquals(VanillaBuildings.idFor(BuildingType.MINER), protoprototypeAt(reloaded, 6, 5));
+        assertEquals(VanillaBuildings.idFor(BuildingType.CHEST), protoprototypeAt(reloaded, 7, 5));
+        assertEquals(VanillaBuildings.idFor(BuildingType.FURNACE), protoprototypeAt(reloaded, 8, 5));
+        assertEquals(VanillaBuildings.idFor(BuildingType.BELT), protoprototypeAt(reloaded, 9, 5));
+        assertEquals(VanillaBuildings.idFor(BuildingType.SPLITTER), protoprototypeAt(reloaded, 10, 5));
+        assertEquals(VanillaBuildings.idFor(BuildingType.PRESS), protoprototypeAt(reloaded, 11, 5));
+        assertEquals(VanillaBuildings.idFor(BuildingType.UNDERGROUND_IN), protoprototypeAt(reloaded, 12, 5));
+        assertEquals(VanillaBuildings.idFor(BuildingType.UNDERGROUND_OUT), protoprototypeAt(reloaded, 13, 5));
+        assertEquals(VanillaBuildings.idFor(BuildingType.LAB), protoprototypeAt(reloaded, 14, 5));
     }
 
     @Test
@@ -443,7 +443,7 @@ class JsonSaveRepositoryTest {
         assertEquals(1, partial.buildingsSkipped());
 
         assertTrue(reloaded.peek(0, 0).isEmpty(), "the cell for the missing prototype must stay empty");
-        assertEquals(BuildingType.CHEST, reloaded.peek(1, 0).orElseThrow().type(),
+        assertEquals(VanillaBuildings.idFor(BuildingType.CHEST), reloaded.peek(1, 0).orElseThrow().prototypeId(),
                 "every other building must still load normally");
     }
 
@@ -525,8 +525,8 @@ class JsonSaveRepositoryTest {
         return new BuildingFactory(PatchOreLayout.standard(), RecipeBook.standard(), VanillaItems.frozen(), prototypes);
     }
 
-    private static BuildingType typeAt(World world, int x, int y) {
-        return world.peek(x, y).orElseThrow().type();
+    private static ContentId protoprototypeAt(World world, int x, int y) {
+        return world.peek(x, y).orElseThrow().prototypeId();
     }
 
     /** A vanilla technology's price, read from the registry the game itself researches through. */

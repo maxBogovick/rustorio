@@ -114,10 +114,6 @@ public final class Pipe implements Building, FluidNode {
         return Appearance.of(prototype.texture(), new FluidFill(carried, percent));
     }
 
-    @Override
-    public BuildingType type() {
-        return type;
-    }
 
     @Override
     public ContentId prototypeId() {

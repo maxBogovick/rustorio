@@ -104,10 +104,6 @@ public final class Inserter implements Building, SettlesEachTick {
         return Appearance.of(prototype.texture());
     }
 
-    @Override
-    public BuildingType type() {
-        return BuildingType.INSERTER;
-    }
 
     @Override
     public ContentId prototypeId() {

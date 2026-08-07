@@ -1,0 +1,8 @@
+{
+  "id": "template",
+  "version": "1.0.0",
+  "entryPoint": "com.example.rustoriomod.TemplateMod",
+  "dependencies": [
+    { "modId": "rustorio", "range": ">=1.0.0" }
+  ]
+}

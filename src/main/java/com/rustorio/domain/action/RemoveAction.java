@@ -61,7 +61,11 @@ public final class RemoveAction implements PlayerAction {
         if (removed != null) {
             // The speedLevel upgrade itself stays free either direction — a separate, already-known
             // audit finding (§3.8) this task doesn't touch.
-            world.refundBuildingCost(removed.type());
+            // prototypeId(), not type(): a modded building borrows a vanilla archetype for its
+            // behaviour and keeps its OWN cost. Refunding by type() paid back the archetype's
+            // price — demolishing sandbox:voron (one coal) handed back a furnace's five iron
+            // plates, which is free items in a loop.
+            world.refundBuildingCost(removed.prototypeId());
             if (removed instanceof Chest chest) {
                 Map<ItemType, Integer> contents = chest.contents();
                 if (!contents.isEmpty()) {
@@ -102,11 +106,15 @@ public final class RemoveAction implements PlayerAction {
     public void undo(World world) {
         if (removed == null
                 || !world.footprintFree(anchorX, anchorY, removed.footprintWidth(), removed.footprintHeight())
-                || !world.trySpendBuildingCost(removed.type())) {
+                || !world.trySpendBuildingCost(removed.prototypeId())) {
             return;
         }
         if (reclaimedContents != null && !world.trySpendItems(reclaimedContents)) {
-            world.refundBuildingCost(removed.type()); // roll back the charge just above — all-or-nothing
+            // prototypeId(), not type(): a modded building borrows a vanilla archetype for its
+            // behaviour and keeps its OWN cost. Refunding by type() paid back the archetype's
+            // price — demolishing sandbox:voron (one coal) handed back a furnace's five iron
+            // plates, which is free items in a loop.
+            world.refundBuildingCost(removed.prototypeId()); // roll back the charge just above — all-or-nothing
             return;
         }
         // world.restoreBuilding, not world.place: the placement rules were already satisfied the

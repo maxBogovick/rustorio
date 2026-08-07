@@ -3,6 +3,7 @@ package com.rustorio.domain.building;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemShape;
 import com.rustorio.domain.ItemType;
@@ -49,15 +50,15 @@ class BuildingFactoryTest {
     void assemblerIsA2x2FurnaceOfItsOwnKind() {
         Building assembler = factory.create(BuildingType.ASSEMBLER, Direction.RIGHT);
 
-        assertEquals(BuildingType.ASSEMBLER, assembler.type());
+        assertEquals(VanillaBuildings.idFor(BuildingType.ASSEMBLER), assembler.prototypeId());
         assertEquals(2, assembler.footprintWidth());
         assertEquals(2, assembler.footprintHeight());
     }
 
     @Test
     void createdFurnaceMatchesRequestedKind() {
-        assertEquals(BuildingType.FURNACE, factory.create(BuildingType.FURNACE, Direction.RIGHT).type());
-        assertEquals(BuildingType.PRESS, factory.create(BuildingType.PRESS, Direction.RIGHT).type());
+        assertEquals(VanillaBuildings.idFor(BuildingType.FURNACE), factory.create(BuildingType.FURNACE, Direction.RIGHT).prototypeId());
+        assertEquals(VanillaBuildings.idFor(BuildingType.PRESS), factory.create(BuildingType.PRESS, Direction.RIGHT).prototypeId());
     }
 
     /** A belt never tracks a speedLevel (not eligible — see {@code BuildingPrototype#acceptsSpeedEffects}), so a restore round trip must not manufacture one out of nowhere. */
@@ -78,7 +79,7 @@ class BuildingFactoryTest {
 
         assertInstanceOf(Furnace.class, restored);
         assertEquals(2, restored.speedLevel());
-        assertEquals(BuildingType.FURNACE, restored.type());
+        assertEquals(VanillaBuildings.idFor(BuildingType.FURNACE), restored.prototypeId());
     }
 
     /** (X-01, DEV_TASKS.md) Splitter/Filter/Inserter through the actual factory door, not just their own direct constructors. */
@@ -109,7 +110,8 @@ class BuildingFactoryTest {
 
         Building built = moddedFactory.create(STEEL_PRESS_ID, Direction.RIGHT);
         Furnace press = assertInstanceOf(Furnace.class, built);
-        assertEquals(BuildingType.PRESS, press.type());
+        assertEquals(STEEL_PRESS_ID, press.prototypeId(),
+                "a modded prototype identifies as itself, never as the archetype it reuses");
 
         World world = new World(4, 4);
         Chest chest = new Chest();
@@ -141,7 +143,8 @@ class BuildingFactoryTest {
 
         Building restored = roundTrip(moddedFactory, built);
         Furnace press = assertInstanceOf(Furnace.class, restored);
-        assertEquals(BuildingType.PRESS, press.type());
+        assertEquals(STEEL_PRESS_ID, press.prototypeId(),
+                "a modded prototype identifies as itself, never as the archetype it reuses");
 
         // Buffer 10, not the vanilla PRESS default of 5 — proves restore() resolved the MODDED
         // prototype via its own registered behavior, not a hardcoded case that would silently

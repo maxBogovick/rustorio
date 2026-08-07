@@ -163,10 +163,6 @@ public final class Boiler implements Building {
         return fuelBuffer;
     }
 
-    @Override
-    public BuildingType type() {
-        return type;
-    }
 
     @Override
     public ContentId prototypeId() {

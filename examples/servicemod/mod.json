@@ -1,0 +1,8 @@
+{
+  "id": "servicemod",
+  "version": "1.0.0",
+  "entryPoint": "com.servicemod.jarmod.ServiceModEntryPoint",
+  "dependencies": [
+    { "modId": "rustorio", "range": ">=1.0.0" }
+  ]
+}

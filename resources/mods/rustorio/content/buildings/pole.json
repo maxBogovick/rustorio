@@ -1,5 +1,6 @@
 {
   "path": "pole",
+  "category": "power_category",
   "label": { "en": "Pole", "ru": "Столб" },
   "archetype": "POLE",
   "cost": { "item": "iron_plate", "amount": 1 },

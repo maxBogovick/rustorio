@@ -48,6 +48,17 @@
       ],
       "description": "Whose Java behavior this building borrows. Genuinely new behavior needs a jar mod."
     },
+    "category": {
+      "type": "string",
+      "description": "Which build-panel tab this building appears under. Optional; omitted means the 'Other' tab, so every file written before this key existed still loads. A bare name resolves against rustorio (\"logistics\" == \"rustorio:logistics\"), the same convention item and kind references follow; a namespaced value becomes a tab of its own.",
+      "examples": [
+        "mining",
+        "logistics",
+        "production",
+        "fluids",
+        "power_category"
+      ]
+    },
     "cost": {
       "type": "object",
       "properties": {

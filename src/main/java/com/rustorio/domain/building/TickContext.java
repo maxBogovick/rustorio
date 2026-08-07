@@ -16,8 +16,10 @@ import java.util.Optional;
  * {@code World} could reach across the package boundary. See P3-01, BUG_FIX_PROGRESS.md.
  *
  * <p>{@code World} is the only implementation and remains the concrete type everywhere outside
- * {@code domain.building} — this interface exists purely so buildings can depend on "the six
- * things I need from the world" instead of the whole aggregate root.
+ * {@code domain.building} — this interface exists purely so buildings can depend on "the few
+ * things I need from the world" instead of the whole aggregate root. Deliberately not "the
+ * six things" or any other count: this javadoc named a number for a long time, and the number
+ * was wrong every time the interface changed.
  */
 public interface TickContext {
 
@@ -57,4 +59,27 @@ public interface TickContext {
      * was any never asks, and so never notices.
      */
     boolean drawPower(int x, int y, long amount);
+
+    /**
+     * The capability registered under {@code key} in this world, or empty if nothing registered
+     * one — how a building reaches anything that is neither content nor a cell of the map (an
+     * outbound HTTP client, a clock) without this interface having to name it.
+     *
+     * <p>This method replaced three ({@code requestFetch}/{@code pollFetch}/{@code
+     * lastResponseBody}) that one mod's web-fetching archetype needed and that nothing else in the
+     * engine ever called: a single mod's vocabulary had reached the narrowest public contract the
+     * engine has, and the next such archetype would have had to widen it again. Now it cannot —
+     * see {@link ServiceKey}.
+     *
+     * <p>Empty is ORDINARY, not an error: a world built without a given service (a headless test,
+     * a dev tool, a game whose provider mod isn't installed) must let the building degrade the way
+     * {@link Miner} does on a cell with no ore, not throw.
+     *
+     * <p><b>Resolve once, not per tick.</b> This is a map lookup; a building that needs a service
+     * every tick asks on its FIRST tick and keeps the answer in a field, the same way an archetype
+     * reads its {@link Traits} at construction rather than re-reading them per tick. Calling this
+     * every tick would be a map lookup on the hot path, which this project's own tick budget
+     * forbids.
+     */
+    <T> Optional<T> service(ServiceKey<T> key);
 }

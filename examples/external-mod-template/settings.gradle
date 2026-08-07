@@ -1,0 +1,5 @@
+// A standalone build, and this file is what makes it one. Without a settings.gradle here, Gradle
+// walks UP the directory tree looking for one, finds the engine's own, and quietly treats this
+// template as part of the engine's build — which is precisely the coupling the template exists to
+// demonstrate the absence of.
+rootProject.name = 'rustorio-mod-template'

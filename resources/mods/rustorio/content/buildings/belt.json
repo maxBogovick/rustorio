@@ -1,5 +1,6 @@
 {
   "path": "belt",
+  "category": "logistics",
   "label": { "en": "Belt", "ru": "Лента" },
   "archetype": "BELT",
   "cost": { "item": "iron_plate", "amount": 1 },

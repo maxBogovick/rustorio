@@ -1,6 +1,7 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
@@ -40,7 +41,7 @@ class UndergroundBeltTest {
 
         assertEquals(0, world.peek(1, 0).orElseThrow().speedLevel(), "an entrance must not take the module");
         assertEquals(0, world.peek(3, 0).orElseThrow().speedLevel(), "and neither must an exit");
-        assertEquals(BuildingType.UNDERGROUND_IN, world.peek(1, 0).orElseThrow().type(),
+        assertEquals(VanillaBuildings.idFor(BuildingType.UNDERGROUND_IN), world.peek(1, 0).orElseThrow().prototypeId(),
                 "and the refusal must leave the tunnel itself on the map, untouched");
     }
 

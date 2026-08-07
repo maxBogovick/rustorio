@@ -1,5 +1,6 @@
 {
   "path": "underground_out",
+  "category": "logistics",
   "label": { "en": "Tunnel out", "ru": "Тоннель (выход)" },
   "archetype": "UNDERGROUND_OUT",
   "cost": { "item": "iron_plate", "amount": 2 },

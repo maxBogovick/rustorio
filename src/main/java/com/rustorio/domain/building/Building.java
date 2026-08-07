@@ -121,8 +121,6 @@ public interface Building {
         return appearance().status();
     }
 
-    /** This building's kind, as shown in the hotbar. */
-    BuildingType type();
 
     /**
      * Capture this building's entire internal state for persistence (Memento pattern) — this

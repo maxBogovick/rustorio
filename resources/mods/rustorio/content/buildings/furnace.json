@@ -1,5 +1,6 @@
 {
   "path": "furnace",
+  "category": "production",
   "label": { "en": "Furnace", "ru": "Печь" },
   "archetype": "FURNACE",
   "cost": { "item": "iron_plate", "amount": 5 },

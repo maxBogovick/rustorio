@@ -21,6 +21,7 @@ import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.building.PlacementRule;
 import com.rustorio.domain.building.PowerSpec;
+import com.rustorio.domain.building.TransportNode;
 import com.rustorio.domain.building.UndergroundBelt;
 import com.rustorio.domain.world.World;
 import java.util.List;
@@ -113,7 +114,11 @@ final class OverlayRenderer {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(Palette.DIRECTION_ARROW);
         world.forEachBuildingIn(minX, minY, maxX, maxY, (x, y, building) -> {
-            if (building.type() == BuildingType.BELT) {
+            // A transport node's own sprite already shows where it points (the belt's chevrons),
+            // so an arrow on top is noise. A capability check, not `type() == BELT`: a mod's own
+            // conveyor is a TransportNode too and used to get the redundant arrow, because it
+            // borrows BELT only by convention.
+            if (building instanceof TransportNode) {
                 return;
             }
             float cx = grid.x(x) + tile / 2f;
@@ -127,7 +132,7 @@ final class OverlayRenderer {
         shapes.setColor(Palette.T_BAD);
         world.forEachBuildingIn(minX, minY, maxX, maxY, (x, y, building) -> {
             if (building instanceof UndergroundBelt in
-                    && in.type() == BuildingType.UNDERGROUND_IN
+                    && in.isEntrance()
                     && in.findPartner(world, x, y).isEmpty()) {
                 shapes.rect(grid.x(x), grid.yBottom(y), tile, tile);
             }

@@ -1,5 +1,10 @@
 plugins {
     id 'application'
+    // maven-publish (a core Gradle plugin, not a new dependency): publishes the API a third-party
+    // mod compiles against into the local Maven repository, so an EXTERNAL mod project can declare
+    // `com.rustorio:rustorio-api` and needs nothing from this repository but that one coordinate.
+    // Without it the only way to build a mod was to clone the whole engine and compile inside it.
+    id 'maven-publish'
     id 'jacoco' // покрытие тестами (встроенный плагин Gradle)
     // Error Prone + NullAway: @NullMarked/@Nullable (JSpecify) были задекларированы во всех
     // package-info.java, но до этого их никто не проверял — IDE могла подсветить нарушение,
@@ -39,6 +44,35 @@ sourceSets {
     // `tools` above: not part of the jar the player runs, just built against it.
     editor {
         java.srcDirs = ['src/editor/java']
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
+// Every directory under `src/mods` IS a mod — discovered by scanning, never named here. That is the
+// same rule the engine itself follows at runtime (`ModDirectories.discover` scans `resources/mods`),
+// and it has to hold in the build too: a build that names one mod is a build that has to be edited
+// to add a second, which is exactly the coupling this whole split exists to remove.
+//
+// A mod compiles against `main` and NOT the other way round. Nothing in `sourceSets.main` may
+// reference a mod — `PackageBoundaryRulesTest.theEngineDoesNotDependOnAnyMod` checks it, and this
+// split makes it impossible to compile in the first place. That matters because the coupling it
+// prevents is exactly what happened before: three archetypes inside `com.rustorio.domain.building`,
+// three methods on `TickContext`, a branch in the renderer — none of it noticed, because sharing a
+// source set is what made it invisible.
+//
+// NOTE: mods that live in this repository are the exception, not the model. A third-party mod is
+// built in its OWN project (see `examples/external-mod-template`) and needs no entry here at all —
+// it is a folder dropped into `resources/mods`, the same as in Factorio, Fabric or RimWorld.
+ext.modIds = ((file('src/mods').listFiles() ?: new File[0]) as List)
+        .findAll { it.directory }
+        .collect { it.name }
+        .sort() // deterministic task order — a build whose task graph depends on filesystem order is a build that differs between machines
+
+modIds.each { modId ->
+    sourceSets.create("${modId}Mod") {
+        java.srcDirs = ["src/mods/$modId/java"]
+        resources.srcDirs = ["src/mods/$modId/resources"]
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
         runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
     }
@@ -101,6 +135,18 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation "com.tngtech.archunit:archunit-junit5:$archunitVersion"
 
+    // An in-repo mod's own unit tests live in src/test and need that mod's classes. Tests are
+    // exempt from the engine/mod boundary ArchUnit enforces (it scans src/main only) — a mod's
+    // tests reaching into the mod is the ordinary thing, and it is how that mod's author runs them.
+    //
+    // `.classesDirs`, NOT `.output`: the latter also carries a mod's own
+    // `META-INF/services/com.rustorio.api.mod.RustorioMod`, and putting THAT on the test classpath
+    // makes every `ServiceLoader.load(RustorioMod)` anywhere in the suite discover that mod — which
+    // broke twenty unrelated mod-loader tests with `Provider com.webminer.WebMinerMod not found`,
+    // because the service file was visible where the class was not. A mod's registration must only
+    // ever be found inside that mod's jar.
+    modIds.each { modId -> testImplementation sourceSets."${modId}Mod".output.classesDirs }
+
     errorprone "com.google.errorprone:error_prone_core:$errorproneVersion"
     errorprone "com.uber.nullaway:nullaway:$nullawayVersion"
 }
@@ -129,6 +175,60 @@ tasks.named('compileToolsJava', JavaCompile).configure {
 // src/editor (local content-editor web server) — same reasoning as compileToolsJava above.
 tasks.named('compileEditorJava', JavaCompile).configure {
     options.errorprone.enabled = false
+}
+
+// Mods are deliberately outside NullAway's `AnnotatedPackages` (com.rustorio, com.graphics). Not an
+// oversight: a third-party mod is compiled by whoever wrote it, under whatever checks they chose,
+// and an in-repo mod is here to demonstrate exactly that path. The engine's null contract stops at
+// the engine's own edge; what a mod does inside its jar is the mod's business, and enforcing it
+// here would be testing a setup no real mod has.
+modIds.each { modId ->
+    tasks.named("compile${modId.capitalize()}ModJava", JavaCompile).configure {
+        options.errorprone.enabled = false
+    }
+}
+
+// One packaging task per in-repo mod, generated from the same scan. Each produces `<modId>.jar`
+// beside that mod's own `mod.json` — `ModLoader` looks for exactly `<modId>.jar` in the mod's
+// directory (see `ModJarLoader`), so neither the name nor the location is a choice here.
+//
+// These jars are build outputs that happen to live under `resources/` (which is where mods live),
+// so they are git-ignored rather than checked in — see `.gitignore`.
+modIds.each { modId ->
+    tasks.register("${modId}ModJar", Jar) {
+        group = 'build'
+        description = "Package the $modId mod into resources/mods/$modId/${modId}.jar"
+        archiveFileName = "${modId}.jar"
+        destinationDirectory = layout.projectDirectory.dir("resources/mods/$modId")
+        from sourceSets."${modId}Mod".output
+    }
+}
+
+// What a mod compiles against: the whole `com.rustorio` tree and nothing else. `com.graphics` is
+// deliberately excluded — the dependency runs one way (graphics -> game), a mod has no business
+// naming a renderer type, and shipping it would invite exactly that.
+//
+// No dependencies are declared in the published POM on purpose. A mod that needs JSpecify
+// annotations or Jackson declares them itself, at whatever version it wants, the same way a Fabric
+// or RimWorld mod pulls its own libraries — this jar is an API surface, not a dependency manager.
+tasks.register('apiJar', Jar) {
+    group = 'publishing'
+    description = 'The engine API a third-party mod compiles against (com.rustorio only)'
+    archiveBaseName = 'rustorio-api'
+    from(sourceSets.main.output) {
+        include 'com/rustorio/**'
+    }
+}
+
+publishing {
+    publications {
+        api(MavenPublication) {
+            groupId = 'com.rustorio'
+            artifactId = 'rustorio-api'
+            version = project.version
+            artifact tasks.named('apiJar')
+        }
+    }
 }
 
 application {
@@ -208,6 +308,17 @@ tasks.register('benchmark', JavaExec) {
 // поэтому ломает их обычно правка домена — то есть ровно то, что `build` и должен ловить.
 tasks.named('check') {
     dependsOn tasks.named('compileToolsJava'), tasks.named('compileEditorJava')
+    dependsOn modIds.collect { tasks.named("compile${it.capitalize()}ModJava") }
+}
+
+// Every entry point that loads mods needs the mod's jar to already exist on disk: a `mod.json`
+// declaring an `entryPoint` whose jar is missing is a hard ModLoadException, not a skipped mod
+// (see `ModJarLoader`). That covers every way this project starts — the window, the headless demo,
+// the benchmark, the content editor — and the tests, which read `resources/mods` straight off disk.
+// Registered here, at the end, because `tasks.named` needs these tasks to exist already.
+def modJarTasks = modIds.collect { tasks.named("${it}ModJar") }
+['run', 'test', 'devRun', 'game', 'benchmark', 'editor'].each { name ->
+    tasks.named(name) { dependsOn modJarTasks }
 }
 
 tasks.named('test') {

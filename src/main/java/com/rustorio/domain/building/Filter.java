@@ -123,10 +123,6 @@ public final class Filter implements Building, SettlesEachTick {
         return Appearance.of(prototype.texture());
     }
 
-    @Override
-    public BuildingType type() {
-        return BuildingType.FILTER;
-    }
 
     @Override
     public ContentId prototypeId() {

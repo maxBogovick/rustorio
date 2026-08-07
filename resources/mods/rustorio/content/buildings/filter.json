@@ -1,5 +1,6 @@
 {
   "path": "filter",
+  "category": "logistics",
   "label": { "en": "Filter", "ru": "Фильтр" },
   "archetype": "FILTER",
   "cost": { "item": "iron_plate", "amount": 3 },

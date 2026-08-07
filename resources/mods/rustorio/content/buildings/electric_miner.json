@@ -1,5 +1,6 @@
 {
   "path": "electric_miner",
+  "category": "mining",
   "label": { "en": "El. miner", "ru": "Электробур" },
   "archetype": "ELECTRIC_MINER",
   "cost": { "item": "gear", "amount": 5 },

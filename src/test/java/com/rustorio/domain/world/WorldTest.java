@@ -1,7 +1,9 @@
 package com.rustorio.domain.world;
 
 import com.rustorio.domain.BuildingStatus;
+import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
@@ -95,10 +97,10 @@ class WorldTest {
         World world = new World(10, 10);
         world.placeMiner(6, 5); // standard map's first iron patch
 
-        List<BuildingType> types = new ArrayList<>();
-        world.forEachBuildingIn(0, 0, 9, 9, (x, y, building) -> types.add(building.type()));
+        List<ContentId> types = new ArrayList<>();
+        world.forEachBuildingIn(0, 0, 9, 9, (x, y, building) -> types.add(building.prototypeId()));
 
-        assertEquals(List.of(BuildingType.MINER), types);
+        assertEquals(List.of(VanillaBuildings.idFor(BuildingType.MINER)), types);
     }
 
     /**

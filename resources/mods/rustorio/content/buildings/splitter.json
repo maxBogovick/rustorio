@@ -1,5 +1,6 @@
 {
   "path": "splitter",
+  "category": "logistics",
   "label": { "en": "Splitter", "ru": "Разветвитель" },
   "archetype": "SPLITTER",
   "cost": { "item": "iron_plate", "amount": 3 },

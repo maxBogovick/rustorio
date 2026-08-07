@@ -1,5 +1,6 @@
 {
   "path": "pipe",
+  "category": "fluids",
   "label": { "en": "Pipe", "ru": "Труба" },
   "archetype": "PIPE",
   "cost": { "item": "iron_plate", "amount": 1 },

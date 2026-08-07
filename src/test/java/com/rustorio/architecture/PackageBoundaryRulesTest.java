@@ -89,6 +89,39 @@ class PackageBoundaryRulesTest {
             .because("libGDX types belong to the rendering layer; a domain that imports them can no "
                     + "longer run headless, and its signatures start leaking engine types to mods");
 
+    /**
+     * The moddability boundary, stated in the only direction that means anything: the ENGINE must
+     * not know a mod exists. A mod naming engine types is the whole point of an engine; an engine
+     * naming a mod's types is the defect — it makes that mod uninstallable, unshippable as a
+     * separate artifact, and turns "add a building" back into "edit the game".
+     *
+     * <p>{@code com.webminer} is the mod that lives in this repository. It began as three archetype
+     * classes inside {@code com.rustorio.domain.building}, three methods on {@code TickContext} and
+     * a branch in the inspection panel — every one of which this rule now forbids, and none of
+     * which any test noticed at the time, because the architecture tests only ever looked at
+     * dependency DIRECTION between engine packages and never at whether a mod had grown into one.
+     *
+     * <p>No package is exempt any more. Two were, for as long as this repository had no way to
+     * package a mod: the composition roots ({@code com.graphics.screen}, {@code com.rustorio.Main})
+     * had to call the mod's registration by name, because a class in {@code src/main} cannot be
+     * something {@code ServiceLoader} discovers in a jar. Now {@code webminerModJar} builds that
+     * jar from its own source set and the mod loader finds it like any third-party mod's, so
+     * nothing in the engine names it — and this rule says the whole engine, with no carve-outs.
+     *
+     * <p>Belt and braces on purpose: the source-set split already makes the dependency impossible
+     * to compile, and this rule would only fire if someone put a mod back into {@code src/main}.
+     * That is precisely the regression worth catching, because it is how the situation arose the
+     * first time — nobody decided to couple the engine to a mod; the mod was simply in the same
+     * source set, and nothing objected.
+     */
+    @ArchTest
+    static final ArchRule theEngineDoesNotDependOnAnyMod = noClasses()
+            .that().resideInAnyPackage("com.rustorio..", "com.graphics..")
+            .should().dependOnClassesThat().resideInAPackage("com.webminer..")
+            .because("a mod may name the engine; the engine naming a mod is what makes that mod "
+                    + "impossible to uninstall or ship separately — webminer ships as its own jar "
+                    + "(see the webminerModJar task) and is discovered at runtime, not compiled in");
+
     @ArchTest
     static final ArchRule onlyPersistenceOrModImportJackson = noClasses()
             .that().resideOutsideOfPackage("com.rustorio.persistence..")
