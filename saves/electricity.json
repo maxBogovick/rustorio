@@ -1,0 +1,369 @@
+{
+  "version" : 9,
+  "stats" : {
+    "totals" : {
+      "rustorio:coal" : 647,
+      "rustorio:iron_plate" : 584,
+      "rustorio:gear" : 202,
+      "rustorio:iron_ore" : 596
+    }
+  },
+  "research" : {
+    "points" : 0,
+    "unlocked" : [ ]
+  },
+  "buildings" : [ {
+    "x" : 38,
+    "y" : 58,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "furnace"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "buffers" : [ ],
+      "cooldown" : 0,
+      "recipeOutput" : null,
+      "pendingOutput" : null,
+      "fuelBuffer" : 0,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 47,
+    "y" : 50,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "pump"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "cooldown" : 2
+    }
+  }, {
+    "x" : 48,
+    "y" : 50,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "pipe"
+    },
+    "state" : {
+      "fluid" : "rustorio:water",
+      "amount" : 100
+    }
+  }, {
+    "x" : 49,
+    "y" : 50,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "boiler"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "fuelBuffer" : 5,
+      "burnTicksLeft" : 60
+    }
+  }, {
+    "x" : 49,
+    "y" : 51,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 49,
+    "y" : 52,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 49,
+    "y" : 53,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 49,
+    "y" : 54,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 49,
+    "y" : 55,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 50,
+    "y" : 50,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "generator"
+    },
+    "state" : {
+      "direction" : "RIGHT"
+    }
+  }, {
+    "x" : 50,
+    "y" : 55,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 51,
+    "y" : 55,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 52,
+    "y" : 50,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "miner"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "cooldown" : 3,
+      "held" : "rustorio:iron_ore",
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 52,
+    "y" : 55,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 53,
+    "y" : 50,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:iron_ore"
+    }
+  }, {
+    "x" : 53,
+    "y" : 55,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 54,
+    "y" : 49,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "chest"
+    },
+    "state" : {
+      "direction" : "UP",
+      "contents" : {
+        "rustorio:iron_plate" : 100
+      },
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 54,
+    "y" : 50,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "furnace"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "buffers" : [ 5 ],
+      "cooldown" : 5,
+      "recipeOutput" : "rustorio:iron_plate",
+      "pendingOutput" : "rustorio:iron_plate",
+      "fuelBuffer" : 5,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 54,
+    "y" : 51,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 54,
+    "y" : 52,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 54,
+    "y" : 53,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 54,
+    "y" : 54,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 54,
+    "y" : 55,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "splitter"
+    },
+    "state" : {
+      "facing" : "LEFT",
+      "held" : "rustorio:coal",
+      "nextIsForward" : false
+    }
+  }, {
+    "x" : 55,
+    "y" : 49,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "held" : "rustorio:iron_plate"
+    }
+  }, {
+    "x" : 55,
+    "y" : 50,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "splitter"
+    },
+    "state" : {
+      "facing" : "UP",
+      "held" : "rustorio:iron_plate",
+      "nextIsForward" : true
+    }
+  }, {
+    "x" : 55,
+    "y" : 55,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "miner"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "cooldown" : 3,
+      "held" : "rustorio:coal",
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 56,
+    "y" : 50,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "press"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "buffers" : [ 5 ],
+      "cooldown" : 8,
+      "recipeOutput" : "rustorio:gear",
+      "pendingOutput" : "rustorio:gear",
+      "fuelBuffer" : 0,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 57,
+    "y" : 50,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "chest"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "contents" : {
+        "rustorio:gear" : 100
+      },
+      "speedLevel" : 0
+    }
+  } ],
+  "oreLayout" : {
+    "kind" : "authored:waterworks:riverside",
+    "seed" : 0,
+    "width" : 256,
+    "height" : 256
+  },
+  "inventory" : {
+    "rustorio:gear" : 90,
+    "rustorio:iron_plate" : 230
+  },
+  "oreDepletion" : {
+    "12852" : 596,
+    "14135" : 647
+  },
+  "tickCount" : 26095
+}

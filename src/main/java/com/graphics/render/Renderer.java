@@ -57,7 +57,7 @@ public final class Renderer implements Disposable {
         TileRange visible = camera.visibleTiles(GfxConfig.GRID_W);
 
         worldRenderer.render(visible);   // 1. земля + рудные области
-        buildingRenderer.render(world, selected);  // 2. буры на карте
+        buildingRenderer.render(world, delta);  // 2. здания на карте (лента анимирована — нужен delta)
         itemRenderer.render();           // 3. пусто (предметы — позже)
         overlayRenderer.renderWorld();   // 4. пусто
 

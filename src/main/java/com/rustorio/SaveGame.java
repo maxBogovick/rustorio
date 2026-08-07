@@ -1,18 +1,23 @@
 package com.rustorio;
 
 import com.rustorio.core.Item;
-import com.rustorio.model.Building;
-import com.rustorio.model.Chest;
-import com.rustorio.model.Furnace;
-import com.rustorio.model.Miner;
+import com.rustorio.model.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class SaveGame {
+    SortRule rule = new SortRule() {
+        @Override
+        public boolean forward(Supplier<Item> itemSupplier) {
+            return false;
+        }
+    };
+
     public static boolean save(World world, String path) {
         List<String> lines = new ArrayList<>();
         for (Item item : Item.values()) {
@@ -64,6 +69,8 @@ public class SaveGame {
             case MINER   -> Miner.load(data);
             case CHEST   -> Chest.load(data);
             case FURNACE -> Furnace.load(data);
+            case BELT -> Belt.load(data);
+            case SPLITTER -> Splitter.load(data);
         };
         world.restore(x, y, building);
     }

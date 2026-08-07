@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 
 import static com.rustorio.model.Building.buildings;
 
@@ -68,20 +69,28 @@ public final class World {
      * не про то, какой кнопкой кликнули.
      */
     public void placeMiner(int x, int y) {
-        if (inBounds(x, y) && hasOre(x, y) && !hasBuilding(x, y)) {
-            buildings.put(key(x, y), new Miner());
-        }
+        placeIfFree(x, y, Miner::new);
     }
 
     public void placeChest(int x, int y) {
-        if (inBounds(x, y) && !hasBuilding(x, y)) {
-            buildings.put(key(x, y), new Chest());
-        }
+        placeIfFree(x, y, Chest::new);
     }
 
     public void placeFurnace(int x, int y) {
+        placeIfFree(x, y, Furnace::new);
+    }
+
+    public void placeSplitter(int x, int y) {
+        placeIfFree(x, y, () -> new Splitter(SortRule.ORE_FORWARD));
+    }
+
+    public void placeBelt(int x, int y) {
+        placeIfFree(x, y, Belt::new);
+    }
+
+    private void placeIfFree(int x, int y, Supplier<Building> building) {
         if (inBounds(x, y) && !hasBuilding(x, y)) {
-            buildings.put(key(x, y), new Furnace());
+            buildings.put(key(x, y), building.get());
         }
     }
 
@@ -91,6 +100,8 @@ public final class World {
             case MINER -> placeMiner(x, y);
             case CHEST -> placeChest(x, y);
             case FURNACE -> placeFurnace(x, y);
+            case BELT -> placeBelt(x, y);
+            case SPLITTER -> placeSplitter(x, y);
         }
     }
 
@@ -141,12 +152,6 @@ public final class World {
     void clear() {
         buildings.clear();
         stats.clear();
-    }
-
-    public void placeSplitter(int x, int y) {
-        if (inBounds(x, y) && !hasBuilding(x, y)) {
-            buildings.put(key(x, y), new Splitter(SortRule.ORE_FORWARD));
-        }
     }
 
     // --- Ключ карты: две координаты, упакованные в один long ---------------------------------

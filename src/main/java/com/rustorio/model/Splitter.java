@@ -8,30 +8,14 @@ import com.rustorio.core.Direction;
 import com.rustorio.core.Item;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 
-public final class Splitter implements Building{
+public final class Splitter extends Belt implements Building{
     private final SortRule rule;
-    private Item held;
+    private Supplier<Item> held;
 
     public Splitter(SortRule rule) {
         this.rule = rule;
-    }
-
-    @Override
-    public boolean accept(Item item) {
-        if (held != null) return false;
-        held = item;
-        return true;
-    }
-
-    @Override
-    public Optional<Direction> direction() {
-        return Optional.of(Direction.EAST);
-    }
-
-    @Override
-    public Appearance appearance() {
-        return null;
     }
 
     @Override
@@ -40,16 +24,32 @@ public final class Splitter implements Building{
         boolean forward = rule.forward(held);
         int dx = forward ? x+1 : x;
         int dy = forward ? y : y+1;
-        if (world.offerForward(dx, dy, held)) held = null;
+        if (world.offerForward(dx, dy, held.get())) held = null;
     }
 
     @Override
     public BuildingType type() {
-        return null;
+        return BuildingType.SPLITTER;
     }
 
     @Override
     public String save() {
         return "splitter";
+    }
+
+    public static Splitter load(String data, SortRule rule) {
+        Splitter splitter = new Splitter(rule);
+        Supplier<Item> held = new Supplier<Item>() {
+            @Override
+            public Item get() {
+                return Item.valueOf(data);
+            }
+        };
+
+        if (!data.equals("-")) {
+                held.get();
+            splitter.held = held;
+        }
+        return splitter;
     }
 }

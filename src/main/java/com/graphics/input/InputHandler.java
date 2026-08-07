@@ -45,14 +45,10 @@ public final class InputHandler {
     }
 
     private BuildingType handleBuildSelection() {
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
-            selected = BuildingType.MINER;
-        }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
-            selected = BuildingType.CHEST;
-        }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) {
-            selected = BuildingType.FURNACE;
+        for (BuildingType type : BuildingType.values()) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1 + type.ordinal())) {
+                selected = type;
+            }
         }
         return selected;
     }

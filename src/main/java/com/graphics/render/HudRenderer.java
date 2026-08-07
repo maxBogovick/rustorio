@@ -5,7 +5,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.rustorio.BuildingType;
-import com.rustorio.Item;
+import com.rustorio.core.Item;
 import com.rustorio.ProductionStats;
 
 import static com.graphics.render.BuildingRenderer.hotbar;
@@ -32,7 +32,7 @@ final class HudRenderer {
 
         font.setColor(Palette.HINT);
         font.getData().setScale(0.9f);
-        font.draw(batch, "LMB build miner on ore   WASD pan   wheel zoom", 20, y);
+        font.draw(batch, "1-5 pick   LMB build   RMB remove   WASD pan   wheel zoom", 20, y);
         y -= 22;
 
         font.draw(batch, hotbar(selected), 20, y);

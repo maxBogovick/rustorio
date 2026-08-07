@@ -2,6 +2,7 @@ package com.rustorio.model;
 
 import com.rustorio.*;
 import com.rustorio.core.Direction;
+import com.rustorio.core.Item;
 
 import java.util.ArrayList;
 import java.util.List;

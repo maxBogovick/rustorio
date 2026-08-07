@@ -10,7 +10,7 @@ import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Optional;
 
-public final class Belt implements Building {
+public sealed class Belt implements Building permits Splitter {
 
     private Item[] held = new Item[2];
 
@@ -63,7 +63,7 @@ public final class Belt implements Building {
         return null;
     }
 
-    static Belt load(String data) {
+    public static Belt load(String data) {
         Belt belt = new Belt();
         Item[] held = new Item[2];
 
