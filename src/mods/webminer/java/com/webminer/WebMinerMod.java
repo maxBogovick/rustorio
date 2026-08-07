@@ -8,7 +8,6 @@ import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
-import com.rustorio.domain.VanillaSprites;
 import com.rustorio.domain.building.BeltState;
 import com.rustorio.domain.building.BuildingCost;
 import com.rustorio.domain.building.BuildingPrototype;
@@ -36,6 +35,23 @@ public final class WebMinerMod implements RustorioMod {
     public static final ContentId WEB_MINER_ID = ContentId.of("webminer:web_miner");
     public static final ContentId MONITOR_ID = ContentId.of("webminer:monitor");
     public static final ContentId INTERPRETER_ID = ContentId.of("webminer:interpreter");
+
+    /**
+     * This mod's own sprites — one per PNG in {@code resources/mods/webminer/textures/}, which the
+     * renderer indexes under the mod folder's own name, so {@code monitor.png} is the sprite {@code
+     * webminer:monitor}. No engine change was needed for that: the same mechanism already carries
+     * any third-party mod's art.
+     *
+     * <p>Separate constants from the building ids above, even though the two spell the same thing
+     * today: one names a file on disk, the other names what goes into the player's save, and
+     * renaming either must not silently move the other. All three archetypes used to point at
+     * vanilla sprites instead ({@code rustorio:miner}, {@code rustorio:belt_empty} twice), which
+     * drew a web miner as a drill and made the monitor and the interpreter indistinguishable from
+     * each other and from an ordinary belt.
+     */
+    private static final ContentId WEB_MINER_SPRITE = ContentId.of("webminer:web_miner");
+    private static final ContentId MONITOR_SPRITE = ContentId.of("webminer:monitor");
+    private static final ContentId INTERPRETER_SPRITE = ContentId.of("webminer:interpreter");
 
     /**
      * Discovered by {@code ServiceLoader} out of this mod's own jar — the mod loader instantiates
@@ -128,7 +144,7 @@ public final class WebMinerMod implements RustorioMod {
                 "Web Miner",
                 new BuildingCost(VanillaItems.IRON_PLATE, 5),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN,
-                VanillaSprites.MINER, // borrowed — no art of its own yet, see package-info
+                WEB_MINER_SPRITE,
                 1, 1,
                 0, 1, false,
                 // A real, stable, no-auth JSON endpoint — so a freshly placed miner works immediately
@@ -153,7 +169,7 @@ public final class WebMinerMod implements RustorioMod {
                 "Monitor",
                 new BuildingCost(VanillaItems.IRON_PLATE, 3),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN,
-                VanillaSprites.BELT_EMPTY, // borrowed — no art of its own yet, see package-info
+                MONITOR_SPRITE,
                 0, 1, false,
                 (self, direction, factory) -> new Monitor(direction, self),
                 (self, decodedState, factory) -> {
@@ -167,7 +183,7 @@ public final class WebMinerMod implements RustorioMod {
                 "Interpreter",
                 new BuildingCost(VanillaItems.IRON_PLATE, 3),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN,
-                VanillaSprites.BELT_EMPTY, // borrowed — no art of its own yet, see package-info
+                INTERPRETER_SPRITE,
                 0, 1, false,
                 (self, direction, factory) -> new Interpreter(direction, self),
                 (self, decodedState, factory) -> {
