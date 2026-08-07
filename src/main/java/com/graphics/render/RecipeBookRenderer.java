@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
  * was actually built with — the same registry furnaces and presses search through ({@link
  * RecipeBook#find}) — so a new recipe becomes visible the moment it's playable, as one constant
  * there, with no change to this file (the same trick the hotbar below uses, reading {@code
- * BuildingType.values()} — see {@link HotbarLayout}).
+ * BuildingType.values()} — see {@link CategoryTabsLayout}).
  *
  * <p><b>{@link #MAX_VISIBLE_RECIPES} (live bug report).</b> Recipes are JSON content now, loaded
  * through the same open, moddable registry as buildings ({@code com.rustorio.mod}) — the exact

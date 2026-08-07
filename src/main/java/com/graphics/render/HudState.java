@@ -59,5 +59,6 @@ public record HudState(ContentId selected, Direction facing, boolean paused, int
         boolean showTechTree, List<TilePos> dragTiles, @Nullable TilePos inspected, boolean altOverlay,
         boolean showStats, ItemType statsItem, List<ContentId> hotbarSlots, boolean showBuildMenu,
         String buildMenuQuery, int buildMenuCategoryCycle, int buildMenuScrollOffset, @Nullable String statusMessage,
-        boolean showInfo, boolean showHints, boolean showFpsUps, @Nullable SettingsModalView settingsModal) {
+        boolean showInfo, boolean showHints, boolean showFpsUps, @Nullable SettingsModalView settingsModal,
+        int activeCategoryIndex, @Nullable ContentId hoveredPrototype, DisplayLabels displayLabels) {
 }

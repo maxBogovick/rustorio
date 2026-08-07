@@ -8,7 +8,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Geometry AND filtering logic for the build menu — one formula shared by drawing
  * ({@link BuildMenuRenderer}) and hit-testing ({@code com.graphics.input.InputHandler}, a
- * different package — same reason {@link HotbarLayout} is public).
+ * different package — same reason {@link QuickBarLayout} is public).
  *
  * <p>An icon grid with tabs, not a text list: category tabs are drawn as actual clickable buttons
  * (fixed-width cells, no font measurement needed here — this class stays libGDX-free so a JUnit
@@ -167,7 +167,7 @@ public final class BuildMenuLayout {
     /**
      * Which currently-visible tile (0-based, row-major: {@code row * COLUMNS + col}) sits under
      * {@code (screenX, screenY)} — screen coordinates as {@code Gdx.input} gives them (Y from the
-     * TOP), same flip {@link HotbarLayout#hitTest} already does — or {@code -1} if the click missed
+     * TOP), same flip {@link QuickBarLayout#hitTest} already does — or {@code -1} if the click missed
      * every tile, including a point in the gap between tiles.
      */
     public static int hitTestTile(float screenX, float screenY, int screenWidth, int screenHeight, int visibleTileCount) {

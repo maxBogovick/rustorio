@@ -25,6 +25,7 @@ import com.rustorio.mod.LoadedGame;
 import com.rustorio.persistence.JsonSaveRepository;
 import com.rustorio.persistence.SaveRepository;
 import com.rustorio.persistence.SaveResult;
+import com.rustorio.persistence.UiSettings;
 import java.nio.file.Path;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -145,7 +146,7 @@ public final class GameScreen extends ScreenAdapter {
         // переименования прототипов, объявленные модами, — забыть второе из четырёх мест вызова
         // ровно так и получилось.
         this.input = new InputHandler(camera, GameBootstrap.saves(loadedGame, JsonSaveRepository.DEFAULT_PATH),
-                world.buildingFactory().buildings());
+                world.buildingFactory().buildings(), new UiSettings());
         this.pauseMenu = new PauseMenu(game, loadedGame, modDirectories, world, this::dispose);
         this.textures = Textures.loadFrom(modDirectories);
         this.renderer = new Renderer(textures, camera, world.buildingFactory().oreLayout(), world.width(), world.height());

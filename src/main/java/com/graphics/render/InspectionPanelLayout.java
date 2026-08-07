@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 /**
  * Content AND geometry for the inspection panel — one formula shared by drawing ({@link
  * HudRenderer}) and hit-testing ({@code com.graphics.input.InputHandler}, a different package —
- * same reason {@link BuildMenuLayout}/{@link HotbarLayout} are public). The panel itself is just a
+ * same reason {@link BuildMenuLayout}/{@link QuickBarLayout} are public). The panel itself is just a
  * top-to-bottom list of text lines ({@link #inspectionLines}); {@link #clickableRecipes} names the
  * trailing lines of that list a click can act on — {@link #appendFurnaceDetails} always appends one
  * line per {@link Furnace#possibleRecipes()} entry LAST, in that exact order, so "the last {@code
@@ -61,7 +61,7 @@ public final class InspectionPanelLayout {
     /**
      * Which line index (0-based, top to bottom — same order as {@link HudRenderer#inspectionLines})
      * sits under {@code (screenX, screenY)} — {@code Gdx.input}'s screen coordinates (Y from the
-     * top), same flip {@link BuildMenuLayout}/{@link HotbarLayout} already do — or {@code -1} if the
+     * top), same flip {@link BuildMenuLayout}/{@link QuickBarLayout} already do — or {@code -1} if the
      * click missed the panel, or landed in its own bottom padding below the last line.
      */
     static int hitTestLine(float screenX, float screenY, int screenWidth, int screenHeight, int lineCount) {

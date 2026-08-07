@@ -78,6 +78,18 @@ final class Palette {
     static final Color SLOT_BG = new Color(1f, 1f, 1f, 0.06f);
     static final Color SLOT_BORDER = new Color(1f, 1f, 1f, 0.25f);
     static final Color SLOT_SELECTED = rgb(224, 161, 54); // янтарь — тот же тон, что WORKING
+
+    /**
+     * Фон невыбранной вкладки категории — НЕПРОЗРАЧНЫЙ тёмный, в отличие от {@link #SLOT_BG}
+     * (белый с альфой 0.06). Живой баг-репорт: подписи вкладок читались с трудом, потому что
+     * светло-бежевый {@link #HINT} лежал на почти белом прямоугольнике. Непрозрачный цвет
+     * выглядит одинаково независимо от того, включено ли смешивание в этом проходе.
+     */
+    static final Color TAB_BG = rgb(38, 41, 48);
+    /** Подпись на вкладке — светлая на тёмном; у активной поверх янтаря берётся белый. */
+    static final Color TAB_TEXT = rgb(232, 228, 216);
+    /** Фон всплывающей подсказки — темнее панели, чтобы читаться поверх чего угодно. */
+    static final Color TOOLTIP_BG = rgb(24, 26, 31);
     // Build menu tile under the cursor, but not (yet) the equipped building — brighter than
     // SLOT_BORDER so hovering gives visible feedback before the click commits to anything, distinct
     // from SLOT_SELECTED's amber so "about to pick" never reads as "already equipped".

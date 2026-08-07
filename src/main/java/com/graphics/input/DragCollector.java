@@ -2,7 +2,7 @@ package com.graphics.input;
 
 import com.badlogic.gdx.Gdx;
 import com.graphics.render.GameCamera;
-import com.graphics.render.HotbarLayout;
+import com.graphics.render.QuickBarLayout;
 import com.graphics.render.TilePos;
 import java.util.ArrayList;
 import java.util.List;
@@ -75,8 +75,18 @@ final class DragCollector {
         return dragging && !blocked ? List.copyOf(tiles) : List.of();
     }
 
-    private static boolean isOverHotbar(int hotbarSlotCount) {
-        return HotbarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(),
-                Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), hotbarSlotCount) >= 0;
+    /**
+     * Whether the cursor is over the quick bar — a drag that STARTS there is picking a building,
+     * not painting a line of them.
+     *
+     * <p>{@code pinnedCount} rather than a cell count: the grid's height follows how much is
+     * pinned, so the guard has to ask the same question the renderer does or it protects a
+     * rectangle that is not where the grid is. It briefly did exactly that — the old strip was
+     * centred along the bottom, and after the grid moved to the corner this still guarded the
+     * strip's rectangle: drags were blocked over empty screen and allowed straight over the cells.
+     */
+    private static boolean isOverHotbar(int pinnedCount) {
+        return QuickBarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(), Gdx.graphics.getHeight(),
+                QuickBarLayout.COLUMNS, QuickBarLayout.visibleRowsFor(pinnedCount)) >= 0;
     }
 }

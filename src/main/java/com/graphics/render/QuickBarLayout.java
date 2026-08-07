@@ -2,7 +2,7 @@ package com.graphics.render;
 
 /**
  * Where each cell of the quick bar sits on screen — the same one-formula-two-consumers arrangement
- * {@link HotbarLayout} has, and for the same reason: drawing ({@link HudRenderer}) and hit-testing
+ * {@link BuildMenuLayout} has, and for the same reason: drawing ({@link HudRenderer}) and hit-testing
  * ({@code com.graphics.input.InputHandler}, another package) must never compute it twice.
  *
  * <p>Anchored to the BOTTOM-LEFT corner, and that choice is what makes the grid free: a bar centred
@@ -10,9 +10,8 @@ package com.graphics.render;
  * would slide out from under the cursor. Growing upward from a fixed corner leaves rows one and two
  * exactly where they were.
  *
- * <p>Cells are smaller than a {@link HotbarLayout#SLOT_SIZE} slot because they carry no label —
- * icons only, by the owner's decision, so the caption strip that forced the old slot's height is
- * simply not there.
+ * <p>Cells carry no label at all — icons only, by the owner's decision — so they are smaller than
+ * the labelled slots of the strip this replaced, whose height had to fit a caption underneath.
  */
 public final class QuickBarLayout {
 
@@ -25,7 +24,26 @@ public final class QuickBarLayout {
     /** Distance from the window's bottom edge to the grid's bottom row. */
     public static final float MARGIN_BOTTOM = 14f;
 
+    /** Three per row — the shape the owner asked for, and the reason the grid grows in threes. */
+    public static final int COLUMNS = 3;
+    /** Three rows of three. Nine is also exactly what keys 1-9 can address, which is not a coincidence. */
+    public static final int MAX_CELLS = COLUMNS * 3;
+
     private QuickBarLayout() {
+    }
+
+    /**
+     * How many rows a bar holding {@code pinnedCount} buildings occupies: always whole rows, at
+     * least one, never more than three. An empty bar still shows its first row — otherwise there is
+     * nothing on screen to tell a new player the bar is there to be filled.
+     *
+     * <p>Lives here rather than in the model because both the model AND the renderer need it, they
+     * are in different packages, and the one thing worse than putting layout arithmetic in a model
+     * is having two copies of it.
+     */
+    public static int visibleRowsFor(int pinnedCount) {
+        int rows = Math.max(1, (pinnedCount + COLUMNS - 1) / COLUMNS);
+        return Math.min(MAX_CELLS / COLUMNS, rows);
     }
 
     /** Total width of a grid {@code columns} wide — constant, since the grid grows in rows rather than columns. */

@@ -2,6 +2,7 @@ package com.graphics.input;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.graphics.render.DisplayLabels;
 import com.graphics.render.HudState;
 import com.graphics.render.SettingsModalView;
 import com.graphics.render.TilePos;
@@ -287,9 +288,11 @@ final class SimulationControls {
      */
     HudState hudState(ContentId selected, Direction facing, List<TilePos> dragTiles, @Nullable TilePos inspected,
             boolean altOverlay, ItemType statsItem, List<ContentId> hotbarSlots, @Nullable String statusMessage,
-            @Nullable SettingsModalView settingsModal) {
+            @Nullable SettingsModalView settingsModal, int activeCategoryIndex,
+            @Nullable ContentId hoveredPrototype, DisplayLabels displayLabels) {
         return new HudState(selected, facing, paused, speed(), showRecipeBook(), showTechTree(), dragTiles, inspected,
                 altOverlay, showStats(), statsItem, hotbarSlots, showBuildMenu(), searchQuery.toString(), categoryCycle,
-                scrollOffsetRows, statusMessage, showInfo(), showHints, showFpsUps, settingsModal);
+                scrollOffsetRows, statusMessage, showInfo(), showHints, showFpsUps, settingsModal,
+                activeCategoryIndex, hoveredPrototype, displayLabels);
     }
 }

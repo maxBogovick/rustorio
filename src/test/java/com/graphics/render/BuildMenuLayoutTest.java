@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * {@link BuildMenuLayout} — pure logic (no libGDX types), shared by {@link BuildMenuRenderer}
  * (drawing) and {@code com.graphics.input.InputHandler} (hit-testing a click), same reason {@link
- * HotbarLayoutTest} exists for the hotbar's own geometry.
+ * QuickBarLayoutTest} exists for the quick bar's own geometry.
  */
 class BuildMenuLayoutTest {
 

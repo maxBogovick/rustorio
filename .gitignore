@@ -37,3 +37,4 @@ resources/mods/*/*.jar
 # The external mod template is a standalone Gradle build — its outputs are not repo content.
 examples/external-mod-template/build/
 examples/external-mod-template/.gradle/
+/rustorio-ui.json

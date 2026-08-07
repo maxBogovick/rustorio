@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * {@link QuickBarLayout} — geometry only, no GL context, same split {@link CameraViewportTest} and
- * {@link HotbarLayoutTest} already follow. Worth its own tests because two of its rules point in
+ * {@link BuildMenuLayoutTest} already follow. Worth its own tests because two of its rules point in
  * opposite directions: the grid grows UPWARD from a fixed corner, while cell 0 is the TOP-left one
  * so that keys 1-9 read like a keypad.
  */

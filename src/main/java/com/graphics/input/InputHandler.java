@@ -5,7 +5,9 @@ import com.badlogic.gdx.Input;
 import com.graphics.GfxConfig;
 import com.graphics.render.BuildMenuLayout;
 import com.graphics.render.GameCamera;
-import com.graphics.render.HotbarLayout;
+import com.graphics.render.CategoryTabsLayout;
+import com.graphics.render.DisplayLabels;
+import com.graphics.render.QuickBarLayout;
 import com.graphics.render.HudState;
 import com.graphics.render.InspectionPanelLayout;
 import com.graphics.render.TilePos;
@@ -34,9 +36,11 @@ import com.rustorio.domain.building.RecipeSelectable;
 import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.world.World;
 import com.rustorio.persistence.SaveRepository;
+import com.rustorio.persistence.UiSettings;
 import com.rustorio.persistence.SaveResult;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -62,7 +66,15 @@ public final class InputHandler {
      * {@code BuildingType.values()} раньше давал напрямую, чтобы клавиши 1-9 ощущались как прежде.
      * Закрепление в слот (клик по меню построек) заменяет элемент этого списка, не сам список.
      */
-    private final List<ContentId> hotbarSlots;
+    private final QuickBar quickBar = new QuickBar();
+    /** Какая вкладка открыта в постоянной панели построек — состояние UI, не мира, поэтому живёт здесь. */
+    private int activeCategoryIndex;
+    /** Реестр прототипов этого мира — вкладки перегруппировываются от него на каждый клик; не меняется за время экрана. */
+    private final Registry<BuildingPrototype> buildings;
+    /** Подписи с разрешёнными коллизиями — считаются ОДИН раз: реестр заморожен на всё время экрана, а на кадре такое строить нельзя. */
+    private final DisplayLabels displayLabels;
+    /** Where the pinned layout is read from and written back to — a file of the PLAYER's, not of a world. */
+    private final UiSettings uiSettings;
     private ContentId selected; // строим это; клавиши 1-9/клик по хотбару меняют
     private Direction facing = Direction.RIGHT; // важно только ленте; клавиша R меняет
     /** Клетка под панелью инспекции (F-03, DEV_TASKS.md) — {@code null}, пока ничего не открыто. */
@@ -91,37 +103,28 @@ public final class InputHandler {
      */
     private final SettingsModal settingsModal = new SettingsModal();
 
-    public InputHandler(GameCamera camera, SaveRepository saveRepository, Registry<BuildingPrototype> buildings) {
+    public InputHandler(GameCamera camera, SaveRepository saveRepository, Registry<BuildingPrototype> buildings,
+            UiSettings uiSettings) {
         this.camera = camera;
         this.saveRepository = saveRepository;
         this.cameraController = new CameraController(camera);
-        this.hotbarSlots = defaultHotbarSlots(buildings);
-        this.selected = hotbarSlots.get(0);
-    }
-
-    /**
-     * Ванильные прототипы в порядке {@code BuildingType.values()} — и только они.
-     *
-     * <p>Дописывать сюда ВСЕ зарегистрированные прототипы нельзя, и это записанное решение Фазы 8
-     * (см. {@link com.graphics.render.HotbarLayout}): панель несёт настраиваемый список
-     * закреплённого, а не каталог. Каталог не влезает — 29 прототипов требуют 1848 px, и панель
-     * уезжала за оба края экрана. Модовое здание попадает сюда закреплением из меню построек
-     * ({@code B}), а не тем, что оно существует.
-     *
-     * <p>Ванильный id проверяется на наличие: мод вправе снести ванильное здание из реестра, и
-     * слот, указывающий в никуда, уронил бы отрисовку хотбара. Считается один раз, в конструкторе,
-     * — на кадре этим ходить нельзя.
-     */
-    private static List<ContentId> defaultHotbarSlots(Registry<BuildingPrototype> buildings) {
-        List<ContentId> slots = new ArrayList<>();
-        for (BuildingType type : BuildingType.values()) {
-            ContentId vanillaId = VanillaBuildings.idFor(type);
-            if (buildings.peek(vanillaId).isPresent()) {
-                slots.add(vanillaId);
+        this.uiSettings = uiSettings;
+        this.buildings = buildings;
+        this.displayLabels = DisplayLabels.of(buildings.iterate());
+        // Only ids this game actually has: a mod uninstalled since the layout was written would
+        // otherwise leave a cell pointing at nothing, and the renderer resolves every cell.
+        List<ContentId> known = new ArrayList<>();
+        for (ContentId pinned : uiSettings.quickBar()) {
+            if (buildings.peek(pinned).isPresent()) {
+                known.add(pinned);
             }
         }
-        return slots;
+        quickBar.restore(known);
+        // Something has to be in hand before the first click, and the bar may legitimately be
+        // empty — the first registered prototype is the fallback, never a hardcoded vanilla id.
+        this.selected = quickBar.at(0).orElseGet(() -> buildings.iterate().get(0).id());
     }
+
 
     // Геттеры для HUD/GameScreen — паузу/скорость/книгу рецептов отдаёт SimulationControls.
     public ContentId selected() { return selected; }
@@ -139,7 +142,8 @@ public final class InputHandler {
     public HudState hudState() {
         boolean altOverlay = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
         return simulationControls.hudState(selected, facing, buildDrag.inProgressTiles(), inspected, altOverlay,
-                statsItem, hotbarSlots, statusMessage, settingsModal.view());
+                statsItem, quickBar.slots(), statusMessage, settingsModal.view(), activeCategoryIndex,
+                hoveredPrototype(), displayLabels);
     }
 
     public void handle(World world, float delta) {
@@ -309,16 +313,29 @@ public final class InputHandler {
                 || simulationControls.showBuildMenu() || simulationControls.showInfo();
     }
 
-    /** ЛКМ по панели построек снизу выбирает закреплённый в слоте прототип — момент нажатия, не «зажато» (см. {@link DragCollector}). */
+    /**
+     * ЛКМ по ячейке быстрой панели берёт закреплённое в руку; ПКМ — открепляет.
+     *
+     * <p>Открепление нужно не для порядка, а потому что панель конечна: без него девятая ячейка
+     * закрывает панель навсегда, и сообщение «полна» становится тупиком. Момент нажатия, не
+     * «зажато» (см. {@link DragCollector}).
+     */
     private void handleHotbarClick() {
+        int cell = QuickBarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(),
+                Gdx.graphics.getHeight(), QuickBarLayout.COLUMNS, quickBar.visibleRows());
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT) && quickBar.at(cell).isPresent()) {
+            quickBar.unpin(cell);
+            uiSettings.saveQuickBar(quickBar.slots());
+            return;
+        }
         if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             return;
         }
-        int index = HotbarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(),
-                Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), hotbarSlots.size());
-        if (index >= 0) {
-            selected = hotbarSlots.get(index);
+        if (quickBar.at(cell).isPresent()) {
+            quickBar.at(cell).ifPresent(pinned -> selected = pinned);
+            return;
         }
+        handleCategoryPanelClick();
     }
 
     /**
@@ -368,11 +385,81 @@ public final class InputHandler {
         return true;
     }
 
-    /** Заменяет прототип в слоте, где СЕЙЧАС выбрано что-то, на {@code prototypeId}, и делает его выбранным — см. {@link #handleBuildMenuClick}. */
+    /**
+     * Что сейчас под курсором в нижней полосе — ячейка быстрой панели или иконка во вкладке, — или
+     * {@code null}, если ни то ни другое. Читается каждый кадр для всплывающей подсказки: два
+     * попадания-теста по прямоугольникам, без аллокаций и без обхода мира.
+     */
+    private @Nullable ContentId hoveredPrototype() {
+        int screenH = Gdx.graphics.getHeight();
+        int cell = QuickBarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(), screenH,
+                QuickBarLayout.COLUMNS, quickBar.visibleRows());
+        if (quickBar.at(cell).isPresent()) {
+            return quickBar.at(cell).orElseThrow();
+        }
+        Map<ContentId, List<BuildingPrototype>> grouped = CategoryTabsLayout.byCategory(buildings.iterate());
+        if (grouped.isEmpty()) {
+            return null;
+        }
+        List<ContentId> categories = List.copyOf(grouped.keySet());
+        List<BuildingPrototype> shown =
+                grouped.get(categories.get(Math.floorMod(activeCategoryIndex, categories.size())));
+        if (shown == null) {
+            return null;
+        }
+        int visible = CategoryTabsLayout.visibleIcons(Gdx.graphics.getWidth(), shown.size());
+        int icon = CategoryTabsLayout.hitTestIcon(Gdx.input.getX(), Gdx.input.getY(), screenH, visible);
+        return icon >= 0 ? shown.get(icon).id() : null;
+    }
+
+    /**
+     * Клик по постоянной панели построек: сперва вкладка, потом иконка под ней. Иконка ЗАКРЕПЛЯЕТ
+     * здание в быстрой панели и берёт в руку — по решению владельца это единственный способ туда
+     * что-то положить, поэтому одного клика достаточно и второго жеста нет.
+     */
+    private void handleCategoryPanelClick() {
+        int screenH = Gdx.graphics.getHeight();
+        List<BuildingPrototype> all = buildings.iterate();
+        Map<ContentId, List<BuildingPrototype>> grouped = CategoryTabsLayout.byCategory(all);
+        if (grouped.isEmpty()) {
+            return;
+        }
+        List<ContentId> categories = List.copyOf(grouped.keySet());
+        int tab = CategoryTabsLayout.hitTestTab(Gdx.input.getX(), Gdx.input.getY(), screenH, categories.size());
+        if (tab >= 0) {
+            activeCategoryIndex = tab;
+            return;
+        }
+        // Локальная переменная, а не повторный get: ключ пришёл из keySet этой же карты, но
+        // компилятору это не видно — правило NullAway этого репозитория именно про такой случай.
+        List<BuildingPrototype> shown =
+                grouped.get(categories.get(Math.floorMod(activeCategoryIndex, categories.size())));
+        if (shown == null) {
+            return;
+        }
+        int visible = CategoryTabsLayout.visibleIcons(Gdx.graphics.getWidth(), shown.size());
+        int icon = CategoryTabsLayout.hitTestIcon(Gdx.input.getX(), Gdx.input.getY(), screenH, visible);
+        if (icon >= 0) {
+            pinSelectedIntoHotbar(shown.get(icon).id());
+        }
+    }
+
+    /**
+     * Закрепляет прототип в первой свободной ячейке быстрой панели и берёт его в руку — единственный
+     * способ туда что-то положить, по решению владельца. Раньше выбранный слот ЗАМЕЩАЛСЯ: панель
+     * была фиксированной длины, свободных ячеек в ней не бывало, и закрепить новое можно было только
+     * выбросив что-то другое.
+     *
+     * <p>Полная панель отказывает, и об этом надо сказать вслух: молчаливый отказ выглядит как
+     * сломанный клик. Взять в руку при этом всё равно даёт — игрок хотел строить, а не настраивать.
+     */
     private void pinSelectedIntoHotbar(ContentId prototypeId) {
-        int slot = hotbarSlots.indexOf(selected);
-        hotbarSlots.set(slot < 0 ? 0 : slot, prototypeId);
         selected = prototypeId;
+        if (quickBar.pin(prototypeId) < 0) {
+            showStatus("Quick bar is full - unpin something first (right-click a cell)");
+            return;
+        }
+        uiSettings.saveQuickBar(quickBar.slots());
     }
 
     /**
@@ -428,7 +515,8 @@ public final class InputHandler {
         }
         int screenW = Gdx.graphics.getWidth();
         int screenH = Gdx.graphics.getHeight();
-        if (HotbarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, hotbarSlots.size()) >= 0
+        if (QuickBarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(), screenH,
+                QuickBarLayout.COLUMNS, quickBar.visibleRows()) >= 0
                 || !cursorOverWorld(screenH)) {
             return; // клик по хотбару или по одной из HUD-полос — не по карте
         }
@@ -451,7 +539,7 @@ public final class InputHandler {
 
     /** Общее для ЛКМ/ПКМ-протяжки: каждый задетый тайл — своё действие, все — в одном {@link CompositeAction}. {@code alsoBlocked} — этот жест начался поверх открытой панели инспекции, см. {@link #handleRecipePickClick}. */
     private void handleDrag(World world, DragCollector drag, Function<TilePos, PlayerAction> toAction, boolean alsoBlocked) {
-        List<TilePos> tiles = drag.poll(camera, hotbarSlots.size(), alsoBlocked);
+        List<TilePos> tiles = drag.poll(camera, quickBar.slots().size(), alsoBlocked);
         if (tiles == null) {
             return;
         }
@@ -474,7 +562,7 @@ public final class InputHandler {
      * добываться вручную в том же самом жесте.
      */
     private void handleRemoveOrManualMineDrag(World world, boolean alsoBlocked) {
-        List<TilePos> tiles = removeDrag.poll(camera, hotbarSlots.size(), alsoBlocked);
+        List<TilePos> tiles = removeDrag.poll(camera, quickBar.slots().size(), alsoBlocked);
         if (tiles == null) {
             return;
         }
@@ -498,9 +586,10 @@ public final class InputHandler {
      * девятой клавише; десятый и далее слоты выбираются только мышью по хотбару.
      */
     private void handleBuildSelection() {
-        for (int i = 0; i < hotbarSlots.size() && i < 9; i++) {
+        for (int i = 0; i < QuickBarLayout.MAX_CELLS; i++) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1 + i)) {
-                selected = hotbarSlots.get(i);
+                int cell = i;
+                quickBar.at(cell).ifPresent(pinned -> selected = pinned);
             }
         }
     }

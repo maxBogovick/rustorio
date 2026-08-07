@@ -1,5 +1,6 @@
 package com.graphics.input;
 
+import com.graphics.render.QuickBarLayout;
 import com.rustorio.api.content.ContentId;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,10 +21,9 @@ import java.util.List;
  */
 final class QuickBar {
 
-    /** Three per row — the shape the owner asked for, and the reason growth happens in threes. */
-    static final int COLUMNS = 3;
-    /** Three rows of three. Nine is also exactly what keys 1-9 can address, which is not a coincidence. */
-    static final int MAX_SLOTS = COLUMNS * 3;
+    /** The grid's shape lives with the geometry that draws it — see {@link QuickBarLayout}, which the renderer reads too. */
+    static final int COLUMNS = QuickBarLayout.COLUMNS;
+    static final int MAX_SLOTS = QuickBarLayout.MAX_CELLS;
 
     private final List<ContentId> pinned = new ArrayList<>();
 
@@ -42,13 +42,12 @@ final class QuickBar {
      * is nothing on screen to tell a new player the bar exists at all.
      */
     int visibleCells() {
-        int rowsNeeded = Math.max(1, (pinned.size() + COLUMNS - 1) / COLUMNS);
-        return Math.min(MAX_SLOTS, rowsNeeded * COLUMNS);
+        return visibleRows() * COLUMNS;
     }
 
-    /** How many rows those cells occupy — what the layout needs to know where the bar's top edge is. */
+    /** How many rows those cells occupy — the rule itself is {@link QuickBarLayout#visibleRowsFor}, shared with the renderer. */
     int visibleRows() {
-        return visibleCells() / COLUMNS;
+        return QuickBarLayout.visibleRowsFor(pinned.size());
     }
 
     /**

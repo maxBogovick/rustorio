@@ -16,6 +16,8 @@ import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingFactory;
+import com.rustorio.domain.building.VanillaCategories;
+import com.rustorio.mod.ContentLocale;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Furnace;
 import com.rustorio.domain.building.RecipeSelectable;
@@ -116,7 +118,8 @@ final class HudRenderer {
     void render(HudState hud, World world, TileRange visible, ProductionStatsView stats, int ups) {
         renderInfoPanel(world, stats, hud.paused(), hud.speed(), ups, hud.showHints(), hud.showFpsUps(),
                 hud.statusMessage());
-        renderHotbar(hud.hotbarSlots(), hud.selected(), hud.facing(), world.buildingFactory());
+        renderHotbar(hud.hotbarSlots(), hud.selected(), hud.facing(), world.buildingFactory(),
+                hud.activeCategoryIndex(), hud.hoveredPrototype(), hud.displayLabels());
         renderMinimap(world, visible);
         renderInspectionPanel(world, hud.inspected());
         renderSettingsModal(hud.settingsModal());
@@ -336,66 +339,77 @@ final class HudRenderer {
      * {@link GfxConfig#HUD_BOTTOM_HEIGHT}, та же, на которую камера сузила вьюпорт снизу (см.
      * {@link #renderInfoPanel} — тот же приём для верхней панели).
      */
-    private void renderHotbar(List<ContentId> hotbarSlots, ContentId selected, Direction facing, BuildingFactory buildingFactory) {
+    private void renderHotbar(List<ContentId> quickBarSlots, ContentId selected, Direction facing,
+            BuildingFactory buildingFactory, int activeCategoryIndex,
+            @Nullable ContentId hovered, DisplayLabels displayLabels) {
         int screenW = Gdx.graphics.getWidth();
-        int slotCount = hotbarSlots.size();
         float barH = GfxConfig.HUD_BOTTOM_HEIGHT;
+        int columns = QuickBarLayout.COLUMNS;
+        int rows = QuickBarLayout.visibleRowsFor(quickBarSlots.size());
+        int cells = rows * columns;
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(Palette.PANEL_BG);
         shapes.rect(0, 0, screenW, barH);
-        for (int i = 0; i < slotCount; i++) {
+        for (int i = 0; i < cells; i++) {
             shapes.setColor(Palette.SLOT_BG);
-            shapes.rect(HotbarLayout.slotX(i, screenW, slotCount), HotbarLayout.slotY(),
-                    HotbarLayout.SLOT_SIZE, HotbarLayout.SLOT_SIZE);
+            shapes.rect(QuickBarLayout.cellX(i, columns), QuickBarLayout.cellY(i, columns, rows),
+                    QuickBarLayout.CELL_SIZE, QuickBarLayout.CELL_SIZE);
         }
         shapes.end();
 
         shapes.begin(ShapeRenderer.ShapeType.Line);
         shapes.setColor(Palette.PANEL_BORDER);
         shapes.line(0, barH, screenW, barH); // грань по верхнему краю — см. renderInfoPanel's нижняя
-        for (int i = 0; i < slotCount; i++) {
-            boolean isSelected = hotbarSlots.get(i).equals(selected);
+        for (int i = 0; i < cells; i++) {
+            boolean isSelected = i < quickBarSlots.size() && quickBarSlots.get(i).equals(selected);
             shapes.setColor(isSelected ? Palette.SLOT_SELECTED : Palette.SLOT_BORDER);
-            float x = HotbarLayout.slotX(i, screenW, slotCount);
-            float y = HotbarLayout.slotY();
-            shapes.rect(x, y, HotbarLayout.SLOT_SIZE, HotbarLayout.SLOT_SIZE);
+            float x = QuickBarLayout.cellX(i, columns);
+            float y = QuickBarLayout.cellY(i, columns, rows);
+            shapes.rect(x, y, QuickBarLayout.CELL_SIZE, QuickBarLayout.CELL_SIZE);
             if (isSelected) {
                 // Обвести дважды со сдвигом в 1px — тонкая линия одним проходом на выделении
-                // теряется рядом с обычной рамкой соседних слотов, а лишний класс ради толщины
-                // линии заводить незачем.
-                shapes.rect(x + 1, y + 1, HotbarLayout.SLOT_SIZE - 2, HotbarLayout.SLOT_SIZE - 2);
+                // теряется рядом с обычной рамкой соседних ячеек.
+                shapes.rect(x + 1, y + 1, QuickBarLayout.CELL_SIZE - 2, QuickBarLayout.CELL_SIZE - 2);
             }
         }
         shapes.end();
 
         batch.begin();
-        float iconPad = 8f;
-        float iconSize = HotbarLayout.SLOT_SIZE - iconPad * 2;
-        for (int i = 0; i < slotCount; i++) {
-            ContentId prototypeId = hotbarSlots.get(i);
-            BuildingPrototype prototype = buildingFactory.prototype(prototypeId);
-            boolean isSelected = prototypeId.equals(selected);
-            float x = HotbarLayout.slotX(i, screenW, slotCount);
-            float y = HotbarLayout.slotY();
-            TextureRegion icon = textures.forSprite(prototype.texture());
-            font.setColor(Color.WHITE);
-            batch.draw(icon, x + iconPad, y + iconPad, iconSize, iconSize);
+        float iconPad = 6f;
+        float iconSize = QuickBarLayout.CELL_SIZE - iconPad * 2;
+        for (int i = 0; i < cells; i++) {
+            float x = QuickBarLayout.cellX(i, columns);
+            float y = QuickBarLayout.cellY(i, columns, rows);
 
-            font.getData().setScale(0.75f);
-            font.setColor(isSelected ? Palette.SLOT_SELECTED : Palette.HINT);
-            if (i < 9) {
-                font.draw(batch, Integer.toString(i + 1), x + 4, y + HotbarLayout.SLOT_SIZE - 3);
-            }
-            font.getData().setScale(0.62f);
+            // Номер рисуется у КАЖДОЙ ячейки, включая пустую: он и есть подсказка, что сюда можно
+            // что-то закрепить, — а подписей у этой панели нет по решению владельца.
+            font.getData().setScale(0.7f);
             font.setColor(Palette.HINT);
-            font.draw(batch, prototype.label(), x, y - 3);
+            font.draw(batch, Integer.toString(i + 1), x + 3, y + QuickBarLayout.CELL_SIZE - 2);
+
+            if (i >= quickBarSlots.size()) {
+                continue;
+            }
+            ContentId prototypeId = quickBarSlots.get(i);
+            BuildingPrototype prototype = buildingFactory.prototype(prototypeId);
+            font.setColor(Color.WHITE);
+            batch.draw(textures.forSprite(prototype.texture()), x + iconPad, y + iconPad, iconSize, iconSize);
         }
 
+        batch.end();
+
+        renderCategoryTabs(quickBarSlots, selected, buildingFactory, activeCategoryIndex);
+        renderTooltip(hovered, displayLabels);
+
+        batch.begin();
+        // Подпись выбранного — одна строка, внутри нижней полосы: закреплять её к верху сетки
+        // нельзя, сетка растёт, и строка уезжала бы на игровое поле.
         font.getData().setScale(0.85f);
         font.setColor(Palette.HINT);
-        font.draw(batch, "Facing: " + facing.name() + "  (R to rotate — only the belt/tunnel/furnace care)",
-                16, HotbarLayout.slotY() + HotbarLayout.SLOT_SIZE + 16f);
+        font.draw(batch, buildingFactory.prototype(selected).label()
+                + "   Facing: " + facing.name() + "  (R to rotate - only the belt/tunnel/furnace care)",
+                CategoryTabsLayout.LEFT, CategoryTabsLayout.hintY());
 
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
@@ -626,5 +640,114 @@ final class HudRenderer {
             }
         }
         return new AlertSummary(total, worst);
+    }
+
+
+    /**
+     * Название того, что под курсором, над самой иконкой — иконки в этой полосе безымянные, и без
+     * подсказки незнакомое здание не опознать вообще ничем, кроме как поставив его.
+     *
+     * <p>Ширина считается по числу символов, а не измеряется {@code GlyphLayout}: шрифт здесь
+     * моноширинный растровый, а измерение на каждом кадре — аллокация в кадровом бюджете, чего
+     * правила этого пакета не разрешают.
+     */
+    private void renderTooltip(@Nullable ContentId hovered, DisplayLabels displayLabels) {
+        if (hovered == null) {
+            return;
+        }
+        String text = displayLabels.of(hovered);
+        float scale = 0.9f;
+        float width = text.length() * 8.2f + 14f;
+        float height = 22f;
+        float x = Math.min(Gdx.input.getX(), Gdx.graphics.getWidth() - width - 4f);
+        // Над курсором: под ним подсказку закрывала бы сама рука с курсором.
+        float y = Gdx.graphics.getHeight() - Gdx.input.getY() + 14f;
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.setColor(Palette.TOOLTIP_BG);
+        shapes.rect(x, y, width, height);
+        shapes.end();
+
+        shapes.begin(ShapeRenderer.ShapeType.Line);
+        shapes.setColor(Palette.PANEL_BORDER);
+        shapes.rect(x, y, width, height);
+        shapes.end();
+
+        batch.begin();
+        font.getData().setScale(scale);
+        font.setColor(Palette.TAB_TEXT);
+        font.draw(batch, text, x + 7f, y + height - 6f);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    /**
+     * Вкладки по назначению и иконки активной — постоянно на экране, справа от быстрой панели.
+     *
+     * <p>Заменило плоскую полосу на ВСЕ зарегистрированные прототипы: она читалась при двенадцати
+     * и уезжала за оба края экрана при двадцати девяти. Полный каталог с поиском никуда не делся —
+     * он по {@code B}; эта панель для того, чтобы дотянуться, а не чтобы разглядывать.
+     */
+    private void renderCategoryTabs(List<ContentId> quickBarSlots, ContentId selected,
+            BuildingFactory buildingFactory, int activeCategoryIndex) {
+        int screenW = Gdx.graphics.getWidth();
+        Map<ContentId, List<BuildingPrototype>> grouped =
+                CategoryTabsLayout.byCategory(buildingFactory.buildings().iterate());
+        if (grouped.isEmpty()) {
+            return;
+        }
+        List<ContentId> categories = List.copyOf(grouped.keySet());
+        int active = Math.floorMod(activeCategoryIndex, categories.size());
+        // Локальная переменная, а не повторный get — см. то же место в InputHandler.
+        List<BuildingPrototype> shown = grouped.get(categories.get(active));
+        if (shown == null) {
+            return;
+        }
+        int iconCount = CategoryTabsLayout.visibleIcons(screenW, shown.size());
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        for (int i = 0; i < categories.size(); i++) {
+            shapes.setColor(i == active ? Palette.SLOT_SELECTED : Palette.TAB_BG);
+            shapes.rect(CategoryTabsLayout.tabX(i), CategoryTabsLayout.TABS_Y,
+                    CategoryTabsLayout.TAB_WIDTH, CategoryTabsLayout.TAB_HEIGHT);
+        }
+        for (int i = 0; i < iconCount; i++) {
+            shapes.setColor(Palette.SLOT_BG);
+            shapes.rect(CategoryTabsLayout.iconX(i), CategoryTabsLayout.ICONS_Y,
+                    CategoryTabsLayout.ICON_SIZE, CategoryTabsLayout.ICON_SIZE);
+        }
+        shapes.end();
+
+        shapes.begin(ShapeRenderer.ShapeType.Line);
+        for (int i = 0; i < iconCount; i++) {
+            BuildingPrototype prototype = shown.get(i);
+            boolean isPinned = quickBarSlots.contains(prototype.id());
+            shapes.setColor(prototype.id().equals(selected) ? Palette.SLOT_SELECTED
+                    : isPinned ? Palette.HINT : Palette.SLOT_BORDER);
+            shapes.rect(CategoryTabsLayout.iconX(i), CategoryTabsLayout.ICONS_Y,
+                    CategoryTabsLayout.ICON_SIZE, CategoryTabsLayout.ICON_SIZE);
+        }
+        shapes.end();
+
+        batch.begin();
+        // 0.9, не 0.62: живой баг-репорт — «очень плохо читаются названия». Базовая линия
+        // считается от середины вкладки, а не от её верха, иначе подпись липнет к верхней грани.
+        font.getData().setScale(0.9f);
+        float captionBaseline = CategoryTabsLayout.TABS_Y + CategoryTabsLayout.TAB_HEIGHT / 2f + 5f;
+        for (int i = 0; i < categories.size(); i++) {
+            font.setColor(i == active ? Color.WHITE : Palette.TAB_TEXT);
+            font.draw(batch, VanillaCategories.label(categories.get(i), ContentLocale.current()),
+                    CategoryTabsLayout.tabX(i) + 8f, captionBaseline);
+        }
+        font.setColor(Color.WHITE);
+        float iconPad = 5f;
+        for (int i = 0; i < iconCount; i++) {
+            batch.draw(textures.forSprite(shown.get(i).texture()),
+                    CategoryTabsLayout.iconX(i) + iconPad, CategoryTabsLayout.ICONS_Y + iconPad,
+                    CategoryTabsLayout.ICON_SIZE - iconPad * 2, CategoryTabsLayout.ICON_SIZE - iconPad * 2);
+        }
+        font.getData().setScale(1f);
+        batch.end();
     }
 }
