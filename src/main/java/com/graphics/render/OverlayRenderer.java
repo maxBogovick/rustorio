@@ -415,10 +415,13 @@ final class OverlayRenderer {
      * {@link GameCamera#pickTile} doesn't know or care, it'll happily map a cursor over either
      * panel to whatever map cell the math lands on. Logical points, same convention {@code
      * Gdx.input}/{@link GameCamera#pickTile} already use, not backbuffer pixels.
+     *
+     * <p>The formula itself is {@link GfxConfig#isOverWorld}, shared with the input layer rather
+     * than written out here a second time: this predicate hiding the ghost while the drag collector
+     * did NOT hide the gesture is exactly what let a click on the bottom build panel place an
+     * invisible building below the screen edge.
      */
     private static boolean cursorOverWorld() {
-        float screenY = Gdx.input.getY();
-        return screenY > GfxConfig.HUD_TOP_HEIGHT
-                && screenY < Gdx.graphics.getHeight() - GfxConfig.HUD_BOTTOM_HEIGHT;
+        return GfxConfig.isOverWorld(Gdx.input.getY(), Gdx.graphics.getHeight());
     }
 }

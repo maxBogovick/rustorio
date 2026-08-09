@@ -47,6 +47,25 @@ public final class GfxConfig {
     public static final float HUD_TOP_HEIGHT = 132f;
     public static final float HUD_BOTTOM_HEIGHT = 106f;
 
+    /**
+     * Виден ли мир под точкой с экранной ординатой {@code screenY} ({@code Gdx.input}, Y растёт
+     * ВНИЗ), то есть лежит ли она между полосами HUD.
+     *
+     * <p>Живёт в одном месте, а не копией в каждом потребителе, из-за живого баг-репорта: сбор
+     * протяжки ({@code com.graphics.input.DragCollector}) отменял жест только над ячейками
+     * быстрой панели, тогда как {@code pickTile} честно переводит ЛЮБУЮ точку окна в клетку карты.
+     * Клик по вкладке категорий или по иконке в нижней панели построек поэтому ещё и ставил
+     * здание — на клетку под нижней полосой, то есть за нижним краем видимой области, без призрака
+     * (его {@code OverlayRenderer} над HUD не рисует) и без всякого следа на экране. Игрок находил
+     * такие здания, лишь прокрутив карту вниз.
+     *
+     * <p>Чистая арифметика без libGDX: высоту окна передаёт вызывающий — иначе это нельзя было бы
+     * проверить тестом без окна, а именно непроверяемость и дала багу дожить до игрока.
+     */
+    public static boolean isOverWorld(float screenY, int screenHeight) {
+        return screenY > HUD_TOP_HEIGHT && screenY < screenHeight - HUD_BOTTOM_HEIGHT;
+    }
+
     /** Скорость скролла камеры (пикселей окна в секунду). */
     public static final float CAMERA_PAN_SPEED = 700f;
 

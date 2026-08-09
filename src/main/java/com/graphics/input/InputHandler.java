@@ -531,10 +531,9 @@ public final class InputHandler {
         inspected = tile.equals(inspected) ? null : building.isPresent() ? tile : null;
     }
 
-    /** Курсор между верхней и нижней HUD-полосами — та же проверка, что нужна {@code OverlayRenderer} для F-02 призрака. */
+    /** Курсор между верхней и нижней HUD-полосами — общая формула {@link GfxConfig#isOverWorld}, ей же пользуются призрак постройки и {@link DragCollector}. */
     private static boolean cursorOverWorld(int screenH) {
-        float screenY = Gdx.input.getY();
-        return screenY > GfxConfig.HUD_TOP_HEIGHT && screenY < screenH - GfxConfig.HUD_BOTTOM_HEIGHT;
+        return GfxConfig.isOverWorld(Gdx.input.getY(), screenH);
     }
 
     /** Общее для ЛКМ/ПКМ-протяжки: каждый задетый тайл — своё действие, все — в одном {@link CompositeAction}. {@code alsoBlocked} — этот жест начался поверх открытой панели инспекции, см. {@link #handleRecipePickClick}. */

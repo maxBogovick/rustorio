@@ -53,8 +53,12 @@ class SourceTextRulesTest {
      * implementations, and two of the javadoc blocks that went with them cited task ids. Same shape
      * as every decrease above: comments carrying citations were deleted outright, so the number
      * follows them down.
+     *
+     * <p>687 -> 686: {@code InputHandler}'s "cursor over the world" helper stopped writing the HUD
+     * band arithmetic out for itself and now points at the shared predicate, and the sentence
+     * naming the ghost's task id was replaced along with it.
      */
-    private static final int DOC_ID_CITATION_BASELINE = 687;
+    private static final int DOC_ID_CITATION_BASELINE = 686;
 
     /**
      * Explicit types are the rule; these are the exceptions that survived review. A new one is not
