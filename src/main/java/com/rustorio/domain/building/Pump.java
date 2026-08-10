@@ -6,6 +6,7 @@ import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.FluidType;
+import com.rustorio.domain.OreLayout;
 import java.util.Optional;
 
 /**
@@ -16,8 +17,20 @@ import java.util.Optional;
  * <p>Two differences from a miner, both following from fluid being a volume rather than a count.
  * There is nothing to hold between cycles: a batch either fits in the network or it does not, and
  * an offer that only partly fits is simply a partial delivery, not something to keep and retry. And
- * the source is inexhaustible — {@link PlacementRule#ADJACENT_TO_WATER} put this pump next to water
- * and water does not deplete, so there is no {@code NO_ORE} equivalent to report after placement.
+ * the vanilla shore source is inexhaustible — {@link PlacementRule#ADJACENT_TO_WATER} put this pump
+ * next to water and water does not deplete, so there is no {@code NO_ORE} equivalent to report
+ * after placement.
+ *
+ * <p>A mod's own pump can instead sit ON an ore cell ({@link PlacementRule#NEEDS_ORE}, the way
+ * {@code petrochem:oil_pump} lifts {@code crude_oil} out of {@code oil_sand}) — that reserve is
+ * finite the same way a {@link Miner}'s is, so every cycle also spends one {@link
+ * OreLayout#extract} call the same way a miner's batch does, keyed by the SAME shared depletion
+ * rule ({@code OreDepletion}). On the vanilla shore cell this is a harmless no-op: {@link
+ * OreLayout#extract} on a cell with no ore under it always returns empty and changes nothing, so a
+ * water pump behaves exactly as before. Spent once per cycle regardless of whether the batch was
+ * actually delivered — the same reason an undelivered water batch is simply lost rather than held:
+ * gating the spend on delivery would let a player avoid ever depleting a patch by leaving the pipe
+ * disconnected, which defeats the point of a finite reserve.
  *
  * <p>Which fluid it lifts is {@link BuildingPrototype#fluidOutput()} — data, so this class never
  * mentions water and a mod's own "oil derrick" is a JSON file rather than a second Java class. A
@@ -39,20 +52,22 @@ public final class Pump implements Building {
     private final BuildingType type;
     private final Direction direction;
     private final BuildingPrototype prototype;
+    private final OreLayout oreLayout;
 
     private int cooldown = PUMP_INTERVAL;
     /** Recomputed once per {@link #tick}, not once per render frame — see {@link BuildingStatus}. */
     private BuildingStatus status = BuildingStatus.WORKING;
 
-    public Pump(BuildingType type, Direction direction, BuildingPrototype prototype) {
+    public Pump(BuildingType type, Direction direction, BuildingPrototype prototype, OreLayout oreLayout) {
         this.type = type;
         this.direction = direction;
         this.prototype = prototype;
+        this.oreLayout = oreLayout;
     }
 
     /** Restore constructor used by this prototype's registered {@code RestoreFactory}. */
-    Pump(BuildingType type, Direction direction, int cooldown, BuildingPrototype prototype) {
-        this(type, direction, prototype);
+    Pump(BuildingType type, Direction direction, int cooldown, BuildingPrototype prototype, OreLayout oreLayout) {
+        this(type, direction, prototype, oreLayout);
         this.cooldown = cooldown;
     }
 
@@ -66,6 +81,8 @@ public final class Pump implements Building {
             return;
         }
         cooldown = PUMP_INTERVAL;
+        // No-op where there is no ore under this cell (every vanilla water pump) — see the class javadoc.
+        oreLayout.extract(x, y);
         Optional<FluidPort> target = world.fluidPort(x, y, direction);
         if (target.isEmpty()) {
             // No plumbing in front of it at all — the same class of problem as a miner facing a wall,
@@ -95,7 +112,7 @@ public final class Pump implements Building {
 
     @Override
     public Optional<Building> rotatedClockwise() {
-        return Optional.of(new Pump(type, direction.rotate(), cooldown, prototype));
+        return Optional.of(new Pump(type, direction.rotate(), cooldown, prototype, oreLayout));
     }
 
 

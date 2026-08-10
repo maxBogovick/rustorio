@@ -1,0 +1,12 @@
+{
+  "path": "gas_generator",
+  "category": "power_category",
+  "label": { "en": "Gas generator", "ru": "Газовый генератор" },
+  "archetype": "GENERATOR",
+  "cost": { "item": "rustorio:gear", "amount": 12 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:generator",
+  "fluidInput": "fuel_gas",
+  "power": { "output": 120 },
+  "acceptsSpeedEffects": false
+}

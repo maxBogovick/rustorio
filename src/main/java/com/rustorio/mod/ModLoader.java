@@ -114,9 +114,10 @@ public final class ModLoader {
         runRound(loadOrder, entryPoints, RustorioMod::modifyContent, context);
         runRound(loadOrder, entryPoints, RustorioMod::finalFixes, context);
 
-        // Every registry the context holds, in its fixed declaration order — including one a code
-        // mod added under a key of its own, which is the point: a mod's content kind is frozen with
-        // the rest rather than staying writable after loading ends.
+        // Every registry the context holds, in its fixed declaration order — written this way so a
+        // content kind added under a NEW key freezes with the rest instead of staying writable
+        // after loading ends. Today every such key is the engine's own: a mod has no way to add one
+        // (see RegistrationContext#registry), so this loop currently walks exactly RegistryKeys.VANILLA.
         for (RegistryKey<?> key : context.keys()) {
             context.registry(key).freeze();
         }

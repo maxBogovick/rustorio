@@ -32,6 +32,19 @@ public final class VanillaTraits {
     public static final TraitKey<PowerSpec> POWER =
             new TraitKey<>(ContentId.of("rustorio:power"), "power", PowerSpec.class);
 
+    /**
+     * Which technology, once unlocked, halves this building's own timing — {@link Miner}, {@link
+     * Furnace} (so FURNACE/PRESS/ASSEMBLER too) and {@link Lab} all read it via {@link
+     * BuildingPrototype#speedTech()} instead of a hardcoded {@code VanillaTechs} constant. Closes
+     * the gap {@code VanillaTechs}'s own javadoc used to name: a JSON-only mod could reuse an
+     * archetype but never give it its own speed-gating technology. Absent means "inherit the
+     * borrowed archetype's own gate" (see {@code BuildingJsonLoader}), not "no tech ever speeds
+     * this up" — {@link VanillaBuildings#registerAll} declares one explicitly for every archetype
+     * that has ever had one, so nothing loses its vanilla behavior by not mentioning this trait.
+     */
+    public static final TraitKey<ContentId> SPEED_TECH =
+            new TraitKey<>(ContentId.of("rustorio:speed_tech"), "speedTech", ContentId.class);
+
     private VanillaTraits() {
     }
 }

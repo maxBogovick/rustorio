@@ -13,12 +13,15 @@ import java.util.List;
  * was unlocked, and could not price one. Now a mod registers a {@code TechType} like any other
  * content.
  *
- * <p><b>What a technology does is still the game's own code, not data.</b> The vanilla five are
- * read by name where their effect belongs — {@code Miner} asks whether fast mining is unlocked,
- * {@code Chest} whether bigger buffers are. A mod's own technology therefore shows up in the tree,
- * costs points and unlocks, but has no effect until some code reads it: a jar mod can do that today
- * (it knows its own id), a JSON-only mod cannot. A data-described effect system is a separate
- * design question, and a product decision rather than a mechanical one.
+ * <p><b>What a technology does is still mostly the game's own code, not data.</b> {@code Chest}
+ * still asks whether {@code BIG_BUFFER} is unlocked by name — a mod's own technology shows up in
+ * the tree, costs points and unlocks, but has no effect on buffer size until some code reads it. The
+ * "faster" family is the one exception: {@code Miner}/{@code Furnace}/{@code Lab} read a {@code
+ * speedTech} trait off their own {@code BuildingPrototype} rather than a name, so a JSON-only mod
+ * CAN give one of those archetypes its own speed-gating technology — see {@code
+ * VanillaTraits#SPEED_TECH}. Every other per-technology effect still needs a jar mod (it knows its
+ * own id; a JSON-only one has no code to read anything with). A general data-described effect
+ * system is a separate design question, and a product decision rather than a mechanical one.
  *
  * <p>{@code prerequisites} are ids rather than resolved {@code TechType}s: a mod may name a
  * technology registered by a mod loaded later in the same round, and a record holding resolved

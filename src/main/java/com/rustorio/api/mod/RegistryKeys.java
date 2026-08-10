@@ -13,8 +13,10 @@ import java.util.List;
 
 /**
  * The registries the base game ships. A mod reaches one through {@link
- * RegistrationContext#registry(RegistryKey)} with a key from here — or declares a key of its own,
- * which works identically: nothing in the lookup treats these as special.
+ * RegistrationContext#registry(RegistryKey)} with a key from here. Nothing in the lookup treats
+ * these constants as special — but a key a MOD declares still has no registry behind it, because
+ * creating one is package-private engine code a mod cannot reach; see {@link
+ * RegistrationContext#registry(RegistryKey)} for why, and for what a mod does instead.
  *
  * <p>{@link #VANILLA} is the declaration ORDER, and order is load-bearing twice over: it is the
  * order registries are frozen in and the order they appear in the load summary, both of which have

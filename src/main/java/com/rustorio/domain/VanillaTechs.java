@@ -9,9 +9,14 @@ import java.util.List;
  * exactly — the same relationship {@link VanillaItems} has to {@code content/items}, and held to it
  * by {@code VanillaAsModParityTest}.
  *
- * <p>The ids are constants because the game's own code reads them by name: {@code Miner} asks
- * whether {@link #FAST_MINING} is unlocked, {@code Chest} whether {@link #BIG_BUFFER} is. That is
- * the part a JSON-only mod still cannot supply for a technology of its own — see {@link TechType}.
+ * <p>The ids are constants because the game's own code used to read them by name outright. That
+ * is no longer true for the "faster" family: {@code Miner}/{@code Furnace}/{@code Lab} now read
+ * {@code BuildingPrototype.speedTech()} (a trait, defaulting to {@link #FAST_MINING}/{@link
+ * #FAST_SMELTING}/{@link #FAST_LAB} respectively — see {@code VanillaBuildings.registerAll}), so a
+ * JSON-authored building on one of those archetypes can name its OWN technology instead. It is
+ * still true for the "bigger" family: {@code Chest} asks whether {@link #BIG_BUFFER} is unlocked
+ * directly, with no trait standing in for it yet — that remains the part a JSON-only mod cannot
+ * supply for a technology of its own. See {@link TechType}.
  *
  * <p>Shape below is the vanilla balance: {@link #FAST_MINING} is the one root, {@link
  * #FAST_SMELTING} and {@link #BIG_BUFFER} branch independently off it, {@link #LONG_TUNNEL} extends

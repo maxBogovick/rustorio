@@ -56,10 +56,18 @@
         "type": "object",
         "properties": {
           "terrain": {
-            "enum": [
-              "GROUND",
-              "WATER",
-              "ROCK"
+            "description": "An item reference, exactly like a patch's own \"ore\": bare name (this mod's own namespace) or \"namespace:path\". \"WATER\" and \"ROCK\" survive as the only two legacy uppercase aliases (for rustorio:water / rustorio:rock), because every map file written before terrain became content spells them that way. There is no \"GROUND\": plain ground is a cell no patch covers, which is not something a patch ever names.",
+            "oneOf": [
+              {
+                "enum": [
+                  "WATER",
+                  "ROCK"
+                ]
+              },
+              {
+                "type": "string",
+                "pattern": "^([a-z0-9_]+:)?[a-z0-9_]+$"
+              }
             ]
           },
           "cx": {

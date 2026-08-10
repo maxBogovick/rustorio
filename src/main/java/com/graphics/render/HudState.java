@@ -39,6 +39,10 @@ import org.jspecify.annotations.Nullable;
  * knows how many namespaces/matches are registered right now; see {@code SimulationControls}'s own
  * fields for why the counters themselves don't know).
  *
+ * <p>{@code pageView} is {@code null} unless a building's own picture is open full-screen (a
+ * monitor's fetched page, today) — see {@code ViewableBuilding} for why the HUD carries pixels it
+ * knows nothing about, and {@link PageView} for why the image and its scroll travel together.
+ *
  * <p>{@code statusMessage} is {@code null} outside the few seconds right after F5/F9 — a live bug
  * report: pressing save/load gave the player NO on-screen feedback at all, success or failure
  * (only a {@code System.Logger} line {@code InputHandler} wrote on failure, invisible in a
@@ -60,5 +64,6 @@ public record HudState(ContentId selected, Direction facing, boolean paused, int
         boolean showStats, ItemType statsItem, List<ContentId> hotbarSlots, boolean showBuildMenu,
         String buildMenuQuery, int buildMenuCategoryCycle, int buildMenuScrollOffset, @Nullable String statusMessage,
         boolean showInfo, boolean showHints, boolean showFpsUps, @Nullable SettingsModalView settingsModal,
-        int activeCategoryIndex, @Nullable ContentId hoveredPrototype, DisplayLabels displayLabels) {
+        int activeCategoryIndex, @Nullable ContentId hoveredPrototype, DisplayLabels displayLabels,
+        @Nullable PageView pageView) {
 }

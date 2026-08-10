@@ -69,12 +69,56 @@ ext.modIds = ((file('src/mods').listFiles() ?: new File[0]) as List)
         .collect { it.name }
         .sort() // deterministic task order — a build whose task graph depends on filesystem order is a build that differs between machines
 
+// A mod's OWN third-party libraries — declared per mod and packed into that mod's jar (see the
+// `<modId>ModJar` tasks below), never added to the game's classpath.
+//
+// This is not a style choice, it is what `ModClassLoader` requires. That loader delegates to the
+// parent only for `com.rustorio.api`, `com.rustorio.domain` and the JDK; every other name must be
+// found INSIDE the mod's own jar. A mod compiling against a library the engine happens to ship is
+// therefore green at build time and dead the moment the game loads it — which is exactly what had
+// already happened: `com.webminer.JsonFieldExtractor` imports Jackson, compiled fine, and threw
+// `NoClassDefFoundError: com/fasterxml/jackson/databind/ObjectMapper` when loaded from the jar.
+// `ModJarLibrariesTest` is the test that now fails if a mod's library goes missing from its jar.
+configurations {
+    modIds.each { modId ->
+        create("${modId}ModLibraries")
+        // NOTE: `<modId>ModCompileOnly` is NOT created here — the java plugin already makes one per
+        // source set and puts it on that source set's compile classpath. It is where a mod's
+        // annotation-only dependencies go (JSpecify): CLASS-retention markers the running game never
+        // looks up, so packing them into the mod's jar the way `ModLibraries` does would ship a copy
+        // of a public library for nothing. Same split the external mod template makes with
+        // `compileOnly 'org.jspecify:jspecify'`.
+        //
+        // A mod's own tests live in src/test and run on the app classpath, so they need that mod's
+        // libraries as well — otherwise a test of a class that uses jsoup cannot even compile.
+        testImplementation.extendsFrom(getByName("${modId}ModLibraries"))
+    }
+}
+
+// A mod compiles against the PUBLISHED API jar and its own libraries — not against the engine's
+// full output. That asymmetry with `runtimeClasspath` (which does get the whole engine, because at
+// run time the mod really is loaded into the running game) is the entire point: it makes the engine
+// internals a mod may not touch impossible to NAME, so `ModLoader` or a renderer type is a compile
+// error on the line that types it, not a ClassNotFoundException at a player's machine.
+//
+// `ModBoundaryRulesTest` checks the same boundary a second time, against the mods' bytecode. That is
+// not redundancy: what this line guarantees, it guarantees only for as long as it says so, and no
+// test reads a build script. Widening it back to `sourceSets.main.output` — which is how it read
+// before, so the change looks like a restoration — would silently hand every mod the whole engine
+// again, and nothing else in the gate would notice.
+//
+// The apiJar dependency is added AFTER the loop, where that task exists — see below.
 modIds.each { modId ->
     sourceSets.create("${modId}Mod") {
         java.srcDirs = ["src/mods/$modId/java"]
         resources.srcDirs = ["src/mods/$modId/resources"]
-        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
-        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+        // Operators stay at the END of each line: Groovy would otherwise read the next line's
+        // leading `+` as a unary plus and fail with "Could not find method positive()".
+        // The source set's own default compile classpath is kept (`+=`, not `=`): that is what
+        // carries `<modId>ModCompileOnly`, where the mod's annotation-only dependencies live.
+        compileClasspath += configurations."${modId}ModLibraries"
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath +
+                configurations."${modId}ModLibraries"
     }
 }
 
@@ -94,6 +138,10 @@ ext {
     errorproneVersion = '2.36.0'
     nullawayVersion = '0.12.3'
     archunitVersion = '1.4.2' // E0-03, ENGINE_TASKS.md: границы пакетов по байткоду, не по grep (владелец, 29.07.2026)
+    // jsoup: разбор HTML в моде webminer (монитор показывает страницу, а не её <head>). Разрешён
+    // владельцем 08.08.2026. Зависимость МОДА, а не движка: в classpath игры её нет, она уезжает
+    // внутрь webminer.jar — см. конфигурацию `<modId>ModLibraries` ниже.
+    jsoupVersion = '1.18.3'
 }
 
 // libGDX 1.14.2 по умолчанию подтягивает LWJGL 3.3.3, который старше Java 25 и на
@@ -146,6 +194,18 @@ dependencies {
     // because the service file was visible where the class was not. A mod's registration must only
     // ever be found inside that mod's jar.
     modIds.each { modId -> testImplementation sourceSets."${modId}Mod".output.classesDirs }
+
+    // What the webminer mod itself needs, and what therefore travels inside webminer.jar.
+    // Jackson is listed even though the engine already has it: see the `ModLibraries` comment
+    // above for why "the engine has it" is not the same as "the mod can load it".
+    webminerModLibraries "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
+    webminerModLibraries "org.jsoup:jsoup:$jsoupVersion"
+
+    // Annotations only — see the `ModCompileOnly` configuration above for why these are not packed
+    // into webminer.jar. The mod used to get JSpecify for free off the engine's own compile
+    // classpath; it no longer has that classpath, and declaring its own is what a third-party mod
+    // does anyway.
+    webminerModCompileOnly "org.jspecify:jspecify:$jspecifyVersion"
 
     errorprone "com.google.errorprone:error_prone_core:$errorproneVersion"
     errorprone "com.uber.nullaway:nullaway:$nullawayVersion"
@@ -201,23 +261,60 @@ modIds.each { modId ->
         archiveFileName = "${modId}.jar"
         destinationDirectory = layout.projectDirectory.dir("resources/mods/$modId")
         from sourceSets."${modId}Mod".output
+        // The mod's own libraries, unpacked into the jar beside its classes: `ModClassLoader` looks
+        // for a non-engine class in this jar and nowhere else, so a library that is merely on the
+        // build classpath is a NoClassDefFoundError waiting for the first player. Signature files
+        // from the libraries' own jars are dropped — they describe those jars, not this one, and a
+        // JVM that checks them against repacked content rejects the lot.
+        from({
+            configurations."${modId}ModLibraries".collect { it.directory ? it : zipTree(it) }
+        }) {
+            exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/MANIFEST.MF'
+        }
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE // two libraries may ship the same module-info/LICENSE
     }
 }
 
-// What a mod compiles against: the whole `com.rustorio` tree and nothing else. `com.graphics` is
-// deliberately excluded — the dependency runs one way (graphics -> game), a mod has no business
-// naming a renderer type, and shipping it would invite exactly that.
+// What a mod compiles against: exactly the packages `ModClassLoader` will delegate to the parent at
+// runtime, and nothing else. `com.graphics` is excluded because the dependency runs one way
+// (graphics -> game) and a mod has no business naming a renderer type.
+//
+// These two patterns are NOT an independent decision — `ModClassLoader.PARENT_DELEGATED_PREFIXES`
+// is the authority, and `ModApiSurfaceTest` opens the jar this task builds and fails if it carries
+// a package that loader would refuse. That test exists because the two had already drifted: this
+// task used to say `include 'com/rustorio/**'`, which shipped `persistence`, `mod` and `game` in
+// full — three packages a mod could compile against and then fail to load in a player's game.
+// Widening the pattern below without widening the loader turns a build error back into a
+// ClassNotFoundException after shipping, which is the one failure mode a published API surface
+// exists to prevent.
+//
+// `com.rustorio.domain` is here, not just `com.rustorio.api`, for the reason `api/mod/package-info`
+// states: ItemType/BuildingPrototype/Recipe physically live in the domain today, and a mod cannot
+// register content without naming those types.
 //
 // No dependencies are declared in the published POM on purpose. A mod that needs JSpecify
 // annotations or Jackson declares them itself, at whatever version it wants, the same way a Fabric
 // or RimWorld mod pulls its own libraries — this jar is an API surface, not a dependency manager.
 tasks.register('apiJar', Jar) {
     group = 'publishing'
-    description = 'The engine API a third-party mod compiles against (com.rustorio only)'
+    description = 'The engine API a third-party mod compiles against (com.rustorio.api + domain)'
     archiveBaseName = 'rustorio-api'
     from(sourceSets.main.output) {
-        include 'com/rustorio/**'
+        include 'com/rustorio/api/**'
+        include 'com/rustorio/domain/**'
     }
+}
+
+// The other half of the mod compile classpath (see the source-set block far above). Here rather
+// than there because `files(taskProvider)` needs the task to exist, and it carries the task
+// dependency with it — `compileWebminerModJava` now waits for `apiJar` without anyone saying so.
+//
+// Deliberately the JAR, not a filtered view of `sourceSets.main.output`: javac takes a classpath
+// entry as a whole directory, so filtering a classes directory does not hide anything from it. The
+// jar is also literally what an external mod resolves from `mavenLocal()`, which makes the in-repo
+// mods compile against the same artifact a stranger's build would — the point of the exercise.
+modIds.each { modId ->
+    sourceSets."${modId}Mod".compileClasspath += files(tasks.named('apiJar'))
 }
 
 publishing {
@@ -343,6 +440,21 @@ tasks.named('test') {
     inputs.dir('examples')
             .withPropertyName('exampleMods')
             .withPathSensitivity(PathSensitivity.RELATIVE)
+
+    // `ModApiSurfaceTest` checks the REAL published artifact, not this build file and not the source
+    // tree: the question it answers is "can a mod compile against something the game will refuse to
+    // load", and only the jar that actually ships can answer it. So the jar has to exist first, and
+    // a change to it has to make this task stale.
+    //
+    // The test FINDS the jar itself, by the same relative-path convention every other ratchet here
+    // uses (`SourceCodeScanner`'s callers say `Path.of("src", "main", "java")`) — see `BuildOutputs`.
+    // An earlier version injected the path as a `systemProperty` from this block instead, which made
+    // the test unrunnable outside Gradle: green in the gate, and a bare failure for anyone who
+    // launched it from an IDE. A ratchet nobody can run by hand is a ratchet people route around.
+    dependsOn tasks.named('apiJar')
+    inputs.file(tasks.named('apiJar', Jar).flatMap { it.archiveFile })
+            .withPropertyName('apiJar')
+            .withPathSensitivity(PathSensitivity.NONE)
 }
 
 tasks.named('jacocoTestReport') {

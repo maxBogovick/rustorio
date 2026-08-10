@@ -1,0 +1,6 @@
+{
+  "path": "oil_processing",
+  "label": { "en": "Oil processing", "ru": "Нефтепереработка" },
+  "cost": 200,
+  "prerequisites": ["rustorio:fast_mining"]
+}

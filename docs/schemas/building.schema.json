@@ -79,11 +79,20 @@
       "additionalProperties": false
     },
     "placement": {
-      "enum": [
-        "ALWAYS",
-        "NEEDS_ORE",
-        "NEEDS_PASSABLE_TERRAIN",
-        "ADJACENT_TO_WATER"
+      "description": "Where this building may stand. One of the vanilla rule names in the uppercase spelling every building file has always used, or a bare/namespaced reference to a rule some code mod registered — the loader resolves both (BuildingJsonLoader.parsePlacement), and the two spellings cannot collide because a ContentId path is lowercase.",
+      "oneOf": [
+        {
+          "enum": [
+            "ALWAYS",
+            "NEEDS_ORE",
+            "NEEDS_PASSABLE_TERRAIN",
+            "ADJACENT_TO_WATER"
+          ]
+        },
+        {
+          "type": "string",
+          "pattern": "^([a-z0-9_]+:)?[a-z0-9_]+$"
+        }
       ]
     },
     "texture": {
@@ -160,6 +169,11 @@
         }
       },
       "additionalProperties": false
+    },
+    "speedTech": {
+      "type": "string",
+      "pattern": "^([a-z0-9_]+:)?[a-z0-9_]+$",
+      "description": "Which technology, once unlocked, halves this building's timing. MINER/ELECTRIC_MINER-, FURNACE/PRESS/ASSEMBLER- and LAB-archetype only. Omit to inherit the archetype's own vanilla gate (e.g. a JSON FURNACE still speeds up under fast_smelting); name a technology (including one this mod defines) to replace it outright."
     }
   },
   "required": [

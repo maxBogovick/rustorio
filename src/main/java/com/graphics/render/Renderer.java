@@ -40,6 +40,8 @@ public final class Renderer implements Disposable {
     private final SpriteBatch batch;
     private final ShapeRenderer shapes;
     private final BitmapFont font;
+    /** Полноэкранный просмотр картинки здания ({@code ViewableBuilding}) — рисуется ПОВЕРХ HUD и держит свою текстуру, см. его javadoc про освобождение. */
+    private final PageViewRenderer pageViewRenderer;
     private final int gridW;
 
     private final WorldRenderer worldRenderer;
@@ -75,6 +77,7 @@ public final class Renderer implements Disposable {
         this.itemRenderer = new ItemRenderer(batch, shapes, font, grid);
         this.overlayRenderer = new OverlayRenderer(batch, shapes, textures, font, camera, grid);
         this.hudRenderer = new HudRenderer(batch, shapes, font, textures);
+        this.pageViewRenderer = new PageViewRenderer(batch, shapes, font);
         this.recipeBookRenderer = new RecipeBookRenderer(batch, shapes, font);
         this.techTreeRenderer = new TechTreeRenderer(batch, shapes, font);
         this.statsScreenRenderer = new StatsScreenRenderer(batch, shapes, font);
@@ -150,6 +153,11 @@ public final class Renderer implements Disposable {
         if (hud.showInfo()) {
             infoOverlayRenderer.render(world, world.stats(), world.research(), world.inventory(), log);
         }
+        // 10b. картинка здания во весь экран (ViewableBuilding) — поверх панелей, но ПОД
+        // паузой-меню: страница открыта из панели осмотра и закрывается тем же Esc на слой раньше.
+        // Вызывается и когда просмотр закрыт (hud.pageView() == null) — так рендерер узнаёт, что
+        // текстуру пора освободить, а не держать её до выхода из игры.
+        pageViewRenderer.render(hud.pageView(), bbW, bbH);
         // 11. пауза-меню (Esc) — поверх абсолютно всего остального, включая любую другую панель:
         // GameScreen only ever opens it once every other panel above is already closed.
         if (pauseMenu != null) {
@@ -159,6 +167,7 @@ public final class Renderer implements Disposable {
 
     @Override
     public void dispose() {
+        pageViewRenderer.dispose(); // своя текстура страницы — batch/shapes ниже её не освобождают
         batch.dispose();
         shapes.dispose();
         font.dispose();

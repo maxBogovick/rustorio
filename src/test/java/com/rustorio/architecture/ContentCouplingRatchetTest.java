@@ -40,16 +40,20 @@ class ContentCouplingRatchetTest {
     // 1 -> 0: BuildingFactory.create/restore's own dispatch switch is gone too, replaced by
     // BuildingPrototype.behavior()/restoreBehavior() (BehaviorFactory/RestoreFactory) — the last
     // content-constant switch in src/main is gone.
-    private static final int CONTENT_CONSTANT_SWITCH_BASELINE = 0;
+    //
     // 2 -> 1: BuildingFactory.clearArrivalMark's switch over Building's sealed hierarchy is gone,
     // replaced by `instanceof SettlesEachTick` (a capability check, not an exhaustive case list) —
     // the one remaining type-pattern switch is BuildingFactory.create/restore's own dispatch
     // (BuildingFactory.java:129), the same one named above, deliberately left closed until
     // behavior itself opens up.
     // 1 -> 0: BuildingFactory.restore no longer pattern-matches a sealed BuildingMemento to find
-    // which prototype governs it (E6-03, codec-based save format) — the save's own envelope names
+    // which prototype governs it (codec-based save format) — the save's own envelope names
     // prototypeId directly, so the last type-pattern switch in src/main is gone.
-    private static final int TYPE_PATTERN_SWITCH_BASELINE = 0;
+    //
+    // Both counts having reached zero is why neither has a baseline constant anymore: see
+    // `noSwitchInMainBranchesOnAContentConstant` below for what replaced them and why that is a
+    // stronger statement than a baseline of 0.
+    //
     // 21 -> 17: World's four instanceof Belt sites (place, the belt-neighbor lookup, removeBuilding,
     // restoreBuilding) became instanceof TransportNode — a capability check, not a concrete-subtype
     // check the scanner's closed building-name list still recognizes, so these four drop out of
@@ -66,16 +70,24 @@ class ContentCouplingRatchetTest {
     // just lost an unwrap() call in front of them, not the instanceof itself.
     private static final int BUILDING_INSTANCEOF_BASELINE = 11;
 
+    /**
+     * A flat prohibition, not a baseline. Both of these counts reached zero (see the history above),
+     * and "zero, and it stays zero" is a strictly stronger statement than "no more than the recorded
+     * 0": a baseline invites the next reader to raise it by one with a note explaining why, which is
+     * exactly the move this ratchet exists to prevent, whereas a prohibition has no number to edit.
+     *
+     * <p>The {@code instanceof} count below still has a baseline because it is genuinely not zero
+     * yet — a ratchet is the right shape while a number is still coming down, and the wrong shape
+     * once it has arrived.
+     */
     @Test
-    void contentConstantSwitchCountMatchesRecordedBaseline() {
-        List<SourceCodeScanner.CodeLocation> found = scan().contentConstantSwitches();
-        assertRatchet("switch по константам контента", CONTENT_CONSTANT_SWITCH_BASELINE, found);
+    void noSwitchInMainBranchesOnAContentConstant() {
+        assertNone("switch по константам контента", scan().contentConstantSwitches());
     }
 
     @Test
-    void typePatternSwitchCountMatchesRecordedBaseline() {
-        List<SourceCodeScanner.CodeLocation> found = scan().typePatternSwitches();
-        assertRatchet("switch по типам sealed-иерархии", TYPE_PATTERN_SWITCH_BASELINE, found);
+    void noSwitchInMainBranchesOnABuildingTypePattern() {
+        assertNone("switch по типам иерархии Building", scan().typePatternSwitches());
     }
 
     @Test
@@ -90,15 +102,25 @@ class ContentCouplingRatchetTest {
     }
 
     /**
+     * Fails if the construct exists at all, naming every {@code file:line}. Unlike {@link
+     * #assertRatchet}, there is nothing here to update on failure — the fix is to remove the
+     * construct, which is the whole point of stating it this way once the count has reached zero.
+     */
+    private static void assertNone(String label, List<SourceCodeScanner.CodeLocation> found) {
+        assertTrue(found.isEmpty(),
+                label + " снова появился в src/main (" + found.size() + " шт.) — это закрытость по "
+                        + "типу контента, ради снятия которой строится движок: добавление контента "
+                        + "должно быть данными, а не правкой кода. Места:" + locationsOf(found));
+    }
+
+    /**
      * Fails on any drift from {@code baseline} — growth is a regression (content coupling spread
      * to a new place), shrinkage means the recorded number is stale and must be updated here, in
      * the same commit that removed the place, not silently. Either way the message lists every
      * matching {@code file:line}, not just the two numbers.
      */
     private static void assertRatchet(String label, int baseline, List<SourceCodeScanner.CodeLocation> found) {
-        String locations = found.stream()
-                .map(SourceCodeScanner.CodeLocation::toString)
-                .collect(Collectors.joining("\n  ", "\n  ", ""));
+        String locations = locationsOf(found);
         if (found.size() > baseline) {
             org.junit.jupiter.api.Assertions.fail(
                     label + " grew from " + baseline + " to " + found.size()
@@ -111,5 +133,12 @@ class ContentCouplingRatchetTest {
                             + " Locations:" + locations);
         }
         assertTrue(true); // reached only when found.size() == baseline
+    }
+
+    /** Every match as {@code file:line}, one per line — a count alone tells nobody where to look. */
+    private static String locationsOf(List<SourceCodeScanner.CodeLocation> found) {
+        return found.stream()
+                .map(SourceCodeScanner.CodeLocation::toString)
+                .collect(Collectors.joining("\n  ", "\n  ", ""));
     }
 }

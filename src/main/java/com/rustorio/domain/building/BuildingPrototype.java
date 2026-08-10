@@ -132,6 +132,16 @@ public record BuildingPrototype(ContentId id, String label, BuildingCost cost, P
         return traits.get(VanillaTraits.POWER).orElse(null);
     }
 
+    /**
+     * Which technology, once unlocked, halves this building's own timing, or {@code null} for no
+     * tech gate at all — see {@link #fluidInput()} for why this is a door onto a trait, and {@link
+     * VanillaTraits#SPEED_TECH} for why an archetype-reusing JSON building answers this the same
+     * way its archetype always has unless it names its own.
+     */
+    public @Nullable ContentId speedTech() {
+        return traits.get(VanillaTraits.SPEED_TECH).orElse(null);
+    }
+
     /** Convenience for the common 1×1 footprint — every archetype except {@code ASSEMBLER} today. */
     public BuildingPrototype(ContentId id, String label, BuildingCost cost, PlacementRule placementRule,
             ContentId texture, int bufferMax, int speedMultiplier, boolean acceptsSpeedEffects,

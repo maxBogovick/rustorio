@@ -1,0 +1,7 @@
+{
+  "path": "oil_sand",
+  "label": { "en": "Oil Sand", "ru": "Нефтеносный песок" },
+  "colorRgb": "#3B3128",
+  "shape": "CIRCLE",
+  "tool": "ore"
+}

@@ -36,11 +36,20 @@ public interface RegistrationContext {
      * The registry under {@code key} — the one method an implementation actually has to provide;
      * every named accessor below is this call with a constant from {@link RegistryKeys}.
      *
-     * <p>A mod may pass a key of its own to hold a content kind the base game has never heard of.
-     * Nothing here treats the vanilla keys as special: they are constants in a class, not cases in
-     * a list, which is the whole point — a new kind of content used to mean editing this interface,
-     * its implementation, the loaded-game record, the loader's freeze list and its log line before
-     * it did anything at all.
+     * <p>Nothing here treats the vanilla keys as special: they are constants in a class, not cases
+     * in a list, which is the whole point — a new kind of content used to mean editing this
+     * interface, its implementation, the loaded-game record, the loader's freeze list and its log
+     * line before it did anything at all. That openness is real on the ENGINE side and is what
+     * makes adding a content kind a one-line change there.
+     *
+     * <p><b>A mod cannot yet contribute a key of its own</b>, and this javadoc used to say it
+     * could. Looking one up is all this method does; the only call that CREATES a registry under a
+     * new key is package-private in {@code com.rustorio.mod} — a package {@code ModClassLoader}
+     * refuses to delegate and {@code apiJar} does not ship, so a mod cannot reach it. Passing an
+     * unknown key therefore throws (see below) rather than lazily creating one. Opening this up is
+     * a public-API decision for the owner, not something to widen in passing; until then a mod's
+     * own collection lives in a field of its {@link RustorioMod} and simply forgoes {@code rawId},
+     * freezing and the load summary.
      *
      * @throws java.util.NoSuchElementException if nothing is registered under {@code key} — reaching
      *     for a registry that does not exist is a programming error, not a content one, so it is

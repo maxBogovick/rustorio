@@ -1,0 +1,6 @@
+{
+  "ingredients": ["oil_sand", "rustorio:coal"],
+  "output": "plastic",
+  "time": 30,
+  "kind": "chemistry"
+}

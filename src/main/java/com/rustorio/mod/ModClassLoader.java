@@ -2,6 +2,7 @@ package com.rustorio.mod;
 
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.List;
 
 /**
  * One classloader per mod jar — two mods never share an instance, so one mod's classes are never
@@ -23,12 +24,30 @@ import java.net.URLClassLoader;
  * every mod registering an item or a building prototype must do) needs those packages delegated
  * too. Narrowing this allowlist down to strictly {@code com.rustorio.api} is a follow-up for
  * whenever that split actually happens, not a silent gap here.
+ *
+ * <p>{@link #PARENT_DELEGATED_PREFIXES} is the SINGLE authority on where the engine ends and a mod
+ * begins, and {@code ModApiSurfaceTest} holds the published artifact to it: it opens the {@code
+ * rustorio-api} jar and fails if that jar ships a package this list would refuse to load. The two
+ * had already drifted once — {@code include 'com/rustorio/**'} shipped {@code persistence}, {@code
+ * mod} and {@code game} in full, three packages a mod could compile against and never load, turning
+ * a build error into a {@link ClassNotFoundException} in a player's game.
+ *
+ * <p>What a MOD may name is held to the same line twice over. The compiler gets there first: an
+ * in-repo mod's compile classpath is the {@code apiJar} output rather than the engine's own (see the
+ * source-set block in {@code build.gradle}), so a mod naming {@code ModLoader} does not compile.
+ * {@code ModBoundaryRulesTest} then checks the mods' bytecode anyway — the compiler's guarantee is
+ * only as durable as one line of a build script, and no test reads build scripts. Its own javadoc
+ * has the failure that made keeping both worthwhile.
+ *
+ * <p>Deliberately a hard-coded literal rather than a resource file the build and this loader both
+ * read. A shared file would make "one source" literal, but it would also make an isolation
+ * allowlist something that can go missing — and a missing file reads as an EMPTY or absent list,
+ * which fails open. A literal cannot be lost.
  */
 final class ModClassLoader extends URLClassLoader {
 
-    private static final String[] PARENT_DELEGATED_PREFIXES = {
-            "com.rustorio.api.", "com.rustorio.domain.", "java.", "javax.", "jdk.", "sun."
-    };
+    private static final List<String> PARENT_DELEGATED_PREFIXES = List.of(
+            "com.rustorio.api.", "com.rustorio.domain.", "java.", "javax.", "jdk.", "sun.");
 
     ModClassLoader(URL jarUrl, ClassLoader parent) {
         super(new URL[] {jarUrl}, parent);
@@ -50,7 +69,15 @@ final class ModClassLoader extends URLClassLoader {
         }
     }
 
-    private static boolean isParentDelegated(String name) {
+    /**
+     * Package-private so {@code ModApiSurfaceTest} can ask the loader itself whether a class in the
+     * published jar would be delegated, instead of restating the prefixes. Restating them is what
+     * this predicate exists to prevent: the prefixes carry a trailing dot on purpose ({@code
+     * "com.rustorio.api."}), so {@code com.rustorio.apiary.Foo} is NOT delegated — a test that
+     * matched on {@code "com.rustorio.api"} without it would call that class part of the API surface
+     * while the running game refused to load it, which is the exact drift being guarded against.
+     */
+    static boolean isParentDelegated(String name) {
         for (String prefix : PARENT_DELEGATED_PREFIXES) {
             if (name.startsWith(prefix)) {
                 return true;

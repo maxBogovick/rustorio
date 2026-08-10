@@ -33,9 +33,10 @@ import org.jspecify.annotations.Nullable;
  * be told apart when their turn comes.
  *
  * <p>Matches {@link Furnace}'s {@code ProcessTimer} policy (P2-05, BUG_FIX_PROGRESS.md): the timer
- * is created lazily, on the first {@link #accept}, from whatever {@link VanillaTechs#FAST_LAB} state holds
- * at that moment — not eagerly at construction. A lab built after the tech is already unlocked
- * must not cook its first batch at the un-halved rate just because nobody had fed it yet.
+ * is created lazily, on the first {@link #accept}, from whatever state {@link
+ * BuildingPrototype#speedTech()} (vanilla: {@link VanillaTechs#FAST_LAB}) holds at that moment —
+ * not eagerly at construction. A lab built after the tech is already unlocked must not cook its
+ * first batch at the un-halved rate just because nobody had fed it yet.
  */
 public final class Lab implements Building {
 
@@ -162,8 +163,16 @@ public final class Lab implements Building {
         return Math.max(1, Math.round(POINTS_PER_GEAR * itemDepth / (float) gearDepth));
     }
 
-    private static int effectiveTime(TickContext world) {
-        return world.research().fasterIfUnlocked(VanillaTechs.FAST_LAB, RESEARCH_TIME);
+    /**
+     * Reads {@link #prototype}'s own {@link BuildingPrototype#speedTech()} rather than a hardcoded
+     * {@code VanillaTechs} constant, so a JSON-authored LAB can name its own technology; {@link
+     * VanillaBuildings#registerAll} sets the vanilla default ({@code FAST_LAB}) explicitly, so
+     * nothing that never mentions this trait changes behavior. {@code null} means no tech ever
+     * speeds this one up.
+     */
+    private int effectiveTime(TickContext world) {
+        ContentId speedTech = prototype.speedTech();
+        return speedTech == null ? RESEARCH_TIME : world.research().fasterIfUnlocked(speedTech, RESEARCH_TIME);
     }
 
     /** Always {@code WORKING}: this archetype has no notion of being stuck — see {@link Building#status()}. */

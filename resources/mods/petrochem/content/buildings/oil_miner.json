@@ -1,0 +1,11 @@
+{
+  "path": "oil_miner",
+  "category": "mining",
+  "label": { "en": "Oil miner", "ru": "Нефтяной бур" },
+  "archetype": "ELECTRIC_MINER",
+  "cost": { "item": "rustorio:gear", "amount": 8 },
+  "placement": "NEEDS_ORE",
+  "texture": "rustorio:electric_miner",
+  "power": { "demand": 20 },
+  "acceptsSpeedEffects": true
+}

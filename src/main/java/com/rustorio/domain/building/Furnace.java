@@ -370,10 +370,19 @@ public final class Furnace implements Building, RecipeSelectable {
         return prototype.footprintHeight();
     }
 
-    /** {@code recipe.time()}, halved again by {@link #prototype}'s own {@code speedMultiplier} — the "twice as fast" a modded furnace variant asks for stacks with, not instead of, the {@code FAST_SMELTING} tech bonus. */
+    /**
+     * {@code recipe.time()}, halved again by {@link #prototype}'s own {@code speedMultiplier} — the
+     * "twice as fast" a modded furnace variant asks for stacks with, not instead of, whichever
+     * technology {@link #prototype}'s own {@link BuildingPrototype#speedTech()} names ({@code null}
+     * means no tech ever speeds this one up). Reads the trait rather than a hardcoded {@code
+     * VanillaTechs} constant so a JSON-authored FURNACE/PRESS/ASSEMBLER can name its own technology;
+     * {@link VanillaBuildings#registerAll} sets the vanilla default ({@code FAST_SMELTING})
+     * explicitly for all three, so nothing that never mentions this trait changes behavior.
+     */
     private int effectiveTime(Recipe recipe, TickContext world) {
         int baseTime = Math.max(1, recipe.time() / prototype.speedMultiplier());
-        return world.research().fasterIfUnlocked(VanillaTechs.FAST_SMELTING, baseTime);
+        ContentId speedTech = prototype.speedTech();
+        return speedTech == null ? baseTime : world.research().fasterIfUnlocked(speedTech, baseTime);
     }
 
     private int effectiveBufferMax(TickContext world) {

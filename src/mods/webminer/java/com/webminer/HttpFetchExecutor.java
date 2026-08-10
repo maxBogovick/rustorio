@@ -7,10 +7,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The real {@link FetchExecutor}: an actual outbound HTTP GET, run on a virtual thread per request
@@ -94,11 +96,28 @@ public final class HttpFetchExecutor implements FetchExecutor, AutoCloseable {
             HttpRequest request = HttpRequest.newBuilder(URI.create(url)).timeout(TIMEOUT).GET().build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() / 100 != 2) {
-                return new FetchResult(FetchOutcome.ERROR, null);
+                // The status travels even though the body doesn't: "404" and "500" are different
+                // problems to a player, and both used to arrive as the same silent ERROR.
+                return new FetchResult(FetchOutcome.ERROR, null, response.statusCode(), null, 0);
             }
             String body = response.body();
+            String contentType = response.headers().firstValue("content-type").orElse(null);
+            // The status and the content type are reported, not just consulted: a Monitor says what
+            // kind of thing came back, and guessing that from the body's first character gets a
+            // JSON API served as text/plain wrong in both directions. fullBodyLength is measured
+            // BEFORE the cap below, so "48 KB, showing 8" stays true.
+            //
+            // The page is skimmed HERE, on this background thread, while the whole document still
+            // exists — the cap below keeps the first few kilobytes, and on a real page those are
+            // the head, so a skim done later has nothing readable to find. See HtmlDigest.
+            boolean html = looksLikeHtml(contentType, body);
             return new FetchResult(FetchOutcome.SUCCESS,
-                    body.length() > MAX_BODY_LENGTH ? body.substring(0, MAX_BODY_LENGTH) : body);
+                    body.length() > MAX_BODY_LENGTH ? body.substring(0, MAX_BODY_LENGTH) : body,
+                    response.statusCode(),
+                    contentType,
+                    body.length(),
+                    html ? ResponsePreview.digestHtml(body) : null,
+                    html ? PageRenderer.render(body, url) : null);
         } catch (IOException e) {
             return new FetchResult(FetchOutcome.ERROR, null);
         } catch (InterruptedException e) {
@@ -107,6 +126,24 @@ public final class HttpFetchExecutor implements FetchExecutor, AutoCloseable {
         } catch (IllegalArgumentException e) {
             return new FetchResult(FetchOutcome.ERROR, null); // not a valid URI — the player's own typo, same as an unreachable host
         }
+    }
+
+    /**
+     * Whether this response is worth handing to the HTML skimmer. The header decides when there is
+     * one; otherwise the body's first non-blank character does, because an endpoint serving a page
+     * with no {@code Content-Type} still serves a page.
+     */
+    private static boolean looksLikeHtml(@Nullable String contentType, String body) {
+        if (contentType != null) {
+            String lower = contentType.toLowerCase(Locale.ROOT);
+            return lower.contains("html") || lower.contains("xml");
+        }
+        for (int i = 0; i < body.length(); i++) {
+            if (body.charAt(i) > ' ') {
+                return body.charAt(i) == '<';
+            }
+        }
+        return false;
     }
 
     /** Stops accepting new fetches and abandons any in flight — called once, on shutdown (see {@code GameScreen#dispose}). */

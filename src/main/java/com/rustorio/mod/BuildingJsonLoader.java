@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Reads {@code content/buildings/*.json} — a building PROTOTYPE as pure data (cost, placement,
  * texture, tuning), reusing an EXISTING archetype's Java behavior rather than writing a new class.
- * {@code archetype} names one of the 12 {@link BuildingType} constants; its {@code behavior}/{@code
+ * {@code archetype} names one of the {@link BuildingType} constants; its {@code behavior}/{@code
  * restoreBehavior}/{@code codec} are borrowed wholesale from {@link VanillaBuildings#frozen()} —
  * the exact mechanism {@code com.examplemod.ExampleMod} already proved for its "steel press" in
  * Phases 5-6, here driven by JSON instead of a Java literal. Genuinely NEW behavior stays a code
@@ -57,7 +57,7 @@ final class BuildingJsonLoader {
             JsonNodes.rejectUnknownFields(root, file, "building", List.of("path", "label", "archetype",
                     "cost", "placement", "texture", "footprintWidth", "footprintHeight", "bufferMax",
                     "speedMultiplier", "acceptsSpeedEffects", "kind", "fuel", "fluidInput", "fluidOutput",
-                    "power", "category"));
+                    "power", "category", "speedTech"));
             String path = JsonNodes.requireText(root, "path", file);
             ContentId id = new ContentId(modId.value(), path);
             String label = JsonNodes.requireLocalizedText(root, "label", file, id.toString(), ContentLocale.current());
@@ -88,7 +88,8 @@ final class BuildingJsonLoader {
             Map<TraitKey<?>, Object> traits = new LinkedHashMap<>();
             traits.put(VanillaTraits.FLUID_INPUT, resolveOptionalFluid(root, "fluidInput", modId, context, file));
             traits.put(VanillaTraits.FLUID_OUTPUT, resolveOptionalFluid(root, "fluidOutput", modId, context, file));
-            traits.put(VanillaTraits.POWER, readOptionalPower(root, file));
+            traits.put(VanillaTraits.POWER, readOptionalPower(root, file, archetype));
+            traits.put(VanillaTraits.SPEED_TECH, resolveOptionalSpeedTech(root, "speedTech", modId, archetypePrototype, file));
             traits.put(VanillaCategories.CATEGORY, readOptionalCategory(root, modId));
 
             context.buildings().register(id, new BuildingPrototype(id, label, new BuildingCost(costItem, costAmount),
@@ -104,11 +105,22 @@ final class BuildingJsonLoader {
      * building with nothing to do with power (which is nearly every one). Absent means {@code null}
      * rather than a zeroed spec: "not electrical" and "electrical, asking for nothing" are different
      * claims, and only the first is what an ordinary building means.
+     *
+     * <p>Rejected outright on any archetype {@link VanillaBuildings#honorsPower} says never reads
+     * one — before this check, a {@code "power"} block on, say, an ASSEMBLER loaded without error
+     * and then silently did nothing at runtime: valid data describing a machine that never actually
+     * paid for its own tick, with no error anywhere naming the mistake.
      */
-    private static @Nullable PowerSpec readOptionalPower(JsonNode root, Path file) {
+    private static @Nullable PowerSpec readOptionalPower(JsonNode root, Path file, BuildingType archetype) {
         JsonNode power = root.get("power");
         if (power == null || power.isNull()) {
             return null;
+        }
+        if (!VanillaBuildings.honorsPower(archetype)) {
+            throw new ModLoadException(file + ": field 'power' has no effect on archetype '" + archetype
+                    + "' — its Java behavior never reads a PowerSpec at all, so this block would load "
+                    + "silently and then do nothing at runtime; only " + VanillaBuildings.powerAwareArchetypes()
+                    + " honor 'power'");
         }
         if (!power.isObject()) {
             throw new ModLoadException(file + ": field 'power' must be an object like "
@@ -163,6 +175,28 @@ final class BuildingJsonLoader {
         return text.indexOf(':') >= 0 ? ContentId.of(text) : new ContentId("rustorio", text);
     }
 
+    /**
+     * {@code "speedTech"} — which technology, once unlocked, halves this building's own timing.
+     * Absent means "inherit the borrowed archetype's own gate" ({@code archetypePrototype}'s own
+     * {@link BuildingPrototype#speedTech()}), not "no tech gate at all": that would silently change
+     * the behavior of every JSON building written before this field existed, which reused a
+     * FURNACE/MINER/LAB archetype and got that archetype's vanilla tech bonus for free. Present
+     * overrides it outright, including to a technology this very mod registers — the capability
+     * {@link com.rustorio.domain.VanillaTechs}'s own javadoc used to say a JSON-only mod lacked.
+     *
+     * <p>Not existence-checked against the tech registry here: techs load AFTER buildings ({@link
+     * ContentJsonLoader}), so a mod's own technology would not be registered yet at this point —
+     * the same reason a building's {@code recipeKind} is cross-checked later in {@code
+     * ModLoader#validateContent} rather than in this loader.
+     */
+    private static @Nullable ContentId resolveOptionalSpeedTech(JsonNode root, String field, ModId modId,
+            BuildingPrototype archetypePrototype, Path file) {
+        if (!root.has(field)) {
+            return archetypePrototype.speedTech();
+        }
+        return resolveRef(JsonNodes.requireText(root, field, file), modId);
+    }
+
     private static @Nullable FluidType resolveOptionalFluid(JsonNode root, String field, ModId modId,
             RegistrationContext context, Path file) {
         if (!root.has(field)) {
@@ -185,7 +219,7 @@ final class BuildingJsonLoader {
     }
 
     /**
-     * A {@code "kind"} value is either one of the 12 {@link BuildingType} names (opts this
+     * A {@code "kind"} value is either one of the {@link BuildingType} names (opts this
      * building into that kind's own shared vanilla pool — {@code ContentId} segments are lowercase
      * only, so {@code "PRESS"} would otherwise fail {@link #resolveRef} outright) or a
      * bare/namespaced reference, exactly mirroring {@code RecipeJsonLoader.resolveKind} — the two

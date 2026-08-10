@@ -19,8 +19,44 @@ public final class SettingsModalLayout {
     /** Above the title and below the last row — room for the "Tab/Enter/Esc" hint line. */
     private static final float TOP_PADDING = 12f;
     private static final float BOTTOM_PADDING = 30f;
+    /** Left inset of every row, and the matching gap kept on the right — {@link HudRenderer} draws at this offset, the row builders below fit to what is left over. */
+    static final float TEXT_PAD = 12f;
+    /** Pixels a row may fill. Package-private so a test can assert "no row is wider than the modal" against the layout's own number. */
+    static final float ROW_WIDTH = PANEL_WIDTH - 2 * TEXT_PAD;
+    /**
+     * The most of a row a field's LABEL may take, leaving the rest for its value. Without a cap a
+     * verbose label — and labels come from {@code EditableBuilding}, so a mod writes them — would
+     * push the value out of the row entirely, which is backwards: the value is the part being
+     * edited and the part the player is looking at.
+     */
+    private static final float MAX_LABEL_FRACTION = 0.5f;
 
     private SettingsModalLayout() {
+    }
+
+    /**
+     * One field's row: {@code "label: value"} plus the cursor on the focused one, cut to a single
+     * row. The value keeps its END, not its beginning — {@code com.graphics.input.SettingsModal}
+     * appends every keystroke to the end of the buffer, so a URL long enough to overflow scrolls
+     * with the typing instead of showing a head the player stopped editing long ago. That is the
+     * whole live report: a long URL used to be drawn straight through the modal's right border and
+     * across whatever else was on screen.
+     *
+     * <p>One row, deliberately, and it costs something: a very long value is never visible in full.
+     * Wrapping it onto a second row would break {@link #hitTestField}, which turns a click into a
+     * focus change by dividing by the row height — every field below a wrapped one would take the
+     * focus meant for its neighbour.
+     */
+    static String fieldRow(String label, String value, boolean focused) {
+        String prefix = HudText.keepStart(label + ": ", ROW_WIDTH * MAX_LABEL_FRACTION);
+        String cursor = focused ? "_" : "";
+        float budget = ROW_WIDTH - HudText.widthOf(prefix) - HudText.widthOf(cursor);
+        return prefix + HudText.keepEnd(value, budget) + cursor;
+    }
+
+    /** A row nobody is editing (the title, a read-only line, the hint): its meaning is at the front, so the front is what survives the cut. */
+    static String readOnlyRow(String line) {
+        return HudText.keepStart(line, ROW_WIDTH);
     }
 
     static float panelWidth() {

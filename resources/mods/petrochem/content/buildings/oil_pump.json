@@ -1,0 +1,11 @@
+{
+  "path": "oil_pump",
+  "category": "fluids",
+  "label": { "en": "Oil pump", "ru": "Нефтяная помпа" },
+  "archetype": "PUMP",
+  "cost": { "item": "rustorio:iron_plate", "amount": 12 },
+  "placement": "NEEDS_ORE",
+  "texture": "rustorio:pump",
+  "fluidOutput": "crude_oil",
+  "acceptsSpeedEffects": false
+}

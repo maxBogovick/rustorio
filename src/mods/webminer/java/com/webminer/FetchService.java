@@ -50,7 +50,20 @@ public final class FetchService implements AutoCloseable {
      * has it ever fetched." Overwritten by that same cell's NEXT fetch, which {@link
      * WebMiner#MIN_INTERVAL_TICKS} keeps at least a real minute away.
      */
-    private final Map<Cell, String> lastBody = new ConcurrentHashMap<>();
+    private final Map<Cell, FetchResult> lastSuccess = new ConcurrentHashMap<>();
+
+    /**
+     * The most recent COMPLETED fetch per cell whatever its outcome — the failures included, which
+     * is the difference from {@link #lastSuccess}.
+     *
+     * <p>Two maps rather than one, and the reason is a live gap in each direction. Keeping only
+     * successes left a monitor behind a miner pointed at a typo'd URL saying "no response seen yet"
+     * forever, indistinguishable from a miner that simply hasn't got round to fetching. Keeping
+     * only the latest result would fix that and break the other side: one flaky minute would
+     * discard a body the interpreter in front is still reading fields out of, and the panel would
+     * go blank until the next success a whole interval later.
+     */
+    private final Map<Cell, FetchResult> lastAttempt = new ConcurrentHashMap<>();
 
     public FetchService(FetchExecutor executor) {
         this.executor = executor;
@@ -67,10 +80,10 @@ public final class FetchService implements AutoCloseable {
             return;
         }
         executor.submit(url, result -> {
-            String body = result.body();
-            if (body != null) {
-                lastBody.put(cell, body);
+            if (result.body() != null) {
+                lastSuccess.put(cell, result);
             }
+            lastAttempt.put(cell, result);
             // Written LAST: a reader that sees the outcome is guaranteed to already see the body
             // that came with it. The other order would let a Monitor poll a success and find no
             // body for a window of a few instructions.
@@ -98,7 +111,22 @@ public final class FetchService implements AutoCloseable {
      * same body, every tick, not once between them.
      */
     public Optional<String> lastBody(int x, int y) {
-        return Optional.ofNullable(lastBody.get(new Cell(x, y)));
+        return lastSuccess(x, y).map(FetchResult::body);
+    }
+
+    /**
+     * The last response from {@code (x, y)} that actually brought a body — body plus the HTTP
+     * metadata that came with it. {@link Monitor} needs the metadata to say what kind of thing
+     * arrived and how big it really was; {@link Interpreter} only ever wanted the body, and {@link
+     * #lastBody} still hands it that without making it know a response has anything else in it.
+     */
+    public Optional<FetchResult> lastSuccess(int x, int y) {
+        return Optional.ofNullable(lastSuccess.get(new Cell(x, y)));
+    }
+
+    /** The last fetch from {@code (x, y)} to finish at all, successful or not — see {@link #lastAttempt} for why this is kept apart from the one above. */
+    public Optional<FetchResult> lastAttempt(int x, int y) {
+        return Optional.ofNullable(lastAttempt.get(new Cell(x, y)));
     }
 
     /** Shuts the executor down — called by {@code WorldServices.closeAll} when the game owning this world goes away. */

@@ -1,0 +1,6 @@
+{
+  "ingredients": ["plastic", "rustorio:gear"],
+  "output": "polymer_pack",
+  "time": 45,
+  "kind": "polymer_works"
+}

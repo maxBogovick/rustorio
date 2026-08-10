@@ -155,8 +155,8 @@ Jackson живёт ровно в двух пакетах — `persistence` (се
 | Что нужно | Куда идти |
 |---|---|
 | Сделать первый мод с нуля | **[docs/first-mod.md](docs/first-mod.md)** — своя руда за 20 минут, без Java |
-| Написать мод с кодом (jar) | [docs/howto/code-mod.md](docs/howto/code-mod.md) — своё поведение и подписка на события |
-| Решить конкретную задачу | [docs/howto/](docs/howto/) — здание, текстуры, правка чужого рецепта |
+| Разобраться во всём остальном | **[docs/modding-guide.md](docs/modding-guide.md)** — быстрогайд, все виды контента, целый мод-пример и API для jar-модов |
+| Написать мод с кодом (jar) | [часть 3 того же руководства](docs/modding-guide.md#часть-3--движок-в-коде-jar-мод) — своё поведение, сервисы, события |
 | Посмотреть, какие бывают поля | [docs/reference.md](docs/reference.md) и схемы в [docs/schemas/](docs/schemas/) |
 | Понять, почему движок устроен так | [docs/why-registries.md](docs/why-registries.md) |
 

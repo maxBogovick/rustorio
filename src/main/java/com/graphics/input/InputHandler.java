@@ -4,12 +4,14 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.graphics.GfxConfig;
 import com.graphics.render.BuildMenuLayout;
-import com.graphics.render.GameCamera;
 import com.graphics.render.CategoryTabsLayout;
 import com.graphics.render.DisplayLabels;
-import com.graphics.render.QuickBarLayout;
+import com.graphics.render.GameCamera;
 import com.graphics.render.HudState;
 import com.graphics.render.InspectionPanelLayout;
+import com.graphics.render.PageView;
+import com.graphics.render.PageViewLayout;
+import com.graphics.render.QuickBarLayout;
 import com.graphics.render.TilePos;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
@@ -28,16 +30,18 @@ import com.rustorio.domain.action.RemoveAction;
 import com.rustorio.domain.action.RotateAction;
 import com.rustorio.domain.action.UpgradeSpeedAction;
 import com.rustorio.domain.building.Building;
+import com.rustorio.domain.building.BuildingImage;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.EditableBuilding;
 import com.rustorio.domain.building.Filter;
 import com.rustorio.domain.building.Furnace;
 import com.rustorio.domain.building.RecipeSelectable;
 import com.rustorio.domain.building.VanillaBuildings;
+import com.rustorio.domain.building.ViewableBuilding;
 import com.rustorio.domain.world.World;
 import com.rustorio.persistence.SaveRepository;
-import com.rustorio.persistence.UiSettings;
 import com.rustorio.persistence.SaveResult;
+import com.rustorio.persistence.UiSettings;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +83,21 @@ public final class InputHandler {
     private Direction facing = Direction.RIGHT; // важно только ленте; клавиша R меняет
     /** Клетка под панелью инспекции (F-03, DEV_TASKS.md) — {@code null}, пока ничего не открыто. */
     private @Nullable TilePos inspected;
+    /**
+     * Какое здание сейчас показывает свою картинку во весь экран, и на сколько она прокручена.
+     * Отдельно от {@link #inspected}: панель осмотра под просмотром остаётся открытой, и закрытие
+     * просмотра возвращает игрока к ней, а не в пустоту.
+     */
+    private @Nullable TilePos viewedPage;
+    private int pageScroll;
+    /** Пересобирается раз в кадр в {@link #handle}: {@link #hudState()} мира не получает, а картинку отдаёт здание. */
+    private @Nullable PageView pageView;
+    /**
+     * Закрыл ли Esc просмотр страницы ИМЕННО в этом кадре. Нужен потому, что {@code GameScreen}
+     * проверяет {@link #hasOpenPanel()} уже ПОСЛЕ {@link #handle}: без этого флага один Esc и
+     * закрыл бы страницу, и открыл меню паузы за тот же кадр.
+     */
+    private boolean escapeClosedPageView;
     /** Какой предмет графикуется на экране статистики (P-03, DEV_TASKS.md) — {@code N} переключает, пока экран открыт. */
     private ItemType statsItem = VanillaItems.IRON_ORE;
     /** Протяжка ЛКМ/ПКМ копится в одно {@link CompositeAction} на отпускание — см. {@link #handleDrag}. */
@@ -131,7 +150,9 @@ public final class InputHandler {
     public Direction facing() { return facing; }
     public boolean isPaused() { return simulationControls.isPaused(); }
     /** Whether a HUD panel (recipe book/tech tree/stats/build menu/info) is open right now — {@code GameScreen} uses this to tell an Esc that closed a panel apart from one that should open its pause menu instead. */
-    public boolean hasOpenPanel() { return simulationControls.hasOpenPanel(); }
+    public boolean hasOpenPanel() {
+        return simulationControls.hasOpenPanel() || viewedPage != null || escapeClosedPageView;
+    }
     public int speed() { return simulationControls.speed(); }
     public boolean showRecipeBook() { return simulationControls.showRecipeBook(); }
     /**
@@ -143,10 +164,12 @@ public final class InputHandler {
         boolean altOverlay = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
         return simulationControls.hudState(selected, facing, buildDrag.inProgressTiles(), inspected, altOverlay,
                 statsItem, quickBar.slots(), statusMessage, settingsModal.view(), activeCategoryIndex,
-                hoveredPrototype(), displayLabels);
+                hoveredPrototype(), displayLabels, pageView);
     }
 
     public void handle(World world, float delta) {
+        escapeClosedPageView = false;
+        refreshPageView(world);
         if (statusMessageTimeLeft > 0f) {
             statusMessageTimeLeft -= delta;
             if (statusMessageTimeLeft <= 0f) {
@@ -234,7 +257,12 @@ public final class InputHandler {
                 history.perform(world, new GrabChestAction(tile.x(), tile.y()));
             }
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) && viewedPage != null) {
+            // Просмотр страницы — верхний слой: Esc убирает его и оставляет панель осмотра, из
+            // которой он открыт, а не сметает всё разом.
+            closePageView();
+            escapeClosedPageView = true;
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             // Живой баг-репорт: раньше ESC закрывал только панель инспекции — книга рецептов,
             // дерево техов, статистика и меню построек не реагировали на него вовсе, каждую нужно
             // было помнить закрывать своей собственной клавишей (TAB/T/V/B). Один ключ, который
@@ -377,7 +405,48 @@ public final class InputHandler {
      * камеры ({@code com.graphics.screen.GameScreen}'s own scroll listener зовёт это ПЕРВЫМ и зумит
      * камеру, только если меню не открыто и вернулось {@code false} — см. тот вызов).
      */
+    /**
+     * Пересобирает {@link #pageView} под то, что здание отдаёт СЕЙЧАС: страница могла смениться
+     * новой загрузкой, здание — исчезнуть под ковшом, а окно — измениться в размере, и прокрутка,
+     * законная минуту назад, уехать за нижний край.
+     *
+     * <p>Раз в кадр и только пока просмотр открыт — {@code ViewableBuilding} ровно это и обещает
+     * реализации, и ровно на это рассчитан её собственный кэш.
+     */
+    private void refreshPageView(World world) {
+        if (viewedPage == null) {
+            pageView = null;
+            return;
+        }
+        Building building = world.peek(viewedPage.x(), viewedPage.y()).orElse(null);
+        if (!(building instanceof ViewableBuilding viewable)) {
+            closePageView(); // здание снесли, пока смотрели
+            return;
+        }
+        BuildingImage image = viewable.image(world, viewedPage.x(), viewedPage.y()).orElse(null);
+        if (image == null) {
+            closePageView();
+            return;
+        }
+        pageScroll = PageViewLayout.clampScroll(pageScroll, image.width(), image.height(),
+                Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        pageView = new PageView(
+                world.buildingFactory().prototype(building.prototypeId()).label(), image, pageScroll);
+    }
+
+    private void closePageView() {
+        viewedPage = null;
+        pageView = null;
+        pageScroll = 0;
+    }
+
     public boolean handleScroll(float amountY) {
+        if (viewedPage != null) {
+            // Просмотр страницы открыт — колесо листает её, а не зумит камеру под ней; тот же
+            // принцип «открытая панель забирает колесо себе», что и у меню построек ниже.
+            pageScroll += (int) Math.signum(amountY) * PageViewLayout.SCROLL_STEP;
+            return true;
+        }
         if (!simulationControls.showBuildMenu()) {
             return false;
         }
@@ -484,6 +553,14 @@ public final class InputHandler {
         List<String> lines = InspectionPanelLayout.inspectionLines(world, world.buildingFactory().items(), inspected, building.get());
         if (!InspectionPanelLayout.isOverPanel(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, lines.size())) {
             return false;
+        }
+        if (InspectionPanelLayout.hitTestOpenPage(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, lines)) {
+            // Клик по последней строке панели открывает картинку здания во весь экран. Сама
+            // картинка достаётся в refreshPageView на следующем кадре — здесь только «какая
+            // клетка», чтобы этот обработчик не начал зависеть ещё и от содержимого страницы.
+            viewedPage = inspected;
+            pageScroll = 0;
+            return true;
         }
         List<Recipe> recipes = InspectionPanelLayout.clickableRecipes(building.get());
         InspectionPanelLayout.hitTestRecipe(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, lines.size(), recipes)

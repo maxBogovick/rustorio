@@ -1,0 +1,9 @@
+{
+  "id": "petrochem",
+  "version": "1.0.0",
+  "name": "Petrochemistry",
+  "description": "Нефть: добыча, переработка, полимеры",
+  "minEngineVersion": "0.1.0",
+  "entryPoint": "com.petrochem.PetrochemMod",
+  "dependencies": [{ "modId": "rustorio", "range": ">=1.0.0" }]
+}

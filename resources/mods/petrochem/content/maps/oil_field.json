@@ -1,0 +1,13 @@
+{
+  "path": "oil_field",
+  "label": { "en": "Oil field", "ru": "Нефтяное поле" },
+  "orePatches": [
+    { "ore": "oil_sand", "cx": 30, "cy": 30, "radius": 5 },
+    { "ore": "oil_sand", "cx": 36, "cy": 33, "radius": 4 },
+    { "ore": "rustorio:coal", "cx": 20, "cy": 40, "radius": 4 },
+    { "ore": "rustorio:iron_ore", "cx": 45, "cy": 25, "radius": 4 }
+  ],
+  "terrainPatches": [
+    { "terrain": "WATER", "cx": 50, "cy": 45, "radius": 4 }
+  ]
+}

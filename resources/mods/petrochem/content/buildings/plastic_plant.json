@@ -1,0 +1,15 @@
+{
+  "path": "plastic_plant",
+  "category": "production",
+  "label": { "en": "Plastic plant", "ru": "Завод пластика" },
+  "archetype": "ASSEMBLER",
+  "footprintWidth": 2,
+  "footprintHeight": 2,
+  "cost": { "item": "rustorio:gear", "amount": 15 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:assembler",
+  "kind": "chemistry",
+  "bufferMax": 10,
+  "speedMultiplier": 1,
+  "acceptsSpeedEffects": true
+}

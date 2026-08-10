@@ -9,11 +9,13 @@ import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.VanillaTechs;
 import com.rustorio.domain.building.BuildingFactory;
+import com.rustorio.domain.building.BuildingImage;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.building.EditableBuilding;
 import com.rustorio.domain.building.InspectableBuilding;
 import com.rustorio.domain.building.VanillaBuildings;
+import com.rustorio.domain.building.ViewableBuilding;
 import com.rustorio.domain.building.WorldServices;
 import com.rustorio.domain.world.World;
 import com.rustorio.mod.LoadedGame;
@@ -43,6 +45,10 @@ class WebMinerChainTest {
 
     /** Resolves on the calling thread, before {@code submit} even returns — the fastest possible response, so the delivery half runs within a handful of ticks instead of never. */
     private static World chainWorld() {
+        return chainWorld((url, onComplete) -> onComplete.accept(new FetchResult(FetchOutcome.SUCCESS, BODY)));
+    }
+
+    private static World chainWorld(FetchExecutor executor) {
         LoadedGame content = ModLoader.loadAll(List.of(RUSTORIO_MOD_DIR, WEBMINER_MOD_DIR));
         Registry<BuildingPrototype> prototypes = new Registry<>();
         VanillaBuildings.registerAll(prototypes);
@@ -52,8 +58,7 @@ class WebMinerChainTest {
         BuildingFactory factory = new BuildingFactory(PatchOreLayout.standard(), RecipeBook.standard(),
                 content.items(), prototypes);
         WorldServices services = WorldServices.builder()
-                .with(FetchService.KEY, () -> new FetchService((url, onComplete) ->
-                        onComplete.accept(new FetchResult(FetchOutcome.SUCCESS, BODY))))
+                .with(FetchService.KEY, () -> new FetchService(executor))
                 .build();
         World world = new World(8, 8, factory, VanillaTechs.frozen(), services);
         world.restoreBuilding(0, 0, factory.create(WebMinerMod.WEB_MINER_ID, Direction.RIGHT));
@@ -78,9 +83,19 @@ class WebMinerChainTest {
                         + "and the rate limiter stops a second one for a whole minute");
     }
 
-    /** The read side, at the moment it actually has something to read — the monitor shows the body the miner behind it fetched. */
+    /**
+     * The read side, at the moment it actually has something to read — the monitor describes the
+     * response the miner behind it fetched.
+     *
+     * <p>It used to assert the body verbatim, {@code List.of(BODY)}, and that is what changed:
+     * quoting a body from the top shows a JSON API's real fields by luck and shows an HTML page's
+     * {@code <meta charset>} and favicon links by the same luck. What this pins now is that the
+     * monitor still reads the cell BEHIND it — the part that was always the point — and that what
+     * it reports is about the response rather than a slice of it. {@link ResponsePreviewTest}
+     * covers the shape of those lines for each kind of body.
+     */
     @Test
-    void theMonitorShowsTheBodyFetchedByTheMinerBehindIt() {
+    void theMonitorSummarisesTheResponseFetchedByTheMinerBehindIt() {
         World world = chainWorld();
         for (int i = 0; i < 200; i++) {
             world.tick();
@@ -89,7 +104,87 @@ class WebMinerChainTest {
         List<String> details = ((InspectableBuilding) world.peek(1, 0).orElseThrow())
                 .inspectionDetails(world, 1, 0);
 
-        assertEquals(List.of(BODY), details, "the monitor reads the cell behind it, which is the miner");
+        assertTrue(details.getFirst().startsWith("Response: JSON"),
+                "the monitor reads the cell behind it, which is the miner: " + details);
+        assertTrue(details.contains("  current_user_url: https://api.github.com/user"),
+                "the field the fetched body actually carries must be on the panel: " + details);
+    }
+
+    /**
+     * A miner whose fetches all fail leaves its monitor saying so, end to end through the real
+     * {@link FetchService}.
+     *
+     * <p>The service used to remember successful responses only, so a miner pointed at a URL that
+     * never works produced no record at all and the monitor fell through to "no response seen yet"
+     * — the sentence a brand-new miner shows. A player mistyping a URL got no signal from the game
+     * that anything was wrong, forever.
+     */
+    @Test
+    void aMonitorBehindAMinerThatOnlyEverFailsReportsTheFailure() {
+        World world = chainWorld((url, onComplete) ->
+                onComplete.accept(new FetchResult(FetchOutcome.ERROR, null, 404, null, 0)));
+        for (int i = 0; i < 200; i++) {
+            world.tick();
+        }
+
+        List<String> details = ((InspectableBuilding) world.peek(1, 0).orElseThrow())
+                .inspectionDetails(world, 1, 0);
+
+        assertEquals("Fetch failed: HTTP 404", details.getFirst(),
+                "a failure has to reach the panel, not just the belt: " + details);
+    }
+
+    /**
+     * A monitor hands over the page its miner fetched as pixels — the door {@code ViewableBuilding}
+     * opens, checked end to end rather than only at the renderer that draws them.
+     *
+     * <p>The fixture renders the page the way {@code HttpFetchExecutor} does, because that is the
+     * only place it can be rendered: the body a monitor can still see has been capped to a few
+     * kilobytes by the time anyone asks. What this pins is the handover — that a building with a
+     * page produces an image of the right size, and that a building without one produces nothing
+     * rather than an empty picture.
+     */
+    @Test
+    void aMonitorHandsOverTheFetchedPageAsPixels() {
+        String page = "<!doctype html><html><head><title>Cabinet</title></head>"
+                + "<body><h1>Cabinet</h1><p>One of a kind miniature dolls.</p></body></html>";
+        World world = chainWorld((url, onComplete) -> onComplete.accept(new FetchResult(FetchOutcome.SUCCESS,
+                page, 200, "text/html", page.length(), ResponsePreview.digestHtml(page),
+                PageRenderer.render(page, "https://example.invalid/"))));
+        for (int i = 0; i < 200; i++) {
+            world.tick();
+        }
+
+        BuildingImage image = ((ViewableBuilding) world.peek(1, 0).orElseThrow())
+                .image(world, 1, 0).orElseThrow();
+
+        assertTrue(image.width() > 0 && image.height() > 0, "a drawn page has a size: " + image.width() + "x" + image.height());
+        assertEquals(image.width() * image.height(), image.argb().length, "every pixel of it must actually be there");
+    }
+
+    /** No page fetched means no picture — an ordinary state, and it must not become a blank window the player has to close. */
+    @Test
+    void aMonitorWithNoPageBehindItOffersNoPictureAtAll() {
+        World world = chainWorld(); // the JSON fixture: a real response, but not a page
+        for (int i = 0; i < 200; i++) {
+            world.tick();
+        }
+
+        assertTrue(((ViewableBuilding) world.peek(1, 0).orElseThrow()).image(world, 1, 0).isEmpty(),
+                "a JSON body is not a page, and pretending otherwise would open an empty viewer");
+    }
+
+    /** The miner itself names its target. It is the one setting a player types in, and until now the only way to see it back was to open the editor again. */
+    @Test
+    void theMinerShowsTheUrlItIsPointedAt() {
+        World world = chainWorld();
+
+        List<String> details = ((InspectableBuilding) world.peek(0, 0).orElseThrow())
+                .inspectionDetails(world, 0, 0);
+
+        assertTrue(details.getFirst().startsWith("URL: https://"), "the target belongs on the panel: " + details);
+        assertTrue(details.stream().anyMatch(line -> line.startsWith("Fetches every ")),
+                "how often it goes out is the other half of what a miner is doing: " + details);
     }
 
     /**

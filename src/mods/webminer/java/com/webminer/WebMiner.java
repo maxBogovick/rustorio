@@ -10,6 +10,7 @@ import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.EditableBuilding;
 import com.rustorio.domain.building.FieldSpec;
 import com.rustorio.domain.building.FieldType;
+import com.rustorio.domain.building.InspectableBuilding;
 import com.rustorio.domain.building.TickContext;
 import com.rustorio.domain.building.TraitKey;
 import java.util.ArrayList;
@@ -53,7 +54,7 @@ import org.jspecify.annotations.Nullable;
  * {@link #backoffRemaining} ticks pass with no fetch at all — so a broken or rate-limiting endpoint
  * stops being hammered instead of failing, and immediately retrying, forever.
  */
-public final class WebMiner implements Building, EditableBuilding {
+public final class WebMiner implements Building, EditableBuilding, InspectableBuilding {
 
     /** Which item {@link #tick} produces on {@link FetchOutcome#SUCCESS} — see the class javadoc. */
     public static final TraitKey<ItemType> SUCCESS_ITEM =
@@ -282,6 +283,42 @@ public final class WebMiner implements Building, EditableBuilding {
     }
 
     /** The status field this archetype already keeps, handed over without building an {@link Appearance}. */
+    /**
+     * What this miner is pointed at and what it is doing about it.
+     *
+     * <p>Every one of these is a field this class already keeps, and none of them were visible
+     * anywhere: a player could SET the url through the settings modal and then had no way to read
+     * back what they had set, let alone see that three failures had opened the circuit and nothing
+     * would be fetched for the next half minute. A miner sitting still looked exactly like a miner
+     * between intervals, which is the state it is in almost all the time.
+     *
+     * <p>Field reads only, as {@link InspectableBuilding} requires of a method the panel calls
+     * every frame — no service lookup, no formatting of anything unbounded.
+     */
+    @Override
+    public List<String> inspectionDetails(TickContext world, int x, int y) {
+        List<String> lines = new ArrayList<>();
+        lines.add("URL: " + url);
+        lines.add("Fetches every " + seconds(intervalTicks) + " s");
+        if (backoffRemaining > 0) {
+            lines.add("Paused after " + FAILURE_THRESHOLD + " failures — retrying in "
+                    + seconds(backoffRemaining) + " s");
+        } else if (cooldownRemaining > 0) {
+            lines.add("Next fetch in " + seconds(cooldownRemaining) + " s");
+        } else {
+            lines.add("Fetching now");
+        }
+        if (consecutiveFailures > 0 && backoffRemaining == 0) {
+            lines.add("Failures in a row: " + consecutiveFailures + "/" + FAILURE_THRESHOLD);
+        }
+        return lines;
+    }
+
+    /** Ticks as whole seconds, rounded UP: "0 s" on a countdown that has not finished reads as a stuck miner. */
+    private static int seconds(int ticks) {
+        return (ticks + TICKS_PER_SECOND - 1) / TICKS_PER_SECOND;
+    }
+
     @Override
     public BuildingStatus status() {
         return status;

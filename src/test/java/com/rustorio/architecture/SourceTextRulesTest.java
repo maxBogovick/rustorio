@@ -54,11 +54,13 @@ class SourceTextRulesTest {
      * as every decrease above: comments carrying citations were deleted outright, so the number
      * follows them down.
      *
-     * <p>687 -> 686: {@code InputHandler}'s "cursor over the world" helper stopped writing the HUD
-     * band arithmetic out for itself and now points at the shared predicate, and the sentence
-     * naming the ghost's task id was replaced along with it.
+     * <p>687 -> 686: one citation in {@code ContentCouplingRatchetTest}'s own history comment went
+     * out while that comment was being rewritten (the two zero baselines it described became a flat
+     * prohibition). The smallest possible decrease, and recorded rather than restored: the rule
+     * against retroactive cleanup says not to go hunting for these, not to type one back in once the
+     * comment around it is being rewritten anyway.
      */
-    private static final int DOC_ID_CITATION_BASELINE = 686;
+    private static final int DOC_ID_CITATION_BASELINE = 685;
 
     /**
      * Explicit types are the rule; these are the exceptions that survived review. A new one is not

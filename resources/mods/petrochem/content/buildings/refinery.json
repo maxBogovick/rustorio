@@ -1,0 +1,13 @@
+{
+  "path": "refinery",
+  "category": "fluids",
+  "label": { "en": "Refinery", "ru": "Нефтеперерабатывающий завод" },
+  "archetype": "BOILER",
+  "cost": { "item": "rustorio:mechanism", "amount": 10 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:boiler",
+  "fuel": "rustorio:coal",
+  "fluidInput": "crude_oil",
+  "fluidOutput": "fuel_gas",
+  "acceptsSpeedEffects": false
+}

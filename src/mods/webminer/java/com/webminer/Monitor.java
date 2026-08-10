@@ -7,11 +7,14 @@ import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.building.BeltState;
 import com.rustorio.domain.building.Building;
+import com.rustorio.domain.building.BuildingImage;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.InspectableBuilding;
 import com.rustorio.domain.building.SettlesEachTick;
 import com.rustorio.domain.building.TickContext;
+import com.rustorio.domain.building.ViewableBuilding;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -32,10 +35,24 @@ import org.jspecify.annotations.Nullable;
  * body was, and why a mod could not have shipped this archetype without editing the engine's own
  * renderer. {@link InspectableBuilding} is the door that replaced the branch.
  */
-public final class Monitor implements Building, SettlesEachTick, InspectableBuilding {
+public final class Monitor implements Building, SettlesEachTick, InspectableBuilding, ViewableBuilding {
 
-    /** Panel text for a monitor whose upstream has fetched nothing yet — a fact about this building, so it lives here rather than in the renderer that draws it. */
-    private static final String NOTHING_YET = "(no response seen behind this monitor yet)";
+    /**
+     * The last response {@link #preview} was built from, and the preview itself — cached because
+     * {@link #inspectionDetails} runs on every frame the panel is open, and skimming an 8 KB page
+     * sixty times a second to produce the same five lines is work nobody asked for. Compared by
+     * value: {@link FetchService} hands back the same instance until the next fetch replaces it,
+     * but a value comparison is what makes the cache correct rather than merely usually-right,
+     * and a mismatch costs one skim either way. Same reasoning, and same shape, as {@link
+     * Interpreter}'s own cache.
+     */
+    private @Nullable FetchResult previewedAttempt;
+    private @Nullable FetchResult previewedSuccess;
+    private List<String> preview = List.of(ResponsePreview.NOTHING_YET);
+
+    /** The page {@link #decoded} was decoded from, compared by identity — {@link #image} explains why the decode is cached at all. */
+    private @Nullable RenderedPage decodedPage;
+    private @Nullable BuildingImage decoded;
 
     private final Direction direction;
     /** Which sprite {@link #appearance} draws — injected rather than hardcoded, so a prototype reusing this archetype can ship its own art. */
@@ -56,10 +73,16 @@ public final class Monitor implements Building, SettlesEachTick, InspectableBuil
     }
 
     /**
-     * The raw body most recently fetched by the cell behind this one, or a note that there isn't
-     * one yet. Cheap by construction — one map lookup and no parsing (see {@link
-     * InspectableBuilding}'s own warning about what this method must not do): the line is returned
-     * whole, and the panel wraps it to whatever width it happens to be.
+     * What the cell behind this one last fetched, summarised: what kind of thing came back and how
+     * big it was, then the part of it worth reading — see {@link ResponsePreview}.
+     *
+     * <p>It used to be the body itself, one line, handed to the panel to wrap. That reads fine for
+     * a JSON API, whose real fields sit at the front, and is useless for anything else: a monitor
+     * watching a miner pointed at a web page showed {@code <!doctype html>}, {@code <meta charset>}
+     * and three {@code <link rel="icon">} — six rows of the least informative part of the document.
+     *
+     * <p>Cheap by construction, which {@link InspectableBuilding} demands of a method called at
+     * frame rate: a map lookup, and a skim only when the response actually changed.
      *
      * <p>No service in this world means no fetching has happened or can happen, which reads to the
      * player exactly the same as "nothing fetched yet" — so it says that rather than exposing that
@@ -69,9 +92,51 @@ public final class Monitor implements Building, SettlesEachTick, InspectableBuil
     public List<String> inspectionDetails(TickContext world, int x, int y) {
         FetchService fetch = world.service(FetchService.KEY).orElse(null);
         if (fetch == null) {
-            return List.of(NOTHING_YET);
+            return List.of(ResponsePreview.NOTHING_YET);
         }
-        return List.of(fetch.lastBody(x - direction.dx(), y - direction.dy()).orElse(NOTHING_YET));
+        int behindX = x - direction.dx();
+        int behindY = y - direction.dy();
+        FetchResult attempt = fetch.lastAttempt(behindX, behindY).orElse(null);
+        FetchResult success = fetch.lastSuccess(behindX, behindY).orElse(null);
+        if (attempt == null && success == null) {
+            return List.of(ResponsePreview.NOTHING_YET);
+        }
+        if (!Objects.equals(attempt, previewedAttempt) || !Objects.equals(success, previewedSuccess)) {
+            preview = ResponsePreview.of(attempt, success);
+            previewedAttempt = attempt;
+            previewedSuccess = success;
+        }
+        return preview;
+    }
+
+    /**
+     * The fetched page as pixels, decoded once per page rather than once per frame.
+     *
+     * <p>{@link ViewableBuilding} promises this is called only while a viewer is open, and asks for
+     * the same instance back while nothing has changed — hence the cache: decoding a PNG sixty
+     * times a second to hand over identical pixels would be pure waste, and re-uploading them to
+     * the GPU behind it worse. {@link RenderedPage} explains why the page is kept encoded at all.
+     */
+    @Override
+    public Optional<BuildingImage> image(TickContext world, int x, int y) {
+        FetchService fetch = world.service(FetchService.KEY).orElse(null);
+        if (fetch == null) {
+            return Optional.empty();
+        }
+        RenderedPage page = fetch.lastSuccess(x - direction.dx(), y - direction.dy())
+                .map(FetchResult::page)
+                .orElse(null);
+        if (page == null) {
+            decodedPage = null;
+            decoded = null;
+            return Optional.empty();
+        }
+        if (page != decodedPage) {
+            int[] pixels = PageRenderer.decode(page);
+            decoded = pixels == null ? null : new BuildingImage(page.width(), page.height(), pixels);
+            decodedPage = page;
+        }
+        return Optional.ofNullable(decoded);
     }
 
     @Override

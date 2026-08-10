@@ -24,13 +24,18 @@ class PackageBoundaryRulesTest {
      * {@code com.rustorio.domain} only (no {@code ..} suffix on the {@code that()} side) — sibling
      * packages one level down ({@code domain.building}, {@code domain.world}, {@code
      * domain.action}) have their own, separately stated rules.
+     *
+     * <p>The {@code com.graphics} half of that prose is NOT restated here: {@link
+     * #nothingInTheGameDependsOnRendering} already forbids it for the entire {@code com.rustorio}
+     * tree, this package included. Listing it twice cost a reader a comparison to discover the two
+     * were saying the same thing, and would have let them drift into saying almost the same thing.
      */
     @ArchTest
     static final ArchRule domainIsTheInnermostRing = noClasses()
             .that().resideInAPackage("com.rustorio.domain")
             .should().dependOnClassesThat().resideInAnyPackage(
                     "com.rustorio.domain.building..", "com.rustorio.domain.world..",
-                    "com.rustorio.persistence..", "com.graphics..")
+                    "com.rustorio.persistence..")
             .because("com.rustorio.domain is the innermost ring (package-info.java) — value types "
                     + "and strategies everything else is built from, depending on nothing themselves");
 
@@ -39,12 +44,16 @@ class PackageBoundaryRulesTest {
      * com.rustorio.domain … never on the world package one level up, on persistence, or on the
      * rendering/input layer." Buildings talk back to {@code World} only through {@link
      * com.rustorio.domain.building.TickContext} (six methods), never by importing {@code World}.
+     *
+     * <p>The rendering half of that prose lives in {@link #nothingInTheGameDependsOnRendering},
+     * which covers this package along with every other one under {@code com.rustorio} — same
+     * reasoning as {@link #domainIsTheInnermostRing}.
      */
     @ArchTest
     static final ArchRule buildingDependsOnlyOnDomain = noClasses()
             .that().resideInAPackage("com.rustorio.domain.building")
             .should().dependOnClassesThat().resideInAnyPackage(
-                    "com.rustorio.domain.world..", "com.rustorio.persistence..", "com.graphics..")
+                    "com.rustorio.domain.world..", "com.rustorio.persistence..")
             .because("com.rustorio.domain.building depends only on com.rustorio.domain "
                     + "(package-info.java) — the world/building dependency is one-way, world -> building");
 
@@ -59,12 +68,16 @@ class PackageBoundaryRulesTest {
      */
     /**
      * The headline boundary of the whole codebase: {@code com.graphics} knows about the game,
-     * the game knows nothing about rendering or input. The two rules above already forbid this for
-     * {@code com.rustorio.domain} and {@code com.rustorio.domain.building}, which left the other
-     * six game packages ({@code domain.world}, {@code domain.action}, {@code api..}, {@code mod},
-     * {@code persistence}) checked by nothing but prose — a renderer type could have reached any of
-     * them without a single test turning red. Stated once here for the whole {@code com.rustorio}
-     * tree so a new package inherits it by existing, rather than needing its own rule.
+     * the game knows nothing about rendering or input. Stated ONCE, for the whole {@code
+     * com.rustorio} tree, so a new package inherits it by existing rather than needing its own rule
+     * — which is how {@code domain.world}, {@code domain.action}, {@code api..}, {@code mod} and
+     * {@code persistence} came to be covered at all: they were checked by nothing but prose, and a
+     * renderer type could have reached any of them without a test turning red.
+     *
+     * <p>The two rules above therefore do NOT repeat {@code com.graphics..} in their own forbidden
+     * lists. They did once, back when this rule did not exist yet; leaving the duplicate in place
+     * afterwards meant three rules had to be read together to answer "where is rendering forbidden",
+     * and any one of them could have been narrowed without the others noticing.
      */
     @ArchTest
     static final ArchRule nothingInTheGameDependsOnRendering = noClasses()

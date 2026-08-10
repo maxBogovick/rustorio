@@ -12,7 +12,9 @@ import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
+import com.rustorio.domain.TechType;
 import com.rustorio.domain.VanillaItems;
+import com.rustorio.domain.VanillaTechs;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.BuildingPrototype;
@@ -221,7 +223,7 @@ class BuildingJsonLoaderTest {
 
     /**
      * A bare fluid reference resolves in the CURRENT mod's namespace, exactly as a bare cost item
-     * does. Pinned because it is the trap the fluid howto itself fell into: {@code "water"} in a
+     * does. Pinned because it is the trap the fluid documentation itself fell into: {@code "water"} in a
      * mod's own file means that mod's water, not vanilla's, and the resulting error has to say so.
      */
     @Test
@@ -255,6 +257,30 @@ class BuildingJsonLoaderTest {
         ModLoadException thrown = assertThrows(ModLoadException.class, () -> BuildingJsonLoader.loadInto(tempDir, modId, context));
         assertTrue(thrown.getMessage().contains("power"), thrown.getMessage());
         assertTrue(thrown.getMessage().contains("radius"), "the message shows the shape it wanted: " + thrown.getMessage());
+    }
+
+    /**
+     * The gap a mod would otherwise fall into completely silently: an ASSEMBLER's Java behavior
+     * ({@link Furnace}) never calls {@code drawPower} at all, so before this check a {@code "power"}
+     * block here loaded fine and then never did anything — a machine that LOOKS electrical, isn't,
+     * and says so nowhere.
+     */
+    @Test
+    void aPowerBlockOnAnArchetypeThatNeverReadsItIsRejected() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        write("robo_assembler.json", """
+                { "path": "robo_assembler", "label": "Robo-Assembler", "archetype": "ASSEMBLER",
+                  "cost": { "item": "rustorio:gear", "amount": 15 },
+                  "placement": "NEEDS_PASSABLE_TERRAIN", "texture": "rustorio:assembler",
+                  "power": { "demand": 30 } }
+                """);
+
+        ModLoadException thrown = assertThrows(ModLoadException.class, () -> BuildingJsonLoader.loadInto(tempDir, modId, context));
+        assertTrue(thrown.getMessage().contains("ASSEMBLER"), thrown.getMessage());
+        assertTrue(thrown.getMessage().contains("MINER"),
+                "names an archetype that DOES honor power, so the modder knows what would actually work: "
+                        + thrown.getMessage());
     }
 
     /** A negative demand would be a machine that GENERATES by asking for power — rejected at the door, not left to the tick to puzzle over. */
@@ -360,6 +386,85 @@ class BuildingJsonLoaderTest {
                 "and a building that never declared it says so, rather than answering some default");
         assertEquals(null, loud.power(),
                 "declaring one trait does not accidentally declare the others");
+    }
+
+    /**
+     * A JSON building that omits {@code "speedTech"} must not lose the vanilla speed bonus its
+     * borrowed archetype has always had — silently dropping it would be a behavior change for
+     * every furnace-like JSON building ever written, none of which mention this new field.
+     */
+    @Test
+    void omittingSpeedTechInheritsTheBorrowedArchetypesOwnDefault() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        write("steel_press.json", """
+                { "path": "steel_press", "label": "Steel Press", "archetype": "PRESS",
+                  "cost": { "item": "rustorio:iron_plate", "amount": 20 },
+                  "placement": "NEEDS_PASSABLE_TERRAIN", "texture": "rustorio:furnace_cold" }
+                """);
+
+        BuildingJsonLoader.loadInto(tempDir, modId, context);
+
+        BuildingPrototype prototype = context.buildings().peek(ContentId.of("testmod:steel_press")).orElseThrow();
+        assertEquals(VanillaTechs.FAST_SMELTING, prototype.speedTech(),
+                "PRESS is a Furnace archetype: its vanilla default gate is FAST_SMELTING, same as before this field existed");
+    }
+
+    /**
+     * The capability {@code VanillaTechs}'s own javadoc used to say a JSON-only mod could not have:
+     * a building on a shared archetype (PRESS, here) sped up by a technology THIS mod defines,
+     * proven end to end — not just that the trait carries the right {@link ContentId}, but that the
+     * real {@link Furnace} instance actually cooks in half the time once that tech is unlocked.
+     */
+    @Test
+    void aJsonBuildingCanNameItsOwnSpeedTechInsteadOfTheArchetypesDefault() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        write("turbo_press.json", """
+                { "path": "turbo_press", "label": "Turbo Press", "archetype": "PRESS", "kind": "PRESS",
+                  "cost": { "item": "rustorio:iron_plate", "amount": 20 },
+                  "placement": "NEEDS_PASSABLE_TERRAIN", "texture": "rustorio:furnace_cold",
+                  "bufferMax": 5, "speedMultiplier": 1, "acceptsSpeedEffects": true,
+                  "speedTech": "overclock" }
+                """);
+
+        BuildingJsonLoader.loadInto(tempDir, modId, context);
+
+        ContentId id = ContentId.of("testmod:turbo_press");
+        BuildingPrototype prototype = context.buildings().peek(id).orElseThrow();
+        ContentId overclock = ContentId.of("testmod:overclock");
+        assertEquals(overclock, prototype.speedTech(),
+                "a bare speedTech resolves in the declaring mod's own namespace, like every other reference here");
+
+        context.items().freeze();
+        Registry<BuildingPrototype> buildings = new Registry<>();
+        VanillaBuildings.registerAll(buildings);
+        buildings.register(id, prototype);
+        buildings.freeze();
+        BuildingFactory factory = new BuildingFactory(PatchOreLayout.standard(), RecipeBook.standard(), context.items(), buildings);
+
+        Registry<TechType> techs = new Registry<>();
+        techs.register(overclock, new TechType(overclock, "Overclock", 10));
+        techs.freeze();
+        World world = new World(4, 4, factory, techs);
+        world.addResearchPoints(10);
+        assertTrue(world.tryUnlockTech(overclock), "the mod's own tech, not a vanilla one, must be unlockable and readable");
+
+        Building built = factory.create(id, Direction.RIGHT);
+        Furnace press = assertInstanceOf(Furnace.class, built);
+        Chest chest = new Chest();
+        world.restoreBuilding(1, 0, chest);
+        assertTrue(press.accept(world, VanillaItems.IRON_PLATE));
+
+        int gearTime = RecipeBook.standard().findByOutput(BuildingType.PRESS, VanillaItems.GEAR).orElseThrow().time();
+        int fastTime = Math.max(1, gearTime / 2);
+        for (int i = 0; i < fastTime - 1; i++) {
+            press.tick(world, 0, 0);
+            assertEquals(0, chest.count(), "must not finish before the mod's own tech-adjusted time");
+        }
+        press.tick(world, 0, 0);
+        assertEquals(1, chest.amount(VanillaItems.GEAR),
+                "cooked in half time via the mod's OWN technology, not FAST_SMELTING — the engine never registered that one here");
     }
 
     private void write(String fileName, String content) throws IOException {

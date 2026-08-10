@@ -1,0 +1,14 @@
+{
+  "path": "polymer_works",
+  "category": "production",
+  "label": { "en": "Polymer works", "ru": "Завод полимерных изделий" },
+  "archetype": "ASSEMBLER",
+  "footprintWidth": 2,
+  "footprintHeight": 2,
+  "cost": { "item": "rustorio:mechanism", "amount": 12 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:assembler",
+  "bufferMax": 10,
+  "speedMultiplier": 1,
+  "acceptsSpeedEffects": true
+}

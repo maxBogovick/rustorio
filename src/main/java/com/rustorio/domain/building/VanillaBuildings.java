@@ -9,11 +9,14 @@ import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaFluids;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.VanillaSprites;
+import com.rustorio.domain.VanillaTechs;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -384,6 +387,29 @@ public final class VanillaBuildings {
         return byType;
     }
 
+    /**
+     * Every archetype whose Java behavior actually reads {@link BuildingPrototype#power()} at
+     * all — {@link Miner} (MINER and ELECTRIC_MINER both resolve to it), {@link Pole}, {@link
+     * Generator}. Every OTHER archetype's class never calls {@link TickContext#drawPower} or looks
+     * at a {@link PowerSpec}, so a {@code "power"} block on one of them used to load without error
+     * and then do nothing at runtime — {@code com.rustorio.mod.BuildingJsonLoader} consults {@link
+     * #honorsPower} before accepting the field, closing that gap. {@link EnumSet}, not {@code
+     * Set.of}: an error message lists this set's contents, and that list has to read the same way
+     * on every run.
+     */
+    private static final Set<BuildingType> POWER_AWARE_TYPES =
+            EnumSet.of(BuildingType.MINER, BuildingType.ELECTRIC_MINER, BuildingType.POLE, BuildingType.GENERATOR);
+
+    /** Whether {@code type}'s Java behavior ever reads a declared {@link PowerSpec} — see {@link #POWER_AWARE_TYPES}. */
+    public static boolean honorsPower(BuildingType type) {
+        return POWER_AWARE_TYPES.contains(type);
+    }
+
+    /** The archetypes {@link #honorsPower} answers {@code true} for — for an error message that has to name them. */
+    public static Set<BuildingType> powerAwareArchetypes() {
+        return POWER_AWARE_TYPES;
+    }
+
     /** {@code traits} plus this kind's category — the category is added here so no registration site has to remember it. */
 
     private static final Registry<BuildingPrototype> FROZEN = buildFrozen();
@@ -424,13 +450,13 @@ public final class VanillaBuildings {
      */
     public static void registerAll(Registry<BuildingPrototype> prototypes) {
         register(prototypes, BuildingType.MINER, new BuildingCost(VanillaItems.IRON_PLATE, 5),
-                PlacementRule.NEEDS_ORE, VanillaSprites.MINER, true,
+                PlacementRule.NEEDS_ORE, VanillaSprites.MINER, 0, 1, true,
                 (self, direction, factory) -> new Miner(factory.oreLayout(), direction, self),
                 (self, decodedState, factory) -> {
                     MinerState state = (MinerState) decodedState;
                     return new Miner(factory.oreLayout(), state.direction(), state.cooldown(), state.held(), state.speedLevel(), self);
                 },
-                MINER_CODEC);
+                MINER_CODEC, null, Traits.one(VanillaTraits.SPEED_TECH, VanillaTechs.FAST_MINING));
         register(prototypes, BuildingType.CHEST, new BuildingCost(VanillaItems.IRON_PLATE, 5),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.CHEST, true,
                 (self, direction, factory) -> new Chest(direction, self),
@@ -470,13 +496,13 @@ public final class VanillaBuildings {
                 UNDERGROUND_BELT_RESTORE,
                 UNDERGROUND_BELT_CODEC);
         register(prototypes, BuildingType.LAB, new BuildingCost(VanillaItems.GEAR, 10),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.LAB, true,
+                PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.LAB, 0, 1, true,
                 (self, direction, factory) -> new Lab(factory.recipeBook(), self),
                 (self, decodedState, factory) -> {
                     LabState state = (LabState) decodedState;
                     return new Lab(factory.recipeBook(), state.buffer(), state.cooldown(), state.speedLevel(), self);
                 },
-                LAB_CODEC);
+                LAB_CODEC, null, Traits.one(VanillaTraits.SPEED_TECH, VanillaTechs.FAST_LAB));
         register(prototypes, BuildingType.FILTER, new BuildingCost(VanillaItems.IRON_PLATE, 3),
                 PlacementRule.NEEDS_PASSABLE_TERRAIN, VanillaSprites.FILTER, false,
                 // Default filterItem is IRON_ORE — the more common ore, and a reasonable starting
@@ -509,10 +535,10 @@ public final class VanillaBuildings {
                 VanillaSprites.TANK, TANK_CAPACITY);
         register(prototypes, BuildingType.PUMP, new BuildingCost(VanillaItems.IRON_PLATE, 5),
                 PlacementRule.ADJACENT_TO_WATER, VanillaSprites.PUMP, 0, 1, false,
-                (self, direction, factory) -> new Pump(BuildingType.PUMP, direction, self),
+                (self, direction, factory) -> new Pump(BuildingType.PUMP, direction, self, factory.oreLayout()),
                 (self, decodedState, factory) -> {
                     PumpState state = (PumpState) decodedState;
-                    return new Pump(BuildingType.PUMP, state.direction(), state.cooldown(), self);
+                    return new Pump(BuildingType.PUMP, state.direction(), state.cooldown(), self, factory.oreLayout());
                 },
                 PUMP_CODEC, null, Traits.one(VanillaTraits.FLUID_OUTPUT, VanillaFluids.WATER));
         register(prototypes, BuildingType.BOILER, new BuildingCost(VanillaItems.IRON_PLATE, 8),
@@ -553,7 +579,9 @@ public final class VanillaBuildings {
                     return new Miner(BuildingType.ELECTRIC_MINER, factory.oreLayout(), state.direction(),
                             state.cooldown(), state.held(), state.speedLevel(), self);
                 },
-                MINER_CODEC, null, Traits.one(VanillaTraits.POWER, PowerSpec.consumer(ELECTRIC_MINER_DEMAND)));
+                MINER_CODEC, null, Traits.of(new LinkedHashMap<>(Map.of(
+                        VanillaTraits.POWER, PowerSpec.consumer(ELECTRIC_MINER_DEMAND),
+                        VanillaTraits.SPEED_TECH, VanillaTechs.FAST_MINING))));
     }
 
     /**
@@ -649,7 +677,7 @@ public final class VanillaBuildings {
                     FurnaceState state = (FurnaceState) decodedState;
                     return new Furnace(type, state, factory.recipeBook(), self);
                 },
-                FURNACE_CODEC, fuelItem);
+                FURNACE_CODEC, fuelItem, Traits.one(VanillaTraits.SPEED_TECH, VanillaTechs.FAST_SMELTING));
     }
 
     /** {@code label}/{@code footprintWidth}/{@code footprintHeight} come from {@code type} itself — the single source of truth for every vanilla prototype's data, not retyped here. {@code recipeKind} defaults to the prototype's own {@code id} (see {@link BuildingPrototype}'s own convenience constructor) — the shared pool every vanilla kind has always had, since each is registered under its own {@code idFor(type)}. */

@@ -7,7 +7,6 @@ import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.OreLayout;
-import com.rustorio.domain.VanillaTechs;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -142,8 +141,16 @@ public final class Miner implements Building {
         }
     }
 
-    private static int effectiveTime(TickContext world) {
-        return world.research().isUnlocked(VanillaTechs.FAST_MINING) ? Math.max(1, MINE_TIME / 2) : MINE_TIME;
+    /**
+     * {@code MINE_TIME}, halved once {@link #prototype}'s own {@link BuildingPrototype#speedTech()}
+     * is unlocked — {@code null} (no gate declared at all) means never faster. Reads the trait
+     * rather than a hardcoded {@code VanillaTechs} constant so a JSON-authored MINER/ELECTRIC_MINER
+     * can name its own technology; {@link VanillaBuildings#registerAll} sets the vanilla default
+     * ({@code FAST_MINING}) explicitly, so nothing that never mentions this trait changes behavior.
+     */
+    private int effectiveTime(TickContext world) {
+        ContentId speedTech = prototype.speedTech();
+        return speedTech == null ? MINE_TIME : world.research().fasterIfUnlocked(speedTech, MINE_TIME);
     }
 
     /** The status field this archetype already keeps, handed over without building an {@link Appearance} — see {@link Building#status()}. */

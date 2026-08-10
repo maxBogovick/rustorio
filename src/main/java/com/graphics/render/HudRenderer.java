@@ -503,8 +503,11 @@ final class HudRenderer {
         shapes.end();
 
         batch.begin();
-        font.getData().setScale(0.85f);
-        float ty = panelY + panelH - 14f;
+        // Scale and inset come from the layout, not from literals here: they are what its wrap
+        // arithmetic measures rows against, and a row wrapped to one width and drawn at another is
+        // exactly how text used to run out through the panel's right border.
+        font.getData().setScale(HudText.FONT_SCALE);
+        float ty = panelY + panelH - InspectionPanelLayout.FIRST_ROW_TOP;
         for (int i = 0; i < lines.size(); i++) {
             // Clickable recipe rows (the trailing ones, when this is a Furnace-archetype building)
             // get their own color — amber for the one actually selected/cooking right now, a dim
@@ -515,7 +518,7 @@ final class HudRenderer {
             font.setColor(rowRecipe != null && rowRecipe.equals(selected.orElse(null))
                     ? Palette.SLOT_SELECTED
                     : recipeRow ? Palette.HINT : Color.WHITE);
-            font.draw(batch, lines.get(i), panelX + 12f, ty);
+            font.draw(batch, lines.get(i), panelX + InspectionPanelLayout.TEXT_PAD, ty);
             ty -= InspectionPanelLayout.LINE_HEIGHT;
         }
         font.getData().setScale(1f);
@@ -558,27 +561,31 @@ final class HudRenderer {
         shapes.end();
 
         batch.begin();
-        font.getData().setScale(0.85f);
+        // Scale, inset and the row TEXT itself all come from the layout: what a row says has to be
+        // decided by whoever knows how wide the modal is, or it gets drawn through the border —
+        // which is exactly what a long URL in a web miner's field used to do.
+        font.getData().setScale(HudText.FONT_SCALE);
+        float tx = panelX + SettingsModalLayout.TEXT_PAD;
         float ty = panelY + panelH - 18f;
         font.setColor(Color.WHITE);
-        font.draw(batch, view.title(), panelX + 12f, ty);
+        font.draw(batch, SettingsModalLayout.readOnlyRow(view.title()), tx, ty);
         ty -= InspectionPanelLayout.LINE_HEIGHT;
         for (String line : view.readOnlyLines()) {
             font.setColor(Palette.HINT);
-            font.draw(batch, line, panelX + 12f, ty);
+            font.draw(batch, SettingsModalLayout.readOnlyRow(line), tx, ty);
             ty -= InspectionPanelLayout.LINE_HEIGHT;
         }
         for (int i = 0; i < fieldCount; i++) {
             boolean focused = i == view.focusedIndex();
             font.setColor(focused ? Palette.SLOT_SELECTED : Color.WHITE);
-            String cursor = focused ? "_" : "";
-            font.draw(batch, view.fieldLabels().get(i) + ": " + view.fieldValues().get(i) + cursor, panelX + 12f, ty);
+            font.draw(batch, SettingsModalLayout.fieldRow(
+                    view.fieldLabels().get(i), view.fieldValues().get(i), focused), tx, ty);
             ty -= InspectionPanelLayout.LINE_HEIGHT;
         }
         String hint = view.hint();
         if (hint != null) {
             font.setColor(Palette.HINT);
-            font.draw(batch, hint, panelX + 12f, ty);
+            font.draw(batch, SettingsModalLayout.readOnlyRow(hint), tx, ty);
         }
         font.getData().setScale(1f);
         batch.end();

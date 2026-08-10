@@ -4,10 +4,14 @@ import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.VanillaSprites;
+import com.rustorio.domain.VanillaTechs;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@link VanillaBuildings}: every {@link BuildingType} gets a registered {@link BuildingPrototype}
@@ -100,6 +104,46 @@ class VanillaBuildingsTest {
         assertEquals(2, prototypeFor(BuildingType.ASSEMBLER).footprintHeight());
         assertEquals(1, prototypeFor(BuildingType.MINER).footprintWidth());
         assertEquals(1, prototypeFor(BuildingType.MINER).footprintHeight());
+    }
+
+    /**
+     * The set {@code com.rustorio.mod.BuildingJsonLoader} consults before accepting a {@code
+     * "power"} block — must match exactly the archetypes whose Java class calls {@link
+     * BuildingPrototype#power()} at all ({@link Miner}, {@link Pole}, {@link Generator}), not a
+     * superset or subset of it.
+     */
+    @Test
+    void honorsPowerIsTrueOnlyForArchetypesWhoseJavaBehaviorReadsIt() {
+        assertTrue(VanillaBuildings.honorsPower(BuildingType.MINER));
+        assertTrue(VanillaBuildings.honorsPower(BuildingType.ELECTRIC_MINER));
+        assertTrue(VanillaBuildings.honorsPower(BuildingType.POLE));
+        assertTrue(VanillaBuildings.honorsPower(BuildingType.GENERATOR));
+        for (BuildingType type : BuildingType.values()) {
+            if (type == BuildingType.MINER || type == BuildingType.ELECTRIC_MINER
+                    || type == BuildingType.POLE || type == BuildingType.GENERATOR) {
+                continue;
+            }
+            assertFalse(VanillaBuildings.honorsPower(type), type + " must not claim to honor power");
+        }
+    }
+
+    /**
+     * Every archetype that has EVER had a hardcoded tech-speed gate keeps exactly that gate as its
+     * own default trait — a JSON building reusing one of these and never mentioning {@code
+     * "speedTech"} must see the identical vanilla behavior it always has (see
+     * {@code com.rustorio.mod.BuildingJsonLoaderTest#omittingSpeedTechInheritsTheBorrowedArchetypesOwnDefault}
+     * for the JSON-facing half of this same guarantee).
+     */
+    @Test
+    void speedTechDefaultsMatchTheArchetypesThatHaveEverHadOne() {
+        assertEquals(VanillaTechs.FAST_MINING, prototypeFor(BuildingType.MINER).speedTech());
+        assertEquals(VanillaTechs.FAST_MINING, prototypeFor(BuildingType.ELECTRIC_MINER).speedTech());
+        assertEquals(VanillaTechs.FAST_SMELTING, prototypeFor(BuildingType.FURNACE).speedTech());
+        assertEquals(VanillaTechs.FAST_SMELTING, prototypeFor(BuildingType.PRESS).speedTech());
+        assertEquals(VanillaTechs.FAST_SMELTING, prototypeFor(BuildingType.ASSEMBLER).speedTech());
+        assertEquals(VanillaTechs.FAST_LAB, prototypeFor(BuildingType.LAB).speedTech());
+        assertNull(prototypeFor(BuildingType.CHEST).speedTech(), "CHEST has never had a tech-speed gate");
+        assertNull(prototypeFor(BuildingType.POLE).speedTech(), "a pole has no timing to speed up at all");
     }
 
     private static BuildingPrototype prototypeFor(BuildingType type) {
