@@ -20,7 +20,7 @@ class CapabilityInterfacesTest {
         assertTrue(new Belt(Direction.RIGHT) instanceof SettlesEachTick);
         assertTrue(new UndergroundBelt(UndergroundBelt.Kind.IN, Direction.RIGHT) instanceof SettlesEachTick);
         assertTrue(new Splitter(Direction.RIGHT) instanceof SettlesEachTick);
-        assertTrue(new Filter(Direction.RIGHT, com.rustorio.domain.VanillaItems.IRON_ORE) instanceof SettlesEachTick);
+        assertTrue(new Filter(Direction.RIGHT, com.rustorio.api.content.vanilla.VanillaItems.IRON_ORE) instanceof SettlesEachTick);
         assertTrue(new Inserter(Direction.RIGHT) instanceof SettlesEachTick);
         assertTrue(new Chest() instanceof SettlesEachTick,
                 "chests settle too — without a mark, LEFT/UP chest chains multi-hop in one tick");

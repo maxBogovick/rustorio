@@ -1,12 +1,12 @@
 package com.rustorio.api.mod;
 
 import com.rustorio.api.registry.RegistryKey;
-import com.rustorio.domain.AuthoredMap;
-import com.rustorio.domain.FluidType;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.Recipe;
-import com.rustorio.domain.RecipeKind;
-import com.rustorio.domain.TechType;
+import com.rustorio.api.content.model.AuthoredMap;
+import com.rustorio.api.content.model.FluidType;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.model.Recipe;
+import com.rustorio.api.content.model.RecipeKind;
+import com.rustorio.api.content.model.TechType;
 import com.rustorio.api.mod.TechEffect;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.PlacementRule;

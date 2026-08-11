@@ -1,8 +1,8 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.OreLayoutId;
 import java.util.Map;

@@ -3,11 +3,15 @@ package com.rustorio.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import com.rustorio.api.content.model.AuthoredMap;
+import com.rustorio.api.content.model.OrePatch;
+import com.rustorio.api.content.model.TerrainPatch;
 
 import com.rustorio.api.content.ContentId;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import com.rustorio.api.content.vanilla.VanillaItems;
 
 /**
  * {@link AuthoredOreLayout}: the third {@link OreLayout} implementation, built from a mod author's

@@ -18,9 +18,10 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 class PackageBoundaryRulesTest {
 
     /**
-     * {@code com.rustorio.domain}'s own {@code package-info.java}: "Nothing here depends on
-     * com.rustorio.domain.building, com.rustorio.domain.world, com.rustorio.persistence or
-     * com.graphics — this is the innermost ring". Deliberately checks the plain package
+     * {@code com.rustorio.domain}'s own {@code package-info.java}: nothing here depends on
+     * {@code domain.building}, {@code domain.world}, {@code persistence}, or {@code graphics}.
+     * The ring <em>may</em> depend on {@code api.content} / {@code api.content.model} /
+     * {@code api.content.vanilla} / {@code api.registry} value types. Deliberately checks the plain package
      * {@code com.rustorio.domain} only (no {@code ..} suffix on the {@code that()} side) — sibling
      * packages one level down ({@code domain.building}, {@code domain.world}, {@code
      * domain.action}) have their own, separately stated rules.
@@ -37,7 +38,9 @@ class PackageBoundaryRulesTest {
                     "com.rustorio.domain.building..", "com.rustorio.domain.world..",
                     "com.rustorio.persistence..")
             .because("com.rustorio.domain is the innermost ring (package-info.java) — value types "
-                    + "and strategies everything else is built from, depending on nothing themselves");
+                    + "and strategies everything else is built from; may depend on api.content / "
+                    + "api.content.model / api.content.vanilla / api.registry, never on "
+                    + "building/world/persistence");
 
     /**
      * {@code com.rustorio.domain.building}'s own {@code package-info.java}: "Depends only on
@@ -142,4 +145,17 @@ class PackageBoundaryRulesTest {
             .should().dependOnClassesThat().resideInAPackage("com.fasterxml.jackson..")
             .because("only com.rustorio.persistence and com.rustorio.mod may import Jackson "
                     + "(package-info.java of each) — everywhere else stays a plain DTO");
+
+    /**
+     * {@code com.rustorio.api.content}'s own {@code package-info} / model package-info: content
+     * models must not import domain. {@code Recipe} lost {@code BuildingType} overloads for this
+     * reason — a content record naming a simulation enum would pull the catalog ring into the
+     * domain, and every consumer of a recipe would inherit that coupling.
+     */
+    @ArchTest
+    static final ArchRule contentModelsMustNotDependOnDomain = noClasses()
+            .that().resideInAPackage("com.rustorio.api.content..")
+            .should().dependOnClassesThat().resideInAnyPackage("com.rustorio.domain..")
+            .because("content models must not import domain — Recipe lost BuildingType overloads "
+                    + "for this reason (api.content.model package-info)");
 }

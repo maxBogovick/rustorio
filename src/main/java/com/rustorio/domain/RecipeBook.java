@@ -5,6 +5,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.model.Recipe;
+import com.rustorio.api.content.vanilla.VanillaItems;
 
 /**
  * Registry of every known {@link Recipe} — the lookup furnaces and presses search through to
@@ -33,21 +36,21 @@ public final class RecipeBook {
     }
 
     private static final Recipe IRON =
-            new Recipe(recipeId("iron_plate"), VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, 5, BuildingType.FURNACE);
+            new Recipe(recipeId("iron_plate"), VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, 5, BuildingType.FURNACE.contentId());
     private static final Recipe GEAR =
-            new Recipe(recipeId("gear"), VanillaItems.IRON_PLATE, VanillaItems.GEAR, 8, BuildingType.PRESS);
+            new Recipe(recipeId("gear"), VanillaItems.IRON_PLATE, VanillaItems.GEAR, 8, BuildingType.PRESS.contentId());
     private static final Recipe BRONZE =
-            new Recipe(recipeId("bronze_plate"), VanillaItems.BRONZE_ORE, VanillaItems.BRONZE_PLATE, 5, BuildingType.FURNACE);
+            new Recipe(recipeId("bronze_plate"), VanillaItems.BRONZE_ORE, VanillaItems.BRONZE_PLATE, 5, BuildingType.FURNACE.contentId());
     private static final Recipe MECHANISM =
-            new Recipe(recipeId("mechanism"), VanillaItems.BRONZE_PLATE, VanillaItems.MECHANISM, 8, BuildingType.PRESS);
+            new Recipe(recipeId("mechanism"), VanillaItems.BRONZE_PLATE, VanillaItems.MECHANISM, 8, BuildingType.PRESS.contentId());
     private static final Recipe ENGINE =
-            new Recipe(recipeId("engine"), VanillaItems.GEAR, VanillaItems.MECHANISM, VanillaItems.ENGINE, 12, BuildingType.PRESS);
+            new Recipe(recipeId("engine"), VanillaItems.GEAR, VanillaItems.MECHANISM, VanillaItems.ENGINE, 12, BuildingType.PRESS.contentId());
     private static final Recipe CHASSIS =
-            new Recipe(recipeId("chassis_press"), VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15, BuildingType.PRESS);
+            new Recipe(recipeId("chassis_press"), VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15, BuildingType.PRESS.contentId());
     private static final Recipe ALLOY =
-            new Recipe(recipeId("alloy_plate"), VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.ALLOY_PLATE, 10, BuildingType.FURNACE);
+            new Recipe(recipeId("alloy_plate"), VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.ALLOY_PLATE, 10, BuildingType.FURNACE.contentId());
     private static final Recipe ALLOY_GEAR =
-            new Recipe(recipeId("alloy_gear"), VanillaItems.ALLOY_PLATE, VanillaItems.ALLOY_GEAR, 10, BuildingType.PRESS);
+            new Recipe(recipeId("alloy_gear"), VanillaItems.ALLOY_PLATE, VanillaItems.ALLOY_GEAR, 10, BuildingType.PRESS.contentId());
     /**
      * (X-03, DEV_TASKS.md) Same ingredients/output/time as {@link #CHASSIS} — deliberately: this
      * doesn't give {@code ASSEMBLER} a new item to make, only a second, four-cell-footprint MACHINE
@@ -62,7 +65,7 @@ public final class RecipeBook {
      */
     private static final Recipe CHASSIS_ASSEMBLED =
             new Recipe(recipeId("chassis_assembler"), VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15,
-                    BuildingType.ASSEMBLER);
+                    BuildingType.ASSEMBLER.contentId());
 
     private static final RecipeBook STANDARD = new RecipeBook(
             List.of(IRON, GEAR, BRONZE, MECHANISM, ENGINE, CHASSIS, ALLOY, ALLOY_GEAR, CHASSIS_ASSEMBLED));

@@ -5,7 +5,7 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 

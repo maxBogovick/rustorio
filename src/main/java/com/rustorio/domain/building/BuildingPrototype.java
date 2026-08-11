@@ -2,8 +2,8 @@ package com.rustorio.domain.building;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
-import com.rustorio.domain.FluidType;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.FluidType;
+import com.rustorio.api.content.model.ItemType;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

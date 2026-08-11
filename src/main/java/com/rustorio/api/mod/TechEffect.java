@@ -3,7 +3,7 @@ package com.rustorio.api.mod;
 import com.rustorio.api.content.ContentId;
 
 /**
- * A named gameplay effect a {@link com.rustorio.domain.TechType} may grant when unlocked.
+ * A named gameplay effect a {@link com.rustorio.api.content.model.TechType} may grant when unlocked.
  *
  * <p>Effects are addressable content: a mod registers one here, lists its id on a technology's
  * {@code effects} field, and buildings/UI ask {@link com.rustorio.domain.ResearchView#hasEffect}

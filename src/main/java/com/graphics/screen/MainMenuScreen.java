@@ -6,7 +6,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.ScreenAdapter;
 import com.graphics.render.MenuLayout;
 import com.graphics.render.MenuRenderer;
-import com.rustorio.domain.AuthoredMap;
+import com.rustorio.api.content.model.AuthoredMap;
 import com.rustorio.game.GameBootstrap;
 import com.rustorio.mod.LoadedGame;
 import com.rustorio.persistence.SaveResult;

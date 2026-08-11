@@ -9,8 +9,8 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.FluidFill;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaSprites;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.vanilla.VanillaSprites;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.world.World;
 

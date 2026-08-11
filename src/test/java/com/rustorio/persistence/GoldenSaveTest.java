@@ -3,7 +3,7 @@ package com.rustorio.persistence;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.VanillaTechs;
+import com.rustorio.api.content.vanilla.VanillaTechs;
 import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.world.World;
 import java.io.IOException;

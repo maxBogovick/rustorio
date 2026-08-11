@@ -1,7 +1,7 @@
 package com.graphics.render;
 
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.VanillaSprites;
+import com.rustorio.api.content.vanilla.VanillaSprites;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

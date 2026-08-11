@@ -1,8 +1,8 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.api.registry.Registry;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;

@@ -4,8 +4,8 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.PatchOreLayout;
-import com.rustorio.domain.VanillaItems;
-import com.rustorio.domain.VanillaSprites;
+import com.rustorio.api.content.vanilla.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaSprites;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

@@ -2,8 +2,8 @@ package com.graphics.render;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
-import com.rustorio.domain.ItemShape;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemShape;
+import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.world.World;
 import org.junit.jupiter.api.Test;

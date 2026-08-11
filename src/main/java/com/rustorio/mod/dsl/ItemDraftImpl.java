@@ -3,8 +3,8 @@ package com.rustorio.mod.dsl;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.dsl.ItemDraft;
 import com.rustorio.api.mod.RegistrationContext;
-import com.rustorio.domain.ItemShape;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemShape;
+import com.rustorio.api.content.model.ItemType;
 import org.jspecify.annotations.Nullable;
 
 final class ItemDraftImpl implements ItemDraft {

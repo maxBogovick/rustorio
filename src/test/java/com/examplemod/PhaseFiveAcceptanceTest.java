@@ -6,7 +6,7 @@ import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.BuildingPrototype;

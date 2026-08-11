@@ -1,4 +1,4 @@
-package com.rustorio.domain;
+package com.rustorio.api.content.model;
 
 import com.rustorio.api.content.ContentId;
 import java.util.Objects;

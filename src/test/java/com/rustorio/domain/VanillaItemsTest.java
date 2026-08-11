@@ -7,6 +7,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.model.ItemShape;
+import com.rustorio.api.content.vanilla.VanillaItems;
 
 /**
  * Cross-checks every field {@link VanillaItems} registers against the values currently returned

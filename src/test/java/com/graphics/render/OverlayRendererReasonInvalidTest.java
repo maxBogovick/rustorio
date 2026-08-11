@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * {@link OverlayRenderer#reasonInvalid} — pure logic (no libGDX), extracted to package-private
  * specifically so it can be checked headless, same reason as {@link OverlayRenderer#infoLine}
  * (see {@link OverlayRendererInfoLineTest}). Proves the fix for code review finding S3: the
- * "can't afford" message used to interpolate {@link com.rustorio.domain.ItemType} directly, which
+ * "can't afford" message used to interpolate {@link com.rustorio.api.content.model.ItemType} directly, which
  * printed the record's default every-field dump instead of the item's name.
  */
 class OverlayRendererReasonInvalidTest {

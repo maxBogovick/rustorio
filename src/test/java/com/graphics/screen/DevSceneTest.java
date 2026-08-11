@@ -2,9 +2,9 @@ package com.graphics.screen;
 
 import com.graphics.GfxConfig;
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.PatchOreLayout;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.world.World;
 import com.rustorio.game.GameBootstrap;

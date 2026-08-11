@@ -17,15 +17,16 @@ import java.util.List;
  * {@link #PARENT_DELEGATED_PREFIXES} is looked up ONLY in this mod's own jar ({@link #findClass}),
  * never in the parent, and fails with {@link ClassNotFoundException} if the jar doesn't have it.
  *
- * <p>{@link #PARENT_DELEGATED_PREFIXES} is wider than just {@code com.rustorio.api}: {@code
- * ItemType}/{@code BuildingPrototype}/{@code Recipe} etc. physically live under {@code
- * com.rustorio.domain}/{@code domain.building} today, not under {@code com.rustorio.api} — no
- * standalone, implementation-free API artifact exists yet — so a mod that constructs either (which
- * every mod registering an item or a building prototype must do) needs those packages delegated
- * too. Narrowing further toward strictly {@code com.rustorio.api} is still ahead; {@code
- * domain.world}/{@code domain.action} are denied entirely, and {@code domain.building} is reduced
- * to {@link ModBuildingApiAllowlist} (contracts + SimpleCrafter + BeltSegment — not networks or
- * vanilla concretes).
+ * <p>{@link #PARENT_DELEGATED_PREFIXES} is wider than just {@code com.rustorio.api}: catalog
+ * models and vanilla helpers already live under {@code com.rustorio.api.content.model} /
+ * {@code api.content.vanilla}, but mods still name remaining simulation types that stay under
+ * {@code com.rustorio.domain} / {@code domain.building} until further narrowing ({@code Direction},
+ * {@code Cell}, {@code BuildingStatus}, {@code Appearance}, {@code Research}/{@code ResearchView},
+ * {@code BuildingType}, plus allowlisted building contracts). No standalone, implementation-free
+ * API artifact exists yet, so those packages stay delegated. Narrowing further toward strictly
+ * {@code com.rustorio.api} is still ahead; {@code domain.world}/{@code domain.action} are denied
+ * entirely, and {@code domain.building} is reduced to {@link ModBuildingApiAllowlist} (contracts +
+ * SimpleCrafter + BeltSegment — not networks or vanilla concretes).
  *
  * <p>{@link #isParentDelegated} is the SINGLE authority on where the engine ends and a mod
  * begins, and {@code ModApiSurfaceTest} holds the published artifact to it: it opens the {@code

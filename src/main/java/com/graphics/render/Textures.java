@@ -8,7 +8,7 @@ import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Disposable;
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.VanillaSprites;
+import com.rustorio.api.content.vanilla.VanillaSprites;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;

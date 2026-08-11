@@ -1,9 +1,9 @@
 package com.rustorio.domain.building;
 
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.VanillaTechs;
+import com.rustorio.api.content.vanilla.VanillaTechs;
 import com.rustorio.domain.world.World;
 import org.junit.jupiter.api.Test;
 

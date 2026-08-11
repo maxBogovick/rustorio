@@ -15,7 +15,7 @@ public final class ExampleModEntryPoint implements com.rustorio.api.mod.Rustorio
     @Override
     public void registerContent(com.rustorio.api.mod.RegistrationContext ctx) {
         com.rustorio.api.content.ContentId ironPlateId = com.rustorio.api.content.ContentId.of("rustorio:iron_plate");
-        com.rustorio.domain.ItemType ironPlate = ctx.items().peek(ironPlateId).orElseThrow(
+        com.rustorio.api.content.model.ItemType ironPlate = ctx.items().peek(ironPlateId).orElseThrow(
                 () -> new IllegalStateException("rustorio:iron_plate not visible yet - dependency order is wrong"));
 
         com.rustorio.api.content.ContentId beltId =
@@ -29,7 +29,7 @@ public final class ExampleModEntryPoint implements com.rustorio.api.mod.Rustorio
                 "Conveyor",
                 new com.rustorio.domain.building.BuildingCost(ironPlate, 1),
                 com.rustorio.domain.building.PlacementRule.NEEDS_PASSABLE_TERRAIN,
-                com.rustorio.domain.VanillaSprites.BELT_EMPTY,
+                com.rustorio.api.content.vanilla.VanillaSprites.BELT_EMPTY,
                 0, 1, false,
                 (self, direction, factory) -> new ExampleModConveyor(self.id(), direction),
                 (self, decodedState, factory) -> {

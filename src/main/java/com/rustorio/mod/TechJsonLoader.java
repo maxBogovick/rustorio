@@ -3,7 +3,7 @@ package com.rustorio.mod;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.mod.RegistrationContext;
-import com.rustorio.domain.TechType;
+import com.rustorio.api.content.model.TechType;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;

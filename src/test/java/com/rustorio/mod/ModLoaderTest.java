@@ -52,8 +52,8 @@ class ModLoaderTest {
                     @Override
                     public void registerContent(com.rustorio.api.mod.RegistrationContext ctx) {
                         com.rustorio.api.content.ContentId id = com.rustorio.api.content.ContentId.of("zeta_provides:alloy");
-                        ctx.items().register(id, new com.rustorio.domain.ItemType(
-                                id, "Alloy", false, 0x123456, com.rustorio.domain.ItemShape.SQUARE));
+                        ctx.items().register(id, new com.rustorio.api.content.model.ItemType(
+                                id, "Alloy", false, 0x123456, com.rustorio.api.content.model.ItemShape.SQUARE));
                     }
                 }
                 """);
@@ -67,15 +67,15 @@ class ModLoaderTest {
                     @Override
                     public void registerContent(com.rustorio.api.mod.RegistrationContext ctx) {
                         com.rustorio.api.content.ContentId alloyId = com.rustorio.api.content.ContentId.of("zeta_provides:alloy");
-                        com.rustorio.domain.ItemType alloy = ctx.items().peek(alloyId).orElseThrow(
+                        com.rustorio.api.content.model.ItemType alloy = ctx.items().peek(alloyId).orElseThrow(
                                 () -> new IllegalStateException("zeta's alloy not visible yet - dependency order is wrong"));
                         com.rustorio.api.content.ContentId ownId = com.rustorio.api.content.ContentId.of("alpha_uses:widget");
-                        ctx.items().register(ownId, new com.rustorio.domain.ItemType(
-                                ownId, "Widget", false, 0xABCDEF, com.rustorio.domain.ItemShape.TRIANGLE));
-                        com.rustorio.domain.ItemType widget = ctx.items().peek(ownId).orElseThrow();
+                        ctx.items().register(ownId, new com.rustorio.api.content.model.ItemType(
+                                ownId, "Widget", false, 0xABCDEF, com.rustorio.api.content.model.ItemShape.TRIANGLE));
+                        com.rustorio.api.content.model.ItemType widget = ctx.items().peek(ownId).orElseThrow();
                         com.rustorio.api.content.ContentId recipeId = com.rustorio.api.content.ContentId.of("alpha_uses:widget");
-                        ctx.recipes().register(recipeId, new com.rustorio.domain.Recipe(
-                                recipeId, alloy, widget, 4, com.rustorio.domain.BuildingType.PRESS));
+                        ctx.recipes().register(recipeId, new com.rustorio.api.content.model.Recipe(
+                                recipeId, alloy, widget, 4, com.rustorio.domain.BuildingType.PRESS.contentId()));
                     }
                 }
                 """);
@@ -97,11 +97,11 @@ class ModLoaderTest {
                     @Override
                     public void registerContent(com.rustorio.api.mod.RegistrationContext ctx) {
                         com.rustorio.api.content.ContentId ghostId = com.rustorio.api.content.ContentId.of("bad_mod:ghost");
-                        com.rustorio.domain.ItemType ghost = new com.rustorio.domain.ItemType(
-                                ghostId, "Ghost", false, 0, com.rustorio.domain.ItemShape.CIRCLE);
+                        com.rustorio.api.content.model.ItemType ghost = new com.rustorio.api.content.model.ItemType(
+                                ghostId, "Ghost", false, 0, com.rustorio.api.content.model.ItemShape.CIRCLE);
                         com.rustorio.api.content.ContentId recipeId = com.rustorio.api.content.ContentId.of("bad_mod:ghost_recipe");
-                        ctx.recipes().register(recipeId, new com.rustorio.domain.Recipe(
-                                recipeId, ghost, ghost, 1, com.rustorio.domain.BuildingType.FURNACE));
+                        ctx.recipes().register(recipeId, new com.rustorio.api.content.model.Recipe(
+                                recipeId, ghost, ghost, 1, com.rustorio.domain.BuildingType.FURNACE.contentId()));
                     }
                 }
                 """);

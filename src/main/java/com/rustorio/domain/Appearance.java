@@ -2,6 +2,7 @@ package com.rustorio.domain;
 
 import com.rustorio.api.content.ContentId;
 import org.jspecify.annotations.Nullable;
+import com.rustorio.api.content.model.ItemType;
 
 /**
  * How a building looks right now: which sprite (a {@link ContentId}), an optional numeric badge (how much is

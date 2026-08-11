@@ -2,9 +2,9 @@ package com.rustorio.editor;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.rustorio.domain.OrePatch;
+import com.rustorio.api.content.model.OrePatch;
 import com.rustorio.domain.PatchOreLayout;
-import com.rustorio.domain.TerrainPatch;
+import com.rustorio.api.content.model.TerrainPatch;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;

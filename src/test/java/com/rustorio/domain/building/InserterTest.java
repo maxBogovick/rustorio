@@ -1,8 +1,8 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import com.rustorio.domain.world.World;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;

@@ -1,7 +1,7 @@
 package com.graphics.render;
 
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.AuthoredMap;
+import com.rustorio.api.content.model.AuthoredMap;
 import com.rustorio.domain.AuthoredOreLayout;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.building.BuildingFactory;

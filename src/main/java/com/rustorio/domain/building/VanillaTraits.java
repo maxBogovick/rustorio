@@ -1,7 +1,7 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.FluidType;
+import com.rustorio.api.content.model.FluidType;
 
 /**
  * The optional building properties the base game ships. A mod declares its own {@link TraitKey}

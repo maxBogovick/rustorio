@@ -2,9 +2,9 @@ package com.graphics.render;
 
 import com.badlogic.gdx.graphics.Color;
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.ItemShape;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.model.ItemShape;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

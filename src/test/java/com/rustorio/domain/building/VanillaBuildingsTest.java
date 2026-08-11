@@ -2,9 +2,9 @@ package com.rustorio.domain.building;
 
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.VanillaItems;
-import com.rustorio.domain.VanillaSprites;
-import com.rustorio.domain.VanillaTechs;
+import com.rustorio.api.content.vanilla.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaSprites;
+import com.rustorio.api.content.vanilla.VanillaTechs;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

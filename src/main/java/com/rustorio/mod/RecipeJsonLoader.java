@@ -5,8 +5,8 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.mod.RegistrationContext;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.Recipe;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.model.Recipe;
 import java.nio.file.Path;
 import java.util.List;
 

@@ -10,6 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.model.ItemShape;
 
 /**
  * {@link ItemType}: identity is {@link ContentId} alone, not the record's default every-field

@@ -1,8 +1,9 @@
-package com.rustorio.domain;
+package com.rustorio.api.content.vanilla;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import java.util.List;
+import com.rustorio.api.content.model.TechType;
 
 /**
  * The game's own built-in technologies, mirroring {@code resources/mods/rustorio/content/techs}
@@ -11,7 +12,8 @@ import java.util.List;
  *
  * <p>The ids are constants because the game's own code used to read them by name outright. Speed
  * bonuses now go through {@code BuildingPrototype.speedTech()} (a trait). Buffer / tunnel range
- * bonuses go through {@link VanillaTechEffects} + {@link ResearchView#hasEffect}: unlocking the
+ * bonuses go through {@link VanillaTechEffects} +
+ * {@link com.rustorio.domain.ResearchView#hasEffect}: unlocking the
  * matching tech lists that effect, so a JSON-only mod can grant the same named bonus from its own
  * technology without teaching {@code Chest} / {@code UndergroundBelt} a new constant. See
  * {@link TechType}.

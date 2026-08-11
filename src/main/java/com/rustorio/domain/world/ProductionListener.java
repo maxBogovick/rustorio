@@ -1,6 +1,6 @@
 package com.rustorio.domain.world;
 
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 
 /**
  * Observer pattern: notified whenever an item is produced anywhere on the map. {@link World}

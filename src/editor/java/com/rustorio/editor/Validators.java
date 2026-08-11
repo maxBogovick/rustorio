@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.ItemShape;
+import com.rustorio.api.content.model.ItemShape;
 import java.util.Arrays;
 import java.util.List;
 

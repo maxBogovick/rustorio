@@ -4,13 +4,13 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.FluidType;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.FluidType;
+import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.VanillaFluids;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaFluids;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 

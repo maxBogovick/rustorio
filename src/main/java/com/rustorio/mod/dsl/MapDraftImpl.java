@@ -3,9 +3,9 @@ package com.rustorio.mod.dsl;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.dsl.MapDraft;
 import com.rustorio.api.mod.RegistrationContext;
-import com.rustorio.domain.AuthoredMap;
-import com.rustorio.domain.OrePatch;
-import com.rustorio.domain.TerrainPatch;
+import com.rustorio.api.content.model.AuthoredMap;
+import com.rustorio.api.content.model.OrePatch;
+import com.rustorio.api.content.model.TerrainPatch;
 import java.util.ArrayList;
 import java.util.List;
 

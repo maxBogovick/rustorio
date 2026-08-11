@@ -2,8 +2,8 @@ package com.example.rustoriomod;
 
 import com.rustorio.api.mod.RegistrationContext;
 import com.rustorio.api.mod.RustorioMod;
-import com.rustorio.domain.ItemShape;
-import com.rustorio.domain.VanillaSprites;
+import com.rustorio.api.content.model.ItemShape;
+import com.rustorio.api.content.vanilla.VanillaSprites;
 
 /**
  * Canonical <b>L2</b> entry point: {@code ContentDsl} + {@link

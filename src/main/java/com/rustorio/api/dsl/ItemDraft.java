@@ -1,9 +1,9 @@
 package com.rustorio.api.dsl;
 
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.ItemShape;
+import com.rustorio.api.content.model.ItemShape;
 
-/** Fluent registration of one {@link com.rustorio.domain.ItemType}. */
+/** Fluent registration of one {@link com.rustorio.api.content.model.ItemType}. */
 public interface ItemDraft {
 
     ItemDraft label(String label);

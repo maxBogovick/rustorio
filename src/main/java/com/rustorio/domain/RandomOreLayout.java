@@ -6,6 +6,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import org.jspecify.annotations.Nullable;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.model.OrePatch;
+import com.rustorio.api.content.model.TerrainPatch;
+import com.rustorio.api.content.vanilla.VanillaItems;
 
 /**
  * A second {@link OreLayout} implementation, alongside {@link PatchOreLayout}: same shape of map

@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
-import com.rustorio.domain.FluidType;
+import com.rustorio.api.content.model.FluidType;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

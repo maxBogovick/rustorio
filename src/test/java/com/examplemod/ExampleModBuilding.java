@@ -2,7 +2,7 @@ package com.examplemod;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
-import com.rustorio.domain.VanillaSprites;
+import com.rustorio.api.content.vanilla.VanillaSprites;
 import com.rustorio.domain.building.Building;
 
 /**

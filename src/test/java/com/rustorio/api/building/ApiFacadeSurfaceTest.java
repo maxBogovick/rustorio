@@ -14,6 +14,24 @@ import org.junit.jupiter.api.Test;
  */
 class ApiFacadeSurfaceTest {
 
+    private static final List<String> MOVED_CONTENT_MODELS = List.of(
+            "FluidType",
+            "ItemType",
+            "ItemShape",
+            "RecipeKind",
+            "TechType",
+            "OrePatch",
+            "TerrainPatch",
+            "AuthoredMap",
+            "Recipe");
+
+    private static final List<String> MOVED_VANILLA_HELPERS = List.of(
+            "VanillaItems",
+            "VanillaSprites",
+            "VanillaTechs",
+            "VanillaTechEffects",
+            "VanillaFluids");
+
     @Test
     void apiJarShipsBuildingFacadesAndContentCatalogs() {
         List<String> shipped = BuildOutputs.classNamesIn(BuildOutputs.apiJar());
@@ -24,7 +42,20 @@ class ApiFacadeSurfaceTest {
                 "TickContext must not be facaded — see api.building package-info");
         assertTrue(shipped.contains("com.rustorio.api.content.model.package-info"),
                 "content.model catalog package must ship");
-        assertTrue(shipped.contains("com.rustorio.api.content.vanilla.package-info"));
+        for (String simpleName : MOVED_CONTENT_MODELS) {
+            assertTrue(shipped.contains("com.rustorio.api.content.model." + simpleName),
+                    simpleName + " must ship from api.content.model after the physical move");
+            assertTrue(!shipped.contains("com.rustorio.domain." + simpleName),
+                    "domain." + simpleName + " must be absent from rustorio-api after the move");
+        }
+        assertTrue(shipped.contains("com.rustorio.api.content.vanilla.package-info"),
+                "content.vanilla catalog package must ship");
+        for (String simpleName : MOVED_VANILLA_HELPERS) {
+            assertTrue(shipped.contains("com.rustorio.api.content.vanilla." + simpleName),
+                    simpleName + " must ship from api.content.vanilla after the physical move");
+            assertTrue(!shipped.contains("com.rustorio.domain." + simpleName),
+                    "domain." + simpleName + " must be absent from rustorio-api after the move");
+        }
     }
 
     @Test

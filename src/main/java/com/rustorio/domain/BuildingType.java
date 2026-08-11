@@ -75,9 +75,9 @@ public enum BuildingType {
      * com.rustorio.domain} is architecturally forbidden from depending on {@code
      * com.rustorio.domain.building} at all ({@code PackageBoundaryRulesTest}) — {@code
      * VanillaBuildings.idFor} delegates to THIS method instead, so the formula still has exactly
-     * one real implementation. Lets {@link Recipe}/{@code RecipeBook} (both in this package)
-     * convert a {@code BuildingType} to the open {@link ContentId} a recipe's governing "kind" is
-     * now keyed by, without a forbidden import.
+     * one real implementation. Lets {@link com.rustorio.api.content.model.Recipe}/{@code
+     * RecipeBook} convert a {@code BuildingType} to the open {@link ContentId} a recipe's governing
+     * "kind" is now keyed by, without a forbidden import of {@code domain.building}.
      */
     public ContentId contentId() {
         return new ContentId("rustorio", name().toLowerCase(Locale.ROOT));

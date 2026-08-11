@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.Recipe;
+import com.rustorio.api.content.model.Recipe;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,7 +40,7 @@ class RecipePatchingTest {
                     public void modifyContent(com.rustorio.api.mod.RegistrationContext ctx) {
                         com.rustorio.api.content.ContentId id =
                                 com.rustorio.api.content.ContentId.of("base_mod:smelt");
-                        ctx.recipes().update(id, old -> new com.rustorio.domain.Recipe(
+                        ctx.recipes().update(id, old -> new com.rustorio.api.content.model.Recipe(
                                 old.id(), old.ingredients(), old.output(), old.time() * 2, old.type()));
                     }
                 }

@@ -4,8 +4,8 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.rustorio.domain.ItemShape;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemShape;
+import com.rustorio.api.content.model.ItemType;
 
 /**
  * One item's identity icon on a flat HUD panel — shape + letter + color, the same three-channel

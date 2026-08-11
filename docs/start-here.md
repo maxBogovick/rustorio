@@ -20,7 +20,10 @@
 Поверхность `rustorio-api` по `domain.building` — **allowlist контрактов** (Building,
 TickContext, SimpleCrafter, BeltSegment, FluidPort, BuildingServices, …). Сети, ванильные
 concretes (`Pipe`, `Furnace`, …), `VanillaBuildings`, `BuildingFactory` и `NetworkWiring` модам
-**не видны**. Типы контента (`ItemType`, …) пока ещё в `com.rustorio.domain` — отдельный переезд.
+**не видны**. Каталожные модели (`FluidType`, `ItemType`, `ItemShape`, `Recipe`, `RecipeKind`,
+`TechType`, `AuthoredMap`, `OrePatch`, `TerrainPatch`) уже в `api.content.model`; `Vanilla*`
+(`VanillaItems`, `VanillaSprites`, `VanillaTechs`, `VanillaTechEffects`, `VanillaFluids`) — в
+`api.content.vanilla`.
 
 Из apiJar / classloader также убраны `domain.world` и `domain.action`.
 
@@ -51,7 +54,8 @@ com.rustorio.api.building.*     // facade Building / Codec / capabilities (но�
 com.rustorio.api.content.ContentId
 com.rustorio.api.registry.*
 
-com.rustorio.domain.*             // ItemType, Recipe, ItemShape, VanillaSprites, …
+com.rustorio.api.content.model.*  // FluidType, ItemType, ItemShape, Recipe, TechType, …
+com.rustorio.api.content.vanilla.* // VanillaSprites, VanillaItems, VanillaTechs, …
 com.rustorio.domain.building.TickContext   // ВСЕГДА отсюда, не facade
 com.rustorio.domain.building.SimpleCrafter // батарейка L2
 ```

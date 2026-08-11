@@ -4,12 +4,12 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.FluidType;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaFluids;
-import com.rustorio.domain.VanillaItems;
-import com.rustorio.domain.VanillaSprites;
-import com.rustorio.domain.VanillaTechs;
+import com.rustorio.api.content.model.FluidType;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.vanilla.VanillaFluids;
+import com.rustorio.api.content.vanilla.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaSprites;
+import com.rustorio.api.content.vanilla.VanillaTechs;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -424,7 +424,7 @@ public final class VanillaBuildings {
      * one place callers ask for this conversion, so {@link #registerAll} and any later lookup (a
      * future card) always agree on the same id instead of each retyping the convention
      * independently. Delegates to {@link BuildingType#contentId()} — the actual formula lives
-     * there now, not here, since {@code com.rustorio.domain.Recipe}/{@code RecipeBook} need the
+     * there now, not here, since {@code com.rustorio.api.content.model.Recipe}/{@code RecipeBook} need the
      * same conversion but {@code com.rustorio.domain} may not depend on this package (see that
      * method's own javadoc).
      */

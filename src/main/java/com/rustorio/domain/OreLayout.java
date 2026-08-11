@@ -2,6 +2,7 @@ package com.rustorio.domain;
 
 import java.util.Map;
 import java.util.Optional;
+import com.rustorio.api.content.model.ItemType;
 
 /**
  * Strategy pattern: where ore lies on the map and of which kind. {@code World} depends on this

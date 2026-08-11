@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.PatchOreLayout;
-import com.rustorio.domain.TechType;
+import com.rustorio.api.content.model.TechType;
 import com.rustorio.domain.world.World;
 import com.rustorio.game.GameBootstrap;
 import java.io.IOException;

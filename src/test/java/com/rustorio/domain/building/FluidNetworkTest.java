@@ -2,8 +2,8 @@ package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.FluidType;
-import com.rustorio.domain.VanillaFluids;
+import com.rustorio.api.content.model.FluidType;
+import com.rustorio.api.content.vanilla.VanillaFluids;
 import com.rustorio.domain.world.World;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;

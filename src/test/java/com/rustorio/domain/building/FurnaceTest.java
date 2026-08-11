@@ -4,11 +4,11 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaItems;
-import com.rustorio.domain.Recipe;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.vanilla.VanillaItems;
+import com.rustorio.api.content.model.Recipe;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.VanillaTechs;
+import com.rustorio.api.content.vanilla.VanillaTechs;
 import com.rustorio.domain.world.World;
 import java.util.List;
 import java.util.Optional;
@@ -269,7 +269,7 @@ class FurnaceTest {
     @Test
     void pressWithARecipeThatTakesTwoOfTheSameItemFillsBothBuffers() {
         RecipeBook doubleInput = new RecipeBook(java.util.List.of(
-                new Recipe(testRecipeId(1), VanillaItems.IRON_PLATE, VanillaItems.IRON_PLATE, VanillaItems.ALLOY_PLATE, 3, BuildingType.PRESS)));
+                new Recipe(testRecipeId(1), VanillaItems.IRON_PLATE, VanillaItems.IRON_PLATE, VanillaItems.ALLOY_PLATE, 3, BuildingType.PRESS.contentId())));
         World world = new World(4, 4);
         Chest chest = new Chest();
         world.restoreBuilding(1, 0, chest);
@@ -297,7 +297,7 @@ class FurnaceTest {
     void aRecipeWithThreeIngredientsCommitsAndCooksCorrectly() {
         Recipe tripleInput = new Recipe(testRecipeId(2), 
                 List.of(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.GEAR),
-                VanillaItems.CHASSIS, 6, BuildingType.PRESS);
+                VanillaItems.CHASSIS, 6, BuildingType.PRESS.contentId());
         RecipeBook customBook = new RecipeBook(List.of(tripleInput));
         World world = new World(4, 4);
         Chest chest = new Chest();
@@ -319,7 +319,7 @@ class FurnaceTest {
     void aRecipeWithThreeIngredientsRefusesToCookWithOnlyTwoDelivered() {
         Recipe tripleInput = new Recipe(testRecipeId(3), 
                 List.of(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.GEAR),
-                VanillaItems.CHASSIS, 6, BuildingType.PRESS);
+                VanillaItems.CHASSIS, 6, BuildingType.PRESS.contentId());
         RecipeBook customBook = new RecipeBook(List.of(tripleInput));
         World world = new World(4, 4);
         Chest chest = new Chest();

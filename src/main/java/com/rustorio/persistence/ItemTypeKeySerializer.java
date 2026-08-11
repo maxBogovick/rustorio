@@ -3,7 +3,7 @@ package com.rustorio.persistence;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import java.io.IOException;
 
 /**

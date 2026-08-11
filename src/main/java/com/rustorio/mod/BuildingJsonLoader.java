@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.mod.RegistrationContext;
 import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.FluidType;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.FluidType;
+import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.building.BuildingCost;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.PlacementRule;
@@ -182,7 +182,7 @@ final class BuildingJsonLoader {
      * the behavior of every JSON building written before this field existed, which reused a
      * FURNACE/MINER/LAB archetype and got that archetype's vanilla tech bonus for free. Present
      * overrides it outright, including to a technology this very mod registers — the capability
-     * {@link com.rustorio.domain.VanillaTechs}'s own javadoc used to say a JSON-only mod lacked.
+     * {@link com.rustorio.api.content.vanilla.VanillaTechs}'s own javadoc used to say a JSON-only mod lacked.
      *
      * <p>Not existence-checked against the tech registry here: techs load AFTER buildings ({@link
      * ContentJsonLoader}), so a mod's own technology would not be registered yet at this point —

@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.VanillaTechs;
+import com.rustorio.api.content.vanilla.VanillaTechs;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Chest;

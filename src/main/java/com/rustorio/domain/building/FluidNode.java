@@ -1,6 +1,6 @@
 package com.rustorio.domain.building;
 
-import com.rustorio.domain.FluidType;
+import com.rustorio.api.content.model.FluidType;
 import org.jspecify.annotations.Nullable;
 
 /**

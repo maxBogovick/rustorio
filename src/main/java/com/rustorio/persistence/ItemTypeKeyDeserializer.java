@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.KeyDeserializer;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 
 /**
  * Inverse of {@link ItemTypeKeySerializer}: parses the {@code namespace:path} key back into the

@@ -16,7 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
  * {@code ModLoader#validateContent}'s new kind checks (the actual guarantee behind the content
  * editor's kind-picker dropdown, see {@code app.js}'s {@code renderKindSelectOptions}): a recipe's
  * own pool and a building's own explicit {@code "kind"} must resolve to something real — a
- * registered {@link com.rustorio.domain.RecipeKind}, a vanilla {@code BuildingType}, or another
+ * registered {@link com.rustorio.api.content.model.RecipeKind}, a vanilla {@code BuildingType}, or another
  * building's own id — never a silent no-op typo. A building's DEFAULT private pool (no {@code
  * "kind"} field at all) needs no separate registration at all — see the "zero setup" tests below.
  */

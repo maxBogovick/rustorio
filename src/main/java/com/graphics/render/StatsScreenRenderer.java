@@ -6,7 +6,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.rustorio.api.registry.Registry;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.world.ProductionStatsView;
 import com.rustorio.domain.world.ProductionStatsView.RateSample;
 import java.util.List;

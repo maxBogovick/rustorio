@@ -1,7 +1,7 @@
 package com.webminer;
 
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import org.jspecify.annotations.Nullable;
 
 /**

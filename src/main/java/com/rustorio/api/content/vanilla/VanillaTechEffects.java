@@ -1,13 +1,15 @@
-package com.rustorio.domain;
+package com.rustorio.api.content.vanilla;
 
 import com.rustorio.api.content.ContentId;
 
 /**
  * Ids of the marker tech effects the base game ships. The {@link com.rustorio.api.mod.TechEffect}
  * objects themselves are registered by the loader ({@code GameRegistrationContext}), not here —
- * keeping this class free of {@code api.mod} imports so {@code domain} stays the innermost ring.
+ * keeping this class free of {@code api.mod} imports so the catalog package stays a thin
+ * ContentId holder, not a registration kitchen.
  *
- * <p><b>Which effects actually change gameplay today</b> (via {@link ResearchView#hasEffect}):
+ * <p><b>Which effects actually change gameplay today</b> (via
+ * {@link com.rustorio.domain.ResearchView#hasEffect}):
  * {@link #BIG_BUFFER} (chest + furnace input buffer) and {@link #LONG_TUNNEL} (underground belt
  * range). {@link #FAST_MINING}, {@link #FAST_SMELTING} and {@link #FAST_LAB} are registered and
  * listed on the matching techs so data mods can name them, but speed still goes through

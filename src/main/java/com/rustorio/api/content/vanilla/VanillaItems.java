@@ -1,12 +1,14 @@
-package com.rustorio.domain;
+package com.rustorio.api.content.vanilla;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.model.ItemShape;
 
 /**
  * The game's own built-in items — code standing in for a data file until Phase 3 lets mods supply
  * their own. {@link #frozen()} is the one shared, already-frozen {@link Registry} every
- * vanilla-content class in {@code domain} (recipes, ore layouts) reads its {@link ItemType}
+ * vanilla-content consumer (recipes, ore layouts in {@code domain}) reads its {@link ItemType}
  * instances from, so two classes both asking for "iron ore" get the exact same object — needed
  * for the {@code ==} comparisons {@code RecipeBook} already relies on. A frozen registry can't be
  * mutated ({@code register}/{@code update} throw), so sharing this one constant is safe in a way
@@ -81,7 +83,7 @@ public final class VanillaItems {
      * <p>Deliberately scoped to VANILLA, and named that way: a mod's own terrain item is not
      * listed here and cannot be — this answers "do I have hand-drawn art / a recipe path for this
      * one", not "is this terrain". What a patch DOES is decided by which array it sits in ({@link
-     * AuthoredMap}), never by asking an item what it is.
+     * com.rustorio.api.content.model.AuthoredMap}), never by asking an item what it is.
      */
     public static boolean isVanillaTerrain(ItemType item) {
         return WATER.equals(item) || ROCK.equals(item);

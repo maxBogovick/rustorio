@@ -13,7 +13,7 @@ import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Cell;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingCost;

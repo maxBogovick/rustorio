@@ -3,7 +3,7 @@ package com.rustorio.domain.action;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.world.World;

@@ -5,11 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.architecture.BuildOutputs;
-import com.rustorio.domain.AuthoredMap;
+import com.rustorio.api.content.model.AuthoredMap;
 import com.rustorio.domain.AuthoredOreLayout;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.InspectableBuilding;

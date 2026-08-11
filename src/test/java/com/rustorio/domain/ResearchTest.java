@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import com.rustorio.api.content.vanilla.VanillaTechs;
+import com.rustorio.api.content.vanilla.VanillaTechEffects;
 
 /**
  * {@link Research}: unlocking a technology is now the player's explicit,

@@ -1,7 +1,7 @@
 package com.rustorio.persistence;
 
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.AuthoredMap;
+import com.rustorio.api.content.model.AuthoredMap;
 import com.rustorio.domain.AuthoredOreLayout;
 import com.rustorio.domain.RandomOreLayout;
 import com.rustorio.domain.RecipeBook;

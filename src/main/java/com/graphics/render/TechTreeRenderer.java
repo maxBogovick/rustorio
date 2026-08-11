@@ -7,7 +7,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.ResearchView;
-import com.rustorio.domain.TechType;
+import com.rustorio.api.content.model.TechType;
 import java.util.List;
 import java.util.StringJoiner;
 

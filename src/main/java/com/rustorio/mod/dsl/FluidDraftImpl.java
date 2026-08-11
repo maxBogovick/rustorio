@@ -3,7 +3,7 @@ package com.rustorio.mod.dsl;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.dsl.FluidDraft;
 import com.rustorio.api.mod.RegistrationContext;
-import com.rustorio.domain.FluidType;
+import com.rustorio.api.content.model.FluidType;
 import org.jspecify.annotations.Nullable;
 
 final class FluidDraftImpl implements FluidDraft {

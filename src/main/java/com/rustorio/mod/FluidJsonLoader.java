@@ -3,7 +3,7 @@ package com.rustorio.mod;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
-import com.rustorio.domain.FluidType;
+import com.rustorio.api.content.model.FluidType;
 import java.nio.file.Path;
 import java.util.List;
 

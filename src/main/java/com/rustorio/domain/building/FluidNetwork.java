@@ -2,7 +2,7 @@ package com.rustorio.domain.building;
 
 import com.rustorio.domain.Cell;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.FluidType;
+import com.rustorio.api.content.model.FluidType;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;

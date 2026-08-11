@@ -4,10 +4,10 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.VanillaTechs;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaTechs;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -51,7 +51,7 @@ public final class Lab implements Building {
      * <p>It used to be 1, which made the whole scale useless below a 50% depth difference: an item
      * 45% deeper than a {@code GEAR} rounded to the same single point, so "points are proportional
      * to production cost" (P-01) held only for the few items that happened to be far enough apart.
-     * Ten points per {@code GEAR} gives the ratio a place to land — every {@link com.rustorio.domain.TechType#cost()} was
+     * Ten points per {@code GEAR} gives the ratio a place to land — every {@link com.rustorio.api.content.model.TechType#cost()} was
      * multiplied by ten in the same change, so the tree costs the same number of lab batches as
      * before; only the resolution changed, not the pacing.
      */

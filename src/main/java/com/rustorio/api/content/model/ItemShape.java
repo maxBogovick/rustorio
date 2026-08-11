@@ -1,4 +1,4 @@
-package com.rustorio.domain;
+package com.rustorio.api.content.model;
 
 /**
  * Which silhouette an item's cargo icon draws as — color alone is an accessibility failure (two

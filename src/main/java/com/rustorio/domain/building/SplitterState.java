@@ -1,7 +1,7 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import org.jspecify.annotations.Nullable;
 
 /** {@link Splitter}'s own captured state — {@code nextIsForward}: which side gets the NEXT delivered item (strict round-robin, no rule to persist). */

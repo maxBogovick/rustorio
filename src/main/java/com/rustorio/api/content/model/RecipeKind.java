@@ -1,4 +1,4 @@
-package com.rustorio.domain;
+package com.rustorio.api.content.model;
 
 import com.rustorio.api.content.ContentId;
 
@@ -10,7 +10,7 @@ import com.rustorio.api.content.ContentId;
  * content editor had nothing real to offer in a dropdown and no way to catch a typo — see {@code
  * RecipeKindJsonLoader} for how these load, and {@code com.rustorio.mod.ModLoader#validateContent}
  * for how every recipe/building's own kind reference is checked against the full set of real ones
- * (vanilla {@link BuildingType} pools, every registered {@code RecipeKind}, and every building's
+ * (vanilla {@code BuildingType} pools, every registered {@code RecipeKind}, and every building's
  * own id) once loading finishes.
  *
  * <p>Deliberately minimal — just an identity and a display name, nothing else: a kind carries no

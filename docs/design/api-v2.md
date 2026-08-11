@@ -2,8 +2,17 @@
 
 Статус: **принят владельцем 10.08.2026** (§11 закрыт). Фазы 1, A/B/C, **3** и сужение
 `domain.building` до allowlist (без сетей/concretes/`VanillaBuildings`) — в коде.
-Онбординг: `docs/start-here.md`. Фаза 4 (MapCodec / physical move content types) — отдельно.
+Онбординг: `docs/start-here.md`. Фаза 4 (MapCodec / physical move content types) — отдельно; срезы
+уже в коде: все 9 каталожных моделей в `api.content.model`; `VanillaItems` /
+`VanillaSprites` / `VanillaTechs` / `VanillaTechEffects` / `VanillaFluids` в
+`api.content.vanilla`.
 
+**Отклонение от принятого пути миграции (честно):** §11 п.8 и фаза 2 предпочитали
+re-export / facade, затем сужение classloader — без жёсткого FQCN-разрыва. У records нет
+рабочих deprecated stubs (нельзя оставить «тень» старого FQCN без второго класса), поэтому
+владелец отдельной репликой «делай» разрешил прямой physical move + rename imports. Это не
+переписывание принятого плана задним числом: stubs-first остаётся принятой политикой для
+типов, где stub возможен; для этих records путь сознательно отклонился.
 Решения §11:
 1. Цель L0–L3 + узкий api — **да**.
 2. Стартовать фазу 1 сейчас — **да**.
@@ -19,9 +28,10 @@
 - `apiJar` = `api/**` + `domain/**` **минус** world/action и минус кухня `domain.building`
   (только allowlist контрактов; сети и concretes снаружи);
 - `ModClassLoader` + `ModBuildingApiAllowlist` стерегут то же;
-- `BeltSegment` ещё в поверхности (нужен `TransportNode`); типы контента ещё в `domain`;
+- `BeltSegment` ещё в поверхности (нужен `TransportNode`); каталожные модели (`FluidType`,
+  `ItemShape`, `ItemType`, `Recipe`, `RecipeKind`, `TechType`, `AuthoredMap`, `OrePatch`,
+  `TerrainPatch`) уже в `api.content.model`; `Vanilla*` — в `api.content.vanilla`;
 - поведение и tech-эффекты осознанно не data-only (владелец отклонил Lua/JS/WASM).
-
 ---
 
 ## 1. Зачем
@@ -73,7 +83,10 @@ com.rustorio.api.
   registry/         Registry, RegistryKey (уже есть)
   mod/              RustorioMod, RegistrationContext, EventBus, события
   building/         НОВОЕ: контракты здания
-  content.model/    НОВОЕ: ItemType, Recipe, FluidType, TechType, AuthoredMap, …
+  content.model/    FluidType, ItemShape, ItemType, RecipeKind, TechType, OrePatch,
+                    TerrainPatch, AuthoredMap, Recipe (переехали)
+  content.vanilla/  VanillaItems, VanillaSprites, VanillaTechs, VanillaTechEffects,
+                    VanillaFluids (переехали)
   dsl/              НОВОЕ: ContentDsl, BuildingDsl (фаза 1–2)
 ```
 
@@ -89,12 +102,16 @@ com.rustorio.api.
 |-------------|-----------|--------|
 | `Building`, `TickContext`, `Codec`, `BuildingPrototype` | `api.building` | мод обязан их видеть |
 | capabilities (`SettlesEachTick`, `TransportNode`, `InspectableBuilding`, …) | `api.building` | open membership |
-| `ItemType`, `Recipe`, `FluidType`, `TechType`, `AuthoredMap`, `OrePatch` | `api.content.model` | регистрация контента |
+| `FluidType`, `ItemShape`, `ItemType`, `Recipe`, `RecipeKind`, `TechType`, `AuthoredMap`, `OrePatch`, `TerrainPatch` | `api.content.model` | регистрация контента |
 | `ServiceKey` | `api.mod` или `api.building` | webminer-паттерн |
 | `PlacementRule` (функциональный тип) | `api.building` | правило размещения |
 | `VanillaSprites`, id ванильных предметов | `api.content.vanilla` или allowlist | удобные константы |
 
-Физический переезд классов — поэтапно: сначала re-export из `api.*`, потом сужение classloader.
+Физический переезд каталожных records и `Vanilla*` **уже сделан** (см. статус выше и заметку
+про отклонение от stubs-first). Принятый план по-прежнему предпочитает re-export, затем
+сужение classloader, где stub возможен; для оставшихся типов в `domain` (Direction, Cell,
+BuildingStatus, Appearance, Research*, BuildingType, …) путь — re-export / сужение по мере
+срезов, без молчаливой подмены политики.
 
 ### 4.2 `RegistrationContext` v2 — те же реестры + DSL-дверь
 
@@ -298,11 +315,13 @@ effect со своей технологии.
 
 1. **Фаза 0:** документ; код не ломает моды.
 2. **Фаза 1:** DSL + SimpleCrafter + `requireItem` — **additive**.
-3. **Фаза 2:** типы контента из `api.*` (re-export); постепенная смена imports.
+3. **Фаза 2:** типы контента из `api.*` (принятый путь — re-export; для records выполнен
+   physical move по отдельному «делай» владельца — см. статус); постепенная смена imports.
 4. **Фаза 3:** apiJar/classloader без `domain.world` и `domain.action` (**сделано**).
    Сети и `BeltSegment` оставлены под node-сигнатуры; полнота jar — `ModApiSurfaceCompletenessTest`.
-5. **Фаза 4:** примеры на DSL; ElectroCracker остаётся L3-образцом; MapCodec / physical move;
-   отдельный срез сетей после редизайна `FluidNode`/`PowerNode`.
+5. **Фаза 4:** примеры на DSL; ElectroCracker остаётся L3-образцом; MapCodec;
+   physical move catalog/`Vanilla*` (**сделано**, см. статус); отдельный срез сетей после
+   редизайна `FluidNode`/`PowerNode`.
 
 Acceptance на каждой фазе: `PetrochemGuideAcceptanceTest`, `WebMinerChainTest`,
 `ModApiSurfaceTest`, `ModBoundaryRulesTest`.
@@ -343,9 +362,9 @@ Acceptance на каждой фазе: `PetrochemGuideAcceptanceTest`, `WebMiner
 |------|------------|----------------|
 | **0** | Этот документ + Hello Building 40 строк | нет |
 | **1** | DSL, requireItem, SimpleCrafter, tech effects, initMod | нет (additive) |
-| **2** | Re-export facades в `api.building` + каталоги `api.content.model` / `vanilla`; гайд DSL | низкий |
+| **2** | Re-export facades в `api.building` + каталоги `api.content.model` / `vanilla`; гайд DSL (records: physical move по «делай», см. статус) | низкий→ломающий FQCN |
 | **3** | Сужение apiJar/classloader (world + action; сети пока остаются) | средний · **сделано** |
-| **4** | MapCodec; deprecate PlacementRule constants; physical move records | отд. карточки |
+| **4** | MapCodec; deprecate PlacementRule constants; physical move catalog/`Vanilla*` (**сделано**) | отд. карточки |
 
 ---
 

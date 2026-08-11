@@ -3,6 +3,7 @@ package com.rustorio.domain;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import java.util.Set;
+import com.rustorio.api.content.model.TechType;
 
 /**
  * Read-only face of {@link Research} — every query, none of the mutators. {@code World.research()}

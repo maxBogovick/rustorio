@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import com.rustorio.api.content.vanilla.VanillaItems;
 
 /**
  * {@link PatchOreLayout}: the fixed built-in map, plus (D-04, DEV_TASKS.md) its per-cell ore

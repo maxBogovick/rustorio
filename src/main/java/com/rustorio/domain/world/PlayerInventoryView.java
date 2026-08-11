@@ -1,6 +1,6 @@
 package com.rustorio.domain.world;
 
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 
 /**
  * Read-only face of {@link PlayerInventory} — {@code World.inventory()} returns this, not {@code

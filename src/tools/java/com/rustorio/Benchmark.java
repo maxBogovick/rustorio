@@ -2,9 +2,9 @@ package com.rustorio;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaFluids;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.vanilla.VanillaFluids;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import com.rustorio.domain.OreLayout;
 import com.rustorio.domain.OreLayoutId;
 import com.rustorio.domain.RecipeBook;

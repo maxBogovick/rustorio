@@ -2,8 +2,8 @@ package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
 import java.util.Optional;

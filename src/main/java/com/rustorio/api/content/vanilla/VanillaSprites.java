@@ -1,4 +1,4 @@
-package com.rustorio.domain;
+package com.rustorio.api.content.vanilla;
 
 import com.rustorio.api.content.ContentId;
 import java.util.List;
@@ -6,11 +6,11 @@ import java.util.List;
 /**
  * The game's own built-in sprite names — replaces the {@code Sprite} enum with plain {@link
  * ContentId} constants. Unlike {@link VanillaItems}, these aren't backed by a {@link
- * com.rustorio.api.registry.Registry}: {@link Appearance} is never persisted (it's recomputed
- * fresh from a building's live state every tick), so there's no save-compatibility reason to need
- * a deterministic numeric {@code rawId}, and nothing else needs to look a sprite name up by
- * anything other than the constant itself — a registry's freeze/rawId machinery would be
- * unused ceremony here.
+ * com.rustorio.api.registry.Registry}: {@link com.rustorio.domain.Appearance} is never persisted
+ * (it's recomputed fresh from a building's live state every tick), so there's no
+ * save-compatibility reason to need a deterministic numeric {@code rawId}, and nothing else needs
+ * to look a sprite name up by anything other than the constant itself — a registry's freeze/rawId
+ * machinery would be unused ceremony here.
  */
 public final class VanillaSprites {
 

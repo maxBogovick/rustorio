@@ -1,6 +1,6 @@
 package com.rustorio.domain.world;
 
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;

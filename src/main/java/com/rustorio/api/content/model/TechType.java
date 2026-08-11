@@ -1,4 +1,4 @@
-package com.rustorio.domain;
+package com.rustorio.api.content.model;
 
 import com.rustorio.api.content.ContentId;
 import java.util.List;
@@ -14,10 +14,10 @@ import java.util.List;
  * content.
  *
  * <p>{@code effects} lists {@link com.rustorio.api.mod.TechEffect} ids granted while this tech is
- * unlocked — buildings ask {@link ResearchView#hasEffect}, not a hardcoded tech name. The older
- * {@code speedTech} trait / {@code fasterIfUnlocked(techId)} path still works; effects are the
- * open, data-addressable door on top. An empty list means "tree node only" (UI + cost), same as
- * before effects existed.
+ * unlocked — buildings ask {@link com.rustorio.domain.ResearchView#hasEffect}, not a hardcoded tech
+ * name. The older {@code speedTech} trait / {@code fasterIfUnlocked(techId)} path still works;
+ * effects are the open, data-addressable door on top. An empty list means "tree node only" (UI +
+ * cost), same as before effects existed.
  *
  * <p>{@code prerequisites} are ids rather than resolved {@code TechType}s: a mod may name a
  * technology registered by a mod loaded later in the same round, and a record holding resolved

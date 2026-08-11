@@ -7,7 +7,7 @@ import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.VanillaTechs;
+import com.rustorio.api.content.vanilla.VanillaTechs;
 import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.BuildingImage;
 import com.rustorio.domain.building.BuildingPrototype;

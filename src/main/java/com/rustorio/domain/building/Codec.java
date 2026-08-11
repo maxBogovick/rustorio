@@ -2,7 +2,7 @@ package com.rustorio.domain.building;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
  * <p>{@code Object} here means "ordinary JDK types a generic JSON writer already knows how to
  * serialize without custom code": {@code Map<String, Object>}, {@code List<Object>}, {@code
  * String}, boxed numbers, {@code Boolean}, or {@code null} — never a domain type like {@link
- * com.rustorio.domain.Direction} or {@link com.rustorio.domain.ItemType} directly, and never a
+ * com.rustorio.domain.Direction} or {@link com.rustorio.api.content.model.ItemType} directly, and never a
  * Jackson-specific node type. Converting a domain type to/from one of those plain shapes (a {@code
  * Direction} to its {@code name()}, an {@code ItemType} to its {@code ContentId} string) is this
  * codec's own job, not something a generic (de)serializer infers by reflection — that's the whole
@@ -41,7 +41,7 @@ public interface Codec<S> {
      * built with — every real archetype's state names at least one {@link ItemType} somewhere
      * (held cargo, a chest's contents, a filter's chosen item), and different factories can be
      * built with different registries (a modded item registered under a test's own {@code
-     * Registry}, not {@link com.rustorio.domain.VanillaItems#frozen()}) — a codec that resolved
+     * Registry}, not {@link com.rustorio.api.content.vanilla.VanillaItems#frozen()}) — a codec that resolved
      * against a hardcoded vanilla-only registry would fail to decode a save containing modded
      * items, the exact bug class {@code Filter#cycleFilterItem}'s own fix (code review finding S2)
      * already exists to prevent one layer up.

@@ -3,14 +3,14 @@ package com.rustorio.domain.building;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.OreLayout;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaItems;
 
 /**
  * Whether a {@link BuildingType} may be placed at a cell, beyond "the cell is free and in
  * bounds" — {@code World} already checks that universally, the same way, for every kind, so it
  * isn't this rule's job to repeat it.
  *
- * <p><b>Owner decision (X-02, DEV_TASKS.md):</b> {@link com.rustorio.domain.VanillaItems#WATER}/{@link com.rustorio.domain.VanillaItems#ROCK} block
+ * <p><b>Owner decision (X-02, DEV_TASKS.md):</b> {@link com.rustorio.api.content.vanilla.VanillaItems#WATER}/{@link com.rustorio.api.content.vanilla.VanillaItems#ROCK} block
  * every kind except {@link UndergroundBelt} — the one building whose entire point is going UNDER
  * an obstacle rather than around it (§4.2 of the design audit: before terrain existed, a tunnel
  * solved no spatial problem at all, since there was nothing terrain-wise to route around). A
@@ -38,7 +38,7 @@ public interface PlacementRule {
 
     /**
      * A pump stands on dry ground but has to REACH water — so it needs a {@link
-     * com.rustorio.domain.VanillaItems#WATER} cell on one of its four sides. The same shape as {@link
+     * com.rustorio.api.content.vanilla.VanillaItems#WATER} cell on one of its four sides. The same shape as {@link
      * #NEEDS_ORE} (something must be under, or next to, this cell for the building to do anything at
      * all), and the reason water finally has a use beyond being an obstacle to route around.
      *

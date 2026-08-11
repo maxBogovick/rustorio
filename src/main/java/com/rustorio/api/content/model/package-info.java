@@ -1,18 +1,21 @@
 /**
- * Catalog of content <em>models</em> a mod registers or resolves — {@link
- * com.rustorio.domain.ItemType}, {@link com.rustorio.domain.Recipe}, {@link
- * com.rustorio.domain.FluidType}, {@link com.rustorio.domain.TechType}, {@link
- * com.rustorio.domain.AuthoredMap}, {@link com.rustorio.domain.RecipeKind}, {@link
- * com.rustorio.domain.ItemShape}, {@link com.rustorio.domain.OrePatch}, {@link
- * com.rustorio.domain.TerrainPatch}.
+ * Content <em>models</em> a mod registers or resolves. Catalog types that live here now: {@link
+ * com.rustorio.api.content.model.FluidType}, {@link com.rustorio.api.content.model.ItemShape},
+ * {@link com.rustorio.api.content.model.ItemType}, {@link
+ * com.rustorio.api.content.model.RecipeKind}, {@link com.rustorio.api.content.model.TechType},
+ * {@link com.rustorio.api.content.model.OrePatch}, {@link
+ * com.rustorio.api.content.model.TerrainPatch}, {@link
+ * com.rustorio.api.content.model.AuthoredMap}, {@link com.rustorio.api.content.model.Recipe}.
  *
- * <p>Those types still live in {@code com.rustorio.domain} (records cannot be facade-extended).
- * This package exists so docs and {@code rustorio-api} have a stable <em>address</em> for the
- * future physical move; import the domain types today. Vanilla id constants —
- * {@link com.rustorio.api.content.vanilla}.
+ * <p>Vanilla id/catalog holders live in {@link com.rustorio.api.content.vanilla} ({@link
+ * com.rustorio.api.content.vanilla.VanillaItems}, {@link
+ * com.rustorio.api.content.vanilla.VanillaSprites}, {@link
+ * com.rustorio.api.content.vanilla.VanillaTechs}, {@link
+ * com.rustorio.api.content.vanilla.VanillaTechEffects}, {@link
+ * com.rustorio.api.content.vanilla.VanillaFluids}).
  *
- * <p>Depends on nothing of its own yet (documentation package). After the move it will own the
- * model types and {@code domain} will import them — dependency arrow flips outward.
+ * <p>Depends on {@link com.rustorio.api.content.ContentId} only — not on {@code domain}, building,
+ * world, persistence, or graphics.
  */
 @NullMarked
 package com.rustorio.api.content.model;

@@ -1,7 +1,7 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 
 /**
  * What a building costs to place, from the player's inventory — one item kind and amount per

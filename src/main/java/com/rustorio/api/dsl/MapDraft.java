@@ -2,7 +2,7 @@ package com.rustorio.api.dsl;
 
 import com.rustorio.api.content.ContentId;
 
-/** Fluent registration of one {@link com.rustorio.domain.AuthoredMap}. */
+/** Fluent registration of one {@link com.rustorio.api.content.model.AuthoredMap}. */
 public interface MapDraft {
 
     MapDraft label(String label);

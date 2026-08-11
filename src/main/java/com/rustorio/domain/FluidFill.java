@@ -1,5 +1,7 @@
 package com.rustorio.domain;
 
+import com.rustorio.api.content.model.FluidType;
+
 /**
  * A fill bar to draw on a fluid tile: which fluid it holds and how full its network is, {@code
  * percent} from 0 to 100. Carried on {@link Appearance} so the building decides its own look and

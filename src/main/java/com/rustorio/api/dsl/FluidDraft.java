@@ -2,7 +2,7 @@ package com.rustorio.api.dsl;
 
 import com.rustorio.api.content.ContentId;
 
-/** Fluent registration of one {@link com.rustorio.domain.FluidType}. */
+/** Fluent registration of one {@link com.rustorio.api.content.model.FluidType}. */
 public interface FluidDraft {
 
     FluidDraft label(String label);

@@ -2,8 +2,8 @@ package com.rustorio.persistence;
 
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.VanillaFluids;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaFluids;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import com.rustorio.domain.building.Boiler;
 import com.rustorio.domain.building.BoilerState;
 import com.rustorio.domain.building.FluidPort;

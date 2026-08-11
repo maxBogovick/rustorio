@@ -5,12 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.AuthoredMap;
-import com.rustorio.domain.ItemShape;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.OrePatch;
-import com.rustorio.domain.TerrainPatch;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.model.AuthoredMap;
+import com.rustorio.api.content.model.ItemShape;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.model.OrePatch;
+import com.rustorio.api.content.model.TerrainPatch;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

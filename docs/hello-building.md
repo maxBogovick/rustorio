@@ -101,15 +101,15 @@ ctx.content().map("amber_cove")
 `com.rustorio.domain.building`** — иначе `tick`/`accept` станут перегрузкой и здание молча
 не будет работать.
 
-Модели контента (`ItemType`, `Recipe`, …) пока в `com.rustorio.domain`; каталог будущего
-переезда — `com.rustorio.api.content.model`.
+Модели контента (`ItemType`, `Recipe`, …) — `com.rustorio.api.content.model`; ванильные
+константы (`VanillaSprites`, …) — `com.rustorio.api.content.vanilla`.
 
 ```java
 import com.rustorio.api.building.Building;                 // facade
 import com.rustorio.api.mod.RegistrationContext;
 import com.rustorio.api.mod.RustorioMod;
-import com.rustorio.domain.ItemShape;
-import com.rustorio.domain.VanillaSprites;
+import com.rustorio.api.content.model.ItemShape;
+import com.rustorio.api.content.vanilla.VanillaSprites;
 import com.rustorio.domain.building.TickContext;           // НЕ facade
 ```
 

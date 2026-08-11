@@ -1,6 +1,7 @@
-package com.rustorio.domain;
+package com.rustorio.api.content.vanilla;
 
 import com.rustorio.api.content.ContentId;
+import com.rustorio.api.content.model.FluidType;
 import com.rustorio.api.registry.Registry;
 
 /**

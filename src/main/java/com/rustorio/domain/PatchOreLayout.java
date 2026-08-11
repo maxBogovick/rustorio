@@ -6,6 +6,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.model.OrePatch;
+import com.rustorio.api.content.model.TerrainPatch;
+import com.rustorio.api.content.vanilla.VanillaItems;
 
 /**
  * The game's real {@link OreLayout}: a fixed set of circular ore patches, the same map every

@@ -1,7 +1,7 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import org.jspecify.annotations.Nullable;
 
 /** {@link Filter}'s own captured state — {@code filterItem}: the player's chosen pass-through item (see {@link Filter#cycleFilterItem}). */

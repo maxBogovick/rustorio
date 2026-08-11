@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
-import com.rustorio.domain.ItemShape;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemShape;
+import com.rustorio.api.content.model.ItemType;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

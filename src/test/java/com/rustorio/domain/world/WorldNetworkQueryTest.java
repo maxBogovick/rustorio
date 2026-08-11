@@ -1,13 +1,13 @@
 package com.rustorio.domain.world;
 
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.AuthoredMap;
+import com.rustorio.api.content.model.AuthoredMap;
 import com.rustorio.domain.AuthoredOreLayout;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Cell;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.VanillaFluids;
+import com.rustorio.api.content.vanilla.VanillaFluids;
 import com.rustorio.domain.building.BuildingFactory;
 import java.util.List;
 import org.junit.jupiter.api.Test;

@@ -17,7 +17,9 @@ import org.jspecify.annotations.Nullable;
  * than leaving the renderer to switch over the whole set. Two exhaustive {@code switch}es used to
  * do that, one for the colour and one for the caption, so adding a status meant compile errors in
  * two files in another package, and nothing but a reviewer's memory to catch a third place that
- * also needed it. This is the same move already made for {@link ItemType} and {@link FluidType},
+ * also needed it. This is the same move already made for {@link
+ * com.rustorio.api.content.model.ItemType} and {@link
+ * com.rustorio.api.content.model.FluidType},
  * whose colours live on the content rather than in a palette's case list: a presentation DETAIL
  * belongs to the thing it describes, while presentation POLICY — what a marker is shaped like,
  * where on the tile it goes — stays in {@code com.graphics}.

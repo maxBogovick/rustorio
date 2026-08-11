@@ -1,7 +1,7 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import org.jspecify.annotations.Nullable;
 
 /** {@link Inserter}'s own captured state — mechanically a one-tile {@link Belt}, not speed-eligible. */

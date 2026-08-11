@@ -5,6 +5,7 @@ import com.rustorio.api.registry.Registry;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import com.rustorio.api.content.model.TechType;
 
 /**
  * Research progress: accumulated points and the set of unlocked technologies.

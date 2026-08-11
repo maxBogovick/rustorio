@@ -1,15 +1,15 @@
 package com.rustorio.domain.building;
 
 import com.rustorio.api.content.ContentId;
-import com.rustorio.domain.AuthoredMap;
+import com.rustorio.api.content.model.AuthoredMap;
 import com.rustorio.domain.AuthoredOreLayout;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.TerrainPatch;
-import com.rustorio.domain.VanillaFluids;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.model.TerrainPatch;
+import com.rustorio.api.content.vanilla.VanillaFluids;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import com.rustorio.domain.world.World;
 import java.util.List;
 import java.util.Optional;

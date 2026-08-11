@@ -2,7 +2,7 @@ package com.rustorio.api.dsl;
 
 import com.rustorio.api.content.ContentId;
 
-/** Fluent registration of one {@link com.rustorio.domain.Recipe}. */
+/** Fluent registration of one {@link com.rustorio.api.content.model.Recipe}. */
 public interface RecipeDraft {
 
     RecipeDraft input(String itemPathOrId);

@@ -4,12 +4,12 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.dsl.ContentDsl;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.api.registry.RegistryKey;
-import com.rustorio.domain.AuthoredMap;
-import com.rustorio.domain.FluidType;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.Recipe;
-import com.rustorio.domain.RecipeKind;
-import com.rustorio.domain.TechType;
+import com.rustorio.api.content.model.AuthoredMap;
+import com.rustorio.api.content.model.FluidType;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.model.Recipe;
+import com.rustorio.api.content.model.RecipeKind;
+import com.rustorio.api.content.model.TechType;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.PlacementRule;
 import com.rustorio.domain.building.ServiceKey;
@@ -96,7 +96,7 @@ public interface RegistrationContext {
      * Every fluid in the game — a mod registers its own here. Separate from {@link #items()} on
      * purpose: a fluid is a volume and an item is a count, and keeping them apart is what stops a
      * pipe and a belt from ever having to ask which of the two they are carrying (see {@link
-     * com.rustorio.domain.FluidType}).
+     * com.rustorio.api.content.model.FluidType}).
      */
     default Registry<FluidType> fluids() {
         return registry(RegistryKeys.FLUIDS);
@@ -111,7 +111,7 @@ public interface RegistrationContext {
         return registry(RegistryKeys.PLACEMENT_RULES);
     }
 
-    /** Every technology in the game — a mod registers its own here; see {@link com.rustorio.domain.TechType} for what a mod's technology can and cannot do yet. */
+    /** Every technology in the game — a mod registers its own here; see {@link com.rustorio.api.content.model.TechType} for what a mod's technology can and cannot do yet. */
     default Registry<TechType> techs() {
         return registry(RegistryKeys.TECHS);
     }

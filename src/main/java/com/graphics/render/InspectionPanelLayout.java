@@ -2,8 +2,8 @@ package com.graphics.render;
 
 import com.graphics.GfxConfig;
 import com.rustorio.api.registry.Registry;
-import com.rustorio.domain.ItemType;
-import com.rustorio.domain.Recipe;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.model.Recipe;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.InspectableBuilding;
 import com.rustorio.domain.building.RecipeSelectable;

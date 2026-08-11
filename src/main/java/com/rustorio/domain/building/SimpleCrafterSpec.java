@@ -8,7 +8,7 @@ import com.rustorio.api.content.ContentId;
  * copying ElectroCracker boilerplate.
  *
  * <p>Item ids are {@link ContentId}s resolved at building create/restore time against the world's
- * item registry — never captured {@link com.rustorio.domain.ItemType} instances from registration
+ * item registry — never captured {@link com.rustorio.api.content.model.ItemType} instances from registration
  * (those would be wrong identities after a fresh load).
  */
 public record SimpleCrafterSpec(ContentId input, ContentId output, int workTicks, int inputMax) {

@@ -6,9 +6,9 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.IntMap;
 import com.graphics.GfxConfig;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.OreLayout;
-import com.rustorio.domain.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaItems;
 import java.util.Optional;
 
 /**

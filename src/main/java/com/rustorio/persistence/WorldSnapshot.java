@@ -1,6 +1,6 @@
 package com.rustorio.persistence;
 
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.OreLayoutId;
 import com.rustorio.domain.Research;
 import com.rustorio.domain.world.PlayerInventory;

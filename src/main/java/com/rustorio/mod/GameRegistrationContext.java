@@ -5,7 +5,7 @@ import com.rustorio.api.mod.RegistrationContext;
 import com.rustorio.api.mod.RegistryKeys;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.api.registry.RegistryKey;
-import com.rustorio.domain.VanillaTechEffects;
+import com.rustorio.api.content.vanilla.VanillaTechEffects;
 import com.rustorio.domain.building.ServiceKey;
 import com.rustorio.domain.building.VanillaPlacementRules;
 import com.rustorio.domain.building.WorldServices;

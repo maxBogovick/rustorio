@@ -2,7 +2,7 @@ package com.graphics.render;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 

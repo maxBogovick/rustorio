@@ -6,6 +6,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
+import com.rustorio.api.content.model.ItemType;
+import com.rustorio.api.content.model.AuthoredMap;
+import com.rustorio.api.content.model.OrePatch;
+import com.rustorio.api.content.model.TerrainPatch;
+import com.rustorio.api.content.vanilla.VanillaItems;
 
 /**
  * A third {@link OreLayout} implementation, alongside {@link PatchOreLayout} (fixed vanilla map)

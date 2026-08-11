@@ -1,10 +1,11 @@
 package com.rustorio.mod;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -15,6 +16,24 @@ import org.junit.jupiter.api.io.TempDir;
  * ModClassLoader#loadClass} does and doesn't reach.
  */
 class ModClassLoaderTest {
+
+    private static final List<String> MOVED_CONTENT_MODELS = List.of(
+            "FluidType",
+            "ItemType",
+            "ItemShape",
+            "RecipeKind",
+            "TechType",
+            "OrePatch",
+            "TerrainPatch",
+            "AuthoredMap",
+            "Recipe");
+
+    private static final List<String> MOVED_VANILLA_HELPERS = List.of(
+            "VanillaItems",
+            "VanillaSprites",
+            "VanillaTechs",
+            "VanillaTechEffects",
+            "VanillaFluids");
 
     @TempDir
     Path tempDir;
@@ -32,10 +51,36 @@ class ModClassLoaderTest {
         ModClassLoader loader = newLoaderOverAnArbitraryJar();
 
         assertDoesNotThrow(() -> loader.loadClass("com.rustorio.api.mod.RustorioMod"));
-        assertDoesNotThrow(() -> loader.loadClass("com.rustorio.domain.ItemType"));
+        for (String simpleName : MOVED_CONTENT_MODELS) {
+            assertDoesNotThrow(() -> loader.loadClass("com.rustorio.api.content.model." + simpleName));
+        }
+        for (String simpleName : MOVED_VANILLA_HELPERS) {
+            assertDoesNotThrow(() -> loader.loadClass("com.rustorio.api.content.vanilla." + simpleName));
+        }
         assertDoesNotThrow(() -> loader.loadClass("com.rustorio.domain.building.BeltSegment"));
         assertDoesNotThrow(() -> loader.loadClass("com.rustorio.domain.building.SimpleCrafter"));
         assertDoesNotThrow(() -> loader.loadClass("com.rustorio.domain.building.FluidPort"));
+    }
+
+    /**
+     * After the physical move, old {@code com.rustorio.domain.<Name>} FQCNs simply do not exist on
+     * the classpath. {@code ModClassLoader} still parent-delegates {@code domain.*}, so this is not
+     * an allowlist deny — it is ClassNotFound from the parent once the types left that package.
+     */
+    @Test
+    void movedContentModelFqcnNoLongerExistUnderDomain() throws Exception {
+        ModClassLoader loader = newLoaderOverAnArbitraryJar();
+
+        for (String simpleName : MOVED_CONTENT_MODELS) {
+            assertThrows(ClassNotFoundException.class,
+                    () -> loader.loadClass("com.rustorio.domain." + simpleName),
+                    "domain." + simpleName + " must CNFE after the physical move to content.model");
+        }
+        for (String simpleName : MOVED_VANILLA_HELPERS) {
+            assertThrows(ClassNotFoundException.class,
+                    () -> loader.loadClass("com.rustorio.domain." + simpleName),
+                    "domain." + simpleName + " must CNFE after the physical move to content.vanilla");
+        }
     }
 
     @Test

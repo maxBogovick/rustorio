@@ -1,6 +1,6 @@
 package com.rustorio.api.mod;
 
-import com.rustorio.domain.ItemType;
+import com.rustorio.api.content.model.ItemType;
 
 /**
  * Published once per single produced item — the same occasion {@code ProductionListener} already

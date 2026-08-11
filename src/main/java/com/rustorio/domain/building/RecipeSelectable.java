@@ -1,6 +1,6 @@
 package com.rustorio.domain.building;
 
-import com.rustorio.domain.Recipe;
+import com.rustorio.api.content.model.Recipe;
 import java.util.List;
 import java.util.Optional;
 

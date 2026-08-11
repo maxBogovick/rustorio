@@ -5,7 +5,7 @@ import com.rustorio.domain.Appearance;
 import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.FluidFill;
-import com.rustorio.domain.FluidType;
+import com.rustorio.api.content.model.FluidType;
 import org.jspecify.annotations.Nullable;
 
 /**

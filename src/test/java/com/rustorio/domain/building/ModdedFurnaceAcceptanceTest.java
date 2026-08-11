@@ -4,10 +4,10 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
-import com.rustorio.domain.Recipe;
+import com.rustorio.api.content.model.Recipe;
 import com.rustorio.domain.RecipeBook;
-import com.rustorio.domain.VanillaItems;
-import com.rustorio.domain.VanillaSprites;
+import com.rustorio.api.content.vanilla.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaSprites;
 import com.rustorio.domain.world.World;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -61,7 +61,7 @@ class ModdedFurnaceAcceptanceTest {
 
         Recipe tripleInput = new Recipe(testRecipeId(1), 
                 List.of(VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.GEAR),
-                VanillaItems.CHASSIS, 6, BuildingType.PRESS);
+                VanillaItems.CHASSIS, 6, BuildingType.PRESS.contentId());
         RecipeBook recipeBook = new RecipeBook(List.of(tripleInput));
 
         World world = new World(4, 4);
