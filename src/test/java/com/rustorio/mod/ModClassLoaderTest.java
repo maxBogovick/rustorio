@@ -33,6 +33,23 @@ class ModClassLoaderTest {
 
         assertDoesNotThrow(() -> loader.loadClass("com.rustorio.api.mod.RustorioMod"));
         assertDoesNotThrow(() -> loader.loadClass("com.rustorio.domain.ItemType"));
+        assertDoesNotThrow(() -> loader.loadClass("com.rustorio.domain.building.BeltSegment"));
+        assertDoesNotThrow(() -> loader.loadClass("com.rustorio.domain.building.SimpleCrafter"));
+        assertDoesNotThrow(() -> loader.loadClass("com.rustorio.domain.building.FluidPort"));
+    }
+
+    @Test
+    void worldActionsNetworksAndVanillaConcretesAreNotReachable() throws Exception {
+        ModClassLoader loader = newLoaderOverAnArbitraryJar();
+
+        assertThrows(ClassNotFoundException.class, () -> loader.loadClass("com.rustorio.domain.world.World"));
+        assertThrows(ClassNotFoundException.class, () -> loader.loadClass("com.rustorio.domain.action.PlayerAction"));
+        assertThrows(ClassNotFoundException.class, () -> loader.loadClass("com.rustorio.domain.building.FluidNetwork"));
+        assertThrows(ClassNotFoundException.class, () -> loader.loadClass("com.rustorio.domain.building.PowerNetwork"));
+        assertThrows(ClassNotFoundException.class, () -> loader.loadClass("com.rustorio.domain.building.Pipe"));
+        assertThrows(ClassNotFoundException.class, () -> loader.loadClass("com.rustorio.domain.building.VanillaBuildings"));
+        assertThrows(ClassNotFoundException.class, () -> loader.loadClass("com.rustorio.domain.building.BuildingFactory"));
+        assertThrows(ClassNotFoundException.class, () -> loader.loadClass("com.rustorio.domain.building.NetworkWiring"));
     }
 
     @Test

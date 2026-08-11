@@ -304,4 +304,34 @@ class InspectionPanelLayoutTest {
         assertFalse(InspectionPanelLayout.isOverPanel(panelX - 10, insideScreenY, screenW, screenH, lineCount), "left of the panel entirely");
         assertFalse(InspectionPanelLayout.isOverPanel(panelX + 10, insideScreenY, screenW, screenH, 0), "no panel open right now");
     }
+
+    @Test
+    void aChestListsItsContentsThroughInspectableBuildingWithoutALayoutBranch() {
+        World world = new World(4, 4);
+        Chest chest = new Chest();
+        chest.accept(world, VanillaItems.GEAR);
+
+        List<String> lines = InspectionPanelLayout.inspectionLines(
+                world, VanillaItems.frozen(), new TilePos(1, 1), chest);
+
+        assertTrue(lines.stream().anyMatch(line -> line.contains(VanillaItems.GEAR.label())),
+                "chest contents must appear via InspectableBuilding: " + lines);
+    }
+
+    @Test
+    void hitTestOpenPageFindsTheTrailingOpenPageRow() {
+        List<String> lines = List.of("Monitor", "Status: WORKING", InspectionPanelLayout.OPEN_PAGE_ROW);
+        int screenW = 1280;
+        int screenH = 800;
+        float panelX = InspectionPanelLayout.panelX(screenW);
+        float panelH = InspectionPanelLayout.panelHeight(lines.size());
+        float panelY = InspectionPanelLayout.panelY(screenH, lines.size());
+        float lastRowHudY = panelY + panelH - InspectionPanelLayout.FIRST_ROW_TOP
+                - (lines.size() - 1) * InspectionPanelLayout.LINE_HEIGHT - 3f;
+        float screenY = screenH - lastRowHudY;
+
+        assertTrue(InspectionPanelLayout.hitTestOpenPage(panelX + 10, screenY, screenW, screenH, lines));
+        assertFalse(InspectionPanelLayout.hitTestOpenPage(panelX + 10, screenY, screenW, screenH,
+                List.of("Monitor", "Status: WORKING")));
+    }
 }

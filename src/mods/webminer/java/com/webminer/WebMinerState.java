@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * {@link WebMiner}'s own captured state, paired with its own {@link Codec} (see {@code
- * VanillaBuildings}). {@code url} is the player's chosen target — free text, set via {@link
+ * Vanilla belt registry entry). {@code url} is the player's chosen target — free text, set via {@link
  * WebMiner#setUrl} — the same "plain data the player picks" shape {@link FilterState#filterItem}
  * already has, just typed as a string instead of an {@link ItemType}.
  *

@@ -37,6 +37,15 @@
         "description": "Bare name (this mod's own namespace) or a full namespace:path reference."
       },
       "description": "Technologies that must be unlocked first. References only, resolved after every mod has loaded."
+    },
+    "effects": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^([a-z0-9_]+:)?[a-z0-9_]+$",
+        "description": "Bare name (this mod's own namespace) or a full namespace:path reference to a TechEffect."
+      },
+      "description": "Gameplay effects granted while this technology is unlocked. References only, resolved after every mod has loaded."
     }
   },
   "required": [

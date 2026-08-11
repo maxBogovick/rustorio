@@ -118,6 +118,20 @@ class ResearchTest {
         assertEquals(costOf(VanillaTechs.FAST_MINING), research.points(), "must not be charged a second time");
     }
 
+    @Test
+    void hasEffectIsTrueOnlyAfterAGrantingTechIsUnlocked() {
+        Research research = new Research(VanillaTechs.frozen());
+        assertFalse(research.hasEffect(VanillaTechEffects.FAST_MINING));
+
+        research.addPoints(costOf(VanillaTechs.FAST_MINING));
+        assertTrue(research.unlock(VanillaTechs.FAST_MINING));
+
+        assertTrue(research.hasEffect(VanillaTechEffects.FAST_MINING),
+                "unlocking a tech must surface every effect it lists");
+        assertFalse(research.hasEffect(VanillaTechEffects.BIG_BUFFER),
+                "an effect from a still-locked tech must stay false");
+    }
+
     /** A vanilla technology's price, read from the registry the game itself researches through. */
     private static int costOf(com.rustorio.api.content.ContentId tech) {
         return VanillaTechs.frozen().get(tech).cost();

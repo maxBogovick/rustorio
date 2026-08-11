@@ -6,6 +6,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -91,5 +92,48 @@ class StateMigrationTest {
         assertThrows(IllegalStateException.class,
                 () -> StateMigration.apply(v1, 1, 3, List.of(ADD_Z_AXIS)),
                 "a gap in the chain (no v2->v3 hop registered) must fail loudly, not silently stop early");
+    }
+
+    /**
+     * The load door {@link BuildingPrototype#decodeState} uses — proves hops run on the encoded map
+     * before any codec sees it, including stripping {@code state_version}.
+     */
+    @Test
+    void prepareEncodedStateAppliesHopsAndDropsTheVersionField() {
+        Map<String, Object> v1 = new LinkedHashMap<>();
+        v1.put("x", 3);
+        v1.put("y", 4);
+        v1.put("state_version", 1);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> migrated = (Map<String, Object>) BuildingPrototype.prepareEncodedState(
+                v1, 2, List.of(ADD_Z_AXIS));
+
+        assertEquals(0, migrated.get("z"));
+        assertFalse(migrated.containsKey("state_version"),
+                "codecs must not see the version stamp — it is bookkeeping for the hop chain only");
+    }
+
+    @Test
+    void stampStateVersionWritesTheCurrentVersionOntoAnEncodedMap() {
+        Map<String, Object> encoded = new LinkedHashMap<>();
+        encoded.put("direction", "RIGHT");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> stamped = (Map<String, Object>) BuildingPrototype.stampStateVersion(encoded, 1);
+
+        assertEquals(1, stamped.get("state_version"));
+        assertEquals("RIGHT", stamped.get("direction"));
+    }
+
+    @Test
+    void prepareEncodedStateRejectsAFutureStateVersion() {
+        Map<String, Object> future = new LinkedHashMap<>();
+        future.put("x", 1);
+        future.put("state_version", 3);
+
+        assertThrows(IllegalStateException.class,
+                () -> BuildingPrototype.prepareEncodedState(future, 1, List.of()),
+                "a save from a newer prototype shape must fail loudly, not feed a future map to today's codec");
     }
 }

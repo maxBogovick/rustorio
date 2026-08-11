@@ -2,7 +2,9 @@ package com.rustorio.mod;
 
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.mod.EngineVersion;
+import com.rustorio.api.mod.RegistrationContext;
 import com.rustorio.api.mod.RustorioMod;
+import com.rustorio.api.mod.TechEffect;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.api.registry.RegistryKey;
 import com.rustorio.domain.BuildingType;
@@ -122,7 +124,8 @@ public final class ModLoader {
             context.registry(key).freeze();
         }
         RecipeBook recipeBook = buildRecipeBook(context.recipes().iterate());
-        validateContent(context.items(), context.buildings(), context.kinds(), context.techs(), recipeBook);
+        validateContent(context.items(), context.buildings(), context.kinds(), context.techs(),
+                context.techEffects(), recipeBook);
 
         SimpleEventBus events = new SimpleEventBus();
         for (ModDescriptor mod : loadOrder) {
@@ -278,8 +281,9 @@ public final class ModLoader {
         Map<ModId, RustorioMod> entryPoints = new LinkedHashMap<>();
         for (ModDescriptor mod : loadOrder) {
             Path directory = Objects.requireNonNull(directoryById.get(mod.id()));
+            ModScopedRegistrationContext scoped = new ModScopedRegistrationContext(mod.id(), context);
             attributeTo(mod.id(), "reading its content/ JSON",
-                    () -> ContentJsonLoader.loadInto(directory, mod.id(), context));
+                    () -> ContentJsonLoader.loadInto(directory, mod.id(), scoped));
             String entryPointClassName = mod.entryPoint();
             if (entryPointClassName != null) {
                 Path jarFile = directory.resolve(mod.id().value() + ".jar");
@@ -287,7 +291,7 @@ public final class ModLoader {
                     RustorioMod entryPoint = ModJarLoader.loadEntryPoint(
                             jarFile, entryPointClassName, ModLoader.class.getClassLoader());
                     entryPoints.put(mod.id(), entryPoint);
-                    entryPoint.registerContent(context);
+                    entryPoint.registerContent(scoped);
                 });
             }
         }
@@ -295,15 +299,17 @@ public final class ModLoader {
     }
 
     private interface Round {
-        void run(RustorioMod mod, GameRegistrationContext context);
+        void run(RustorioMod mod, RegistrationContext context);
     }
 
-    private static void runRound(List<ModDescriptor> loadOrder, Map<ModId, RustorioMod> entryPoints, Round round, GameRegistrationContext context) {
+    private static void runRound(List<ModDescriptor> loadOrder, Map<ModId, RustorioMod> entryPoints, Round round,
+            GameRegistrationContext context) {
         for (ModDescriptor mod : loadOrder) {
             RustorioMod entryPoint = entryPoints.get(mod.id());
             if (entryPoint != null) {
-                    attributeTo(mod.id(), "running a content round", () -> round.run(entryPoint, context));
-                }
+                ModScopedRegistrationContext scoped = new ModScopedRegistrationContext(mod.id(), context);
+                attributeTo(mod.id(), "running a content round", () -> round.run(entryPoint, scoped));
+            }
         }
     }
 
@@ -336,7 +342,8 @@ public final class ModLoader {
      * resolveKind} javadoc).
      */
     private static void validateContent(Registry<ItemType> items, Registry<BuildingPrototype> buildings,
-            Registry<RecipeKind> kinds, Registry<TechType> techs, RecipeBook recipes) {
+            Registry<RecipeKind> kinds, Registry<TechType> techs, Registry<TechEffect> techEffects,
+            RecipeBook recipes) {
         for (Recipe recipe : recipes.all()) {
             ModId owner = ownerOf(recipe.id());
             for (ItemType ingredient : recipe.ingredients()) {
@@ -349,7 +356,7 @@ public final class ModLoader {
                     "building '" + prototype.id() + "'s cost item");
         }
 
-        validateTechs(techs);
+        validateTechs(techs, techEffects);
 
         Set<ContentId> knownKinds = knownKinds(buildings, kinds);
         for (Recipe recipe : recipes.all()) {
@@ -377,14 +384,24 @@ public final class ModLoader {
      * constants — a constant can only name earlier constants, so a dangling or circular
      * prerequisite could not be written down. Registered content can be written down either way,
      * so it is checked here instead of being assumed.
+     *
+     * <p>Effects are the same shape of dangling-id risk: a tech may list an effect registered by a
+     * later mod in the same round, so existence is checked only after every mod has finished.
      */
-    private static void validateTechs(Registry<TechType> techs) {
+    private static void validateTechs(Registry<TechType> techs, Registry<TechEffect> techEffects) {
         for (TechType tech : techs.iterate()) {
             for (ContentId prerequisite : tech.prerequisites()) {
                 if (techs.getOrUnknown(prerequisite).isEmpty()) {
                     ModId owner = ownerOf(tech.id());
                     throw new ModLoadException("mod '" + owner + "': technology '" + tech.id()
                             + "' requires '" + prerequisite + "', which no mod registered", owner);
+                }
+            }
+            for (ContentId effect : tech.effects()) {
+                if (techEffects.getOrUnknown(effect).isEmpty()) {
+                    ModId owner = ownerOf(tech.id());
+                    throw new ModLoadException("mod '" + owner + "': technology '" + tech.id()
+                            + "' lists effect '" + effect + "', which no mod registered", owner);
                 }
             }
         }

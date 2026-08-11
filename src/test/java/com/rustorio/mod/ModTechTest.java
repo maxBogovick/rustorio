@@ -101,6 +101,20 @@ class ModTechTest {
                         + game.skippedMods().get(0).reason());
     }
 
+    @Test
+    void aTechnologyListingAnUnknownEffectSkipsThatMod() throws IOException {
+        Path mod = writeTechMod("""
+                { "path": "cheap_trick", "label": "Cheap trick", "cost": 10,
+                  "effects": ["no_such_effect"] }
+                """);
+
+        LoadedGame game = ModLoader.loadAll(List.of(RUSTORIO_MOD_DIR, mod));
+
+        assertEquals(List.of(new ModId("techmod")), game.skippedMods().stream().map(SkippedMod::id).toList());
+        assertTrue(game.skippedMods().get(0).reason().contains("no_such_effect"),
+                game.skippedMods().get(0).reason());
+    }
+
     private Path writeTechMod(String techJson) throws IOException {
         Path dir = tempDir.resolve("techmod");
         Files.createDirectories(dir.resolve("content").resolve("techs"));

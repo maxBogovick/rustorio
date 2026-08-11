@@ -4,5 +4,8 @@
     "en": "Fast mining",
     "ru": "Быстрая добыча"
   },
-  "cost": 80
+  "cost": 80,
+  "effects": [
+    "fast_mining_effect"
+  ]
 }

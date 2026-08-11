@@ -8,6 +8,7 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.building.VanillaCategories;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -35,8 +36,9 @@ class CategoryTabsLayoutTest {
     /** Tab order is the declared order, not whatever a hash produced — otherwise tabs move under the cursor between launches. */
     @Test
     void tabsComeOutInTheDeclaredOrderEveryTime() {
-        List<ContentId> first = List.copyOf(CategoryTabsLayout.byCategory(VANILLA).keySet());
-        List<ContentId> second = List.copyOf(CategoryTabsLayout.byCategory(VANILLA).keySet());
+        // Distinct list instances so an identity-keyed cache cannot make this compare a map to itself.
+        List<ContentId> first = List.copyOf(CategoryTabsLayout.byCategory(new ArrayList<>(VANILLA)).keySet());
+        List<ContentId> second = List.copyOf(CategoryTabsLayout.byCategory(new ArrayList<>(VANILLA)).keySet());
 
         assertEquals(first, second);
         assertEquals(VanillaCategories.MINING, first.get(0), "Mining leads, as declared");

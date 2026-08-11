@@ -157,7 +157,9 @@ public final class Renderer implements Disposable {
         // паузой-меню: страница открыта из панели осмотра и закрывается тем же Esc на слой раньше.
         // Вызывается и когда просмотр закрыт (hud.pageView() == null) — так рендерер узнаёт, что
         // текстуру пора освободить, а не держать её до выхода из игры.
-        pageViewRenderer.render(hud.pageView(), bbW, bbH);
+        // Логические точки, не bbW/bbH: hudMatrix и scroll clamp уже в логических координатах
+        // окна; на Retina backbuffer вдвое больше, и панель уезжала бы за край.
+        pageViewRenderer.render(hud.pageView(), Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         // 11. пауза-меню (Esc) — поверх абсолютно всего остального, включая любую другую панель:
         // GameScreen only ever opens it once every other panel above is already closed.
         if (pauseMenu != null) {

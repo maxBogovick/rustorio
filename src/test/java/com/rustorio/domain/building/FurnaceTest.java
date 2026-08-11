@@ -654,6 +654,42 @@ class FurnaceTest {
         assertEquals(1, chest.count(), "must finish in roughly half the vanilla recipe time");
     }
 
+    /**
+     * A furnace whose prototype declares demand must stop without coverage — the same gate Miner
+     * already applies. Without this, a JSON {@code "power": { "demand": N }} on an assembler was
+     * either rejected or (historically) silently ignored.
+     */
+    @Test
+    void aFurnaceWithPowerDemandReportsNoPowerWhenUncovered() {
+        BuildingPrototype vanilla = VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.FURNACE));
+        BuildingPrototype powered = new BuildingPrototype(
+                ContentId.of("test:powered_furnace"),
+                "Powered Furnace",
+                vanilla.cost(),
+                vanilla.placementRule(),
+                vanilla.texture(),
+                vanilla.footprintWidth(),
+                vanilla.footprintHeight(),
+                vanilla.bufferMax(),
+                vanilla.speedMultiplier(),
+                vanilla.acceptsSpeedEffects(),
+                vanilla.behavior(),
+                vanilla.restoreBehavior(),
+                vanilla.codec(),
+                vanilla.recipeKind(),
+                vanilla.fuelItem(),
+                Traits.one(VanillaTraits.POWER, PowerSpec.consumer(10)));
+        World world = new World(4, 4);
+        Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES, powered);
+        assertTrue(furnace.accept(world, VanillaItems.IRON_ORE));
+        assertTrue(furnace.accept(world, VanillaItems.COAL));
+
+        furnace.tick(world, 1, 1);
+
+        assertEquals(BuildingStatus.NO_POWER, furnace.status(),
+                "no pole covers (1,1), so a demanding furnace must not cook");
+    }
+
     /** A distinct id per fixture recipe — recipes are addressable content now, and a fixture still has to say which one it means. */
     private static ContentId testRecipeId(int index) {
         return new ContentId("test", "fixture_recipe_" + index);

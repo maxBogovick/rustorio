@@ -333,12 +333,24 @@ public final class InputHandler {
      * Whether any full-screen panel (recipe book / tech tree / stats / build menu / info — {@link
      * SimulationControls#showRecipeBook()}/{@link SimulationControls#showTechTree()}/{@link
      * SimulationControls#showStats()}/{@link SimulationControls#showBuildMenu()}/{@link
-     * SimulationControls#showInfo()}) is covering the world viewport right now (C3, live bug
-     * report). See the call site in {@link #handle} for what this gates.
+     * SimulationControls#showInfo()}, or a {@link ViewableBuilding} page view) is covering the world
+     * viewport right now. See the call site in {@link #handle} for what this gates.
+     *
+     * <p>Page view belongs here for the same reason the recipe book does: it paints over the map,
+     * and a click meant for the page must not build/mine/rotate the tile behind it.
      */
     private boolean modalOpen() {
-        return simulationControls.showRecipeBook() || simulationControls.showTechTree() || simulationControls.showStats()
-                || simulationControls.showBuildMenu() || simulationControls.showInfo();
+        return swallowsWorldClicks(simulationControls.showRecipeBook() || simulationControls.showTechTree()
+                || simulationControls.showStats() || simulationControls.showBuildMenu()
+                || simulationControls.showInfo(), viewedPage != null);
+    }
+
+    /**
+     * Pure half of {@link #modalOpen} — headless-testable without libGDX. Package-private so the
+     * regression "page view forgot to join the modal set" cannot land silently again.
+     */
+    static boolean swallowsWorldClicks(boolean fullScreenPanel, boolean pageViewOpen) {
+        return fullScreenPanel || pageViewOpen;
     }
 
     /**

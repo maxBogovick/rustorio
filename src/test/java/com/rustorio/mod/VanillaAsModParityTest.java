@@ -111,6 +111,7 @@ class VanillaAsModParityTest {
             assertEquals(java.label(), json.label(), java.id() + ": label");
             assertEquals(java.cost(), json.cost(), java.id() + ": cost");
             assertEquals(java.prerequisites(), json.prerequisites(), java.id() + ": prerequisites");
+            assertEquals(java.effects(), json.effects(), java.id() + ": effects");
         }
     }
 

@@ -3,7 +3,6 @@ package com.rustorio.domain.building;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.BuildingType;
-import com.rustorio.domain.Cell;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.FluidType;
 import com.rustorio.domain.ItemType;
@@ -12,7 +11,6 @@ import com.rustorio.domain.PatchOreLayout;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.VanillaFluids;
 import com.rustorio.domain.VanillaItems;
-import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -29,7 +27,7 @@ import org.jspecify.annotations.Nullable;
  * dispatch) into one place that both {@code World} (new buildings) and the persistence layer
  * (restored buildings) call through.
  */
-public final class BuildingFactory {
+public final class BuildingFactory implements BuildingServices {
 
     private final OreLayout oreLayout;
     private final RecipeBook recipeBook;
@@ -96,7 +94,7 @@ public final class BuildingFactory {
 
     /** {@code type}'s data — cost, placement rule, texture — read from this factory's own registry instead of a switch. */
     public BuildingPrototype prototype(BuildingType type) {
-        return prototypes.get(VanillaBuildings.idFor(type));
+        return prototypes.get(type.contentId());
     }
 
     /** {@code id}'s data, vanilla or modded — the {@link ContentId} counterpart to {@link #prototype(BuildingType)}, for content that has no {@link BuildingType} of its own at all. */
@@ -124,14 +122,14 @@ public final class BuildingFactory {
 
     /** Convenience for the closed vanilla set — resolves {@code type}'s own prototype id and delegates to {@link #canPlace(ContentId, int, int)}. See P3-04, BUG_FIX_PROGRESS.md. */
     public boolean canPlace(BuildingType type, int x, int y) {
-        return canPlace(VanillaBuildings.idFor(type), x, y);
+        return canPlace(type.contentId(), x, y);
     }
 
     /**
      * Build a brand-new building from any registered prototype — vanilla or modded, {@code id}
      * doesn't need a corresponding {@link BuildingType} at all — facing {@code direction} where
      * that matters. Delegates the actual construction to {@code id}'s own registered {@link
-     * BehaviorFactory} (see {@link VanillaBuildings#registerAll}): this class no longer contains a
+     * BehaviorFactory} (registered next to each prototype): this class no longer contains a
      * single {@code new Miner(...)}/{@code new Chest(...)} call anywhere.
      */
     public Building create(ContentId id, Direction direction) {
@@ -141,13 +139,13 @@ public final class BuildingFactory {
 
     /** Convenience for the closed vanilla set — resolves {@code type}'s own prototype id and delegates to {@link #create(ContentId, Direction)}. */
     public Building create(BuildingType type, Direction direction) {
-        return create(VanillaBuildings.idFor(type), direction);
+        return create(type.contentId(), direction);
     }
 
     /**
      * Rebuild a building from a save's own explicit {@code prototypeId} and raw (still-encoded)
      * state, delegating the actual construction to the governing prototype's own registered
-     * {@link RestoreFactory} (see {@link VanillaBuildings#registerAll}) — this class contains no
+     * {@link RestoreFactory} (registered next to each prototype) — this class contains no
      * {@code new Miner(...)}/{@code new Chest(...)} call anywhere, exactly like {@link #create}
      * above. Decodes through {@code prototypeId}'s own {@link BuildingPrototype#codec()} first —
      * callers hand this method exactly what a save file stores, not a pre-decoded value.
@@ -185,44 +183,11 @@ public final class BuildingFactory {
     }
 
     /**
-     * The fluid counterpart to {@link #attachTransportNode}, and a narrow door for the same reason:
-     * {@code World} owns the cell map, so only it can find which of the four neighboring cells hold
-     * fluid tiles — everything past that (merging networks, splitting them) is this package's
-     * business. {@code neighbors} are those tiles in a fixed side order; see {@link
-     * FluidNetwork#attach} for why the side each came from is deliberately not passed along.
-     */
-    public static void attachFluidNode(FluidNode node, int x, int y, List<FluidNode> neighbors) {
-        FluidNetwork.attach(node, new Cell(x, y), neighbors);
-    }
-
-    /** The fluid counterpart to {@link #detachTransportNode} — on demolition, or to make a re-restore idempotent (see {@code World.restoreBuilding}). */
-    public static void detachFluidNode(FluidNode node, int x, int y) {
-        FluidNetwork.detach(node, new Cell(x, y));
-    }
-
-    /**
-     * The electrical counterpart to {@link #attachFluidNode}: {@code World} finds the already-placed
-     * poles close enough to connect (it knows where poles stand), and everything past that — merging
-     * grids — stays in this package.
-     */
-    public static void attachPowerNode(PowerNode node, int x, int y, List<PowerNode> neighbors) {
-        PowerNetwork.attach(node, new Cell(x, y), neighbors);
-    }
-
-    /**
-     * The electrical counterpart to {@link #detachFluidNode}. {@code reach} answers "do these two
-     * poles see each other" for whatever poles are left, which is again a question about positions
-     * and therefore {@code World}'s to answer.
-     */
-    public static void detachPowerNode(PowerNode node, int x, int y, PowerNetwork.Reach reach) {
-        PowerNetwork.detach(node, new Cell(x, y), reach);
-    }
-
-    /**
      * The narrow public door {@code TickScheduler} reaches every arrival mark through (P3-03,
      * BUG_FIX_PROGRESS.md) — called once per building, once per world tick, before either traversal
-     * pass runs. Buildings that carry no mark (a chest, a furnace) simply have nothing to clear —
-     * they don't implement {@link SettlesEachTick} at all.
+     * pass runs. Buildings that carry no mark (a furnace without a settle, a pipe) simply have
+     * nothing to clear — they don't implement {@link SettlesEachTick} at all. Chests do implement
+     * it: without a mark, a LEFT/UP chest chain multi-hopped in one world tick.
      *
      * <p>One method taking any {@link Building} rather than one overload per kind (N2,
      * NEW_BUGS_PROGRESS.md): a relay kind that needs a settle implements the capability interface

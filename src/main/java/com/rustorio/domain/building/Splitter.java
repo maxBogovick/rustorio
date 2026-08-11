@@ -6,6 +6,7 @@ import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
+import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -27,7 +28,7 @@ import org.jspecify.annotations.Nullable;
  * exactly 50/50 under backpressure; that guarantee isn't worth trading total, permanent stalls of
  * both outputs for it — a temporarily uneven split while one side recovers is the far smaller cost.
  */
-public final class Splitter implements Building, SettlesEachTick {
+public final class Splitter implements Building, SettlesEachTick, InspectableBuilding {
 
     private final Direction facing;
     private @Nullable ItemType held;
@@ -149,5 +150,10 @@ public final class Splitter implements Building, SettlesEachTick {
     @Override
     public SplitterState state() {
         return new SplitterState(facing, held, nextIsForward);
+    }
+
+    @Override
+    public List<String> inspectionDetails(TickContext world, int x, int y) {
+        return List.of("Round-robin: alternates forward / secondary side");
     }
 }

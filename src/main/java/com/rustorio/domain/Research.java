@@ -25,12 +25,17 @@ import java.util.Set;
  *
  * <p>{@link LinkedHashSet}, not {@code Set.of} or a hash set: {@link #unlocked()} is iterated by
  * the tech-tree panel and written to the save, and both have to come out the same on every run.
+ *
+ * <p>{@link #grantedEffects} is maintained incrementally on {@link #unlock}/{@link #restore}/
+ * {@link #clear} so {@link #hasEffect} is a set lookup — buildings ask every accept/tick, and
+ * scanning unlocked techs with {@code peek} would allocate on the hot path.
  */
 public final class Research implements ResearchView {
 
     private final Registry<TechType> techs;
     private int points;
     private final Set<ContentId> unlocked = new LinkedHashSet<>();
+    private final Set<ContentId> grantedEffects = new LinkedHashSet<>();
 
     public Research(Registry<TechType> techs) {
         this.techs = techs;
@@ -67,10 +72,21 @@ public final class Research implements ResearchView {
         return isUnlocked(tech) ? Math.max(1, baseTime / 2) : baseTime;
     }
 
-    /** {@code baseCapacity} doubled if {@code tech} is unlocked, otherwise unchanged. */
+    /**
+     * {@code baseCapacity} doubled if {@code tech} is unlocked, otherwise unchanged.
+     *
+     * <p>Prefer {@link #hasEffect} for capacity/range bonuses mods can grant: this helper stays for
+     * call sites that intentionally gate on a <em>specific technology id</em> rather than a named
+     * effect.
+     */
     @Override
     public int biggerIfUnlocked(ContentId tech, int baseCapacity) {
         return isUnlocked(tech) ? baseCapacity * 2 : baseCapacity;
+    }
+
+    @Override
+    public boolean hasEffect(ContentId effect) {
+        return grantedEffects.contains(effect);
     }
 
     /** Add points (called once per finished lab batch) — accumulation only, see the class javadoc for why unlocking moved to {@link #unlock}. */
@@ -97,6 +113,7 @@ public final class Research implements ResearchView {
         }
         points -= type.cost();
         unlocked.add(tech);
+        grantedEffects.addAll(type.effects());
         return true;
     }
 
@@ -104,6 +121,7 @@ public final class Research implements ResearchView {
     public void clear() {
         points = 0;
         unlocked.clear();
+        grantedEffects.clear();
     }
 
     /** Immutable point-in-time snapshot for persistence (Memento pattern) — see {@code JsonSaveRepository}. */
@@ -131,8 +149,10 @@ public final class Research implements ResearchView {
         clear();
         points = snapshot.points();
         for (ContentId id : snapshot.unlocked()) {
-            if (techs.peek(id).isPresent()) {
+            TechType type = techs.peek(id).orElse(null);
+            if (type != null) {
                 unlocked.add(id);
+                grantedEffects.addAll(type.effects());
             }
         }
     }

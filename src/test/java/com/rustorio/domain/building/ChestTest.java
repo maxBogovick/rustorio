@@ -105,7 +105,68 @@ class ChestTest {
         assertEquals(CAPACITY + 1, chest.count());
     }
 
-    /** (D-02, DEV_TASKS.md) The other half of §2.5's fix: a chest is a buffer now, not a sink — it must give items back out. */
+    /**
+     * Without {@link SettlesEachTick}, descending pass ticks the upstream (higher-x) chest first,
+     * fills its LEFT neighbor, and that neighbor then pushes in the same world tick — multi-hop.
+     * One cell per tick is the same invariant belts and splitters already keep.
+     */
+    @Test
+    void aLeftFacingChestChainMovesOnlyOneCellPerWorldTick() {
+        World world = new World(5, 3);
+        world.restoreBuilding(3, 1, new Chest(Direction.LEFT));
+        world.restoreBuilding(2, 1, new Chest(Direction.LEFT));
+        world.restoreBuilding(1, 1, new Chest(Direction.LEFT));
+        Chest source = (Chest) world.peek(3, 1).orElseThrow();
+        source.accept(world, VanillaItems.GEAR);
+
+        world.tick();
+
+        assertEquals(0, ((Chest) world.peek(3, 1).orElseThrow()).count(), "source emptied");
+        assertEquals(1, ((Chest) world.peek(2, 1).orElseThrow()).count(),
+                "item must stop in the middle chest this tick, not chain further left");
+        assertEquals(0, ((Chest) world.peek(1, 1).orElseThrow()).count(),
+                "sink must still be empty after one tick");
+    }
+
+    /**
+     * Sustained LEFT chest chain must match RIGHT throughput: with {@link Chest#prefersDescendingTick}
+     * matching {@link Belt}, settle marks only block true multi-hop, not every other hand-off.
+     */
+    @Test
+    void aSustainedLeftChestChainKeepsFullThroughput() {
+        int left = sustainedChestChainDelivered(Direction.LEFT);
+        int right = sustainedChestChainDelivered(Direction.RIGHT);
+
+        assertEquals(right, left,
+                "LEFT must match RIGHT; half means settle marks fire on every hand-off in the descending pass");
+        assertTrue(left >= 90,
+                "100 ticks of a full source should deliver nearly one item per tick after the pipeline fills: "
+                        + left);
+    }
+
+    private static int sustainedChestChainDelivered(Direction facing) {
+        World world = new World(5, 3);
+        int sourceX = facing == Direction.LEFT ? 3 : 1;
+        int middleX = 2;
+        int sinkX = facing == Direction.LEFT ? 1 : 3;
+        world.restoreBuilding(sourceX, 1, new Chest(facing));
+        world.restoreBuilding(middleX, 1, new Chest(facing));
+        Chest sink = new Chest(facing);
+        world.restoreBuilding(sinkX, 1, sink);
+        Chest source = (Chest) world.peek(sourceX, 1).orElseThrow();
+
+        int delivered = 0;
+        for (int tick = 0; tick < 100; tick++) {
+            while (source.count() < 10) {
+                assertTrue(source.accept(world, VanillaItems.GEAR));
+            }
+            world.tick();
+            delivered += sink.drain().values().stream().mapToInt(Integer::intValue).sum();
+        }
+        return delivered;
+    }
+
+    /** A chest is a buffer now, not a sink — it must give items back out through its facing. */
     @Test
     void pushesOneStoredItemPerTickOutThroughItsDirection() {
         World world = new World(4, 4);

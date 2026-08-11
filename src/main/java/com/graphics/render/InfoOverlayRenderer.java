@@ -261,7 +261,7 @@ final class InfoOverlayRenderer {
     /** One row per nonzero {@link BuildingStatus} — same friendly labels the old always-on alerts row used. */
     private static List<AlertRow> alertRows(Map<BuildingStatus, Integer> counts) {
         List<AlertRow> rows = new ArrayList<>();
-        for (BuildingStatus status : BuildingStatus.values()) {
+        for (BuildingStatus status : BuildingStatus.ALL) {
             if (status == BuildingStatus.WORKING) {
                 continue;
             }

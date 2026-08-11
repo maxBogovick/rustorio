@@ -6,7 +6,8 @@ import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaTechs;
+import com.rustorio.domain.VanillaTechEffects;
+import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -17,7 +18,7 @@ import org.jspecify.annotations.Nullable;
  * same-orientation {@link Kind#OUT} within {@link #MAX_RANGE} tiles, handing the item to it
  * directly. The {@code OUT} half then pushes forward like a plain {@link Belt}.
  */
-public final class UndergroundBelt implements Building, SettlesEachTick {
+public final class UndergroundBelt implements Building, SettlesEachTick, InspectableBuilding {
 
     public enum Kind {
         IN, OUT
@@ -132,7 +133,8 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
         }
         int dx = direction.dx();
         int dy = direction.dy();
-        for (int step = 1; step <= effectiveRange(world); step++) {
+        int range = effectiveRange(world);
+        for (int step = 1; step <= range; step++) {
             Optional<Building> candidate = world.peek(x + dx * step, y + dy * step);
             if (candidate.isPresent()
                     && candidate.get() instanceof UndergroundBelt other
@@ -145,7 +147,7 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
     }
 
     private static int effectiveRange(TickContext world) {
-        return world.research().isUnlocked(VanillaTechs.LONG_TUNNEL) ? MAX_RANGE * 2 : MAX_RANGE;
+        return world.research().hasEffect(VanillaTechEffects.LONG_TUNNEL) ? MAX_RANGE * 2 : MAX_RANGE;
     }
 
     private void tickOut(TickContext world, int x, int y) {
@@ -219,5 +221,14 @@ public final class UndergroundBelt implements Building, SettlesEachTick {
     @Override
     public UndergroundBeltState state() {
         return new UndergroundBeltState(kind, direction, held);
+    }
+
+    @Override
+    public List<String> inspectionDetails(TickContext world, int x, int y) {
+        if (!isEntrance()) {
+            return List.of("(exit — pairing shown at its entrance)");
+        }
+        boolean paired = findPartner(world, x, y).isPresent();
+        return List.of("Paired: " + (paired ? "yes" : "NO — out of range or no matching exit"));
     }
 }

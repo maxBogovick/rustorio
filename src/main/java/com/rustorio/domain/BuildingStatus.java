@@ -1,5 +1,6 @@
 package com.rustorio.domain;
 
+import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -39,6 +40,13 @@ public enum BuildingStatus {
      * built before there was any electricity never shows it.
      */
     NO_POWER("no power", 0x60B0E8);
+
+    /**
+     * Every constant in declaration order, without the per-call array clone {@link #values()}
+     * allocates. HUD alert summation walks this every frame — prefer this over {@code values()} on
+     * any hot path.
+     */
+    public static final List<BuildingStatus> ALL = List.of(values());
 
     private final @Nullable String alertLabel;
     private final int colorRgb;

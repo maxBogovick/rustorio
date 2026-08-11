@@ -13,15 +13,11 @@ import java.util.List;
  * was unlocked, and could not price one. Now a mod registers a {@code TechType} like any other
  * content.
  *
- * <p><b>What a technology does is still mostly the game's own code, not data.</b> {@code Chest}
- * still asks whether {@code BIG_BUFFER} is unlocked by name — a mod's own technology shows up in
- * the tree, costs points and unlocks, but has no effect on buffer size until some code reads it. The
- * "faster" family is the one exception: {@code Miner}/{@code Furnace}/{@code Lab} read a {@code
- * speedTech} trait off their own {@code BuildingPrototype} rather than a name, so a JSON-only mod
- * CAN give one of those archetypes its own speed-gating technology — see {@code
- * VanillaTraits#SPEED_TECH}. Every other per-technology effect still needs a jar mod (it knows its
- * own id; a JSON-only one has no code to read anything with). A general data-described effect
- * system is a separate design question, and a product decision rather than a mechanical one.
+ * <p>{@code effects} lists {@link com.rustorio.api.mod.TechEffect} ids granted while this tech is
+ * unlocked — buildings ask {@link ResearchView#hasEffect}, not a hardcoded tech name. The older
+ * {@code speedTech} trait / {@code fasterIfUnlocked(techId)} path still works; effects are the
+ * open, data-addressable door on top. An empty list means "tree node only" (UI + cost), same as
+ * before effects existed.
  *
  * <p>{@code prerequisites} are ids rather than resolved {@code TechType}s: a mod may name a
  * technology registered by a mod loaded later in the same round, and a record holding resolved
@@ -31,7 +27,7 @@ import java.util.List;
  * that guarantee is genuinely lost here, so {@link #prerequisites} is checked for cycles at load
  * time instead (see {@code ModLoader}).
  */
-public record TechType(ContentId id, String label, int cost, List<ContentId> prerequisites)
+public record TechType(ContentId id, String label, int cost, List<ContentId> prerequisites, List<ContentId> effects)
         implements Comparable<TechType> {
 
     public TechType {
@@ -42,11 +38,17 @@ public record TechType(ContentId id, String label, int cost, List<ContentId> pre
             throw new IllegalArgumentException("tech '" + id + "' lists itself as its own prerequisite");
         }
         prerequisites = List.copyOf(prerequisites);
+        effects = List.copyOf(effects);
+    }
+
+    /** A technology with prerequisites but no effects — the shape JSON used before effects existed. */
+    public TechType(ContentId id, String label, int cost, List<ContentId> prerequisites) {
+        this(id, label, cost, prerequisites, List.of());
     }
 
     /** A technology with no prerequisites — a root of the tree. */
     public TechType(ContentId id, String label, int cost) {
-        this(id, label, cost, List.of());
+        this(id, label, cost, List.of(), List.of());
     }
 
     /**

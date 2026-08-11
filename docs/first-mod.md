@@ -107,6 +107,9 @@ JSON-файла и один рецепт. Каждый шаг проверяет
 
 ## Что дальше
 
+Своё **здание с поведением** на DSL (без ручного `BuildingPrototype`) —
+[hello-building.md](hello-building.md). Карта «куда открыть файл»: [start-here.md](start-here.md).
+
 Дальше всё в одном месте — [modding-guide.md](modding-guide.md):
 
 - своё здание без Java — [1.8](modding-guide.md#18-здания);

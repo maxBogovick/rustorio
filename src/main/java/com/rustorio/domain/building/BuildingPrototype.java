@@ -4,6 +4,9 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.FluidType;
 import com.rustorio.domain.ItemType;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -156,15 +159,97 @@ public record BuildingPrototype(ContentId id, String label, BuildingCost cost, P
      * exact erased type themselves; safe because {@code liveState} always comes from THIS SAME
      * prototype's own governing archetype, whose {@code state()} return type matches {@link
      * #codec}'s type parameter by construction.
+     *
+     * <p>{@code state_version} is stamped only when {@link #stateVersion()} is greater than 1 —
+     * writing it onto every vanilla save today would change the on-disk shape for a hop list nobody
+     * can override yet ({@code BuildingPrototype} is a record; per-prototype version becomes a
+     * real field in the same change that ships the first hop).
      */
     @SuppressWarnings("unchecked")
     public Object encodeState(Object liveState) {
-        return ((Codec<Object>) codec).encode(liveState);
+        Object encoded = ((Codec<Object>) codec).encode(liveState);
+        return stateVersion() > 1 ? stampStateVersion(encoded, stateVersion()) : encoded;
     }
 
-    /** The decoding counterpart to {@link #encodeState} — same unchecked-cast reasoning. */
+    /**
+     * The decoding counterpart to {@link #encodeState}: runs {@link StateMigration#apply} when the
+     * encoded map carries an older {@code state_version} (or none — treated as version 1), then
+     * hands the result to {@link #codec}. Same unchecked-cast reasoning as encode.
+     */
     @SuppressWarnings("unchecked")
     public Object decodeState(Object rawState, Registry<ItemType> items) {
-        return ((Codec<Object>) codec).decode(rawState, items);
+        return ((Codec<Object>) codec).decode(prepareEncodedState(rawState, stateVersion(), stateMigrations()),
+                items);
+    }
+
+    /**
+     * Current shape version of this prototype's encoded state. Stays at {@code 1} for every
+     * shipped prototype until a real reshape lands hops — raising it without a matching record
+     * component is impossible today (this type is a record), so the first reshape must add the
+     * field and the hop list together.
+     */
+    public int stateVersion() {
+        return 1;
+    }
+
+    /**
+     * One-hop migrations from older encoded shapes up to {@link #stateVersion()}. Empty until the
+     * first real reshape; {@link #decodeState} still walks through {@link StateMigration#apply} so
+     * that reshape only fills this list.
+     */
+    public List<StateMigration> stateMigrations() {
+        return List.of();
+    }
+
+    /**
+     * Package-visible so a test can prove the load path applies hops without standing up a whole
+     * custom prototype.
+     */
+    static Object prepareEncodedState(Object rawState, int stateVersion, List<StateMigration> migrations) {
+        if (!(rawState instanceof Map<?, ?> raw)) {
+            return rawState;
+        }
+        Map<String, Object> state = stringKeyedCopy(raw);
+        if (state == null) {
+            return rawState;
+        }
+        Object versionField = state.remove("state_version");
+        // Absent field = version 1: every save written before a stamp existed.
+        int fromVersion = versionField instanceof Number number ? number.intValue() : 1;
+        if (fromVersion > stateVersion) {
+            throw new IllegalStateException(
+                    "encoded state_version " + fromVersion + " is newer than this prototype's "
+                            + stateVersion + " — cannot load a future shape on an older engine");
+        }
+        return StateMigration.apply(state, fromVersion, stateVersion, migrations);
+    }
+
+    static Object stampStateVersion(Object encoded, int stateVersion) {
+        if (!(encoded instanceof Map<?, ?> raw)) {
+            return encoded;
+        }
+        Map<String, Object> withVersion = stringKeyedCopy(raw);
+        if (withVersion == null) {
+            return encoded;
+        }
+        withVersion.put("state_version", stateVersion);
+        return withVersion;
+    }
+
+    /**
+     * {@code null} when any key is not already a {@code String} — remapping through
+     * {@code String.valueOf} would silently change a mod codec's key type on the in-memory
+     * encode→decode path.
+     */
+    private static @Nullable Map<String, Object> stringKeyedCopy(Map<?, ?> raw) {
+        Map<String, Object> copy = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : raw.entrySet()) {
+            Object key = entry.getKey();
+            if (!(key instanceof String stringKey)) {
+                return null;
+            }
+            copy.put(stringKey, entry.getValue());
+        }
+        return copy;
     }
 }

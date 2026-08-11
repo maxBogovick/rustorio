@@ -390,7 +390,8 @@ public final class VanillaBuildings {
     /**
      * Every archetype whose Java behavior actually reads {@link BuildingPrototype#power()} at
      * all — {@link Miner} (MINER and ELECTRIC_MINER both resolve to it), {@link Pole}, {@link
-     * Generator}. Every OTHER archetype's class never calls {@link TickContext#drawPower} or looks
+     * Generator}, and every {@link Furnace}-archetype ({@code FURNACE}/{@code PRESS}/{@code
+     * ASSEMBLER}). Every OTHER archetype's class never calls {@link TickContext#drawPower} or looks
      * at a {@link PowerSpec}, so a {@code "power"} block on one of them used to load without error
      * and then do nothing at runtime — {@code com.rustorio.mod.BuildingJsonLoader} consults {@link
      * #honorsPower} before accepting the field, closing that gap. {@link EnumSet}, not {@code
@@ -398,7 +399,8 @@ public final class VanillaBuildings {
      * on every run.
      */
     private static final Set<BuildingType> POWER_AWARE_TYPES =
-            EnumSet.of(BuildingType.MINER, BuildingType.ELECTRIC_MINER, BuildingType.POLE, BuildingType.GENERATOR);
+            EnumSet.of(BuildingType.MINER, BuildingType.ELECTRIC_MINER, BuildingType.POLE, BuildingType.GENERATOR,
+                    BuildingType.FURNACE, BuildingType.PRESS, BuildingType.ASSEMBLER);
 
     /** Whether {@code type}'s Java behavior ever reads a declared {@link PowerSpec} — see {@link #POWER_AWARE_TYPES}. */
     public static boolean honorsPower(BuildingType type) {
@@ -433,6 +435,27 @@ public final class VanillaBuildings {
     /** The canonical, already-frozen registry backing every building's default data. */
     public static Registry<BuildingPrototype> frozen() {
         return FROZEN;
+    }
+
+    /**
+     * Engine/test convenience: a {@link BuildingFactory} pre-wired to {@link #frozen()} and vanilla
+     * items. Not part of the published mod API — mods receive registries through registration and
+     * pass them into {@link BuildingFactory} explicitly.
+     */
+    public static BuildingFactory standardFactory() {
+        return factory(com.rustorio.domain.PatchOreLayout.standard(), com.rustorio.domain.RecipeBook.standard());
+    }
+
+    /** Like {@link #standardFactory()} with an explicit ore map / recipe book. */
+    public static BuildingFactory factory(com.rustorio.domain.OreLayout oreLayout,
+            com.rustorio.domain.RecipeBook recipeBook) {
+        return new BuildingFactory(oreLayout, recipeBook, VanillaItems.frozen(), frozen());
+    }
+
+    /** Like {@link #factory} with an explicit item registry. */
+    public static BuildingFactory factory(com.rustorio.domain.OreLayout oreLayout,
+            com.rustorio.domain.RecipeBook recipeBook, Registry<ItemType> items) {
+        return new BuildingFactory(oreLayout, recipeBook, items, frozen());
     }
 
     /**

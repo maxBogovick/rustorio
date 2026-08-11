@@ -10,10 +10,12 @@ import com.rustorio.domain.VanillaItems;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeBook;
 import com.rustorio.domain.VanillaSprites;
-import com.rustorio.domain.VanillaTechs;
+import com.rustorio.domain.VanillaTechEffects;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -58,7 +60,7 @@ import org.jspecify.annotations.Nullable;
  * instance reports via {@link #type()} and the {@code ASSEMBLER} single-sprite branch in {@link
  * #appearance()} — it no longer has anything to do with fuel or which recipes are reachable.
  */
-public final class Furnace implements Building, RecipeSelectable {
+public final class Furnace implements Building, RecipeSelectable, InspectableBuilding {
 
     /** Same cap as {@link BuildingPrototype#bufferMax()} — fuel is stored the same way any other buffered input is. */
     private static final int FUEL_MAX = 5;
@@ -264,6 +266,16 @@ public final class Furnace implements Building, RecipeSelectable {
     }
 
     private void tickOnce(TickContext world, int x, int y) {
+        // Electricity is opt-in (owner decision): a prototype that declares no demand never asks for
+        // power and behaves exactly as every furnace/press/assembler did before there was any. One
+        // that does declare one pays for every tick up front, and stops outright when its grid
+        // cannot cover it — the same gate Miner already applies, so a data mod can finally put
+        // power.demand on an ASSEMBLER and have it mean something.
+        PowerSpec spec = prototype.power();
+        if (spec != null && spec.demand() > 0 && !world.drawPower(x, y, spec.demand())) {
+            status = BuildingStatus.NO_POWER;
+            return;
+        }
         if (pendingOutput == null) {
             ActiveRecipe current = active;
             if (current == null) {
@@ -386,7 +398,9 @@ public final class Furnace implements Building, RecipeSelectable {
     }
 
     private int effectiveBufferMax(TickContext world) {
-        return world.research().biggerIfUnlocked(VanillaTechs.BIG_BUFFER, prototype.bufferMax());
+        return world.research().hasEffect(VanillaTechEffects.BIG_BUFFER)
+                ? prototype.bufferMax() * 2
+                : prototype.bufferMax();
     }
 
     /** Sum of every ingredient's buffered count (0 with no recipe committed yet) — shown as the furnace's badge; the method name predates recipes taking more than one ingredient. */
@@ -546,5 +560,33 @@ public final class Furnace implements Building, RecipeSelectable {
     /** How much of {@link BuildingPrototype#fuelItem()} is on hand — always 0 for a fuel-less prototype. For the inspection panel (F-03), later. */
     public int fuelBuffer() {
         return fuelBuffer;
+    }
+
+    @Override
+    public List<String> inspectionDetails(TickContext world, int x, int y) {
+        List<String> lines = new ArrayList<>();
+        Optional<Recipe> active = activeRecipe();
+        if (active.isPresent()) {
+            lines.add("Recipe: " + recipeLine(active.get()) + "  (cooking)");
+        } else {
+            Optional<Recipe> selected = selectedRecipeChoice();
+            lines.add(selected.isPresent()
+                    ? "Recipe: " + recipeLine(selected.get()) + "  (selected)"
+                    : "Recipe: none committed yet");
+        }
+        lines.add("Ore buffer: " + oreBuffer());
+        if (prototype.fuelItem() != null) {
+            lines.add("Fuel: " + fuelBuffer);
+        }
+        lines.add("Click a recipe to select it:");
+        for (Recipe recipe : possibleRecipes()) {
+            lines.add("  " + recipeLine(recipe));
+        }
+        return lines;
+    }
+
+    private static String recipeLine(Recipe recipe) {
+        String inputs = recipe.ingredients().stream().map(ItemType::label).collect(Collectors.joining(" + "));
+        return inputs + " -> " + recipe.output().label();
     }
 }

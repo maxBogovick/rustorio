@@ -1,9 +1,11 @@
 package com.rustorio.mod;
 
+import com.rustorio.api.mod.MarkerTechEffect;
 import com.rustorio.api.mod.RegistrationContext;
 import com.rustorio.api.mod.RegistryKeys;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.api.registry.RegistryKey;
+import com.rustorio.domain.VanillaTechEffects;
 import com.rustorio.domain.building.ServiceKey;
 import com.rustorio.domain.building.VanillaPlacementRules;
 import com.rustorio.domain.building.WorldServices;
@@ -39,15 +41,32 @@ final class GameRegistrationContext implements RegistrationContext {
      *
      * <p>Placement rules arrive already filled, unlike every other registry, which starts empty and
      * is filled from a mod's {@code content/} directory. A rule is a function of a cell rather than
-     * data, so there is no JSON for one to arrive through; seeding here rather than in {@link
-     * ModLoader} means every context has them, including one a test builds directly, and a mod's
-     * own round still runs afterwards and can add to or replace them.
+     * data, so there is no JSON for one to arrive through. Marker tech-effect ids are seeded here
+     * the same way (see {@link #seedVanillaTechEffects}) so a technology JSON can name them before
+     * any code mod runs. Seeding here rather than in {@link ModLoader} means every context has
+     * them, including one a test builds directly, and a mod's own round still runs afterwards and
+     * can add to or replace them.
      */
     GameRegistrationContext() {
         for (RegistryKey<?> key : RegistryKeys.VANILLA) {
             registries.put(key, new Registry<>());
         }
         VanillaPlacementRules.registerAll(placementRules());
+        seedVanillaTechEffects();
+    }
+
+    /** Marker effects for the five vanilla techs — lives here so {@code domain} never imports {@code api.mod}. */
+    private void seedVanillaTechEffects() {
+        techEffects().register(VanillaTechEffects.FAST_MINING,
+                new MarkerTechEffect(VanillaTechEffects.FAST_MINING, "Faster mining"));
+        techEffects().register(VanillaTechEffects.FAST_SMELTING,
+                new MarkerTechEffect(VanillaTechEffects.FAST_SMELTING, "Faster smelting"));
+        techEffects().register(VanillaTechEffects.BIG_BUFFER,
+                new MarkerTechEffect(VanillaTechEffects.BIG_BUFFER, "Bigger buffers"));
+        techEffects().register(VanillaTechEffects.LONG_TUNNEL,
+                new MarkerTechEffect(VanillaTechEffects.LONG_TUNNEL, "Longer tunnels"));
+        techEffects().register(VanillaTechEffects.FAST_LAB,
+                new MarkerTechEffect(VanillaTechEffects.FAST_LAB, "Faster research"));
     }
 
     @Override

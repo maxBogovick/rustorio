@@ -6,8 +6,10 @@ import com.rustorio.domain.BuildingStatus;
 import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
-import com.rustorio.domain.VanillaTechs;
+import com.rustorio.domain.VanillaTechEffects;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -24,8 +26,14 @@ import java.util.Optional;
  * directional means it also needs {@link #rotatedClockwise} — the same D-01 pairing rule applies:
  * a chest built facing the wrong way, with no way to turn it, would be exactly the kind of trap
  * D-01 already fixed for miners.
+ *
+ * <p>{@link SettlesEachTick}: without an arrival mark, a LEFT/UP chest chain multi-hopped in one
+ * world tick — descending pass ticks the upstream cell first, {@link #accept} fills the next chest,
+ * and that chest then pushed in the same pass. Same failure mode {@link Splitter} documents for
+ * relays; chests push from inventory rather than a single held slot, but the settle rule is
+ * identical: cargo that arrived this tick does not leave until the next.
  */
-public final class Chest implements Building {
+public final class Chest implements Building, SettlesEachTick, InspectableBuilding {
 
     /**
      * Total items across every kind, not per kind — matches the card's own "предел суммарной
@@ -58,6 +66,12 @@ public final class Chest implements Building {
     private BuildingStatus status = BuildingStatus.WORKING;
     /** {@code UpgradeSpeedAction}'s upgrade count — see {@link #tick}'s own note on how it's applied. */
     private int speedLevel;
+    /**
+     * True for the rest of the CURRENT world tick if this chest received cargo via {@link #accept}
+     * earlier in the same tick — see the class javadoc. {@code TickScheduler} clears it once before
+     * either pass runs.
+     */
+    private boolean arrivedThisTick;
 
     /** Convenience for call sites that only care about {@link #accept}, not output direction — same reasoning as {@code PlaceAction}'s no-direction overload. */
     public Chest() {
@@ -119,7 +133,13 @@ public final class Chest implements Building {
         }
         contents.merge(item, 1, Integer::sum);
         storedCount++;
+        arrivedThisTick = true;
         return true;
+    }
+
+    @Override
+    public void clearArrivalMark() {
+        arrivedThisTick = false;
     }
 
     /**
@@ -140,7 +160,15 @@ public final class Chest implements Building {
         // At capacity is a real problem worth surfacing (F-01, DEV_TASKS.md, §2.5 of the audit's
         // own "заполненный ящик — тоже OUTPUT_FULL" note) — computed here, not in accept()/appearance(),
         // since only tick() has both the current contents AND TickContext (for BIG_BUFFER) at once.
-        for (ItemType item : contents.keySet().stream().sorted().toList()) {
+        if (arrivedThisTick) {
+            status = totalCount() >= effectiveCapacity(world) ? BuildingStatus.OUTPUT_FULL : BuildingStatus.WORKING;
+            return;
+        }
+        // Sorted snapshot once per push attempt: HashMap iteration order is not deterministic, and
+        // a TreeMap here measurably regressed the belt/chest benchmark (see field javadoc).
+        List<ItemType> kinds = new ArrayList<>(contents.keySet());
+        kinds.sort(null);
+        for (ItemType item : kinds) {
             if (world.offerForward(x + direction.dx(), y + direction.dy(), item)) {
                 decrement(item);
                 // One item per tick, same discipline as every other building — and a chest that
@@ -152,6 +180,20 @@ public final class Chest implements Building {
             }
         }
         status = totalCount() >= effectiveCapacity(world) ? BuildingStatus.OUTPUT_FULL : BuildingStatus.WORKING;
+    }
+
+    @Override
+    public List<String> inspectionDetails(TickContext world, int x, int y) {
+        List<String> lines = new ArrayList<>();
+        List<ItemType> kinds = new ArrayList<>(contents.keySet());
+        kinds.sort(null);
+        for (ItemType item : kinds) {
+            lines.add("  " + item.label() + ": " + contents.getOrDefault(item, 0));
+        }
+        if (lines.isEmpty()) {
+            lines.add("  (empty)");
+        }
+        return lines;
     }
 
     private void decrement(ItemType item) {
@@ -233,7 +275,7 @@ public final class Chest implements Building {
     }
 
     private static int effectiveCapacity(TickContext world) {
-        return world.research().biggerIfUnlocked(VanillaTechs.BIG_BUFFER, CAPACITY);
+        return world.research().hasEffect(VanillaTechEffects.BIG_BUFFER) ? CAPACITY * 2 : CAPACITY;
     }
 
     /** The status field this archetype already keeps, handed over without building an {@link Appearance} — see {@link Building#status()}. */
@@ -272,6 +314,17 @@ public final class Chest implements Building {
     @Override
     public ContentId prototypeId() {
         return prototype.id();
+    }
+
+    /**
+     * Same pass selection as {@link Belt}: LEFT/UP chests must tick in the ascending pass so the
+     * downstream cell pushes before the upstream one fills it. Without this, {@link
+     * SettlesEachTick} alone halves LEFT/UP chest-chain throughput — the upstream cell ticks first
+     * in the descending pass, marks the neighbor, and that neighbor skips its push for the tick.
+     */
+    @Override
+    public boolean prefersDescendingTick() {
+        return direction == Direction.RIGHT || direction == Direction.DOWN;
     }
 
     @Override

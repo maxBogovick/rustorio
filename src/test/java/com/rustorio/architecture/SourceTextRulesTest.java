@@ -60,7 +60,7 @@ class SourceTextRulesTest {
      * against retroactive cleanup says not to go hunting for these, not to type one back in once the
      * comment around it is being rewritten anyway.
      */
-    private static final int DOC_ID_CITATION_BASELINE = 685;
+    private static final int DOC_ID_CITATION_BASELINE = 676;
 
     /**
      * Explicit types are the rule; these are the exceptions that survived review. A new one is not

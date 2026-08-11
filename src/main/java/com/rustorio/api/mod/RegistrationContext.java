@@ -1,5 +1,7 @@
 package com.rustorio.api.mod;
 
+import com.rustorio.api.content.ContentId;
+import com.rustorio.api.dsl.ContentDsl;
 import com.rustorio.api.registry.Registry;
 import com.rustorio.api.registry.RegistryKey;
 import com.rustorio.domain.AuthoredMap;
@@ -11,6 +13,7 @@ import com.rustorio.domain.TechType;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.PlacementRule;
 import com.rustorio.domain.building.ServiceKey;
+import java.util.NoSuchElementException;
 import java.util.function.Supplier;
 
 /**
@@ -118,7 +121,11 @@ public interface RegistrationContext {
         return registry(RegistryKeys.KINDS);
     }
 
-    /** Every mod-authored map — see {@link AuthoredMap}'s own javadoc. Nothing in the base game reads this yet (the shipped {@code GameScreen} still picks its {@code OreLayout} before mods load); a mod's own bootstrap, or a later engine feature that lets a player pick a map, is what resolves one from here. */
+    /**
+     * Every mod-authored map — see {@link AuthoredMap}'s own javadoc. The main menu resolves a
+     * chosen id through this registry when starting a game; a mod that registers nothing here simply
+     * contributes no selectable maps.
+     */
     default Registry<AuthoredMap> maps() {
         return registry(RegistryKeys.MAPS);
     }
@@ -126,5 +133,49 @@ public interface RegistrationContext {
     /** Every recipe in the game, keyed by its own id — register, adjust or remove one here; see the class javadoc. */
     default Registry<Recipe> recipes() {
         return registry(RegistryKeys.RECIPES);
+    }
+
+    /** Named gameplay effects technologies may grant — see {@link RegistryKeys#TECH_EFFECTS}. */
+    default Registry<TechEffect> techEffects() {
+        return registry(RegistryKeys.TECH_EFFECTS);
+    }
+
+    /**
+     * This mod's id from {@code mod.json} — the namespace bare content paths resolve under when using
+     * {@link #content()} or {@link #requireItem(String)}. Only meaningful on the per-mod view the
+     * loader hands a {@link RustorioMod}; a shared/test context without a mod scope throws.
+     */
+    default String modNamespace() {
+        throw new UnsupportedOperationException(
+                "modNamespace() is only available on the RegistrationContext handed to a RustorioMod "
+                        + "during load — a shared or test-built context has no owning mod");
+    }
+
+    /**
+     * Fluent registration for the common L0–L2 cases — see {@link ContentDsl}. Paths without
+     * {@code ':'} resolve under {@link #modNamespace()}.
+     */
+    default ContentDsl content() {
+        throw new UnsupportedOperationException(
+                "content() is only available on the RegistrationContext handed to a RustorioMod "
+                        + "during load — register via items()/buildings()/… or use a mod-scoped context");
+    }
+
+    /**
+     * The item already registered under {@code id}, or a clear failure naming the missing id.
+     * Legal before {@link Registry#freeze()} (uses {@link Registry#peek}), so {@code registerContent}
+     * can resolve JSON-declared items without the peek-vs-get trap.
+     */
+    default ItemType requireItem(ContentId id) {
+        return items().peek(id).orElseThrow(() -> new NoSuchElementException(
+                "item '" + id + "' is not registered yet — declare it in content/items (or register "
+                        + "it earlier in this round / a dependency) before requiring it"));
+    }
+
+    /** {@link #requireItem(ContentId)} with a bare path under {@link #modNamespace()}, or a full id. */
+    default ItemType requireItem(String pathOrId) {
+        return requireItem(pathOrId.indexOf(':') >= 0
+                ? ContentId.of(pathOrId)
+                : new ContentId(modNamespace(), pathOrId));
     }
 }

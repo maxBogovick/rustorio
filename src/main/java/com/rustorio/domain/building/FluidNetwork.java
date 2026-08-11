@@ -16,7 +16,11 @@ import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A connected run of pipes and tanks as ONE bucket: a single fluid, a single volume, and a capacity
+ * <p><b>Published mod API caveat.</b> This class stays in {@code rustorio-api} because
+ * {@link FluidNode} names it in public signatures. Prefer {@link TickContext} / {@link FluidPort}
+ * for ordinary fluid work; holding a network is an L3 concern.
+ *
+ * <p>A connected run of pipes and tanks as ONE bucket: a single fluid, a single volume, and a capacity
  * that is the sum of its tiles'. The fluid counterpart to {@link BeltSegment}, built the same way —
  * assembled incrementally as the player places and demolishes tiles, never rediscovered by scanning
  * the world — with three deliberate differences.
@@ -36,10 +40,10 @@ import org.jspecify.annotations.Nullable;
  * trade {@code PlacementVeto} and {@link BeltSegment#remove} already make.
  *
  * <p>That is a claim about THIS class, not about what a pipe costs the world: {@code TickScheduler}
- * still visits every placed building twice a tick (once to clear arrival marks, once to tick it),
- * and {@code World}'s status bookkeeping reads {@link Pipe#appearance()} on each visit, which
- * allocates. A network of a thousand pipes is therefore cheap, not free — and the load scene the
- * benchmark measures contains no pipes at all, so the number in it says nothing either way.
+ * still visits every placed building twice a tick (once to clear arrival marks, once to tick it).
+ * Status bookkeeping reads {@link Building#status()} (and {@link Pipe#status()} is a constant —
+ * no {@link com.rustorio.domain.Appearance} allocation on that path). A network of a thousand pipes is therefore cheap,
+ * not free — visit cost remains even when the network itself does no per-tick fluid work.
  *
  * <p><b>One fluid per network, by construction.</b> An empty network accepts anything; a network
  * holding water and a network holding steam do not merge, and the tile between them stays a border

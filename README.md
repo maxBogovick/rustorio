@@ -10,6 +10,7 @@
 
 > 🎮 Про что игра, три столпа дизайна и что сознательно **не** делаем — в **[GDD.md](GDD.md)**.
 > 🤖 Правила работы с кодом (для людей и для агентов) — в **[AGENTS.md](AGENTS.md)**.
+> 🗺️ **Куда смотреть при задаче** (тик / сейв / мод / UI) и канон L2 — **[docs/start-here.md](docs/start-here.md)**.
 
 ## Запуск
 
@@ -83,6 +84,14 @@ Jackson живёт ровно в двух пакетах — `persistence` (се
 проверяется NullAway на каждой компиляции.
 
 ## Что можно замоддить
+
+Карта уровней и импортов: **[docs/start-here.md](docs/start-here.md)**. Кратко:
+
+| Уровень | Вход |
+|--------|------|
+| L0 JSON | [docs/first-mod.md](docs/first-mod.md) |
+| L2 станок | [docs/hello-building.md](docs/hello-building.md) + `examples/external-mod-template` / `./gradlew initMod` |
+| L3 свой Building | petrochem / `webminer` / `examples/servicemod` — не шаблон |
 
 Базовая игра сама загружена как мод (`resources/mods/rustorio`) — всё, что ниже, движок делает
 для неё и для стороннего мода одинаково; расхождение ловит `VanillaAsModParityTest`. Мод — это

@@ -1,6 +1,8 @@
 # Руководство по моддингу Rustorio
 
 Один документ на весь путь: от «хочу свою руду за пять минут» до собственного здания на Java.
+**Короткая карта «куда смотреть»:** [start-here.md](start-here.md).
+
 Четыре части, читать можно с любой:
 
 - **[Часть 0 — быстрогайд](#часть-0--быстрогайд)** — только команды и файлы, без объяснений.
@@ -9,6 +11,10 @@
   добыча, помпа, НПЗ, завод пластика, завод изделий; с обоснованием каждого решения.
 - **[Часть 3 — движок в коде](#часть-3--движок-в-коде-jar-мод)** — jar-мод: своё здание, своё
   состояние в сейве, свои сервисы, события, правила размещения; API по полкам.
+
+**Канон L2 (станок без своего Codec):** [hello-building.md](hello-building.md) +
+[`examples/external-mod-template`](../examples/external-mod-template) / `./gradlew initMod`.
+Часть 2/3 и `webminer` — L3.
 
 Мод из части 2 существует целиком: [`resources/mods/petrochem/`](../resources/mods/petrochem) —
 данные, исходники кодовой половины и собранный `petrochem.jar`. Всё, что здесь утверждается,
@@ -114,7 +120,7 @@ resources/mods/mymod/
 | `kinds/*` | `path`, `label` | — |
 | `recipes/*` | `ingredients`, `output`, `time`, `kind` | `path` |
 | `buildings/*` | `path`, `label`, `archetype`, `cost`, `placement`, `texture` | `category`, `kind`, `fuel`, `bufferMax`, `footprint*`, `fluidInput`, `fluidOutput`, `power`, `acceptsSpeedEffects`, `speedMultiplier` |
-| `techs/*` | `path`, `label`, `cost` | `prerequisites` |
+| `techs/*` | `path`, `label`, `cost` | `prerequisites`, `effects` |
 | `maps/*` | `path`, `label` | `orePatches`, `terrainPatches` |
 
 Полные схемы — [docs/schemas/](schemas/), они машинно сверяются с реальным контентом тестом
@@ -399,15 +405,29 @@ resources/mods/mymod/
 }
 ```
 
-Загрузчик проверяет, что все `prerequisites` существуют и что в дереве нет циклов.
+Загрузчик проверяет, что все `prerequisites` и `effects` существуют и что в дереве нет циклов.
 
-**Честное ограничение:** технология из JSON появляется в дереве, стоит очков и открывается, но
-**эффекта у неё нет** — эффект ванильных пяти вшит в код (бур спрашивает про быстрое бурение,
-сундук — про больший буфер). Своя технология с эффектом — jar-мод, который сам про неё спрашивает.
+**Эффекты из JSON.** Поле `"effects": ["rustorio:big_buffer_effect"]` (или голое имя в своём
+namespace) выдаёт named effect, пока технология открыта. Здания спрашивают
+`research.hasEffect(…)` — сундук и буфер печи слушают `big_buffer_effect`, подземки —
+`long_tunnel_effect`. Скорость бур/печь/лаб по-прежнему через трейт `speedTech` на здании
+(ванильные `fast_*_effect` зарегистрированы, но сами по себе машину не ускоряют).
+
+Пример: своя технология, которая удваивает вместимость сундуков без открытия ванильного
+`big_buffer`:
+
+```json
+{ "path": "wide_pockets", "label": "Wide pockets", "cost": 50,
+  "effects": ["rustorio:big_buffer_effect"] }
+```
+
+Балансный мод, который `update`-ит чужую технологию, должен **повторить** `effects` — иначе
+список заменяется целиком и бонус пропадёт.
 
 Отсюда практический вывод: самый ценный «полезный предмет», который может сделать data-мод, — это
 `researchGrade` предмет. Он ускоряет **ванильные** исследования, и это работает без единой строчки
-Java.
+Java. Named effects — второй рычаг без jar.
+
 
 ## 1.11. Текстуры и локализация
 
@@ -445,7 +465,8 @@ Java.
 2. **Новое поведение здания** (своя механика приёма, две разные жидкости на входе, конвейер с
    приоритетом) — код-мод.
 3. **Новое условие размещения** — код-мод: данными выбирается одно из четырёх готовых.
-4. **Эффект технологии** — код-мод.
+4. **Эффект технологии** — JSON `"effects"` для named bonuses (`big_buffer_effect`, …); jar — если
+   нужен свой эффект или свой `hasEffect`-потребитель.
 5. **Количества в рецепте** (2 пластины на 1 шестерню) движок не выражает.
 6. **`power.demand` останавливает только бур** (см. 1.9).
 7. **`footprint*` работает только у печеподобных** (см. 1.8).
@@ -790,8 +811,8 @@ JSON-схемы не заглядывают: опечатка `"demmand"` вну
 }
 ```
 
-Узел в дереве появится и откроется за очки, но **эффекта не даст** — см. [1.10](#110-технологии).
-Он здесь как честный пример формата, а не как механика.
+Узел в дереве появится и откроется за очки. Чтобы он ещё и **что-то делал**, добавьте
+`"effects"` — см. [1.10](#110-технологии). Без `effects` это только узел дерева (формат тот же).
 
 `content/maps/oil_field.json`:
 
@@ -881,7 +902,7 @@ JSON-схемы не заглядывают: опечатка `"demmand"` вну
 | **новую механику здания** | | ✅ |
 | **правку чужого рецепта/прототипа** (`update`, `remove`) | | ✅ |
 | **новое условие размещения** | | ✅ |
-| **эффект технологии** | | ✅ |
+| **эффект технологии** (named, JSON `"effects"`) | ✅ | ✅ свой потребитель |
 | **capability** (HTTP, часы, что угодно вне карты) | | ✅ |
 | **реакцию на события** (что-то произвели, что-то поставили) | | ✅ |
 | **свой вид контента** (собственный реестр) | | ✗ пока никак, см. 3.5 |
@@ -916,12 +937,26 @@ Jar находится **по `ServiceLoader`** через service-файл, а 
 com.rustorio.api.    com.rustorio.domain.    java.    javax.    jdk.    sun.
 ```
 
+из `com.rustorio.domain` **исключены** (нет в `rustorio-api`, загрузчик тоже откажет):
+
+- весь пакет `com.rustorio.domain.world` (`World`, планировщик, …) — соседняя клетка через
+  `TickContext`, не через мир целиком;
+- весь пакет `com.rustorio.domain.action` (undo-стек игрока: `PlayerAction`, `PlaceAction`, …) —
+  это кухня ввода/истории, не контракт здания;
+- кухня `domain.building`: сети (`FluidNetwork`/`PowerNetwork`), `FluidNode`/`PowerNode`,
+  ванильные concretes (`Pipe`, `Furnace`, …), `VanillaBuildings`, `BuildingFactory`, `NetworkWiring`.
+
+Из `domain.building` мод видит **allowlist контрактов**: `Building`, `TickContext`, `Codec`,
+`BuildingPrototype`, `BuildingServices`, `SimpleCrafter`, `TransportNode`+`BeltSegment`, `FluidPort`,
+traits, …
+`BeltSegment` нужен только для L3-лент. Жидкость/энергия — через `TickContext` / `FluidPort`.
+
 Всё остальное ищется **внутри твоего jar** и больше нигде. Четыре следствия, каждое стоило кому-то
 вечера:
 
-- **`ModLoader`, `com.graphics`, `persistence` мод назвать не может.** Это не соглашение, а
-  загрузчик: имя из закрытого пакета — `ClassNotFoundException` в игре (а при сборке против
-  `rustorio-api` — ошибка компиляции, что честнее).
+- **`ModLoader`, `com.graphics`, `persistence`, `World`, `PlayerAction` мод назвать не может.** Это
+  не соглашение, а загрузчик: имя из закрытого пакета — `ClassNotFoundException` в игре (а при
+  сборке против `rustorio-api` — ошибка компиляции, что честнее).
 - **Свои библиотеки клади внутрь jar.** Движок тянет Jackson — но моду его не отдаст. Библиотека,
   на которую ты скомпилировался «потому что она есть у движка», превратится в
   `NoClassDefFoundError` при первом запуске.
@@ -1016,7 +1051,25 @@ public void modifyContent(RegistrationContext ctx) {
 
 ## 3.7. Своё здание
 
-Здание — это **два** объекта: `BuildingPrototype` (данные + фабрики) и класс, реализующий
+**Сначала L2.** Обычный станок «один вход → N тиков → один выход» — через
+`ctx.content().building(…).simpleCrafter(…)`, без телескопного конструктора и без своего `Codec`.
+Пошагово: [hello-building.md](hello-building.md). Каркас: `./gradlew initMod -PmodId=…`.
+
+```java
+ctx.content().building("polisher")
+        .label("Amber Polisher")
+        .cost("rustorio:iron_plate", 8)
+        .placement("needs_passable_terrain")
+        .texture(VanillaSprites.ASSEMBLER)
+        .simpleCrafter("amber_ingot", "amber_polished", 15)
+        .register();
+```
+
+Контракты здания для нового кода — из `com.rustorio.api.building` (facade на те же интерфейсы,
+что в `domain.building`).
+
+**L3** ниже — когда батарейки мало (несколько выходов, сеть, HTTP, свой UI). Здание тогда —
+это **два** объекта: `BuildingPrototype` (данные + фабрики) и класс, реализующий
 `Building` (поведение). Прототип регистрируется, класс создаётся фабрикой прототипа.
 
 > Фрагменты ниже — **сокращённые** выдержки из
@@ -1097,11 +1150,9 @@ final class ElectroCracker implements Building, InspectableBuilding {
 | `InspectableBuilding` | строки в панели осмотра (`inspectionDetails`) |
 | `EditableBuilding` + `FieldSpec` | настраиваемые игроком поля в общем модальном окне |
 | `ViewableBuilding` + `BuildingImage` | целая картинка вместо текста (монитор, карта, превью) |
-| `RecipeSelectable` | список рецептов и выбор в панели |
 | `TransportNode` + `SettlesEachTick` | встроиться в ленточную «змейку» наравне с лентой |
-| `FluidNode` | стать клеткой жидкостной сети наравне с трубой |
-| `PowerNode` | стать столбом (членом электросети) |
-| `PowerProducer` | отдавать мощность в сеть, накрывающую клетку |
+| ~~`FluidNode` / `PowerNode` / `PowerProducer`~~ | **не в публичном API** — порты `TickContext` |
+| ~~`RecipeSelectable`~~ | движок; свой UI — `EditableBuilding` / `ViewableBuilding` |
 
 Ни один из них не требует правки рендера или движка: панель, сеть и планировщик спрашивают
 интерфейс, а не конкретный класс.
@@ -1294,8 +1345,8 @@ context.placementRules().register(ContentId.of("mymod:on_bitumen"),
 
 Три способа, все рабочие. Выбирай по тому, где живёт твой код.
 
-**A. Отдельный проект (рекомендуется).** `examples/external-mod-template` — готовый Gradle-проект,
-который ничего не знает о репозитории движка:
+**A. Отдельный проект (рекомендуется).** `examples/external-mod-template` — канонический **L2**
+Gradle-проект (ContentDsl + SimpleCrafter). То же копирует `./gradlew initMod -PmodId=…`:
 
 ```bash
 # в чекауте движка — опубликовать API локально

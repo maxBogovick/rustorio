@@ -23,5 +23,5 @@ import com.rustorio.domain.Direction;
 public interface BehaviorFactory {
 
     /** Build a brand-new instance of {@code self}'s archetype, facing {@code direction} where that matters. */
-    Building create(BuildingPrototype self, Direction direction, BuildingFactory factory);
+    Building create(BuildingPrototype self, Direction direction, BuildingServices services);
 }

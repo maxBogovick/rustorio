@@ -109,8 +109,8 @@ class VanillaBuildingsTest {
     /**
      * The set {@code com.rustorio.mod.BuildingJsonLoader} consults before accepting a {@code
      * "power"} block — must match exactly the archetypes whose Java class calls {@link
-     * BuildingPrototype#power()} at all ({@link Miner}, {@link Pole}, {@link Generator}), not a
-     * superset or subset of it.
+     * BuildingPrototype#power()} at all ({@link Miner}, {@link Furnace}, {@link Pole}, {@link
+     * Generator}), not a superset or subset of it.
      */
     @Test
     void honorsPowerIsTrueOnlyForArchetypesWhoseJavaBehaviorReadsIt() {
@@ -118,9 +118,14 @@ class VanillaBuildingsTest {
         assertTrue(VanillaBuildings.honorsPower(BuildingType.ELECTRIC_MINER));
         assertTrue(VanillaBuildings.honorsPower(BuildingType.POLE));
         assertTrue(VanillaBuildings.honorsPower(BuildingType.GENERATOR));
+        assertTrue(VanillaBuildings.honorsPower(BuildingType.FURNACE));
+        assertTrue(VanillaBuildings.honorsPower(BuildingType.PRESS));
+        assertTrue(VanillaBuildings.honorsPower(BuildingType.ASSEMBLER));
         for (BuildingType type : BuildingType.values()) {
             if (type == BuildingType.MINER || type == BuildingType.ELECTRIC_MINER
-                    || type == BuildingType.POLE || type == BuildingType.GENERATOR) {
+                    || type == BuildingType.POLE || type == BuildingType.GENERATOR
+                    || type == BuildingType.FURNACE || type == BuildingType.PRESS
+                    || type == BuildingType.ASSEMBLER) {
                 continue;
             }
             assertFalse(VanillaBuildings.honorsPower(type), type + " must not claim to honor power");

@@ -297,11 +297,50 @@ modIds.each { modId ->
 // or RimWorld mod pulls its own libraries — this jar is an API surface, not a dependency manager.
 tasks.register('apiJar', Jar) {
     group = 'publishing'
-    description = 'The engine API a third-party mod compiles against (com.rustorio.api + domain)'
+    description = 'The engine API a third-party mod compiles against (api + domain minus kitchen)'
     archiveBaseName = 'rustorio-api'
     from(sourceSets.main.output) {
         include 'com/rustorio/api/**'
         include 'com/rustorio/domain/**'
+        exclude 'com/rustorio/domain/world/**'
+        exclude 'com/rustorio/domain/action/**'
+        // domain.building: only ModBuildingApiAllowlist (keep in sync — ModBuildingApiSurfaceTest).
+        exclude 'com/rustorio/domain/building/**'
+    }
+    from(sourceSets.main.output) {
+        include 'com/rustorio/domain/building/BehaviorFactory.class'
+        include 'com/rustorio/domain/building/BeltSegment.class'
+        include 'com/rustorio/domain/building/BeltSegment$*.class'
+        include 'com/rustorio/domain/building/BeltState.class'
+        include 'com/rustorio/domain/building/Building.class'
+        include 'com/rustorio/domain/building/BuildingCost.class'
+        include 'com/rustorio/domain/building/BuildingImage.class'
+        include 'com/rustorio/domain/building/BuildingPrototype.class'
+        include 'com/rustorio/domain/building/BuildingServices.class'
+        include 'com/rustorio/domain/building/Codec.class'
+        include 'com/rustorio/domain/building/EditableBuilding.class'
+        include 'com/rustorio/domain/building/FieldSpec.class'
+        include 'com/rustorio/domain/building/FieldType.class'
+        include 'com/rustorio/domain/building/FluidPort.class'
+        include 'com/rustorio/domain/building/InspectableBuilding.class'
+        include 'com/rustorio/domain/building/PlacementRule.class'
+        include 'com/rustorio/domain/building/PowerSpec.class'
+        include 'com/rustorio/domain/building/RestoreFactory.class'
+        include 'com/rustorio/domain/building/ServiceKey.class'
+        include 'com/rustorio/domain/building/SettlesEachTick.class'
+        include 'com/rustorio/domain/building/SimpleCrafter.class'
+        include 'com/rustorio/domain/building/SimpleCrafter$*.class'
+        include 'com/rustorio/domain/building/SimpleCrafterSpec.class'
+        include 'com/rustorio/domain/building/StateMigration.class'
+        include 'com/rustorio/domain/building/TickContext.class'
+        include 'com/rustorio/domain/building/TraitKey.class'
+        include 'com/rustorio/domain/building/Traits.class'
+        include 'com/rustorio/domain/building/TransportNode.class'
+        include 'com/rustorio/domain/building/VanillaCategories.class'
+        include 'com/rustorio/domain/building/VanillaPlacementRules.class'
+        include 'com/rustorio/domain/building/VanillaTraits.class'
+        include 'com/rustorio/domain/building/VanillaTraits$*.class'
+        include 'com/rustorio/domain/building/ViewableBuilding.class'
     }
 }
 
@@ -479,3 +518,71 @@ tasks.named('jacocoTestReport') {
 // Что делать, когда понадобится: следить за релизами PIT на предмет поддержки major 69. Второй
 // путь — собирать `src/main` с `options.release = 24` ради инструмента — сознательно отвергнут:
 // это меняет то, что уезжает игроку, ради dev-проверки.
+
+/**
+ * Scaffold a third-party mod from {@code examples/external-mod-template} (canonical L2:
+ * ContentDsl + SimpleCrafter).
+ *
+ * <pre>./gradlew initMod -PmodId=amberworks</pre>
+ *
+ * Copies the template into {@code examples/&lt;modId&gt;/}, rewriting the mod id and package.
+ * Then: {@code ./gradlew publishToMavenLocal} in the engine, and in the new folder
+ * {@code ./gradlew installMod -PgameDir=..} — same flow the template README documents.
+ *
+ * Owner-approved touch of build.gradle (API v2 / onboarding).
+ */
+tasks.register('initMod') {
+    group = 'build'
+    description = 'Copy examples/external-mod-template into examples/<modId> (-PmodId=...)'
+    notCompatibleWithConfigurationCache('scaffolds a mod directory with Project file/copy APIs')
+    doLast {
+        def modId = (project.findProperty('modId') ?: 'hellomod').toString()
+        if (!(modId ==~ /^[a-z0-9_]+$/)) {
+            throw new GradleException("modId must match [a-z0-9_]+: got '${modId}'")
+        }
+        def template = file('examples/external-mod-template')
+        def target = file("examples/${modId}")
+        if (target.exists()) {
+            throw new GradleException("refusing to overwrite existing ${target}")
+        }
+        copy {
+            from template
+            into target
+            exclude 'build', '.gradle'
+        }
+        file("${target}/build.gradle").text = file("${template}/build.gradle").text
+                .replace("ext.modId = 'template'", "ext.modId = '${modId}'")
+        file("${target}/settings.gradle").text = file("${template}/settings.gradle").text
+                .replace("rootProject.name = 'rustorio-mod-template'",
+                        "rootProject.name = 'rustorio-mod-${modId}'")
+        file("${target}/mod.json").text = file("${template}/mod.json").text
+                .replace('"id": "template"', "\"id\": \"${modId}\"")
+                .replace('com.example.rustoriomod.TemplateMod', "com.example.${modId}.HelloMod")
+        def oldJava = file("${target}/src/main/java/com/example/rustoriomod/TemplateMod.java")
+        def javaDir = file("${target}/src/main/java/com/example/${modId}")
+        javaDir.mkdirs()
+        file("${javaDir}/HelloMod.java").text = oldJava.text
+                .replace('package com.example.rustoriomod;', "package com.example.${modId};")
+                .replace('TemplateMod', 'HelloMod')
+        delete file("${target}/src/main/java/com/example/rustoriomod")
+        def services = file("${target}/src/main/resources/META-INF/services")
+        services.mkdirs()
+        file("${services}/com.rustorio.api.mod.RustorioMod").text = "com.example.${modId}.HelloMod\n"
+        file("${target}/README.md").text = """# ${modId}
+
+Canonical **L2** scaffold from `examples/external-mod-template` via `./gradlew initMod -PmodId=${modId}`.
+
+Entry point: `HelloMod` — ContentDsl + SimpleCrafter. Walkthrough: engine `docs/hello-building.md`.
+Map of engine tasks: `docs/start-here.md`.
+
+```bash
+# in the engine checkout
+./gradlew publishToMavenLocal
+
+# here
+./gradlew installMod -PgameDir=/path/to/rustorio
+```
+"""
+        logger.lifecycle("Created ${target}. Next: publishToMavenLocal, then ./gradlew installMod -PgameDir=...")
+    }
+}

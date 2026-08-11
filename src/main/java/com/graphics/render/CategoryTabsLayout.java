@@ -5,9 +5,11 @@ import com.rustorio.api.content.ContentId;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.VanillaCategories;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The always-visible build panel: a row of category tabs with that category's buildings under it,
@@ -44,6 +46,15 @@ public final class CategoryTabsLayout {
     /** Bottom edge of the tab row — directly above the icons it labels. */
     public static final float TABS_Y = ICONS_Y + ICON_SIZE + 4f;
 
+    /**
+     * Identity-keyed cache: {@link com.rustorio.api.registry.Registry#iterate()} returns the same
+     * frozen list for the whole session, and both {@code InputHandler} and {@link HudRenderer} call
+     * {@link #byCategory} every frame. Rebuilding the map twice per frame was pure waste once the
+     * registry can no longer grow.
+     */
+    private static @Nullable List<BuildingPrototype> cachedAll;
+    private static @Nullable Map<ContentId, List<BuildingPrototype>> cachedGrouped;
+
     private CategoryTabsLayout() {
     }
 
@@ -57,6 +68,9 @@ public final class CategoryTabsLayout {
      * the player's cursor between launches, which this project keeps a rule about.
      */
     public static Map<ContentId, List<BuildingPrototype>> byCategory(List<BuildingPrototype> all) {
+        if (all == cachedAll && cachedGrouped != null) {
+            return cachedGrouped;
+        }
         Map<ContentId, List<BuildingPrototype>> grouped = new LinkedHashMap<>();
         for (ContentId category : VanillaCategories.all()) {
             grouped.put(category, new ArrayList<>());
@@ -66,7 +80,15 @@ public final class CategoryTabsLayout {
                     .add(prototype);
         }
         grouped.values().removeIf(List::isEmpty);
-        return grouped;
+        Map<ContentId, List<BuildingPrototype>> frozen = new LinkedHashMap<>();
+        for (Map.Entry<ContentId, List<BuildingPrototype>> entry : grouped.entrySet()) {
+            frozen.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        // Unmodifiable LinkedHashMap — not Map.copyOf: copyOf randomizes iteration order between
+        // JVM runs, and tab order is visible under the player's cursor.
+        cachedAll = all;
+        cachedGrouped = Collections.unmodifiableMap(frozen);
+        return cachedGrouped;
     }
 
     /** X of the left edge of tab {@code index}. */

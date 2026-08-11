@@ -8,5 +8,8 @@
   "prerequisites": [
     "fast_smelting",
     "big_buffer"
+  ],
+  "effects": [
+    "fast_lab_effect"
   ]
 }

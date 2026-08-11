@@ -19,6 +19,7 @@ import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.FluidNetwork;
 import com.rustorio.domain.building.FluidNode;
 import com.rustorio.domain.building.FluidPort;
+import com.rustorio.domain.building.NetworkWiring;
 import com.rustorio.domain.building.PlacementRule;
 import com.rustorio.domain.building.PowerNetwork;
 import com.rustorio.domain.building.PowerNode;
@@ -505,7 +506,7 @@ public final class World implements TickContext {
                 neighbors.add(fluidNeighbor);
             }
         }
-        BuildingFactory.attachFluidNode(node, x, y, neighbors);
+        NetworkWiring.attachFluidNode(node, x, y, neighbors);
     }
 
     /** The neighbor at {@code (x, y)}, if it's a transport node facing the same direction — else empty. */
@@ -542,7 +543,7 @@ public final class World implements TickContext {
             BuildingFactory.detachTransportNode(node);
         }
         if (removed instanceof FluidNode node) {
-            BuildingFactory.detachFluidNode(node, anchor.x(), anchor.y());
+            NetworkWiring.detachFluidNode(node, anchor.x(), anchor.y());
         }
         unregisterPowerRoles(anchor, removed);
         return Optional.of(removed);
@@ -583,7 +584,7 @@ public final class World implements TickContext {
             // second time would put one tile into two networks at once. Detaching also hands the
             // tile its own share back, which the attach below immediately pours in again — so a
             // restore that changes nothing really does change nothing.
-            BuildingFactory.detachFluidNode(node, x, y);
+            NetworkWiring.detachFluidNode(node, x, y);
             attachToFluidNetwork(node, x, y);
         }
     }
@@ -881,7 +882,7 @@ public final class World implements TickContext {
     private void unregisterPowerRoles(Coord anchor, Building building) {
         if (building instanceof PowerNode pole) {
             poles.remove(anchor);
-            BuildingFactory.detachPowerNode(pole, anchor.x(), anchor.y(), this::polesConnect);
+            NetworkWiring.detachPowerNode(pole, anchor.x(), anchor.y(), this::polesConnect);
             rebuildPowerCoverage();
         }
         if (building instanceof PowerProducer) {
@@ -906,7 +907,7 @@ public final class World implements TickContext {
      * a player action, so the simple answer is the right one here.
      */
     private void attachToPowerNetwork(PowerNode node, int x, int y) {
-        BuildingFactory.attachPowerNode(node, x, y, powerNeighbors(x, y, node.coverageRadius()));
+        NetworkWiring.attachPowerNode(node, x, y, powerNeighbors(x, y, node.coverageRadius()));
         claimCoverage(new Coord(x, y), node);
     }
 

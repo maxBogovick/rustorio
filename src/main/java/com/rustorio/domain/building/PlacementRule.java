@@ -42,9 +42,11 @@ public interface PlacementRule {
      * #NEEDS_ORE} (something must be under, or next to, this cell for the building to do anything at
      * all), and the reason water finally has a use beyond being an obstacle to route around.
      *
-     * <p>This is engine code, not something a data mod can express: the rules a JSON building may
-     * name are a fixed set (see {@code BuildingJsonLoader}), so a genuinely new placement CONDITION
-     * is a new constant here. A mod's own pump reuses this one by naming it.
+     * <p>JSON and code mods should resolve placement rules through the {@code placementRules()}
+     * registry ({@code BuildingJsonLoader}, {@link VanillaPlacementRules}) rather than binding
+     * these interface constants: a balance mod that {@code update}s a named rule before freeze
+     * only reaches buildings that peeked the registry id during their own registration. Constants
+     * still seed the registry; they are the starting value, not a live late-bound handle.
      */
     PlacementRule ADJACENT_TO_WATER = (x, y, oreLayout) -> {
         if (!oreLayout.isPassable(x, y)) {

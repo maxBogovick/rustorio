@@ -12,10 +12,12 @@ import java.util.Map;
  * one hop at a time, via {@link #apply}, from whatever version a save recorded up to a prototype's
  * current one.
  *
- * <p>Not yet wired to any real prototype — none of the 12 vanilla ones need an actual state
- * reshape today (see this mechanism's own card, E6-05, ENGINE_TASKS.md) — proven here on a
- * synthetic shape change instead ({@code StateMigrationTest}), the same way {@link Codec} itself
- * was proven on a synthetic {@code Point} before any real archetype had one (E6-01).
+ * <p>{@link BuildingPrototype#decodeState} runs {@link #apply} on every load. Stamping
+ * {@code state_version} on encode waits until a prototype's {@link BuildingPrototype#stateVersion()}
+ * rises above 1 together with a real hop list — writing the field onto every vanilla save today
+ * would change the on-disk shape for an unreachable override (this type is a record). Proven on a
+ * synthetic shape change ({@code StateMigrationTest}) the same way {@link Codec} itself was proven
+ * on a synthetic {@code Point} before any real archetype had one.
  */
 public interface StateMigration {
 

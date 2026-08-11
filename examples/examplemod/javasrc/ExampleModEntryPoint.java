@@ -18,9 +18,11 @@ public final class ExampleModEntryPoint implements com.rustorio.api.mod.Rustorio
         com.rustorio.domain.ItemType ironPlate = ctx.items().peek(ironPlateId).orElseThrow(
                 () -> new IllegalStateException("rustorio:iron_plate not visible yet - dependency order is wrong"));
 
+        com.rustorio.api.content.ContentId beltId =
+                com.rustorio.domain.BuildingType.BELT.contentId();
         com.rustorio.domain.building.BuildingPrototype vanillaBelt =
-                com.rustorio.domain.building.VanillaBuildings.frozen().get(
-                        com.rustorio.domain.building.VanillaBuildings.idFor(com.rustorio.domain.BuildingType.BELT));
+                ctx.buildings().peek(beltId).orElseThrow(
+                        () -> new IllegalStateException("rustorio:belt not visible yet - dependency order is wrong"));
 
         ctx.buildings().register(CONVEYOR_ID, new com.rustorio.domain.building.BuildingPrototype(
                 CONVEYOR_ID,

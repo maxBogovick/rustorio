@@ -22,10 +22,12 @@ import java.util.List;
  * com.rustorio.domain}/{@code domain.building} today, not under {@code com.rustorio.api} — no
  * standalone, implementation-free API artifact exists yet — so a mod that constructs either (which
  * every mod registering an item or a building prototype must do) needs those packages delegated
- * too. Narrowing this allowlist down to strictly {@code com.rustorio.api} is a follow-up for
- * whenever that split actually happens, not a silent gap here.
+ * too. Narrowing further toward strictly {@code com.rustorio.api} is still ahead; {@code
+ * domain.world}/{@code domain.action} are denied entirely, and {@code domain.building} is reduced
+ * to {@link ModBuildingApiAllowlist} (contracts + SimpleCrafter + BeltSegment — not networks or
+ * vanilla concretes).
  *
- * <p>{@link #PARENT_DELEGATED_PREFIXES} is the SINGLE authority on where the engine ends and a mod
+ * <p>{@link #isParentDelegated} is the SINGLE authority on where the engine ends and a mod
  * begins, and {@code ModApiSurfaceTest} holds the published artifact to it: it opens the {@code
  * rustorio-api} jar and fails if that jar ships a package this list would refuse to load. The two
  * had already drifted once — {@code include 'com/rustorio/**'} shipped {@code persistence}, {@code
@@ -48,6 +50,12 @@ final class ModClassLoader extends URLClassLoader {
 
     private static final List<String> PARENT_DELEGATED_PREFIXES = List.of(
             "com.rustorio.api.", "com.rustorio.domain.", "java.", "javax.", "jdk.", "sun.");
+
+    /** Denied even though they sit under a delegated prefix — simulation kitchen, not mod API. */
+    private static final List<String> PARENT_DENIED_PREFIXES = List.of(
+            "com.rustorio.domain.world.", "com.rustorio.domain.action.");
+
+    private static final String BUILDING_PKG = "com.rustorio.domain.building.";
 
     ModClassLoader(URL jarUrl, ClassLoader parent) {
         super(new URL[] {jarUrl}, parent);
@@ -78,6 +86,14 @@ final class ModClassLoader extends URLClassLoader {
      * while the running game refused to load it, which is the exact drift being guarded against.
      */
     static boolean isParentDelegated(String name) {
+        for (String denied : PARENT_DENIED_PREFIXES) {
+            if (name.startsWith(denied)) {
+                return false;
+            }
+        }
+        if (name.startsWith(BUILDING_PKG)) {
+            return ModBuildingApiAllowlist.isAllowed(name);
+        }
         for (String prefix : PARENT_DELEGATED_PREFIXES) {
             if (name.startsWith(prefix)) {
                 return true;

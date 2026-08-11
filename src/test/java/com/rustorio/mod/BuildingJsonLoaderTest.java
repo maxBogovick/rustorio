@@ -20,6 +20,7 @@ import com.rustorio.domain.building.BuildingFactory;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Chest;
 import com.rustorio.domain.building.Furnace;
+import com.rustorio.domain.building.PowerSpec;
 import com.rustorio.domain.building.TraitKey;
 import com.rustorio.domain.building.Traits;
 import com.rustorio.domain.building.VanillaBuildings;
@@ -260,13 +261,31 @@ class BuildingJsonLoaderTest {
     }
 
     /**
-     * The gap a mod would otherwise fall into completely silently: an ASSEMBLER's Java behavior
-     * ({@link Furnace}) never calls {@code drawPower} at all, so before this check a {@code "power"}
-     * block here loaded fine and then never did anything — a machine that LOOKS electrical, isn't,
-     * and says so nowhere.
+     * A chest never draws power — putting a {@code "power"} block on one would load and then do
+     * nothing. Recipe machines ({@code ASSEMBLER}/{@code FURNACE}/{@code PRESS}) do honor demand
+     * now; this rejection is for archetypes that still never call {@code drawPower}.
      */
     @Test
     void aPowerBlockOnAnArchetypeThatNeverReadsItIsRejected() throws IOException {
+        GameRegistrationContext context = new GameRegistrationContext();
+        VanillaItems.registerAll(context.items());
+        write("powered_crate.json", """
+                { "path": "powered_crate", "label": "Powered Crate", "archetype": "CHEST",
+                  "cost": { "item": "rustorio:iron_plate", "amount": 1 },
+                  "placement": "NEEDS_PASSABLE_TERRAIN", "texture": "rustorio:chest",
+                  "power": { "demand": 30 } }
+                """);
+
+        ModLoadException thrown = assertThrows(ModLoadException.class, () -> BuildingJsonLoader.loadInto(tempDir, modId, context));
+        assertTrue(thrown.getMessage().contains("CHEST"), thrown.getMessage());
+        assertTrue(thrown.getMessage().contains("MINER") || thrown.getMessage().contains("ASSEMBLER"),
+                "names an archetype that DOES honor power, so the modder knows what would actually work: "
+                        + thrown.getMessage());
+    }
+
+    /** An ASSEMBLER with demand is legal now — Furnace.tick draws power when the prototype asks. */
+    @Test
+    void aPowerBlockOnAnAssemblerIsAcceptedAndStored() throws IOException {
         GameRegistrationContext context = new GameRegistrationContext();
         VanillaItems.registerAll(context.items());
         write("robo_assembler.json", """
@@ -276,11 +295,12 @@ class BuildingJsonLoaderTest {
                   "power": { "demand": 30 } }
                 """);
 
-        ModLoadException thrown = assertThrows(ModLoadException.class, () -> BuildingJsonLoader.loadInto(tempDir, modId, context));
-        assertTrue(thrown.getMessage().contains("ASSEMBLER"), thrown.getMessage());
-        assertTrue(thrown.getMessage().contains("MINER"),
-                "names an archetype that DOES honor power, so the modder knows what would actually work: "
-                        + thrown.getMessage());
+        BuildingJsonLoader.loadInto(tempDir, modId, context);
+
+        BuildingPrototype robo = context.buildings().peek(ContentId.of("testmod:robo_assembler")).orElseThrow();
+        PowerSpec power = robo.power();
+        assertTrue(power != null, "ASSEMBLER may carry a power block now");
+        assertEquals(30, power.demand());
     }
 
     /** A negative demand would be a machine that GENERATES by asking for power — rejected at the door, not left to the tick to puzzle over. */

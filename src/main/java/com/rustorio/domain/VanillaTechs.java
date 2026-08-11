@@ -9,14 +9,12 @@ import java.util.List;
  * exactly — the same relationship {@link VanillaItems} has to {@code content/items}, and held to it
  * by {@code VanillaAsModParityTest}.
  *
- * <p>The ids are constants because the game's own code used to read them by name outright. That
- * is no longer true for the "faster" family: {@code Miner}/{@code Furnace}/{@code Lab} now read
- * {@code BuildingPrototype.speedTech()} (a trait, defaulting to {@link #FAST_MINING}/{@link
- * #FAST_SMELTING}/{@link #FAST_LAB} respectively — see {@code VanillaBuildings.registerAll}), so a
- * JSON-authored building on one of those archetypes can name its OWN technology instead. It is
- * still true for the "bigger" family: {@code Chest} asks whether {@link #BIG_BUFFER} is unlocked
- * directly, with no trait standing in for it yet — that remains the part a JSON-only mod cannot
- * supply for a technology of its own. See {@link TechType}.
+ * <p>The ids are constants because the game's own code used to read them by name outright. Speed
+ * bonuses now go through {@code BuildingPrototype.speedTech()} (a trait). Buffer / tunnel range
+ * bonuses go through {@link VanillaTechEffects} + {@link ResearchView#hasEffect}: unlocking the
+ * matching tech lists that effect, so a JSON-only mod can grant the same named bonus from its own
+ * technology without teaching {@code Chest} / {@code UndergroundBelt} a new constant. See
+ * {@link TechType}.
  *
  * <p>Shape below is the vanilla balance: {@link #FAST_MINING} is the one root, {@link
  * #FAST_SMELTING} and {@link #BIG_BUFFER} branch independently off it, {@link #LONG_TUNNEL} extends
@@ -44,11 +42,16 @@ public final class VanillaTechs {
 
     /** Registers the built-in technologies into {@code techs}, so the mod loader can seed a fresh registry with them. */
     public static void registerAll(Registry<TechType> techs) {
-        techs.register(FAST_MINING, new TechType(FAST_MINING, "Fast mining", 80));
-        techs.register(FAST_SMELTING, new TechType(FAST_SMELTING, "Fast smelting", 200, List.of(FAST_MINING)));
-        techs.register(BIG_BUFFER, new TechType(BIG_BUFFER, "Big buffers", 350, List.of(FAST_MINING)));
-        techs.register(LONG_TUNNEL, new TechType(LONG_TUNNEL, "Long tunnels", 550, List.of(BIG_BUFFER)));
-        techs.register(FAST_LAB, new TechType(FAST_LAB, "Fast research", 800, List.of(FAST_SMELTING, BIG_BUFFER)));
+        techs.register(FAST_MINING, new TechType(FAST_MINING, "Fast mining", 80, List.of(),
+                List.of(VanillaTechEffects.FAST_MINING)));
+        techs.register(FAST_SMELTING, new TechType(FAST_SMELTING, "Fast smelting", 200, List.of(FAST_MINING),
+                List.of(VanillaTechEffects.FAST_SMELTING)));
+        techs.register(BIG_BUFFER, new TechType(BIG_BUFFER, "Big buffers", 350, List.of(FAST_MINING),
+                List.of(VanillaTechEffects.BIG_BUFFER)));
+        techs.register(LONG_TUNNEL, new TechType(LONG_TUNNEL, "Long tunnels", 550, List.of(BIG_BUFFER),
+                List.of(VanillaTechEffects.LONG_TUNNEL)));
+        techs.register(FAST_LAB, new TechType(FAST_LAB, "Fast research", 800, List.of(FAST_SMELTING, BIG_BUFFER),
+                List.of(VanillaTechEffects.FAST_LAB)));
     }
 
     private static Registry<TechType> buildFrozen() {

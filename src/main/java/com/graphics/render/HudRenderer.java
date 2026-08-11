@@ -441,6 +441,9 @@ final class HudRenderer {
         shapes.setColor(Palette.SLOT_BG);
         shapes.rect(panelX, panelY, size, size);
         shapes.setColor(Palette.HINT);
+        // O(buildings), not O(cells): forEachBuildingIn walks the TreeMap, not every empty tile.
+        // Rebuilding a cached pixmap on place/remove would win only on huge factories; not measured
+        // as hot enough to justify that bookkeeping yet.
         world.forEachBuildingIn(0, 0, world.width() - 1, world.height() - 1, (bx, by, building) ->
                 shapes.rect(panelX + bx * scaleX, panelY + size - (by + 1) * scaleY, dotW, dotH));
         shapes.end();
@@ -633,7 +636,7 @@ final class HudRenderer {
         int total = 0;
         Color worst = Palette.OK;
         boolean sawOne = false;
-        for (BuildingStatus status : BuildingStatus.values()) {
+        for (BuildingStatus status : BuildingStatus.ALL) {
             if (status == BuildingStatus.WORKING) {
                 continue;
             }

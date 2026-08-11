@@ -7,5 +7,8 @@
   "cost": 200,
   "prerequisites": [
     "fast_mining"
+  ],
+  "effects": [
+    "fast_smelting_effect"
   ]
 }

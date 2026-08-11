@@ -14,7 +14,7 @@ import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Codec;
 import com.rustorio.domain.building.PlacementRule;
 import com.rustorio.domain.building.Traits;
-import com.rustorio.domain.building.VanillaBuildings;
+import com.rustorio.domain.building.VanillaPlacementRules;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -73,7 +73,12 @@ public final class WebMinerMod implements RustorioMod {
      */
     @Override
     public void registerContent(RegistrationContext context) {
-        registerAll(context.buildings(), context.items());
+        // Peek the live registry value so a balance mod's update() replaces what we bind — binding
+        // PlacementRule.NEEDS_PASSABLE_TERRAIN directly would ignore that replacement.
+        PlacementRule passable = context.placementRules()
+                .peek(VanillaPlacementRules.NEEDS_PASSABLE_TERRAIN)
+                .orElseThrow();
+        registerAll(context.buildings(), context.items(), passable);
         context.registerService(FetchService.KEY, () -> new FetchService(new HttpFetchExecutor()));
     }
 
@@ -133,6 +138,11 @@ public final class WebMinerMod implements RustorioMod {
     };
 
     public static void registerAll(Registry<BuildingPrototype> prototypes, Registry<ItemType> items) {
+        registerAll(prototypes, items, PlacementRule.NEEDS_PASSABLE_TERRAIN);
+    }
+
+    public static void registerAll(Registry<BuildingPrototype> prototypes, Registry<ItemType> items,
+            PlacementRule passableTerrain) {
         ItemType successItem = requireItem(items, "webminer:web_ok");
         ItemType errorItem = requireItem(items, "webminer:web_error");
         Map<com.rustorio.domain.building.TraitKey<?>, Object> traits = new LinkedHashMap<>();
@@ -143,7 +153,7 @@ public final class WebMinerMod implements RustorioMod {
                 WEB_MINER_ID,
                 "Web Miner",
                 new BuildingCost(VanillaItems.IRON_PLATE, 5),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN,
+                passableTerrain,
                 WEB_MINER_SPRITE,
                 1, 1,
                 0, 1, false,
@@ -163,12 +173,12 @@ public final class WebMinerMod implements RustorioMod {
         // Both borrow BELT's own codec outright (their state IS a BeltState — direction + held,
         // nothing else): a pass-through has no player-configurable data of its own beyond what
         // Belt already persists, only Interpreter adds one more field on top of that shape.
-        Codec<BeltState> beltCodec = beltCodec();
+        Codec<BeltState> beltCodec = beltCodec(prototypes);
         prototypes.register(MONITOR_ID, new BuildingPrototype(
                 MONITOR_ID,
                 "Monitor",
                 new BuildingCost(VanillaItems.IRON_PLATE, 3),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN,
+                passableTerrain,
                 MONITOR_SPRITE,
                 0, 1, false,
                 (self, direction, factory) -> new Monitor(direction, self),
@@ -182,7 +192,7 @@ public final class WebMinerMod implements RustorioMod {
                 INTERPRETER_ID,
                 "Interpreter",
                 new BuildingCost(VanillaItems.IRON_PLATE, 3),
-                PlacementRule.NEEDS_PASSABLE_TERRAIN,
+                passableTerrain,
                 INTERPRETER_SPRITE,
                 0, 1, false,
                 (self, direction, factory) -> new Interpreter(direction, self),
@@ -215,8 +225,11 @@ public final class WebMinerMod implements RustorioMod {
 
     /** {@link BuildingType#BELT}'s own registered {@link Codec} — see the class javadoc for why {@link Monitor} borrows it outright. */
     @SuppressWarnings("unchecked")
-    private static Codec<BeltState> beltCodec() {
-        return (Codec<BeltState>) VanillaBuildings.frozen().get(VanillaBuildings.idFor(BuildingType.BELT)).codec();
+    private static Codec<BeltState> beltCodec(Registry<BuildingPrototype> prototypes) {
+        ContentId beltId = BuildingType.BELT.contentId();
+        BuildingPrototype belt = prototypes.peek(beltId).orElseThrow(() -> new IllegalStateException(
+                "mod 'webminer': vanilla belt " + beltId + " is not registered yet — depend on rustorio"));
+        return (Codec<BeltState>) belt.codec();
     }
 
 }

@@ -7,9 +7,10 @@
  *
  * <p>Buildings never see {@code World} itself: {@link com.rustorio.domain.building.TickContext},
  * declared right here, is the full vocabulary a building has for calling back into the world
- * during a tick — six methods, not the whole aggregate root. {@code World} implements it from the
- * other side of the package boundary (P3-01, BUG_FIX_PROGRESS.md); this package doesn't know or
- * care that it does.
+ * during a tick — a narrow port, not the whole aggregate root. {@code World} implements it from the
+ * other side of the package boundary; this package doesn't know or care that it does. Do not count
+ * the methods here: {@link com.rustorio.domain.building.TickContext}'s own javadoc is the source of
+ * truth, and the count grows when new world capabilities appear.
  */
 @NullMarked
 package com.rustorio.domain.building;

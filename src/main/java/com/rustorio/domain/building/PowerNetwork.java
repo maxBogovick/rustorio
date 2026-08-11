@@ -12,7 +12,11 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * One electrical grid: a connected group of poles plus a pool of power that is filled at the start
+ * <p><b>Published mod API caveat.</b> This class (including {@link Reach}) stays in
+ * {@code rustorio-api} because {@link PowerNode} names it in public signatures. Prefer
+ * {@link TickContext} for ordinary power draws; holding a grid is an L3 concern.
+ *
+ * <p>One electrical grid: a connected group of poles plus a pool of power that is filled at the start
  * of every tick and drawn down by the machines that ask for it during that tick.
  *
  * <p><b>Only poles are members.</b> A generator or a machine is never IN a network — it is merely

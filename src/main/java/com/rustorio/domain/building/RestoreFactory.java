@@ -17,5 +17,5 @@ package com.rustorio.domain.building;
 public interface RestoreFactory {
 
     /** Rebuild {@code self}'s archetype from {@code decodedState} — the exact record type {@code self}'s own {@link Codec} decodes. */
-    Building restore(BuildingPrototype self, Object decodedState, BuildingFactory factory);
+    Building restore(BuildingPrototype self, Object decodedState, BuildingServices services);
 }

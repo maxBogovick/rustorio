@@ -5,27 +5,22 @@ import com.rustorio.api.registry.Registry;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.building.Building;
-import com.rustorio.domain.building.Chest;
-import com.rustorio.domain.building.Filter;
-import com.rustorio.domain.building.Furnace;
 import com.rustorio.domain.building.InspectableBuilding;
 import com.rustorio.domain.building.RecipeSelectable;
-import com.rustorio.domain.building.Splitter;
-import com.rustorio.domain.building.UndergroundBelt;
 import com.rustorio.domain.building.ViewableBuilding;
 import com.rustorio.domain.world.World;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Content AND geometry for the inspection panel — one formula shared by drawing ({@link
  * HudRenderer}) and hit-testing ({@code com.graphics.input.InputHandler}, a different package —
  * same reason {@link BuildMenuLayout}/{@link QuickBarLayout} are public). The panel itself is just a
  * top-to-bottom list of text lines ({@link #inspectionLines}); {@link #clickableRecipes} names the
- * trailing lines of that list a click can act on — {@link #appendFurnaceDetails} always appends one
- * line per {@link Furnace#possibleRecipes()} entry LAST, in that exact order, so "the last {@code
+ * trailing lines of that list a click can act on — a {@link RecipeSelectable} that is also {@link
+ * InspectableBuilding} always appends one line per recipe LAST inside {@link
+ * InspectableBuilding#inspectionDetails}, in that exact order, so "the last {@code
  * clickableRecipes(building).size()} lines" needs no separate index to track.
  */
 public final class InspectionPanelLayout {
@@ -179,31 +174,14 @@ public final class InspectionPanelLayout {
         }
         building.heldItem().ifPresent(item -> lines.add("Holding: " + item.label()));
 
-        // BEFORE the kind-specific branches below, not after, and the reason is load-bearing:
-        // appendFurnaceDetails must keep emitting the recipe rows LAST, because hitTestRecipe finds
-        // a clicked recipe by counting back from the end of the list ("the last
-        // clickableRecipes(building).size() lines"). Appending anything after it would silently
-        // shift every recipe's click target — and a building that is both RecipeSelectable and
-        // InspectableBuilding is allowed, so "no archetype does that today" is not a guarantee.
+        // RecipeSelectable buildings that are also InspectableBuilding put their recipe picker rows
+        // LAST inside inspectionDetails — hitTestRecipe finds a clicked recipe by counting back
+        // from the end of the list. Appending anything after those rows (except the open-page row,
+        // which is gated on recipes.isEmpty()) would silently shift every recipe's click target.
         if (building instanceof InspectableBuilding inspectable) {
             lines.addAll(inspectable.inspectionDetails(world, at.x(), at.y()));
         }
 
-        // The five branches below are vanilla archetypes that predate InspectableBuilding; they are
-        // not a pattern to extend, and a NEW building describes itself through that interface
-        // instead — which is what lets a mod's own archetype appear here with no edit to this file.
-        if (building instanceof Chest chest) {
-            appendChestContents(lines, items, chest);
-        } else if (building instanceof Furnace furnace) {
-            appendFurnaceDetails(lines, world, building, furnace);
-        } else if (building instanceof UndergroundBelt tunnel) {
-            appendTunnelPairing(lines, world, at, building, tunnel);
-        } else if (building instanceof Filter filter) {
-            lines.add("Passes forward: " + filter.filterItem().label() + "  (F to change)");
-            lines.add("Everything else -> secondary side");
-        } else if (building instanceof Splitter) {
-            lines.add("Round-robin: alternates forward / secondary side");
-        }
         List<Recipe> recipes = clickableRecipes(building);
         if (building instanceof ViewableBuilding && recipes.isEmpty()) {
             lines.add(OPEN_PAGE_ROW);
@@ -249,65 +227,5 @@ public final class InspectionPanelLayout {
      */
     private static List<String> wrapToPanel(String fact) {
         return HudText.wrap(fact, ROW_WIDTH, MAX_WRAPPED_ROWS);
-    }
-
-    private static void appendChestContents(List<String> lines, Registry<ItemType> items, Chest chest) {
-        boolean any = false;
-        for (ItemType item : items.iterate()) {
-            int amount = chest.amount(item);
-            if (amount > 0) {
-                lines.add("  " + item.label() + ": " + amount);
-                any = true;
-            }
-        }
-        if (!any) {
-            lines.add("  (empty)");
-        }
-    }
-
-    /**
-     * The full recipe — input(s) AND output, not just the output {@link Recipe#output()} —
-     * because that's the actual live bug report: the old panel showed "-> IRON_PLATE" and nothing
-     * about what to feed it. Every recipe this furnace's kind can run at all is ALWAYS listed last
-     * (not only while nothing's committed yet), each as its own line — a live bug report of its
-     * own: the player had no way to see, let alone pick, an alternative once one was already
-     * selected. This method only builds the TEXT; {@link #clickableRecipes} names these exact same
-     * trailing lines as the click targets {@code InputHandler} acts on.
-     */
-    private static void appendFurnaceDetails(List<String> lines, World world, Building building, Furnace furnace) {
-        Optional<Recipe> active = furnace.activeRecipe();
-        if (active.isPresent()) {
-            lines.add("Recipe: " + recipeLine(active.get()) + "  (cooking)");
-        } else {
-            Optional<Recipe> selected = furnace.selectedRecipeChoice();
-            lines.add(selected.isPresent()
-                    ? "Recipe: " + recipeLine(selected.get()) + "  (selected)"
-                    : "Recipe: none committed yet");
-        }
-        lines.add("Ore buffer: " + furnace.oreBuffer());
-        // Whether this building BURNS anything is data on its own prototype, not a vanilla
-        // constant — sandbox:voron declares coal as fuel and never showed this line.
-        if (world.buildingFactory().prototype(building.prototypeId()).fuelItem() != null) {
-            lines.add("Fuel: " + furnace.fuelBuffer());
-        }
-        lines.add("Click a recipe to select it:");
-        for (Recipe recipe : furnace.possibleRecipes()) {
-            lines.add("  " + recipeLine(recipe));
-        }
-    }
-
-    private static String recipeLine(Recipe recipe) {
-        String inputs = recipe.ingredients().stream().map(ItemType::label).collect(Collectors.joining(" + "));
-        return inputs + " -> " + recipe.output().label();
-    }
-
-    private static void appendTunnelPairing(List<String> lines, World world, TilePos at, Building building,
-            UndergroundBelt tunnel) {
-        if (!tunnel.isEntrance()) {
-            lines.add("(exit — pairing shown at its entrance)");
-            return;
-        }
-        boolean paired = tunnel.findPartner(world, at.x(), at.y()).isPresent();
-        lines.add("Paired: " + (paired ? "yes" : "NO — out of range or no matching exit"));
     }
 }

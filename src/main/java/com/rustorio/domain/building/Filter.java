@@ -8,6 +8,7 @@ import com.rustorio.domain.BuildingType;
 import com.rustorio.domain.Direction;
 import com.rustorio.domain.ItemType;
 import com.rustorio.domain.VanillaItems;
+import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -22,7 +23,7 @@ import org.jspecify.annotations.Nullable;
  * one hardcoded rule ({@code SortRule.ORE_FORWARD}, now deleted) and no way for a player to choose
  * a different one at all.
  */
-public final class Filter implements Building, SettlesEachTick {
+public final class Filter implements Building, SettlesEachTick, InspectableBuilding {
 
     private final Direction facing;
     private ItemType filterItem;
@@ -147,5 +148,12 @@ public final class Filter implements Building, SettlesEachTick {
     @Override
     public FilterState state() {
         return new FilterState(facing, held, filterItem);
+    }
+
+    @Override
+    public List<String> inspectionDetails(TickContext world, int x, int y) {
+        return List.of(
+                "Passes forward: " + filterItem.label() + "  (F to change)",
+                "Everything else -> secondary side");
     }
 }

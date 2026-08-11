@@ -30,5 +30,12 @@ public interface ResearchView {
 
     int biggerIfUnlocked(ContentId tech, int baseCapacity);
 
+    /**
+     * Whether any unlocked technology lists {@code effect} in its {@link TechType#effects()}. The
+     * open counterpart to hardcoding a vanilla tech id inside a building — a mod grants an effect
+     * from JSON/code and any machine that cares asks here.
+     */
+    boolean hasEffect(ContentId effect);
+
     Research.Snapshot snapshot();
 }

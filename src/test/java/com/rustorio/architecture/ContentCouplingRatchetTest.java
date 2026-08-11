@@ -62,13 +62,9 @@ class ContentCouplingRatchetTest {
     // Filter/Splitter) is gone, replaced by reading BuildingPrototype.acceptsSpeedEffects() (a
     // registered value, not a case list) — the same move Phase 4 already made for cost/placement/
     // texture.
-    // 12 -> 11: SpeedModule (the decorator) is deleted outright — speedLevel is now a plain field
-    // on the archetypes that accept it (Miner, Chest, Furnace, Lab), so Building.unwrap and its own
-    // `instanceof SpeedModule` loop have nothing left to do. Every OTHER instanceof-by-buildingtype
-    // site in this count stays exactly where it was (Chest/Furnace/UndergroundBelt/Filter/Splitter
-    // checks in HudRenderer/OverlayRenderer/RemoveAction/GrabChestAction/UndergroundBelt) — they
-    // just lost an unwrap() call in front of them, not the instanceof itself.
-    private static final int BUILDING_INSTANCEOF_BASELINE = 11;
+    // 11 -> 6: Chest/Furnace/UndergroundBelt/Filter/Splitter inspection text moved onto
+    // InspectableBuilding; InspectionPanelLayout no longer names those five concrete classes.
+    private static final int BUILDING_INSTANCEOF_BASELINE = 6;
 
     /**
      * A flat prohibition, not a baseline. Both of these counts reached zero (see the history above),

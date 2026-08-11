@@ -7,6 +7,7 @@ import com.rustorio.domain.ItemType;
 import com.rustorio.domain.Recipe;
 import com.rustorio.domain.RecipeKind;
 import com.rustorio.domain.TechType;
+import com.rustorio.api.mod.TechEffect;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.PlacementRule;
 import java.util.List;
@@ -39,6 +40,12 @@ public final class RegistryKeys {
     /** Every technology — see {@link TechType} for what a mod's technology can and cannot do yet. */
     public static final RegistryKey<TechType> TECHS = new RegistryKey<>("techs");
 
+    /**
+     * Named gameplay effects a technology may grant — see {@link TechEffect}. Validated at load so
+     * a tech cannot name an effect nobody registered.
+     */
+    public static final RegistryKey<TechEffect> TECH_EFFECTS = new RegistryKey<>("tech_effects");
+
     /** Every registered recipe pool — see {@link RecipeKind}'s own javadoc. */
     public static final RegistryKey<RecipeKind> KINDS = new RegistryKey<>("kinds");
 
@@ -58,7 +65,7 @@ public final class RegistryKeys {
 
     /** Every key above, in the order registries are frozen and reported — see the class javadoc on why the order is fixed. */
     public static final List<RegistryKey<?>> VANILLA =
-            List.of(ITEMS, FLUIDS, PLACEMENT_RULES, BUILDINGS, TECHS, KINDS, MAPS, RECIPES);
+            List.of(ITEMS, FLUIDS, PLACEMENT_RULES, BUILDINGS, TECH_EFFECTS, TECHS, KINDS, MAPS, RECIPES);
 
     private RegistryKeys() {
     }

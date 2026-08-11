@@ -66,4 +66,16 @@ class PageViewLayoutTest {
                         <= PageViewLayout.maxScroll(PAGE_W, imageHeight, SCREEN_W, 1200),
                 "после того как окно стало выше, старая прокрутка обязана подтянуться вверх");
     }
+
+    /**
+     * Layout takes the same logical window size HUD uses — not the Retina backbuffer. Passing
+     * {@code 2×} width (what {@code getBackBufferWidth} returns on a 2× display) would size the
+     * panel twice as wide as every other HUD surface.
+     */
+    @Test
+    void panelWidthFollowsLogicalWindowSizeNotADoubledBackbuffer() {
+        assertEquals(SCREEN_W - 2 * 40f, PageViewLayout.panelWidth(SCREEN_W), 0.01f);
+        assertTrue(PageViewLayout.panelWidth(SCREEN_W * 2) > PageViewLayout.panelWidth(SCREEN_W) + 100f,
+                "a doubled width must produce a clearly larger panel — proof the caller must pass logical size");
+    }
 }
