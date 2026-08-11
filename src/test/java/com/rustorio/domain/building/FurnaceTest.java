@@ -690,6 +690,28 @@ class FurnaceTest {
                 "no pole covers (1,1), so a demanding furnace must not cook");
     }
 
+    @Test
+    void inspectionNamesEachInputAndWhatIsStillMissing() {
+        // Live feedback: a multi-input machine used to say only "Ore buffer: 1" / NO_INPUT — the
+        // player could not tell WHICH ingredient was missing. Alloy plate is the vanilla two-input
+        // furnace recipe (iron plate + bronze plate).
+        World world = new World(4, 4);
+        Furnace furnace = new Furnace(BuildingType.FURNACE, Direction.RIGHT, RECIPES);
+        assertTrue(furnace.accept(world, VanillaItems.IRON_PLATE));
+        assertTrue(furnace.accept(world, VanillaItems.COAL));
+        furnace.tick(world, 1, 1);
+
+        List<String> lines = furnace.inspectionDetails(world, 1, 1);
+
+        assertTrue(lines.stream().anyMatch(line -> line.contains("Making:") || line.contains("Selected:")
+                        || line.contains("Recipe:")),
+                "recipe identity must be visible: " + lines);
+        assertTrue(lines.contains("  Iron Plate: 1"), "buffered input must be named: " + lines);
+        assertTrue(lines.contains("  Bronze Plate: 0"), "empty input slot must show zero: " + lines);
+        assertTrue(lines.contains("Waiting for: Bronze Plate"),
+                "must name the missing ingredient, not a bare NO_INPUT: " + lines);
+    }
+
     /** A distinct id per fixture recipe — recipes are addressable content now, and a fixture still has to say which one it means. */
     private static ContentId testRecipeId(int index) {
         return new ContentId("test", "fixture_recipe_" + index);

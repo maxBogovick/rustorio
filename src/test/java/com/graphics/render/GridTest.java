@@ -39,4 +39,14 @@ class GridTest {
     void centerXAndCenterYAcceptFractionalPositionsForCargoMidTile() {
         assertEquals(grid.centerX(2) + TILE / 4f, grid.centerX(2.25f));
     }
+
+    @Test
+    void multiCellFootprintSitsOnOccupiedRowsNotTheRowAbove() {
+        // Domain owns rows [4, 6) for a 2-tall building; screen bottom must be row 5, not 4.
+        // Drawing from yBottom(4) upward by 2*TILE would cover rows 3 and 4 — the belt-overlap bug.
+        assertEquals(grid.yBottom(5), grid.yFootprintBottom(4, 2));
+        assertEquals(grid.yBottom(4), grid.yFootprintBottom(4, 1));
+        float topOfTwoByTwo = grid.yFootprintBottom(4, 2) + 2 * TILE;
+        assertEquals(grid.yBottom(4) + TILE, topOfTwoByTwo);
+    }
 }

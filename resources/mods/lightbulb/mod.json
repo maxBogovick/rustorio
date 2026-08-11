@@ -1,0 +1,9 @@
+{
+  "id": "lightbulb",
+  "version": "1.0.0",
+  "name": "Lightbulb Lab",
+  "description": "Учебный сценарий: добудь песок, собери лампочку и зажги её от сети.",
+  "minEngineVersion": "0.1.0",
+  "entryPoint": "com.lightbulb.LightbulbMod",
+  "dependencies": [{ "modId": "rustorio", "range": ">=1.0.0" }]
+}

@@ -118,8 +118,7 @@ final class HudRenderer {
     void render(HudState hud, World world, TileRange visible, ProductionStatsView stats, int ups) {
         renderInfoPanel(world, stats, hud.paused(), hud.speed(), ups, hud.showHints(), hud.showFpsUps(),
                 hud.statusMessage());
-        renderHotbar(hud.hotbarSlots(), hud.selected(), hud.facing(), world.buildingFactory(),
-                hud.activeCategoryIndex(), hud.hoveredPrototype(), hud.displayLabels());
+        renderHotbar(hud, world);
         renderMinimap(world, visible);
         renderInspectionPanel(world, hud.inspected());
         renderSettingsModal(hud.settingsModal());
@@ -241,9 +240,9 @@ final class HudRenderer {
         font.getData().setScale(0.8f);
         if (showHints) {
             font.draw(batch,
-                    "R rotate   U upgrade   C recipe   F filter item   G grab chest   Ctrl+Z undo   Ctrl+Y redo   F5 save   F9 load   TAB recipes   B build menu   T techs   V stats   I info",
+                    "R rotate   U upgrade   C recipe   F filter item   G grab chest   E deposit to chest   Ctrl+Z undo   Ctrl+Y redo   F5 save   F9 load   TAB recipes   B build menu   T techs   V stats   I info",
                     COL_TITLE_X, top - ROW_HINT_1);
-            font.draw(batch, "WASD pan   wheel zoom   Space pause   [ ] speed   click or 1-9 to build",
+            font.draw(batch, "WASD pan   wheel zoom   Space pause   [ ] speed   click or 1-9 to build   inventory panel: click stack, then chest or E",
                     COL_TITLE_X, top - ROW_HINT_2);
             font.draw(batch,
                     "right-click: demolish (refunds cost) / hand-mine an empty ore cell   H hide this   P fps/ups",
@@ -339,9 +338,14 @@ final class HudRenderer {
      * {@link GfxConfig#HUD_BOTTOM_HEIGHT}, та же, на которую камера сузила вьюпорт снизу (см.
      * {@link #renderInfoPanel} — тот же приём для верхней панели).
      */
-    private void renderHotbar(List<ContentId> quickBarSlots, ContentId selected, Direction facing,
-            BuildingFactory buildingFactory, int activeCategoryIndex,
-            @Nullable ContentId hovered, DisplayLabels displayLabels) {
+    private void renderHotbar(HudState hud, World world) {
+        List<ContentId> quickBarSlots = hud.hotbarSlots();
+        ContentId selected = hud.selected();
+        Direction facing = hud.facing();
+        BuildingFactory buildingFactory = world.buildingFactory();
+        int activeCategoryIndex = hud.activeCategoryIndex();
+        @Nullable ContentId hovered = hud.hoveredPrototype();
+        DisplayLabels displayLabels = hud.displayLabels();
         int screenW = Gdx.graphics.getWidth();
         float barH = GfxConfig.HUD_BOTTOM_HEIGHT;
         int columns = QuickBarLayout.COLUMNS;
@@ -400,6 +404,7 @@ final class HudRenderer {
         batch.end();
 
         renderCategoryTabs(quickBarSlots, selected, buildingFactory, activeCategoryIndex);
+        renderInventoryPanel(world, hud.selectedInventoryItem());
         renderTooltip(hovered, displayLabels);
 
         batch.begin();
@@ -411,6 +416,72 @@ final class HudRenderer {
                 + "   Facing: " + facing.name() + "  (R to rotate - only the belt/tunnel/furnace care)",
                 CategoryTabsLayout.LEFT, CategoryTabsLayout.hintY());
 
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    /**
+     * Always-on inventory grid in the bottom-right — stacks the player can spend on buildings or
+     * deposit into a chest. Drawn after the category strip so the reserved right margin stays free.
+     */
+    private void renderInventoryPanel(World world, @Nullable ItemType selectedInventoryItem) {
+        int screenW = Gdx.graphics.getWidth();
+        List<ItemType> stacks = InventoryPanelLayout.visibleStacks(
+                world.buildingFactory().items(), world.inventory());
+        int rows = InventoryPanelLayout.visibleRowsFor(stacks.size());
+        int cells = rows * InventoryPanelLayout.COLUMNS;
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        for (int i = 0; i < cells; i++) {
+            shapes.setColor(Palette.SLOT_BG);
+            shapes.rect(InventoryPanelLayout.cellX(i, screenW), InventoryPanelLayout.cellY(i, rows),
+                    InventoryPanelLayout.CELL_SIZE, InventoryPanelLayout.CELL_SIZE);
+        }
+        shapes.end();
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        float iconRadius = 11f;
+        for (int i = 0; i < stacks.size(); i++) {
+            float cx = InventoryPanelLayout.cellX(i, screenW) + InventoryPanelLayout.CELL_SIZE / 2f;
+            float cy = InventoryPanelLayout.cellY(i, rows) + InventoryPanelLayout.CELL_SIZE / 2f;
+            ItemIcon.fill(shapes, stacks.get(i), cx, cy, iconRadius);
+        }
+        shapes.end();
+
+        shapes.begin(ShapeRenderer.ShapeType.Line);
+        for (int i = 0; i < cells; i++) {
+            boolean isSelected = i < stacks.size() && stacks.get(i).equals(selectedInventoryItem);
+            shapes.setColor(isSelected ? Palette.SLOT_SELECTED : Palette.SLOT_BORDER);
+            float x = InventoryPanelLayout.cellX(i, screenW);
+            float y = InventoryPanelLayout.cellY(i, rows);
+            shapes.rect(x, y, InventoryPanelLayout.CELL_SIZE, InventoryPanelLayout.CELL_SIZE);
+            if (isSelected) {
+                shapes.rect(x + 1, y + 1, InventoryPanelLayout.CELL_SIZE - 2, InventoryPanelLayout.CELL_SIZE - 2);
+            }
+            if (i < stacks.size()) {
+                float cx = x + InventoryPanelLayout.CELL_SIZE / 2f;
+                float cy = y + InventoryPanelLayout.CELL_SIZE / 2f;
+                ItemIcon.outline(shapes, stacks.get(i), cx, cy, iconRadius);
+            }
+        }
+        shapes.end();
+
+        batch.begin();
+        font.getData().setScale(0.7f);
+        font.setColor(Palette.HINT);
+        font.draw(batch, "Inventory", InventoryPanelLayout.cellX(0, screenW), InventoryPanelLayout.labelY(rows));
+        for (int i = 0; i < stacks.size(); i++) {
+            ItemType item = stacks.get(i);
+            float x = InventoryPanelLayout.cellX(i, screenW);
+            float y = InventoryPanelLayout.cellY(i, rows);
+            float cx = x + InventoryPanelLayout.CELL_SIZE / 2f;
+            float cy = y + InventoryPanelLayout.CELL_SIZE / 2f;
+            ItemIcon.letter(batch, font, item, cx, cy, iconRadius);
+            font.setColor(Color.WHITE);
+            font.draw(batch, Integer.toString(world.inventory().amount(item)),
+                    x + 3, y + 12);
+        }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();

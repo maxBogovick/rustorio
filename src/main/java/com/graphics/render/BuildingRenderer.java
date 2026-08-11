@@ -71,14 +71,15 @@ final class BuildingRenderer {
                 (x, y, building) -> {
                     Appearance look = building.appearance();
                     float px = grid.x(x);
-                    float py = grid.yBottom(y);
-                    // footprintWidth/Height (X-03, DEV_TASKS.md) — 1 for every building except
-                    // ASSEMBLER, so this is a no-op scale factor for everything else. Square
+                    // footprintWidth/Height — 1 for every building except ASSEMBLER. Square
                     // footprint (see Building#footprintHeight) keeps this valid under rotation
                     // too: width and height stay equal, so there's no non-square sprite to
-                    // mis-rotate about an off-center pivot.
+                    // mis-rotate about an off-center pivot. yFootprintBottom, not yBottom(anchor):
+                    // domain rows grow down the map, so the sprite's screen bottom is the
+                    // southernmost occupied cell (see Grid#yFootprintBottom).
                     float w = tile * building.footprintWidth();
                     float h = tile * building.footprintHeight();
+                    float py = grid.yFootprintBottom(y, building.footprintHeight());
                     TextureRegion region = textures.forSprite(animatedBeltSprite(look.sprite(), tick));
                     float rotation = building.outputDirection().map(BuildingRenderer::rotationDegrees).orElse(0f);
                     batch.draw(region, px, py, w / 2f, h / 2f, w, h, 1f, 1f, rotation);
@@ -178,16 +179,18 @@ final class BuildingRenderer {
                     // (graphics.md). Ordinary buildings — nearly all of them — now leave here.
                     BuildingPrototype proto = world.buildingFactory().prototype(building.prototypeId());
                     BuildingAccent accent = BuildingAccent.forPrototype(proto);
+                    int fhCells = building.footprintHeight();
+                    float py = grid.yFootprintBottom(y, fhCells);
                     if (accent != BuildingAccent.NONE) {
                         float fw = tile * building.footprintWidth();
-                        float fh = tile * building.footprintHeight();
+                        float fh = tile * fhCells;
                         float stripeH = tile * 0.12f;
                         shapes.setColor(Palette.accentColor(accent).orElseThrow());
-                        shapes.rect(grid.x(x), grid.yBottom(y) + fh - stripeH, fw, stripeH);
+                        shapes.rect(grid.x(x), py + fh - stripeH, fw, stripeH);
                     }
                     Palette.statusColor(look.status()).ifPresent(color -> {
                         shapes.setColor(color);
-                        shapes.rect(grid.x(x), grid.yBottom(y), markerSize, markerSize);
+                        shapes.rect(grid.x(x), py, markerSize, markerSize);
                     });
                     // Стыки трубы: отросток от центра клетки к каждому соседу по той же сети, чтобы
                     // ряд труб читался соединённым так же, как шевроны ленты читаются направленными.
@@ -199,7 +202,7 @@ final class BuildingRenderer {
                         shapes.setColor(Palette.PIPE_JOINT);
                         for (Direction side : SIDES) {
                             if (World.hasJoint(joints, side)) {
-                                drawJoint(grid.x(x), grid.yBottom(y), tile, side);
+                                drawJoint(grid.x(x), py, tile, side);
                             }
                         }
                     }
@@ -210,7 +213,7 @@ final class BuildingRenderer {
                         float trackW = w - 2f * pad;
                         float barH = tile * 0.16f;
                         float bx = grid.x(x) + pad;
-                        float by = grid.yBottom(y) + pad;
+                        float by = py + pad;
                         shapes.setColor(Palette.FLUID_BAR_TRACK);
                         shapes.rect(bx, by, trackW, barH);
                         shapes.setColor(Palette.fluidColor(fill.fluid()));
@@ -218,13 +221,13 @@ final class BuildingRenderer {
                     }
                     ItemType hint = look.recipeHint();
                     if (hint != null) {
-                        // "+ w"/"+ h", not "+ tile" (X-03, DEV_TASKS.md): top-RIGHT of the WHOLE
-                        // footprint for a multi-cell building, same reasoning as the badge above.
+                        // "+ w"/"+ h", not "+ tile": top-RIGHT of the WHOLE footprint for a
+                        // multi-cell building, same reasoning as the badge above.
                         float w = tile * building.footprintWidth();
-                        float h = tile * building.footprintHeight();
+                        float h = tile * fhCells;
                         shapes.setColor(Palette.itemColor(hint));
                         shapes.circle(grid.x(x) + w - recipeRadius - 2f,
-                                grid.yBottom(y) + h - recipeRadius - 2f, recipeRadius, 12);
+                                py + h - recipeRadius - 2f, recipeRadius, 12);
                     }
                 });
         shapes.end();

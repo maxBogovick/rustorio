@@ -1,0 +1,6 @@
+{
+  "ingredients": ["rustorio:iron_plate"],
+  "output": "bulb_base",
+  "time": 5,
+  "kind": "base_former"
+}

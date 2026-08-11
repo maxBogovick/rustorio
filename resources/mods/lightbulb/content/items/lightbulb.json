@@ -1,0 +1,6 @@
+{
+  "path": "lightbulb",
+  "label": { "en": "Lightbulb", "ru": "Лампочка" },
+  "colorRgb": "#FFE08A",
+  "shape": "CIRCLE"
+}

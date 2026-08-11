@@ -1,0 +1,7 @@
+{
+  "path": "sand",
+  "label": { "en": "Sand", "ru": "Песок" },
+  "colorRgb": "#C2B280",
+  "shape": "CIRCLE",
+  "tool": "ore"
+}

@@ -1,0 +1,6 @@
+{
+  "ingredients": ["rustorio:bronze_plate"],
+  "output": "wire",
+  "time": 5,
+  "kind": "wire_drawer"
+}

@@ -564,19 +564,54 @@ public final class Furnace implements Building, RecipeSelectable, InspectableBui
 
     @Override
     public List<String> inspectionDetails(TickContext world, int x, int y) {
+        // Live feedback: "Ore buffer: N" told nobody WHAT was missing on a multi-input assembler —
+        // glass and filament could both be sitting on belts while the panel just said NO_INPUT.
+        // Per-ingredient counts and an explicit "Waiting for:" line are what a player can act on.
         List<String> lines = new ArrayList<>();
-        Optional<Recipe> active = activeRecipe();
-        if (active.isPresent()) {
-            lines.add("Recipe: " + recipeLine(active.get()) + "  (cooking)");
+        Optional<Recipe> activeOpt = activeRecipe();
+        Optional<Recipe> selectedOpt = selectedRecipeChoice();
+        if (activeOpt.isPresent()) {
+            Recipe recipe = activeOpt.get();
+            lines.add("Making: " + recipe.output().label());
+            lines.add("Recipe: " + recipeLine(recipe));
+        } else if (selectedOpt.isPresent()) {
+            Recipe recipe = selectedOpt.get();
+            lines.add("Selected: " + recipe.output().label() + "  (click another below, or C)");
+            lines.add("Recipe: " + recipeLine(recipe));
         } else {
-            Optional<Recipe> selected = selectedRecipeChoice();
-            lines.add(selected.isPresent()
-                    ? "Recipe: " + recipeLine(selected.get()) + "  (selected)"
-                    : "Recipe: none committed yet");
+            lines.add("No recipe selected — click one below (or press C)");
         }
-        lines.add("Ore buffer: " + oreBuffer());
+
+        ActiveRecipe current = active;
+        if (current != null) {
+            List<ItemType> ingredients = current.recipe().ingredients();
+            int[] buffers = current.inputBuffers();
+            lines.add("Inputs:");
+            List<String> missing = new ArrayList<>();
+            for (int i = 0; i < ingredients.size(); i++) {
+                ItemType ingredient = ingredients.get(i);
+                int have = buffers[i];
+                lines.add("  " + ingredient.label() + ": " + have);
+                if (have == 0) {
+                    missing.add(ingredient.label());
+                }
+            }
+            if (!missing.isEmpty()) {
+                lines.add("Waiting for: " + String.join(", ", missing));
+            }
+        } else {
+            lines.add("Inputs: (empty — feed items from belts)");
+        }
+
+        if (pendingOutput != null) {
+            lines.add("Holding output: " + pendingOutput.label()
+                    + " — needs a free cell in facing direction");
+        } else if (status == BuildingStatus.OUTPUT_FULL) {
+            lines.add("Output blocked — clear the cell the building faces");
+        }
+
         if (prototype.fuelItem() != null) {
-            lines.add("Fuel: " + fuelBuffer);
+            lines.add("Fuel (" + prototype.fuelItem().label() + "): " + fuelBuffer);
         }
         lines.add("Click a recipe to select it:");
         for (Recipe recipe : possibleRecipes()) {

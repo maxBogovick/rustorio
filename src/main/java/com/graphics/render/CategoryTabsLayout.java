@@ -143,7 +143,7 @@ public final class CategoryTabsLayout {
      * is one keypress away, and this panel is for reaching, not for browsing.
      */
     public static int visibleIcons(int screenWidth, int iconCount) {
-        float available = screenWidth - LEFT - 8f;
+        float available = screenWidth - LEFT - InventoryPanelLayout.reservedWidth() - 8f;
         int fits = (int) Math.floor((available + ICON_GAP) / (ICON_SIZE + ICON_GAP));
         return Math.max(0, Math.min(iconCount, fits));
     }

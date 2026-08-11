@@ -1,0 +1,6 @@
+{
+  "path": "bulb_base",
+  "label": { "en": "Bulb Base", "ru": "Цоколь" },
+  "colorRgb": "#8A8A90",
+  "shape": "SQUARE"
+}

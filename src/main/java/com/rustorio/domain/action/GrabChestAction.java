@@ -14,8 +14,9 @@ import org.jspecify.annotations.Nullable;
  * so a factory that had produced plenty could still be unable to afford its own next building.
  *
  * <p>Deliberately NOT a per-item withdrawal (a stack-splitting UI, "take 1"/"take all"): the whole
- * chest at once is the smallest thing that actually fixes the reported problem, and this game has
- * no inventory screen to build a partial-withdrawal UI around anyway.
+ * chest at once is the smallest thing that actually fixes the reported problem. Partial moves the
+ * other way (inventory → chest) are {@link DepositChestAction}, driven from the always-on inventory
+ * panel one stack at a time.
  */
 public final class GrabChestAction implements PlayerAction {
 

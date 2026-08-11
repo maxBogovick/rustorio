@@ -269,6 +269,35 @@ public final class Chest implements Building, SettlesEachTick, InspectableBuildi
         return totalCount() + sum <= effectiveCapacity(world);
     }
 
+    /** How many more units this chest can still take right now — used by hand-deposit from inventory. */
+    public int freeSpace(TickContext world) {
+        return effectiveCapacity(world) - totalCount();
+    }
+
+    /**
+     * Remove up to {@code amount} of {@code item}, returning how many were actually taken — the
+     * partial inverse of {@link #restore} for one kind, used by {@code DepositChestAction#undo}.
+     * Quietly takes fewer than asked when the chest no longer holds that many (a belt may have
+     * drained it since the deposit).
+     */
+    public int take(ItemType item, int amount) {
+        if (amount <= 0) {
+            return 0;
+        }
+        int have = contents.getOrDefault(item, 0);
+        int removed = Math.min(have, amount);
+        if (removed == 0) {
+            return 0;
+        }
+        if (have == removed) {
+            contents.remove(item);
+        } else {
+            contents.put(item, have - removed);
+        }
+        storedCount -= removed;
+        return removed;
+    }
+
     /** Total items stored across every kind — see {@link #storedCount}. */
     private int totalCount() {
         return storedCount;

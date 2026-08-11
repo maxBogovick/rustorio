@@ -33,12 +33,9 @@ import java.util.Optional;
  * пределах дальности.
  *
  * <p><b>Зачем стрелка.</b> Лента/печь/туннель держат направление молча внутри себя — ни один
- * спрайт в игре не нарисован с явной «мордой», так что даже после C-01 (DEV_TASKS.md, поворот
- * спрайта под направление в {@link BuildingRenderer}) угол поворота плейсхолдер-графики на глаз
- * не читается вообще. Первая попытка спрятать стрелку за Alt (раз спрайт «и так» повёрнут) была
- * ошибкой — живая проверка сразу показала, что без неё непонятно, куда что везёт. Обе стрелки —
- * основная (см. {@link Building#outputDirection()}) и вторая, сплиттера ({@link
- * Building#secondaryOutputDirection()}) — снова всегда видимы, как до C-01.
+ * спрайт в игре не нарисован с явной «мордой». Стрелки стоят на рёбрах footprint ({@link
+ * BuildingPortsLayout}): янтарный OUT на стороне выдачи, бирюзовые IN на остальных — иначе на
+ * 2×2-сборщике стрелка в центре якоря врала про то, куда реально стыковать ленту.
  *
  * <p><b>Зачем подсветка тоннеля.</b> Вход и выход подземки визуально ничем не отличаются от
  * рабочей пары — те же спрайты, то же поведение на экране, если по ним ничего не едет. Игрок,
@@ -88,9 +85,9 @@ final class OverlayRenderer {
     }
 
     /**
-     * Direction arrows and the orphaned-tunnel outline — always visible, exactly as before F-04 —
-     * plus, only while Alt is held ({@link HudState#altOverlay()}), text labels for building
-     * status and chest contents by kind (see {@link #renderInfoLabels}).
+     * Port arrows and the orphaned-tunnel outline — always visible — plus, only while Alt is held
+     * ({@link HudState#altOverlay()}), text labels for building status and chest contents by kind
+     * (see {@link #renderInfoLabels}).
      */
     void renderWorld(World world, TileRange visible, HudState hud) {
         float tile = GfxConfig.TILE;
@@ -99,36 +96,48 @@ final class OverlayRenderer {
         int maxX = visible.maxX();
         int maxY = visible.maxY();
 
-        // Both arrows, always visible — a live bug report: C-01's sprite rotation alone doesn't
-        // read as "facing a direction" on this placeholder art (nothing about it visually signals
-        // an orientation), so hiding the arrow behind Alt left the map genuinely unreadable, not
-        // just redundant. Back to always-on, exactly as before C-01.
-        //
-        // Art redesign exception: BELT's new sprite draws its own amber chevrons pointing the way
-        // cargo flows — the arrow here would just repeat what the belt already shows (live bug
-        // report). Every OTHER directional building still gets the arrow; their sprites don't
-        // (yet) make direction obvious on their own the way the belt's chevrons do. Compared by
-        // {@code type()}, not {@code instanceof Belt} — same convention this file already uses
-        // for UNDERGROUND_IN below, and the ArchUnit ratchet (E0-03, ENGINE_TASKS.md) caps
-        // instanceof-on-concrete-building-type specifically, not this.
+        // Ports on footprint edges — always visible. OUT on the facing edge for every directed
+        // building; IN only on multi-cell machines (see BuildingPortsLayout#showsInputPorts) so a
+        // 1×1 furnace does not sprout three blue triangles over every neighbour.
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        shapes.setColor(Palette.DIRECTION_ARROW);
         world.forEachBuildingIn(minX, minY, maxX, maxY, (x, y, building) -> {
-            // A transport node's own sprite already shows where it points (the belt's chevrons),
-            // so an arrow on top is noise. A capability check, not `type() == BELT`: a mod's own
-            // conveyor is a TransportNode too and used to get the redundant arrow, because it
-            // borrows BELT only by convention.
             if (building instanceof TransportNode) {
                 return;
             }
-            float cx = grid.x(x) + tile / 2f;
-            float cy = grid.yBottom(y) + tile / 2f;
-            building.outputDirection().ifPresent(direction -> drawArrow(cx, cy, direction, tile));
-            building.secondaryOutputDirection().ifPresent(direction -> drawArrow(cx, cy, direction, tile));
+            building.outputDirection().ifPresent(primaryOut -> {
+                int fw = building.footprintWidth();
+                int fh = building.footprintHeight();
+                float px = grid.x(x);
+                float py = grid.yFootprintBottom(y, fh);
+                Direction secondary = building.secondaryOutputDirection().orElse(null);
+                boolean drawInputs = BuildingPortsLayout.showsInputPorts(fw, fh);
+                for (Direction side : BuildingPortsLayout.SIDES) {
+                    boolean output = BuildingPortsLayout.isOutputSide(side, primaryOut, secondary);
+                    if (!output && !drawInputs) {
+                        continue;
+                    }
+                    float cx = BuildingPortsLayout.edgeCenterX(px, tile, fw, fh, side);
+                    float cy = BuildingPortsLayout.edgeCenterY(py, tile, fw, fh, side);
+                    shapes.setColor(output ? Palette.PORT_OUT : Palette.PORT_IN);
+                    Direction tip = output ? side : BuildingPortsLayout.inward(side);
+                    drawPortArrow(cx, cy, tip, tile, output);
+                }
+            });
         });
         shapes.end();
 
+        // Multi-cell footprint outline — without it a 2×2 assembler reads as four unrelated tiles
+        // under overlapping badges and belt cargo.
         shapes.begin(ShapeRenderer.ShapeType.Line);
+        shapes.setColor(Palette.HINT);
+        world.forEachBuildingIn(minX, minY, maxX, maxY, (x, y, building) -> {
+            int fw = building.footprintWidth();
+            int fh = building.footprintHeight();
+            if (fw <= 1 && fh <= 1) {
+                return;
+            }
+            shapes.rect(grid.x(x), grid.yFootprintBottom(y, fh), fw * tile, fh * tile);
+        });
         shapes.setColor(Palette.T_BAD);
         world.forEachBuildingIn(minX, minY, maxX, maxY, (x, y, building) -> {
             if (building instanceof UndergroundBelt in
@@ -139,10 +148,51 @@ final class OverlayRenderer {
         });
         shapes.end();
 
+        renderPortLabels(world, visible, tile);
+
         if (hud.altOverlay()) {
             renderNetworkOverlay(world, visible, tile);
             renderInfoLabels(world, visible, tile);
         }
+    }
+
+    /**
+     * "IN" / "OUT" letters on multi-cell machines only — 1×1 furnaces stay arrow-only so the map
+     * does not drown in text. Drawn after shapes so the glyphs sit on top of the port triangles.
+     */
+    private void renderPortLabels(World world, TileRange visible, float tile) {
+        int minX = visible.minX();
+        int minY = visible.minY();
+        int maxX = visible.maxX();
+        int maxY = visible.maxY();
+        batch.begin();
+        font.getData().setScale(0.55f);
+        world.forEachBuildingIn(minX, minY, maxX, maxY, (x, y, building) -> {
+            if (building instanceof TransportNode) {
+                return;
+            }
+            int fw = building.footprintWidth();
+            int fh = building.footprintHeight();
+            if (fw <= 1 && fh <= 1) {
+                return;
+            }
+            building.outputDirection().ifPresent(primaryOut -> {
+                float px = grid.x(x);
+                float py = grid.yFootprintBottom(y, fh);
+                Direction secondary = building.secondaryOutputDirection().orElse(null);
+                for (Direction side : BuildingPortsLayout.SIDES) {
+                    float cx = BuildingPortsLayout.edgeCenterX(px, tile, fw, fh, side);
+                    float cy = BuildingPortsLayout.edgeCenterY(py, tile, fw, fh, side);
+                    boolean output = BuildingPortsLayout.isOutputSide(side, primaryOut, secondary);
+                    font.setColor(output ? Palette.PORT_OUT : Palette.PORT_IN);
+                    String label = output ? "OUT" : "IN";
+                    font.draw(batch, label, cx - (output ? 10f : 6f), cy + (side == Direction.DOWN ? -4f : 12f));
+                }
+            });
+        });
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
     }
 
     /**
@@ -231,23 +281,27 @@ final class OverlayRenderer {
     }
 
     /**
-     * Треугольник-стрелка с центром клетки {@code (cx, cy)}, остриём в сторону {@code direction}.
+     * Треугольник-порт у ребра footprint: остриё в сторону {@code tipDirection}.
+     * Длины — {@link BuildingPortsLayout#OUT_REACH_TILES}/{@link BuildingPortsLayout#IN_REACH_TILES};
+     * центр уже inset ({@link BuildingPortsLayout#PORT_INSET_TILES}), поэтому OUT не вылезает
+     * в соседнюю клетку поверх чужого спрайта.
      *
-     * <p>{@code direction.dy()} — координата СЕТКИ (вниз = увеличение строки, урок 11), а экранный
-     * Y растёт ВВЕРХ ({@link Grid}) — тот же переворот знака, что уже делает {@code Grid.yBottom}
-     * для клеток, здесь нужен явно, потому что стрелка считает пиксели сама, в обход {@code Grid}.
+     * <p>{@code tipDirection.dy()} — координата СЕТКИ (вниз = увеличение строки), экранный Y
+     * растёт ВВЕРХ — тот же переворот знака, что раньше был у стрелки в центре клетки.
      */
-    private void drawArrow(float cx, float cy, Direction direction, float tile) {
-        float dx = direction.dx();
-        float dy = -direction.dy();
+    private void drawPortArrow(float cx, float cy, Direction tipDirection, float tile, boolean outward) {
+        float dx = tipDirection.dx();
+        float dy = -tipDirection.dy();
         float perpX = -dy;
         float perpY = dx;
+        float reach = outward ? BuildingPortsLayout.OUT_REACH_TILES : BuildingPortsLayout.IN_REACH_TILES;
+        float base = outward ? 0.06f : 0.08f;
+        float halfWidth = tile * (outward ? 0.14f : 0.11f);
 
-        float tipX = cx + dx * tile * 0.34f;
-        float tipY = cy + dy * tile * 0.34f;
-        float baseX = cx + dx * tile * 0.14f;
-        float baseY = cy + dy * tile * 0.14f;
-        float halfWidth = tile * 0.13f;
+        float tipX = cx + dx * tile * reach;
+        float tipY = cy + dy * tile * reach;
+        float baseX = cx + dx * tile * base;
+        float baseY = cy + dy * tile * base;
 
         shapes.triangle(
                 tipX, tipY,
@@ -280,11 +334,12 @@ final class OverlayRenderer {
         float tile = GfxConfig.TILE;
         float footprintW = tile * prototype.footprintWidth();
         float footprintH = tile * prototype.footprintHeight();
+        int fhCells = prototype.footprintHeight();
         TextureRegion region = textures.forSprite(prototype.texture());
         batch.begin();
         batch.setColor(1f, 1f, 1f, 0.55f);
         for (TilePos t : tiles) {
-            batch.draw(region, grid.x(t.x()), grid.yBottom(t.y()), footprintW, footprintH);
+            batch.draw(region, grid.x(t.x()), grid.yFootprintBottom(t.y(), fhCells), footprintW, footprintH);
         }
         batch.setColor(Color.WHITE);
         if (!dragging) {
@@ -292,7 +347,8 @@ final class OverlayRenderer {
             if (!(canPlaceHere(world, prototype, t.x(), t.y()) && afford[0])) {
                 font.getData().setScale(0.6f);
                 font.setColor(Palette.GHOST_INVALID);
-                font.draw(batch, reasonInvalid(world, prototype, t.x(), t.y()), grid.x(t.x()), grid.yBottom(t.y()) + footprintH + 14f);
+                font.draw(batch, reasonInvalid(world, prototype, t.x(), t.y()), grid.x(t.x()),
+                        grid.yFootprintBottom(t.y(), fhCells) + footprintH + 14f);
                 font.getData().setScale(1f);
                 font.setColor(Color.WHITE);
             }
@@ -304,7 +360,7 @@ final class OverlayRenderer {
             TilePos t = tiles.get(i);
             shapes.setColor(canPlaceHere(world, prototype, t.x(), t.y()) && afford[i]
                     ? Palette.GHOST_VALID : Palette.GHOST_INVALID);
-            shapes.rect(grid.x(t.x()), grid.yBottom(t.y()), footprintW, footprintH);
+            shapes.rect(grid.x(t.x()), grid.yFootprintBottom(t.y(), fhCells), footprintW, footprintH);
         }
         shapes.end();
     }

@@ -1,0 +1,12 @@
+{
+  "path": "base_former",
+  "category": "production",
+  "label": { "en": "Base former", "ru": "Штамп цоколя" },
+  "archetype": "PRESS",
+  "cost": { "item": "rustorio:iron_plate", "amount": 5 },
+  "placement": "NEEDS_PASSABLE_TERRAIN",
+  "texture": "rustorio:assembler",
+  "bufferMax": 5,
+  "speedMultiplier": 1,
+  "acceptsSpeedEffects": true
+}

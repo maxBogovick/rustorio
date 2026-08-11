@@ -291,10 +291,10 @@ final class SimulationControls {
             boolean altOverlay, ItemType statsItem, List<ContentId> hotbarSlots, @Nullable String statusMessage,
             @Nullable SettingsModalView settingsModal, int activeCategoryIndex,
             @Nullable ContentId hoveredPrototype, DisplayLabels displayLabels,
-            @Nullable PageView pageView) {
+            @Nullable PageView pageView, @Nullable ItemType selectedInventoryItem) {
         return new HudState(selected, facing, paused, speed(), showRecipeBook(), showTechTree(), dragTiles, inspected,
                 altOverlay, showStats(), statsItem, hotbarSlots, showBuildMenu(), searchQuery.toString(), categoryCycle,
                 scrollOffsetRows, statusMessage, showInfo(), showHints, showFpsUps, settingsModal,
-                activeCategoryIndex, hoveredPrototype, displayLabels, pageView);
+                activeCategoryIndex, hoveredPrototype, displayLabels, pageView, selectedInventoryItem);
     }
 }

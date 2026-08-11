@@ -1,0 +1,6 @@
+{
+  "path": "wire",
+  "label": { "en": "Wire", "ru": "Проволока" },
+  "colorRgb": "#B87333",
+  "shape": "TRIANGLE"
+}

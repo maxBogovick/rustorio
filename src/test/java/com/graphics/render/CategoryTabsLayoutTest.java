@@ -96,11 +96,11 @@ class CategoryTabsLayoutTest {
 
     @Test
     void iconsAreCutAtTheWindowEdgeRatherThanShrunkToFit() {
-        // Exactly enough for three: three icons, the two gaps BETWEEN them, and the right padding.
-        // Not three icon-plus-gap units — the trailing gap does not exist, and getting that wrong
-        // is an off-by-one that shows up as a clipped icon rather than as an exception.
+        // Exactly enough for three icons after the inventory panel's reserved right margin:
+        // three icons, the two gaps BETWEEN them, and the right padding before the inventory gap.
         int widthForThree = (int) (CategoryTabsLayout.LEFT
-                + 3 * CategoryTabsLayout.ICON_SIZE + 2 * CategoryTabsLayout.ICON_GAP + 8f);
+                + 3 * CategoryTabsLayout.ICON_SIZE + 2 * CategoryTabsLayout.ICON_GAP + 8f
+                + InventoryPanelLayout.reservedWidth());
         assertEquals(3, CategoryTabsLayout.visibleIcons(widthForThree, 8),
                 "only what fits is drawn — shrinking icons is how the old strip became unreadable");
         assertEquals(2, CategoryTabsLayout.visibleIcons(widthForThree - 1, 8),

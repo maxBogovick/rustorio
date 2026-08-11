@@ -98,6 +98,10 @@ final class Palette {
     // Стрелка направления поверх здания (см. OverlayRenderer) — яркая и нейтральная, чтобы
     // читаться на любом спрайте под ней, а не сливаться с конкретным цветом конкретного здания.
     static final Color DIRECTION_ARROW = new Color(1f, 1f, 1f, 0.85f);
+    /** OUT port on a machine's facing edge — amber, same family as WORKING, reads as "product leaves here". */
+    static final Color PORT_OUT = new Color(0.95f, 0.75f, 0.25f, 0.95f);
+    /** IN port on the other edges — cool teal, distinct from OUT so a 2×2 assembler stops looking symmetric. */
+    static final Color PORT_IN = new Color(0.45f, 0.78f, 0.88f, 0.9f);
 
     /** Memoizes {@link #itemColor} by packed rgb int — see that method's own javadoc for why. */
     private static final Map<Integer, Color> ITEM_COLORS = new HashMap<>();

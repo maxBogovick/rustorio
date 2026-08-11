@@ -64,7 +64,10 @@ class ContentCouplingRatchetTest {
     // texture.
     // 11 -> 6: Chest/Furnace/UndergroundBelt/Filter/Splitter inspection text moved onto
     // InspectableBuilding; InspectionPanelLayout no longer names those five concrete classes.
-    private static final int BUILDING_INSTANCEOF_BASELINE = 6;
+    // 6 -> 8: DepositChestAction (inventory → chest) mirrors GrabChestAction's two Chest
+    // instanceof sites — the hand-deposit half of the always-on inventory panel. Not a new
+    // content branch: the same concrete buffer Grab already names.
+    private static final int BUILDING_INSTANCEOF_BASELINE = 8;
 
     /**
      * A flat prohibition, not a baseline. Both of these counts reached zero (see the history above),

@@ -1,0 +1,6 @@
+{
+  "ingredients": ["glass", "filament", "bulb_base"],
+  "output": "lightbulb",
+  "time": 12,
+  "kind": "ASSEMBLER"
+}

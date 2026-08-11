@@ -9,6 +9,7 @@ import com.graphics.render.DisplayLabels;
 import com.graphics.render.GameCamera;
 import com.graphics.render.HudState;
 import com.graphics.render.InspectionPanelLayout;
+import com.graphics.render.InventoryPanelLayout;
 import com.graphics.render.PageView;
 import com.graphics.render.PageViewLayout;
 import com.graphics.render.QuickBarLayout;
@@ -23,6 +24,7 @@ import com.rustorio.api.content.model.TechType;
 import com.rustorio.api.content.vanilla.VanillaItems;
 import com.rustorio.domain.action.ActionHistory;
 import com.rustorio.domain.action.CompositeAction;
+import com.rustorio.domain.action.DepositChestAction;
 import com.rustorio.domain.action.GrabChestAction;
 import com.rustorio.domain.action.PlaceAction;
 import com.rustorio.domain.action.PlayerAction;
@@ -81,6 +83,12 @@ public final class InputHandler {
     private final UiSettings uiSettings;
     private ContentId selected; // строим это; клавиши 1-9/клик по хотбару меняют
     private Direction facing = Direction.RIGHT; // важно только ленте; клавиша R меняет
+    /**
+     * Stack highlighted in the always-on inventory panel — null means none. Deposit (E / click a
+     * chest) moves this kind into a chest; picking a building to place does not clear it, so a
+     * player can keep a hand stack while rearranging the factory.
+     */
+    private @Nullable ItemType selectedInventoryItem;
     /** Клетка под панелью инспекции (F-03, DEV_TASKS.md) — {@code null}, пока ничего не открыто. */
     private @Nullable TilePos inspected;
     /**
@@ -164,7 +172,7 @@ public final class InputHandler {
         boolean altOverlay = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
         return simulationControls.hudState(selected, facing, buildDrag.inProgressTiles(), inspected, altOverlay,
                 statsItem, quickBar.slots(), statusMessage, settingsModal.view(), activeCategoryIndex,
-                hoveredPrototype(), displayLabels, pageView);
+                hoveredPrototype(), displayLabels, pageView, selectedInventoryItem);
     }
 
     public void handle(World world, float delta) {
@@ -195,6 +203,7 @@ public final class InputHandler {
         } else {
             handleBuildSelection();
             handleHotbarClick();
+            handleInventoryClick(world);
         }
         // C3 (live bug report): the recipe book / tech tree / stats panels render OVER the middle
         // of the world viewport, exactly the zone GameCamera#pickTile still happily maps clicks
@@ -255,6 +264,10 @@ public final class InputHandler {
                 // связанными хранилищами — тихий no-op, если под курсором не ящик или ящик пуст.
                 TilePos tile = camera.pickTile(Gdx.input.getX(), Gdx.input.getY());
                 history.perform(world, new GrabChestAction(tile.x(), tile.y()));
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
+                // Положить выбранный в панели инвентаря стек в ящик под курсором — обратная сторона G.
+                depositSelectedIntoChestUnderCursor(world);
             }
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) && viewedPage != null) {
@@ -376,6 +389,40 @@ public final class InputHandler {
             return;
         }
         handleCategoryPanelClick();
+    }
+
+    /**
+     * ЛКМ по слоту инвентаря выбирает стек для переноса в ящик (повторный клик снимает выбор).
+     * Клик по пустой ячейке сетки ничего не делает — мир под панелью всё равно закрыт нижней полосой.
+     */
+    private void handleInventoryClick(World world) {
+        if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            return;
+        }
+        int screenW = Gdx.graphics.getWidth();
+        int screenH = Gdx.graphics.getHeight();
+        List<ItemType> stacks = InventoryPanelLayout.visibleStacks(
+                world.buildingFactory().items(), world.inventory());
+        int rows = InventoryPanelLayout.visibleRowsFor(stacks.size());
+        int cell = InventoryPanelLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, rows);
+        if (cell < 0 || cell >= stacks.size()) {
+            return;
+        }
+        ItemType clicked = stacks.get(cell);
+        selectedInventoryItem = clicked.equals(selectedInventoryItem) ? null : clicked;
+    }
+
+    private void depositSelectedIntoChestUnderCursor(World world) {
+        ItemType hand = selectedInventoryItem;
+        if (hand == null || world.inventory().amount(hand) <= 0) {
+            selectedInventoryItem = null;
+            return;
+        }
+        TilePos tile = camera.pickTile(Gdx.input.getX(), Gdx.input.getY());
+        history.perform(world, new DepositChestAction(tile.x(), tile.y(), hand));
+        if (world.inventory().amount(hand) <= 0) {
+            selectedInventoryItem = null;
+        }
     }
 
     /**
@@ -604,13 +651,25 @@ public final class InputHandler {
         }
         int screenW = Gdx.graphics.getWidth();
         int screenH = Gdx.graphics.getHeight();
+        List<ItemType> stacks = InventoryPanelLayout.visibleStacks(
+                world.buildingFactory().items(), world.inventory());
+        int invRows = InventoryPanelLayout.visibleRowsFor(stacks.size());
         if (QuickBarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(), screenH,
                 QuickBarLayout.COLUMNS, quickBar.visibleRows()) >= 0
+                || InventoryPanelLayout.contains(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, invRows)
                 || !cursorOverWorld(screenH)) {
-            return; // клик по хотбару или по одной из HUD-полос — не по карте
+            return; // клик по хотбару, инвентарю или HUD-полосе — не по карте
         }
         TilePos tile = camera.pickTile(Gdx.input.getX(), Gdx.input.getY());
         Optional<Building> building = world.peek(tile.x(), tile.y());
+        // Стек в руке + клик по миру: сначала пробуем положить в ящик под курсором. Успех или
+        // промах по ящику — клик всё равно «занят» рукой, чтобы не открыть инспекцию поверх
+        // намерения перенести предметы (и чтобы не плодить instanceof Chest в InputHandler —
+        // это храповик ContentCouplingRatchetTest).
+        if (selectedInventoryItem != null) {
+            depositSelectedIntoChestUnderCursor(world);
+            return;
+        }
         if (building.isPresent() && building.get() instanceof EditableBuilding) {
             settingsModal.openIfEditable(building.get(),
                     world.buildingFactory().prototype(building.get().prototypeId()).label(),

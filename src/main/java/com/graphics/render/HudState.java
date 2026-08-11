@@ -65,5 +65,5 @@ public record HudState(ContentId selected, Direction facing, boolean paused, int
         String buildMenuQuery, int buildMenuCategoryCycle, int buildMenuScrollOffset, @Nullable String statusMessage,
         boolean showInfo, boolean showHints, boolean showFpsUps, @Nullable SettingsModalView settingsModal,
         int activeCategoryIndex, @Nullable ContentId hoveredPrototype, DisplayLabels displayLabels,
-        @Nullable PageView pageView) {
+        @Nullable PageView pageView, @Nullable ItemType selectedInventoryItem) {
 }

@@ -1,0 +1,6 @@
+{
+  "path": "filament",
+  "label": { "en": "Filament", "ru": "Нить накала" },
+  "colorRgb": "#E8C070",
+  "shape": "TRIANGLE"
+}

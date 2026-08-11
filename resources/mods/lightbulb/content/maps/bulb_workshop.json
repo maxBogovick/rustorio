@@ -1,0 +1,15 @@
+{
+  "path": "bulb_workshop",
+  "label": { "en": "Bulb workshop", "ru": "Цех лампочек" },
+  "orePatches": [
+    { "ore": "sand", "cx": 16, "cy": 20, "radius": 6 },
+    { "ore": "rustorio:iron_ore", "cx": 28, "cy": 14, "radius": 6 },
+    { "ore": "rustorio:iron_ore", "cx": 34, "cy": 18, "radius": 4 },
+    { "ore": "rustorio:bronze_ore", "cx": 40, "cy": 22, "radius": 6 },
+    { "ore": "rustorio:coal", "cx": 22, "cy": 32, "radius": 5 },
+    { "ore": "rustorio:coal", "cx": 30, "cy": 36, "radius": 4 }
+  ],
+  "terrainPatches": [
+    { "terrain": "WATER", "cx": 42, "cy": 34, "radius": 6 }
+  ]
+}
