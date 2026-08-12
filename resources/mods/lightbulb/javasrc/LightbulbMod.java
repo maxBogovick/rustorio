@@ -15,7 +15,9 @@ import com.rustorio.domain.building.Traits;
 import com.rustorio.domain.building.VanillaCategories;
 import com.rustorio.domain.building.VanillaPlacementRules;
 import com.rustorio.domain.building.VanillaTraits;
+import com.rustorio.domain.building.VisibilityRule;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -82,6 +84,10 @@ public final class LightbulbMod implements RustorioMod {
         Map<TraitKey<?>, Object> traits = new LinkedHashMap<>();
         traits.put(VanillaTraits.POWER, PowerSpec.consumer(POWER_DEMAND));
         traits.put(VanillaCategories.CATEGORY, VanillaCategories.POWER);
+        ContentId pole = ContentId.of("rustorio:pole");
+        traits.put(VanillaTraits.VISIBLE_WHEN, new VisibilityRule.All(List.of(
+                new VisibilityRule.Produced(LIGHTBULB_ITEM),
+                new VisibilityRule.Placed(pole))));
         return traits;
     }
 }

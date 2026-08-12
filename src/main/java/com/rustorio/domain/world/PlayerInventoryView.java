@@ -1,6 +1,7 @@
 package com.rustorio.domain.world;
 
 import com.rustorio.api.content.model.ItemType;
+import com.rustorio.domain.AffordabilityContext;
 
 /**
  * Read-only face of {@link PlayerInventory} — {@code World.inventory()} returns this, not {@code
@@ -8,7 +9,7 @@ import com.rustorio.api.content.model.ItemType;
  * {@code ResearchView}: a HUD panel holding this can read what the player has, but has no way to
  * grant or spend resources just because it holds a reference.
  */
-public interface PlayerInventoryView {
+public interface PlayerInventoryView extends AffordabilityContext {
 
     /** How many of {@code item} the player currently has — {@code 0} if none. */
     int amount(ItemType item);

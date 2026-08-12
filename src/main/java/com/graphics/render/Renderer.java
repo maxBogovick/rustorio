@@ -146,7 +146,8 @@ public final class Renderer implements Disposable {
         // 9. меню построек — поверх всего, только если игрок открыл его (B).
         if (hud.showBuildMenu()) {
             buildMenuRenderer.render(world.buildingFactory().buildings(), hud.selected(), hud.buildMenuQuery(),
-                    hud.buildMenuCategoryCycle(), hud.buildMenuScrollOffset());
+                    hud.buildMenuCategoryCycle(), hud.buildMenuScrollOffset(), world.visibilityContext(),
+                    world.inventory());
         }
         // 10. экран Info — поверх всего, только если игрок открыл его (I): produced/inventory/
         // research/recent/полный список алертов, которые верхняя полоса больше не держит постоянно.

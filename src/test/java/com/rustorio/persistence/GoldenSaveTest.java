@@ -49,7 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GoldenSaveTest {
 
     /** Checked-in save written by an earlier build; regenerated only through the property below. */
-    private static final Path FIXTURE = Path.of("src", "test", "resources", "saves", "world-v9.json");
+    private static final Path FIXTURE = Path.of("src", "test", "resources", "saves", "world-v10.json");
 
     /**
      * An environment variable, not a system property: Gradle forks the test JVM, so a

@@ -34,13 +34,15 @@ import com.rustorio.domain.action.UpgradeSpeedAction;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingImage;
 import com.rustorio.domain.building.BuildingPrototype;
+import com.rustorio.domain.world.BuildingVisibilityContext;
+import com.rustorio.domain.world.PlayerInventoryView;
+import com.rustorio.domain.world.World;
 import com.rustorio.domain.building.EditableBuilding;
 import com.rustorio.domain.building.Filter;
 import com.rustorio.domain.building.Furnace;
 import com.rustorio.domain.building.RecipeSelectable;
 import com.rustorio.domain.building.VanillaBuildings;
 import com.rustorio.domain.building.ViewableBuilding;
-import com.rustorio.domain.world.World;
 import com.rustorio.persistence.SaveRepository;
 import com.rustorio.persistence.SaveResult;
 import com.rustorio.persistence.UiSettings;
@@ -168,11 +170,11 @@ public final class InputHandler {
      * удержан ли Alt для F-04 + графикуемый предмет для P-03 + хотбар-слоты для Фазы 8) плюс то,
      * что знает {@link SimulationControls}.
      */
-    public HudState hudState() {
+    public HudState hudState(World world) {
         boolean altOverlay = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
         return simulationControls.hudState(selected, facing, buildDrag.inProgressTiles(), inspected, altOverlay,
                 statsItem, quickBar.slots(), statusMessage, settingsModal.view(), activeCategoryIndex,
-                hoveredPrototype(), displayLabels, pageView, selectedInventoryItem);
+                hoveredPrototype(world), displayLabels, pageView, selectedInventoryItem);
     }
 
     public void handle(World world, float delta) {
@@ -201,8 +203,8 @@ public final class InputHandler {
             // оба сразу.
             handleTechSelection(world);
         } else {
-            handleBuildSelection();
-            handleHotbarClick();
+            handleBuildSelection(world);
+            handleHotbarClick(world);
             handleInventoryClick(world);
         }
         // C3 (live bug report): the recipe book / tech tree / stats panels render OVER the middle
@@ -373,7 +375,7 @@ public final class InputHandler {
      * закрывает панель навсегда, и сообщение «полна» становится тупиком. Момент нажатия, не
      * «зажато» (см. {@link DragCollector}).
      */
-    private void handleHotbarClick() {
+    private void handleHotbarClick(World world) {
         int cell = QuickBarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(),
                 Gdx.graphics.getHeight(), QuickBarLayout.COLUMNS, quickBar.visibleRows());
         if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT) && quickBar.at(cell).isPresent()) {
@@ -385,10 +387,13 @@ public final class InputHandler {
             return;
         }
         if (quickBar.at(cell).isPresent()) {
-            quickBar.at(cell).ifPresent(pinned -> selected = pinned);
+            ContentId pinned = quickBar.at(cell).orElseThrow();
+            if (canSelectBuilding(pinned, world)) {
+                selected = pinned;
+            }
             return;
         }
-        handleCategoryPanelClick();
+        handleCategoryPanelClick(world);
     }
 
     /**
@@ -455,7 +460,10 @@ public final class InputHandler {
         }
         int tile = BuildMenuLayout.hitTestTile(Gdx.input.getX(), Gdx.input.getY(), screenW, screenH, visible.size());
         if (tile >= 0) {
-            pinSelectedIntoHotbar(visible.get(tile).id());
+            BuildingPrototype picked = visible.get(tile);
+            if (canSelectBuilding(picked, world)) {
+                pinSelectedIntoHotbar(picked.id());
+            }
         }
     }
 
@@ -518,14 +526,16 @@ public final class InputHandler {
      * {@code null}, если ни то ни другое. Читается каждый кадр для всплывающей подсказки: два
      * попадания-теста по прямоугольникам, без аллокаций и без обхода мира.
      */
-    private @Nullable ContentId hoveredPrototype() {
+    private @Nullable ContentId hoveredPrototype(World world) {
+        BuildingVisibilityContext visibility = world.visibilityContext();
         int screenH = Gdx.graphics.getHeight();
         int cell = QuickBarLayout.hitTest(Gdx.input.getX(), Gdx.input.getY(), screenH,
                 QuickBarLayout.COLUMNS, quickBar.visibleRows());
         if (quickBar.at(cell).isPresent()) {
             return quickBar.at(cell).orElseThrow();
         }
-        Map<ContentId, List<BuildingPrototype>> grouped = CategoryTabsLayout.byCategory(buildings.iterate());
+        List<BuildingPrototype> available = BuildMenuLayout.filterAvailable(buildings.iterate(), visibility);
+        Map<ContentId, List<BuildingPrototype>> grouped = CategoryTabsLayout.byCategory(available);
         if (grouped.isEmpty()) {
             return null;
         }
@@ -545,10 +555,11 @@ public final class InputHandler {
      * здание в быстрой панели и берёт в руку — по решению владельца это единственный способ туда
      * что-то положить, поэтому одного клика достаточно и второго жеста нет.
      */
-    private void handleCategoryPanelClick() {
+    private void handleCategoryPanelClick(World world) {
         int screenH = Gdx.graphics.getHeight();
-        List<BuildingPrototype> all = buildings.iterate();
-        Map<ContentId, List<BuildingPrototype>> grouped = CategoryTabsLayout.byCategory(all);
+        BuildingVisibilityContext visibility = world.visibilityContext();
+        List<BuildingPrototype> available = BuildMenuLayout.filterAvailable(buildings.iterate(), visibility);
+        Map<ContentId, List<BuildingPrototype>> grouped = CategoryTabsLayout.byCategory(available);
         if (grouped.isEmpty()) {
             return;
         }
@@ -568,7 +579,10 @@ public final class InputHandler {
         int visible = CategoryTabsLayout.visibleIcons(Gdx.graphics.getWidth(), shown.size());
         int icon = CategoryTabsLayout.hitTestIcon(Gdx.input.getX(), Gdx.input.getY(), screenH, visible);
         if (icon >= 0) {
-            pinSelectedIntoHotbar(shown.get(icon).id());
+            BuildingPrototype picked = shown.get(icon);
+            if (canSelectBuilding(picked, world)) {
+                pinSelectedIntoHotbar(picked.id());
+            }
         }
     }
 
@@ -732,13 +746,25 @@ public final class InputHandler {
      * Ограничено девятью (P4-08, BUG_FIX_PROGRESS.md) — {@code NUM_1..NUM_9} в libGDX кончаются на
      * девятой клавише; десятый и далее слоты выбираются только мышью по хотбару.
      */
-    private void handleBuildSelection() {
+    private void handleBuildSelection(World world) {
         for (int i = 0; i < QuickBarLayout.MAX_CELLS; i++) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1 + i)) {
                 int cell = i;
-                quickBar.at(cell).ifPresent(pinned -> selected = pinned);
+                quickBar.at(cell).ifPresent(pinned -> {
+                    if (canSelectBuilding(pinned, world)) {
+                        selected = pinned;
+                    }
+                });
             }
         }
+    }
+
+    private boolean canSelectBuilding(BuildingPrototype prototype, World world) {
+        return BuildMenuLayout.canSelect(prototype, world.visibilityContext(), world.inventory());
+    }
+
+    private boolean canSelectBuilding(ContentId prototypeId, World world) {
+        return canSelectBuilding(buildings.get(prototypeId), world);
     }
 
     /**

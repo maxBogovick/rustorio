@@ -50,7 +50,9 @@ final class ModBuildingApiAllowlist {
             PKG + "VanillaCategories",
             PKG + "VanillaPlacementRules",
             PKG + "VanillaTraits",
-            PKG + "ViewableBuilding");
+            PKG + "ViewableBuilding",
+            PKG + "VisibilityReferenceCheck",
+            PKG + "VisibilityRule");
 
     private ModBuildingApiAllowlist() {
     }

@@ -8,7 +8,10 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.rustorio.api.content.ContentId;
 import com.rustorio.api.registry.Registry;
+import com.rustorio.domain.AffordabilityContext;
+import com.rustorio.domain.VisibilityContext;
 import com.rustorio.domain.building.BuildingPrototype;
+import com.rustorio.mod.ContentLocale;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -43,7 +46,7 @@ final class BuildMenuRenderer {
     }
 
     void render(Registry<BuildingPrototype> buildings, ContentId selected, String query, int categoryCycle,
-            int scrollOffset) {
+            int scrollOffset, VisibilityContext visibility, AffordabilityContext inventory) {
         List<BuildingPrototype> all = buildings.iterate();
         List<String> categories = BuildMenuLayout.categories(all);
         int tabCount = categories.size() + 1;
@@ -99,14 +102,23 @@ final class BuildMenuRenderer {
         for (int i = 0; i < visible.size(); i++) {
             int row = i / BuildMenuLayout.COLUMNS;
             int col = i % BuildMenuLayout.COLUMNS;
-            boolean isSelected = visible.get(i).id().equals(selected);
+            BuildingPrototype prototype = visible.get(i);
+            boolean selectable = BuildMenuLayout.canSelect(prototype, visibility, inventory);
+            boolean isSelected = prototype.id().equals(selected);
             boolean isHovered = i == hoveredIndex;
             float x = BuildMenuLayout.tileX(col, panelX);
             float y = BuildMenuLayout.tileY(panelY, panelH, row);
-            shapes.setColor(isSelected ? Palette.SLOT_SELECTED : isHovered ? Palette.TILE_HOVER : Palette.SLOT_BORDER);
+            shapes.setColor(isSelected ? Palette.SLOT_SELECTED
+                    : isHovered && selectable ? Palette.TILE_HOVER : Palette.SLOT_BORDER);
             shapes.rect(x, y, BuildMenuLayout.TILE_SIZE, BuildMenuLayout.TILE_SIZE);
             if (isSelected) {
                 shapes.rect(x + 1, y + 1, BuildMenuLayout.TILE_SIZE - 2, BuildMenuLayout.TILE_SIZE - 2);
+            }
+            if (!selectable) {
+                shapes.setColor(Palette.HINT);
+                float lockSize = 8f;
+                shapes.rect(x + BuildMenuLayout.TILE_SIZE - lockSize - 3f, y + BuildMenuLayout.TILE_SIZE - lockSize - 3f,
+                        lockSize, lockSize);
             }
         }
         shapes.end();
@@ -143,8 +155,13 @@ final class BuildMenuRenderer {
             float x = BuildMenuLayout.tileX(col, panelX);
             float y = BuildMenuLayout.tileY(panelY, panelH, row);
             TextureRegion icon = textures.forSprite(prototype.texture());
-            font.setColor(Color.WHITE);
+            boolean selectable = BuildMenuLayout.canSelect(prototype, visibility, inventory);
+            font.setColor(selectable ? Color.WHITE : Palette.HINT);
+            if (!selectable) {
+                batch.setColor(1f, 1f, 1f, 0.35f);
+            }
             batch.draw(icon, x + (BuildMenuLayout.TILE_SIZE - iconSize) / 2f, y + labelReserve + iconPad, iconSize, iconSize);
+            batch.setColor(Color.WHITE);
             font.setColor(prototype.id().equals(selected) ? Palette.SLOT_SELECTED : Palette.HINT);
             font.draw(batch, prototype.label(), x + 3f, y + 11f);
         }
@@ -152,8 +169,15 @@ final class BuildMenuRenderer {
         font.getData().setScale(0.7f);
         font.setColor(Palette.HINT);
         BuildingPrototype detail = hoveredIndex >= 0 ? visible.get(hoveredIndex) : equipped(all, selected);
-        String detailText = detail == null ? "Hover or click a building" : detail.label() + "   (" + detail.id() + ")   cost: "
-                + detail.cost().amount() + " " + detail.cost().item().label();
+        String detailText;
+        if (detail == null) {
+            detailText = "Hover or click a building";
+        } else if (!BuildMenuLayout.canSelect(detail, visibility, inventory)) {
+            detailText = BuildMenuLayout.selectionBlockDetail(detail, visibility, inventory, ContentLocale.current());
+        } else {
+            detailText = detail.label() + "   (" + detail.id() + ")   cost: "
+                    + detail.cost().amount() + " " + detail.cost().item().label();
+        }
         font.draw(batch, detailText, panelX + BuildMenuLayout.PADDING, panelY + BuildMenuLayout.DETAIL_HEIGHT);
 
         font.getData().setScale(1f);

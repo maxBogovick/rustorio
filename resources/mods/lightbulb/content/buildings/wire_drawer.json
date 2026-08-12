@@ -1,12 +1,21 @@
 {
   "path": "wire_drawer",
   "category": "production",
-  "label": { "en": "Wire drawer", "ru": "Волочильный стан" },
+  "label": {
+    "en": "Wire drawer",
+    "ru": "Волочильный стан"
+  },
   "archetype": "PRESS",
-  "cost": { "item": "rustorio:iron_plate", "amount": 5 },
+  "cost": {
+    "item": "rustorio:iron_plate",
+    "amount": 5
+  },
   "placement": "NEEDS_PASSABLE_TERRAIN",
   "texture": "rustorio:assembler",
   "bufferMax": 5,
   "speedMultiplier": 1,
-  "acceptsSpeedEffects": true
+  "acceptsSpeedEffects": true,
+  "visibleWhen": {
+    "produced": "rustorio:bronze_plate"
+  }
 }

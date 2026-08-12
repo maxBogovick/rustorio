@@ -341,6 +341,9 @@ tasks.register('apiJar', Jar) {
         include 'com/rustorio/domain/building/VanillaTraits.class'
         include 'com/rustorio/domain/building/VanillaTraits$*.class'
         include 'com/rustorio/domain/building/ViewableBuilding.class'
+        include 'com/rustorio/domain/building/VisibilityReferenceCheck.class'
+        include 'com/rustorio/domain/building/VisibilityRule.class'
+        include 'com/rustorio/domain/building/VisibilityRule$*.class'
     }
 }
 

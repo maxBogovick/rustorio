@@ -375,6 +375,7 @@ public final class ModLoader {
                         + "' doesn't match any BuildingType, registered kind, or building id — check for a typo",
                         owner);
             }
+            VisibilityRuleValidator.validate(prototype, items, buildings, techs, techEffects);
         }
     }
 

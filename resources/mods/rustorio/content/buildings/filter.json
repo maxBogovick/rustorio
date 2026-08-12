@@ -1,10 +1,19 @@
 {
   "path": "filter",
   "category": "logistics",
-  "label": { "en": "Filter", "ru": "Фильтр" },
+  "label": {
+    "en": "Filter",
+    "ru": "Фильтр"
+  },
   "archetype": "FILTER",
-  "cost": { "item": "iron_plate", "amount": 3 },
+  "cost": {
+    "item": "iron_plate",
+    "amount": 3
+  },
   "placement": "NEEDS_PASSABLE_TERRAIN",
   "texture": "rustorio:filter",
-  "acceptsSpeedEffects": false
+  "acceptsSpeedEffects": false,
+  "visibleWhen": {
+    "produced": "iron_plate"
+  }
 }

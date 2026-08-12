@@ -1,11 +1,22 @@
 {
   "path": "electric_miner",
   "category": "mining",
-  "label": { "en": "El. miner", "ru": "Электробур" },
+  "label": {
+    "en": "El. miner",
+    "ru": "Электробур"
+  },
   "archetype": "ELECTRIC_MINER",
-  "cost": { "item": "gear", "amount": 5 },
+  "cost": {
+    "item": "gear",
+    "amount": 5
+  },
   "placement": "NEEDS_ORE",
   "texture": "rustorio:electric_miner",
-  "power": { "demand": 10 },
-  "acceptsSpeedEffects": true
+  "power": {
+    "demand": 10
+  },
+  "acceptsSpeedEffects": true,
+  "visibleWhen": {
+    "placed": "generator"
+  }
 }

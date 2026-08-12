@@ -1,10 +1,16 @@
 package com.graphics.render;
 
 import com.rustorio.api.content.ContentId;
+import com.rustorio.api.content.vanilla.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaTechs;
 import com.rustorio.domain.BuildingType;
+import com.rustorio.domain.Research;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.VanillaBuildings;
+import com.rustorio.domain.world.BuildingVisibilityContext;
+import com.rustorio.domain.world.ProductionStats;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
@@ -194,6 +200,23 @@ class BuildMenuLayoutTest {
 
         assertEquals(1, BuildMenuLayout.hitTestTab(tabScreenX, screenH - tabsHudY, screenW, screenH, visibleCount, tabCount));
         assertEquals(-1, BuildMenuLayout.hitTestTab(tabScreenX, screenH, screenW, screenH, visibleCount, tabCount), "bottom of the screen, below the tabs row");
+    }
+
+    @Test
+    void canSelectRequiresAffordableInventory() {
+        BuildingPrototype belt = prototypeFor(BuildingType.BELT);
+        BuildingVisibilityContext context = BuildingVisibilityContext.of(
+                new ProductionStats(),
+                new Research(VanillaTechs.frozen()),
+                Set.of(),
+                VanillaItems.frozen(),
+                VanillaBuildings.frozen(),
+                VanillaTechs.frozen());
+
+        assertFalse(BuildMenuLayout.canSelect(belt, context, item -> 0));
+        int cost = belt.cost().amount();
+        assertTrue(BuildMenuLayout.canSelect(belt, context,
+                item -> item.equals(belt.cost().item()) ? cost : 0));
     }
 
     @Test

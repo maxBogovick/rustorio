@@ -1,14 +1,23 @@
 {
   "path": "assembler",
   "category": "production",
-  "label": { "en": "Assembler", "ru": "Сборщик" },
+  "label": {
+    "en": "Assembler",
+    "ru": "Сборщик"
+  },
   "archetype": "ASSEMBLER",
   "footprintWidth": 2,
   "footprintHeight": 2,
-  "cost": { "item": "gear", "amount": 15 },
+  "cost": {
+    "item": "gear",
+    "amount": 15
+  },
   "placement": "NEEDS_PASSABLE_TERRAIN",
   "texture": "rustorio:assembler",
   "bufferMax": 5,
   "speedMultiplier": 1,
-  "acceptsSpeedEffects": true
+  "acceptsSpeedEffects": true,
+  "visibleWhen": {
+    "produced": "mechanism"
+  }
 }

@@ -250,7 +250,7 @@ public final class GameScreen extends ScreenAdapter {
             upsTimer -= 1f;
         }
         // 3. рендер: карта + HUD (+ паузa-меню поверх всего, если открыто)
-        renderer.render(world, input.hudState(), productionLog, lastUps, pauseMenu.isOpen() ? pauseMenu.view() : null);
+        renderer.render(world, input.hudState(world), productionLog, lastUps, pauseMenu.isOpen() ? pauseMenu.view() : null);
     }
 
     @Override

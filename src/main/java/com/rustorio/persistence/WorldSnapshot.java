@@ -1,5 +1,6 @@
 package com.rustorio.persistence;
 
+import com.rustorio.api.content.ContentId;
 import com.rustorio.api.content.model.ItemType;
 import com.rustorio.domain.OreLayoutId;
 import com.rustorio.domain.Research;
@@ -99,6 +100,10 @@ import org.jspecify.annotations.Nullable;
  * instead of enum names. An old save's {@code "FAST_MINING"} string cannot be read as an id
  * without knowing which mod would have owned it, which is exactly the "reject the whole snapshot"
  * case rather than something a default could paper over.
+ *
+ * <p><b>Bumped a tenth time</b> — {@code placedPrototypes}, the set of building prototype ids the
+ * player has ever placed, so {@code VisibilityRule.Placed} gates survive demolition and reload.
+ * A pre-bump save has no such field and cannot be interpreted without guessing.
  */
 record WorldSnapshot(
         int version,
@@ -108,8 +113,9 @@ record WorldSnapshot(
         @Nullable OreLayoutId oreLayout,
         Map<ItemType, Integer> inventory,
         Map<Integer, Integer> oreDepletion,
-        long tickCount) {
+        long tickCount,
+        List<ContentId> placedPrototypes) {
 
     /** Bump this whenever the save format changes — see the class javadoc's bump history. */
-    static final int CURRENT_VERSION = 9;
+    static final int CURRENT_VERSION = 10;
 }

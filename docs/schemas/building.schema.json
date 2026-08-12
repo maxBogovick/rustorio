@@ -174,6 +174,71 @@
       "type": "string",
       "pattern": "^([a-z0-9_]+:)?[a-z0-9_]+$",
       "description": "Which technology, once unlocked, halves this building's timing. MINER/ELECTRIC_MINER-, FURNACE/PRESS/ASSEMBLER- and LAB-archetype only. Omit to inherit the archetype's own vanilla gate (e.g. a JSON FURNACE still speeds up under fast_smelting); name a technology (including one this mod defines) to replace it outright."
+    },
+    "visibleWhen": {
+      "description": "When this building appears in the HUD and may be placed. Absent means always available. Leaf keys: produced (item), placed (building id), unlocked (tech), effect (tech effect id). Combinators: any, all — each holds an array of nested rules.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "produced": { "type": "string" }
+          },
+          "required": ["produced"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "placed": { "type": "string" }
+          },
+          "required": ["placed"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "unlocked": { "type": "string" }
+          },
+          "required": ["unlocked"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "effect": { "type": "string" }
+          },
+          "required": ["effect"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "any": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/visibilityRule" } }
+          },
+          "required": ["any"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "all": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/visibilityRule" } }
+          },
+          "required": ["all"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "visibilityRule": {
+      "oneOf": [
+        { "type": "object", "properties": { "produced": { "type": "string" } }, "required": ["produced"], "additionalProperties": false },
+        { "type": "object", "properties": { "placed": { "type": "string" } }, "required": ["placed"], "additionalProperties": false },
+        { "type": "object", "properties": { "unlocked": { "type": "string" } }, "required": ["unlocked"], "additionalProperties": false },
+        { "type": "object", "properties": { "effect": { "type": "string" } }, "required": ["effect"], "additionalProperties": false },
+        { "type": "object", "properties": { "any": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/visibilityRule" } } }, "required": ["any"], "additionalProperties": false },
+        { "type": "object", "properties": { "all": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/visibilityRule" } } }, "required": ["all"], "additionalProperties": false }
+      ]
     }
   },
   "required": [

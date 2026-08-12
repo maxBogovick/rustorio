@@ -1,6 +1,12 @@
 package com.graphics.render;
 
+import com.rustorio.domain.AffordabilityContext;
+import com.rustorio.domain.VisibilityContext;
+import com.rustorio.domain.building.AffordabilityHint;
+import com.rustorio.domain.building.BuildingAffordability;
 import com.rustorio.domain.building.BuildingPrototype;
+import com.rustorio.domain.building.BuildingVisibility;
+import com.rustorio.domain.building.VisibilityHint;
 import java.util.List;
 import java.util.Locale;
 import org.jspecify.annotations.Nullable;
@@ -69,6 +75,44 @@ public final class BuildMenuLayout {
                 .filter(p -> category == null || p.id().namespace().equals(category))
                 .filter(p -> needle.isEmpty() || p.label().toLowerCase(Locale.ROOT).contains(needle))
                 .toList();
+    }
+
+    /** Only prototypes whose {@code visibleWhen} gate is satisfied — for the always-on HUD strip. */
+    public static List<BuildingPrototype> filterAvailable(List<BuildingPrototype> all, VisibilityContext context) {
+        return all.stream().filter(p -> BuildingVisibility.isAvailable(p, context)).toList();
+    }
+
+    public static boolean isLocked(BuildingPrototype prototype, VisibilityContext context) {
+        return !BuildingVisibility.isAvailable(prototype, context);
+    }
+
+    public static String lockedDetail(BuildingPrototype prototype, VisibilityContext context, String locale) {
+        return VisibilityHint.lockedMessage(prototype, context, locale).orElse("");
+    }
+
+    public static boolean isUnaffordable(BuildingPrototype prototype, AffordabilityContext inventory) {
+        return !BuildingAffordability.canAfford(prototype, inventory);
+    }
+
+    /** Unlocked by progression AND the player can pay the placement cost — the only state that accepts a click. */
+    public static boolean canSelect(BuildingPrototype prototype, VisibilityContext context, AffordabilityContext inventory) {
+        return !isLocked(prototype, context) && !isUnaffordable(prototype, inventory);
+    }
+
+    public static String unaffordableDetail(BuildingPrototype prototype, AffordabilityContext inventory, String locale) {
+        return AffordabilityHint.needMoreMessage(prototype, inventory, locale).orElse("");
+    }
+
+    /** Progression lock wins over affordability — the player should see what unlocks first. */
+    public static String selectionBlockDetail(BuildingPrototype prototype, VisibilityContext context,
+            AffordabilityContext inventory, String locale) {
+        if (isLocked(prototype, context)) {
+            return lockedDetail(prototype, context, locale);
+        }
+        if (isUnaffordable(prototype, inventory)) {
+            return unaffordableDetail(prototype, inventory, locale);
+        }
+        return "";
     }
 
     /**

@@ -1,11 +1,20 @@
 {
   "path": "pump",
   "category": "fluids",
-  "label": { "en": "Pump", "ru": "Насос" },
+  "label": {
+    "en": "Pump",
+    "ru": "Насос"
+  },
   "archetype": "PUMP",
-  "cost": { "item": "iron_plate", "amount": 5 },
+  "cost": {
+    "item": "iron_plate",
+    "amount": 5
+  },
   "placement": "ADJACENT_TO_WATER",
   "texture": "rustorio:pump",
   "fluidOutput": "water",
-  "acceptsSpeedEffects": false
+  "acceptsSpeedEffects": false,
+  "visibleWhen": {
+    "produced": "gear"
+  }
 }

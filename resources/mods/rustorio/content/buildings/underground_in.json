@@ -1,10 +1,19 @@
 {
   "path": "underground_in",
   "category": "logistics",
-  "label": { "en": "Tunnel in", "ru": "Тоннель (вход)" },
+  "label": {
+    "en": "Tunnel in",
+    "ru": "Тоннель (вход)"
+  },
   "archetype": "UNDERGROUND_IN",
-  "cost": { "item": "iron_plate", "amount": 2 },
+  "cost": {
+    "item": "iron_plate",
+    "amount": 2
+  },
   "placement": "ALWAYS",
   "texture": "rustorio:underground_in",
-  "acceptsSpeedEffects": false
+  "acceptsSpeedEffects": false,
+  "visibleWhen": {
+    "produced": "iron_plate"
+  }
 }

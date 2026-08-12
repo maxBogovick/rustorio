@@ -57,7 +57,7 @@ final class BuildingJsonLoader {
             JsonNodes.rejectUnknownFields(root, file, "building", List.of("path", "label", "archetype",
                     "cost", "placement", "texture", "footprintWidth", "footprintHeight", "bufferMax",
                     "speedMultiplier", "acceptsSpeedEffects", "kind", "fuel", "fluidInput", "fluidOutput",
-                    "power", "category", "speedTech"));
+                    "power", "category", "speedTech", "visibleWhen"));
             String path = JsonNodes.requireText(root, "path", file);
             ContentId id = new ContentId(modId.value(), path);
             String label = JsonNodes.requireLocalizedText(root, "label", file, id.toString(), ContentLocale.current());
@@ -91,6 +91,10 @@ final class BuildingJsonLoader {
             traits.put(VanillaTraits.POWER, readOptionalPower(root, file, archetype));
             traits.put(VanillaTraits.SPEED_TECH, resolveOptionalSpeedTech(root, "speedTech", modId, archetypePrototype, file));
             traits.put(VanillaCategories.CATEGORY, readOptionalCategory(root, modId));
+            if (root.has("visibleWhen")) {
+                traits.put(VanillaTraits.VISIBLE_WHEN,
+                        VisibilityRuleJsonParser.parse(root, modId, context, file));
+            }
 
             context.buildings().register(id, new BuildingPrototype(id, label, new BuildingCost(costItem, costAmount),
                     placement, texture, footprintWidth, footprintHeight, bufferMax, speedMultiplier, acceptsSpeedEffects,

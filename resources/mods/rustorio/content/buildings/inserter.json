@@ -1,10 +1,19 @@
 {
   "path": "inserter",
   "category": "logistics",
-  "label": { "en": "Inserter", "ru": "Манипулятор" },
+  "label": {
+    "en": "Inserter",
+    "ru": "Манипулятор"
+  },
   "archetype": "INSERTER",
-  "cost": { "item": "iron_plate", "amount": 2 },
+  "cost": {
+    "item": "iron_plate",
+    "amount": 2
+  },
   "placement": "NEEDS_PASSABLE_TERRAIN",
   "texture": "rustorio:inserter",
-  "acceptsSpeedEffects": false
+  "acceptsSpeedEffects": false,
+  "visibleWhen": {
+    "produced": "iron_plate"
+  }
 }

@@ -45,6 +45,13 @@ public final class VanillaTraits {
     public static final TraitKey<ContentId> SPEED_TECH =
             new TraitKey<>(ContentId.of("rustorio:speed_tech"), "speedTech", ContentId.class);
 
+    /**
+     * When this building may appear in the HUD and be placed — see {@link VisibilityRule}. Absent
+     * means always available; the key name matches {@code content/buildings/*.json}.
+     */
+    public static final TraitKey<VisibilityRule> VISIBLE_WHEN =
+            new TraitKey<>(ContentId.of("rustorio:visible_when"), "visibleWhen", VisibilityRule.class);
+
     private VanillaTraits() {
     }
 }

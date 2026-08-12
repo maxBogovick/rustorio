@@ -1,11 +1,20 @@
 {
   "path": "tank",
   "category": "fluids",
-  "label": { "en": "Tank", "ru": "Бак" },
+  "label": {
+    "en": "Tank",
+    "ru": "Бак"
+  },
   "archetype": "TANK",
-  "cost": { "item": "iron_plate", "amount": 5 },
+  "cost": {
+    "item": "iron_plate",
+    "amount": 5
+  },
   "placement": "NEEDS_PASSABLE_TERRAIN",
   "texture": "rustorio:tank",
   "bufferMax": 2500,
-  "acceptsSpeedEffects": false
+  "acceptsSpeedEffects": false,
+  "visibleWhen": {
+    "produced": "gear"
+  }
 }

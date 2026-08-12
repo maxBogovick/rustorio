@@ -1,10 +1,19 @@
 {
   "path": "lab",
   "category": "production",
-  "label": { "en": "Lab", "ru": "Лаборатория" },
+  "label": {
+    "en": "Lab",
+    "ru": "Лаборатория"
+  },
   "archetype": "LAB",
-  "cost": { "item": "gear", "amount": 10 },
+  "cost": {
+    "item": "gear",
+    "amount": 10
+  },
   "placement": "NEEDS_PASSABLE_TERRAIN",
   "texture": "rustorio:lab",
-  "acceptsSpeedEffects": true
+  "acceptsSpeedEffects": true,
+  "visibleWhen": {
+    "produced": "gear"
+  }
 }

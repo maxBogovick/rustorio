@@ -387,6 +387,34 @@ public final class VanillaBuildings {
         return byType;
     }
 
+    /** Build-panel visibility gates for vanilla kinds — mirrors {@code content/buildings/*.json}. */
+    private static final Map<BuildingType, VisibilityRule> VISIBILITY_BY_TYPE = visibilityByType();
+
+    private static Map<BuildingType, VisibilityRule> visibilityByType() {
+        Map<BuildingType, VisibilityRule> byType = new EnumMap<>(BuildingType.class);
+        ContentId ironPlate = ContentId.of("rustorio:iron_plate");
+        ContentId gear = ContentId.of("rustorio:gear");
+        ContentId mechanism = ContentId.of("rustorio:mechanism");
+        VisibilityRule afterPlate = new VisibilityRule.Produced(ironPlate);
+        byType.put(BuildingType.PRESS, afterPlate);
+        byType.put(BuildingType.SPLITTER, afterPlate);
+        byType.put(BuildingType.UNDERGROUND_IN, afterPlate);
+        byType.put(BuildingType.UNDERGROUND_OUT, afterPlate);
+        byType.put(BuildingType.FILTER, afterPlate);
+        byType.put(BuildingType.INSERTER, afterPlate);
+        byType.put(BuildingType.POLE, afterPlate);
+        byType.put(BuildingType.PIPE, new VisibilityRule.Produced(gear));
+        byType.put(BuildingType.TANK, new VisibilityRule.Produced(gear));
+        byType.put(BuildingType.PUMP, new VisibilityRule.Produced(gear));
+        byType.put(BuildingType.LAB, new VisibilityRule.Produced(gear));
+        VisibilityRule afterMechanism = new VisibilityRule.Produced(mechanism);
+        byType.put(BuildingType.BOILER, afterMechanism);
+        byType.put(BuildingType.GENERATOR, afterMechanism);
+        byType.put(BuildingType.ASSEMBLER, afterMechanism);
+        byType.put(BuildingType.ELECTRIC_MINER, new VisibilityRule.Placed(ContentId.of("rustorio:generator")));
+        return byType;
+    }
+
     /**
      * Every archetype whose Java behavior actually reads {@link BuildingPrototype#power()} at
      * all — {@link Miner} (MINER and ELECTRIC_MINER both resolve to it), {@link Pole}, {@link
@@ -731,6 +759,10 @@ public final class VanillaBuildings {
     private static Traits withCategory(BuildingType type, Traits traits) {
         Map<TraitKey<?>, Object> merged = new LinkedHashMap<>(traits.asMap());
         merged.put(VanillaCategories.CATEGORY, CATEGORY_BY_TYPE.get(type));
+        VisibilityRule visibility = VISIBILITY_BY_TYPE.get(type);
+        if (visibility != null) {
+            merged.put(VanillaTraits.VISIBLE_WHEN, visibility);
+        }
         return Traits.of(merged);
     }
 }

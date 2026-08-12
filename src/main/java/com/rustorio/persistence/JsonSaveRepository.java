@@ -117,7 +117,8 @@ public final class JsonSaveRepository implements SaveRepository {
                 world.buildingFactory().oreLayout().id(),
                 world.inventory().snapshot().amounts(),
                 world.buildingFactory().oreLayout().depletionSnapshot(),
-                world.currentTick());
+                world.currentTick(),
+                world.placementDiscovery().snapshot().everPlaced());
 
         Path tmp = null;
         try {
@@ -283,6 +284,7 @@ public final class JsonSaveRepository implements SaveRepository {
         // Before restoring the buildings, and in particular before anything ticks: the stats
         // restored just above are timestamped against this clock (N3, NEW_BUGS_PROGRESS.md).
         world.restoreTickCount(snapshot.tickCount());
+        world.restorePlacementDiscovery(snapshot.placedPrototypes());
         factory.oreLayout().restoreDepletion(snapshot.oreDepletion());
         for (Map.Entry<PlacedBuilding, Building> entry : rebuilt) {
             world.restoreBuilding(entry.getKey().x(), entry.getKey().y(), entry.getValue());

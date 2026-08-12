@@ -1,0 +1,1497 @@
+{
+  "version" : 9,
+  "stats" : {
+    "totals" : {
+      "lightbulb:lightbulb" : 123,
+      "rustorio:mechanism" : 37,
+      "rustorio:bronze_ore" : 1122,
+      "lightbulb:wire" : 552,
+      "rustorio:iron_plate" : 1089,
+      "lightbulb:filament" : 345,
+      "rustorio:gear" : 161,
+      "rustorio:coal" : 3051,
+      "lightbulb:glass" : 186,
+      "rustorio:iron_ore" : 1130,
+      "lightbulb:bulb_base" : 331,
+      "rustorio:bronze_plate" : 1107,
+      "rustorio:alloy_plate" : 368,
+      "lightbulb:sand" : 454,
+      "rustorio:alloy_gear" : 226
+    }
+  },
+  "research" : {
+    "points" : 0,
+    "unlocked" : [ ]
+  },
+  "buildings" : [ {
+    "x" : 22,
+    "y" : 20,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "miner"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "cooldown" : 3,
+      "held" : "lightbulb:sand",
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 23,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 23,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 23,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 23,
+    "y" : 20,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "furnace"
+    },
+    "state" : {
+      "direction" : "UP",
+      "buffers" : [ 5 ],
+      "cooldown" : 6,
+      "recipeOutput" : "lightbulb:glass",
+      "pendingOutput" : "lightbulb:glass",
+      "fuelBuffer" : 5,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 23,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 23,
+    "y" : 22,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 24,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 24,
+    "y" : 22,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 25,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 25,
+    "y" : 22,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 25,
+    "y" : 28,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "miner"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "cooldown" : 3,
+      "held" : "rustorio:coal",
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 26,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 26,
+    "y" : 22,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 26,
+    "y" : 28,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 27,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 27,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 27,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 27,
+    "y" : 20,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 27,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 27,
+    "y" : 22,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "splitter"
+    },
+    "state" : {
+      "facing" : "LEFT",
+      "held" : "rustorio:coal",
+      "nextIsForward" : false
+    }
+  }, {
+    "x" : 27,
+    "y" : 28,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 28,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 28,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 28,
+    "y" : 20,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "miner"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "cooldown" : 3,
+      "held" : "rustorio:iron_ore",
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 28,
+    "y" : 22,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 28,
+    "y" : 28,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 29,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 29,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 29,
+    "y" : 20,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "furnace"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "buffers" : [ 5 ],
+      "cooldown" : 5,
+      "recipeOutput" : "rustorio:iron_plate",
+      "pendingOutput" : "rustorio:iron_plate",
+      "fuelBuffer" : 5,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 29,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "splitter"
+    },
+    "state" : {
+      "facing" : "UP",
+      "held" : "rustorio:coal",
+      "nextIsForward" : false
+    }
+  }, {
+    "x" : 29,
+    "y" : 22,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "splitter"
+    },
+    "state" : {
+      "facing" : "LEFT",
+      "held" : "rustorio:coal",
+      "nextIsForward" : true
+    }
+  }, {
+    "x" : 29,
+    "y" : 23,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "splitter"
+    },
+    "state" : {
+      "facing" : "UP",
+      "held" : "rustorio:coal",
+      "nextIsForward" : true
+    }
+  }, {
+    "x" : 29,
+    "y" : 24,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 29,
+    "y" : 25,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 29,
+    "y" : 26,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "splitter"
+    },
+    "state" : {
+      "facing" : "UP",
+      "held" : "rustorio:coal",
+      "nextIsForward" : true
+    }
+  }, {
+    "x" : 29,
+    "y" : 27,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 29,
+    "y" : 28,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 30,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 30,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 30,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:iron_plate"
+    }
+  }, {
+    "x" : 30,
+    "y" : 20,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "splitter"
+    },
+    "state" : {
+      "facing" : "UP",
+      "held" : "rustorio:iron_plate",
+      "nextIsForward" : false
+    }
+  }, {
+    "x" : 30,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 30,
+    "y" : 23,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 30,
+    "y" : 26,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 31,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 31,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 31,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:iron_plate"
+    }
+  }, {
+    "x" : 31,
+    "y" : 20,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "press"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "buffers" : [ 5 ],
+      "cooldown" : 8,
+      "recipeOutput" : "rustorio:gear",
+      "pendingOutput" : "rustorio:gear",
+      "fuelBuffer" : 0,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 31,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 31,
+    "y" : 23,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 31,
+    "y" : 26,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 32,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 32,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 32,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:iron_plate"
+    }
+  }, {
+    "x" : 32,
+    "y" : 20,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:gear"
+    }
+  }, {
+    "x" : 32,
+    "y" : 23,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "splitter"
+    },
+    "state" : {
+      "facing" : "RIGHT",
+      "held" : "rustorio:coal",
+      "nextIsForward" : false
+    }
+  }, {
+    "x" : 32,
+    "y" : 24,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 32,
+    "y" : 26,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 33,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 33,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 33,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:iron_plate"
+    }
+  }, {
+    "x" : 33,
+    "y" : 20,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "chest"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "contents" : {
+        "rustorio:gear" : 100
+      },
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 33,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 33,
+    "y" : 22,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 33,
+    "y" : 23,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "splitter"
+    },
+    "state" : {
+      "facing" : "UP",
+      "held" : "rustorio:coal",
+      "nextIsForward" : true
+    }
+  }, {
+    "x" : 33,
+    "y" : 24,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 33,
+    "y" : 26,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 34,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 34,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "DOWN",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 34,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "lightbulb",
+      "path" : "base_former"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "buffers" : [ 5 ],
+      "cooldown" : 5,
+      "recipeOutput" : "lightbulb:bulb_base",
+      "pendingOutput" : "lightbulb:bulb_base",
+      "fuelBuffer" : 0,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 34,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "lightbulb",
+      "path" : "wire_drawer"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "buffers" : [ 5 ],
+      "cooldown" : 5,
+      "recipeOutput" : "lightbulb:wire",
+      "pendingOutput" : "lightbulb:wire",
+      "fuelBuffer" : 0,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 34,
+    "y" : 22,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:bronze_plate"
+    }
+  }, {
+    "x" : 34,
+    "y" : 23,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "furnace"
+    },
+    "state" : {
+      "direction" : "UP",
+      "buffers" : [ 5 ],
+      "cooldown" : 5,
+      "recipeOutput" : "rustorio:bronze_plate",
+      "pendingOutput" : "rustorio:bronze_plate",
+      "fuelBuffer" : 5,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 34,
+    "y" : 24,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 34,
+    "y" : 26,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 35,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 35,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:bulb_base"
+    }
+  }, {
+    "x" : 35,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:wire"
+    }
+  }, {
+    "x" : 35,
+    "y" : 23,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "miner"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "cooldown" : 3,
+      "held" : "rustorio:bronze_ore",
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 35,
+    "y" : 24,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 35,
+    "y" : 26,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "splitter"
+    },
+    "state" : {
+      "facing" : "RIGHT",
+      "held" : "rustorio:coal",
+      "nextIsForward" : false
+    }
+  }, {
+    "x" : 35,
+    "y" : 27,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "press"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "buffers" : [ 5 ],
+      "cooldown" : 8,
+      "recipeOutput" : "rustorio:mechanism",
+      "pendingOutput" : "rustorio:mechanism",
+      "fuelBuffer" : 0,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 36,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 36,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:bulb_base"
+    }
+  }, {
+    "x" : 36,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "press"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "buffers" : [ 5 ],
+      "cooldown" : 4,
+      "recipeOutput" : "lightbulb:filament",
+      "pendingOutput" : "lightbulb:filament",
+      "fuelBuffer" : 0,
+      "selectedRecipeOutput" : "lightbulb:filament",
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 36,
+    "y" : 22,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 36,
+    "y" : 23,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 36,
+    "y" : 24,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 36,
+    "y" : 26,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "splitter"
+    },
+    "state" : {
+      "facing" : "RIGHT",
+      "held" : "rustorio:coal",
+      "nextIsForward" : false
+    }
+  }, {
+    "x" : 36,
+    "y" : 27,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "furnace"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "buffers" : [ 5 ],
+      "cooldown" : 5,
+      "recipeOutput" : "rustorio:bronze_plate",
+      "pendingOutput" : "rustorio:bronze_plate",
+      "fuelBuffer" : 5,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 37,
+    "y" : 17,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "DOWN",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 37,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 37,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:bulb_base"
+    }
+  }, {
+    "x" : 37,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:filament"
+    }
+  }, {
+    "x" : 37,
+    "y" : 24,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 37,
+    "y" : 25,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 37,
+    "y" : 26,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 37,
+    "y" : 27,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "miner"
+    },
+    "state" : {
+      "direction" : "LEFT",
+      "cooldown" : 3,
+      "held" : "rustorio:bronze_ore",
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 38,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 38,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:bulb_base"
+    }
+  }, {
+    "x" : 38,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:filament"
+    }
+  }, {
+    "x" : 38,
+    "y" : 24,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 38,
+    "y" : 25,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "pipe"
+    },
+    "state" : {
+      "fluid" : "rustorio:water",
+      "amount" : 93
+    }
+  }, {
+    "x" : 38,
+    "y" : 26,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "pipe"
+    },
+    "state" : {
+      "fluid" : "rustorio:water",
+      "amount" : 93
+    }
+  }, {
+    "x" : 39,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 39,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:bulb_base"
+    }
+  }, {
+    "x" : 39,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : "lightbulb:filament"
+    }
+  }, {
+    "x" : 39,
+    "y" : 24,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "DOWN",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 39,
+    "y" : 25,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "boiler"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "fuelBuffer" : 5,
+      "burnTicksLeft" : 39
+    }
+  }, {
+    "x" : 39,
+    "y" : 26,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "pipe"
+    },
+    "state" : {
+      "fluid" : "rustorio:water",
+      "amount" : 92
+    }
+  }, {
+    "x" : 39,
+    "y" : 27,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "pipe"
+    },
+    "state" : {
+      "fluid" : "rustorio:water",
+      "amount" : 92
+    }
+  }, {
+    "x" : 39,
+    "y" : 28,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "pump"
+    },
+    "state" : {
+      "direction" : "UP",
+      "cooldown" : 5
+    }
+  }, {
+    "x" : 40,
+    "y" : 18,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "DOWN",
+      "held" : "lightbulb:glass"
+    }
+  }, {
+    "x" : 40,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "assembler"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "buffers" : [ 5, 5, 5 ],
+      "cooldown" : 12,
+      "recipeOutput" : "lightbulb:lightbulb",
+      "pendingOutput" : "lightbulb:lightbulb",
+      "fuelBuffer" : 0,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 40,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "UP",
+      "held" : "lightbulb:filament"
+    }
+  }, {
+    "x" : 40,
+    "y" : 24,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "DOWN",
+      "held" : "rustorio:coal"
+    }
+  }, {
+    "x" : 40,
+    "y" : 25,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "pipe"
+    },
+    "state" : {
+      "fluid" : "rustorio:steam",
+      "amount" : 100
+    }
+  }, {
+    "x" : 41,
+    "y" : 25,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "generator"
+    },
+    "state" : {
+      "direction" : "LEFT"
+    }
+  }, {
+    "x" : 42,
+    "y" : 19,
+    "prototypeId" : {
+      "namespace" : "lightbulb",
+      "path" : "lamp"
+    },
+    "state" : {
+      "direction" : "RIGHT"
+    }
+  }, {
+    "x" : 42,
+    "y" : 21,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "chest"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "contents" : { },
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 42,
+    "y" : 23,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "pole"
+    },
+    "state" : { }
+  }, {
+    "x" : 43,
+    "y" : 20,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "pole"
+    },
+    "state" : { }
+  }, {
+    "x" : 43,
+    "y" : 22,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "pole"
+    },
+    "state" : { }
+  } ],
+  "oreLayout" : {
+    "kind" : "authored:lightbulb:bulb_workshop",
+    "seed" : 0,
+    "width" : 256,
+    "height" : 256
+  },
+  "inventory" : {
+    "lightbulb:bulb_base" : 184,
+    "lightbulb:filament" : 200,
+    "lightbulb:glass" : 30,
+    "lightbulb:lightbulb" : 121,
+    "lightbulb:sand" : 255,
+    "lightbulb:wire" : 200,
+    "rustorio:alloy_gear" : 225,
+    "rustorio:alloy_plate" : 135,
+    "rustorio:bronze_plate" : 132,
+    "rustorio:coal" : 140,
+    "rustorio:gear" : 33,
+    "rustorio:iron_ore" : 1,
+    "rustorio:iron_plate" : 10,
+    "rustorio:mechanism" : 36
+  },
+  "oreDepletion" : {
+    "5154" : 1,
+    "5923" : 1070,
+    "6949" : 51,
+    "5142" : 454,
+    "6697" : 1,
+    "7193" : 3051,
+    "5148" : 1130
+  },
+  "tickCount" : 493976
+}

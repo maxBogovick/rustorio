@@ -7,6 +7,7 @@ import com.rustorio.api.content.model.ItemType;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -143,6 +144,11 @@ public record BuildingPrototype(ContentId id, String label, BuildingCost cost, P
      */
     public @Nullable ContentId speedTech() {
         return traits.get(VanillaTraits.SPEED_TECH).orElse(null);
+    }
+
+    /** When this prototype unlocks in the build UI — empty means always available. */
+    public Optional<VisibilityRule> visibleWhen() {
+        return traits.get(VanillaTraits.VISIBLE_WHEN);
     }
 
     /** Convenience for the common 1×1 footprint — every archetype except {@code ASSEMBLER} today. */

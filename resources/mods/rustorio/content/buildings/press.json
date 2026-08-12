@@ -8,5 +8,6 @@
   "texture": "rustorio:furnace_cold",
   "bufferMax": 5,
   "speedMultiplier": 1,
-  "acceptsSpeedEffects": true
+  "acceptsSpeedEffects": true,
+  "visibleWhen": { "produced": "iron_plate" }
 }

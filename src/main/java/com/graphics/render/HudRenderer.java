@@ -16,13 +16,15 @@ import com.rustorio.api.content.model.ItemType;
 import com.rustorio.api.content.model.Recipe;
 import com.rustorio.domain.building.Building;
 import com.rustorio.domain.building.BuildingFactory;
+import com.rustorio.domain.AffordabilityContext;
+import com.rustorio.domain.world.BuildingVisibilityContext;
+import com.rustorio.domain.world.World;
 import com.rustorio.domain.building.VanillaCategories;
 import com.rustorio.mod.ContentLocale;
 import com.rustorio.domain.building.BuildingPrototype;
 import com.rustorio.domain.building.Furnace;
 import com.rustorio.domain.building.RecipeSelectable;
 import com.rustorio.domain.world.ProductionStatsView;
-import com.rustorio.domain.world.World;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -397,13 +399,19 @@ final class HudRenderer {
             }
             ContentId prototypeId = quickBarSlots.get(i);
             BuildingPrototype prototype = buildingFactory.prototype(prototypeId);
+            boolean selectable = BuildMenuLayout.canSelect(prototype, world.visibilityContext(), world.inventory());
             font.setColor(Color.WHITE);
+            if (!selectable) {
+                batch.setColor(1f, 1f, 1f, 0.35f);
+            }
             batch.draw(textures.forSprite(prototype.texture()), x + iconPad, y + iconPad, iconSize, iconSize);
+            batch.setColor(Color.WHITE);
         }
 
         batch.end();
 
-        renderCategoryTabs(quickBarSlots, selected, buildingFactory, activeCategoryIndex);
+        renderCategoryTabs(quickBarSlots, selected, buildingFactory, activeCategoryIndex, world.visibilityContext(),
+                world.inventory());
         renderInventoryPanel(world, hud.selectedInventoryItem());
         renderTooltip(hovered, displayLabels);
 
@@ -771,10 +779,12 @@ final class HudRenderer {
      * он по {@code B}; эта панель для того, чтобы дотянуться, а не чтобы разглядывать.
      */
     private void renderCategoryTabs(List<ContentId> quickBarSlots, ContentId selected,
-            BuildingFactory buildingFactory, int activeCategoryIndex) {
+            BuildingFactory buildingFactory, int activeCategoryIndex, BuildingVisibilityContext visibility,
+            AffordabilityContext inventory) {
         int screenW = Gdx.graphics.getWidth();
-        Map<ContentId, List<BuildingPrototype>> grouped =
-                CategoryTabsLayout.byCategory(buildingFactory.buildings().iterate());
+        List<BuildingPrototype> available =
+                BuildMenuLayout.filterAvailable(buildingFactory.buildings().iterate(), visibility);
+        Map<ContentId, List<BuildingPrototype>> grouped = CategoryTabsLayout.byCategory(available);
         if (grouped.isEmpty()) {
             return;
         }
@@ -803,6 +813,7 @@ final class HudRenderer {
         shapes.begin(ShapeRenderer.ShapeType.Line);
         for (int i = 0; i < iconCount; i++) {
             BuildingPrototype prototype = shown.get(i);
+            boolean selectable = BuildMenuLayout.canSelect(prototype, visibility, inventory);
             boolean isPinned = quickBarSlots.contains(prototype.id());
             shapes.setColor(prototype.id().equals(selected) ? Palette.SLOT_SELECTED
                     : isPinned ? Palette.HINT : Palette.SLOT_BORDER);
@@ -824,9 +835,15 @@ final class HudRenderer {
         font.setColor(Color.WHITE);
         float iconPad = 5f;
         for (int i = 0; i < iconCount; i++) {
-            batch.draw(textures.forSprite(shown.get(i).texture()),
+            BuildingPrototype prototype = shown.get(i);
+            boolean selectable = BuildMenuLayout.canSelect(prototype, visibility, inventory);
+            if (!selectable) {
+                batch.setColor(1f, 1f, 1f, 0.35f);
+            }
+            batch.draw(textures.forSprite(prototype.texture()),
                     CategoryTabsLayout.iconX(i) + iconPad, CategoryTabsLayout.ICONS_Y + iconPad,
                     CategoryTabsLayout.ICON_SIZE - iconPad * 2, CategoryTabsLayout.ICON_SIZE - iconPad * 2);
+            batch.setColor(Color.WHITE);
         }
         font.getData().setScale(1f);
         batch.end();

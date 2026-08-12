@@ -1,12 +1,23 @@
 {
   "path": "generator",
   "category": "power_category",
-  "label": { "en": "Generator", "ru": "Генератор" },
+  "label": {
+    "en": "Generator",
+    "ru": "Генератор"
+  },
   "archetype": "GENERATOR",
-  "cost": { "item": "gear", "amount": 10 },
+  "cost": {
+    "item": "gear",
+    "amount": 10
+  },
   "placement": "NEEDS_PASSABLE_TERRAIN",
   "texture": "rustorio:generator",
   "fluidInput": "steam",
-  "power": { "output": 100 },
-  "acceptsSpeedEffects": false
+  "power": {
+    "output": 100
+  },
+  "acceptsSpeedEffects": false,
+  "visibleWhen": {
+    "produced": "mechanism"
+  }
 }

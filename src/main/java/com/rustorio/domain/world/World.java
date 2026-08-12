@@ -190,6 +190,9 @@ public final class World implements TickContext {
     /** Who wants to hear about a building actually being placed by {@link #place} — see that method and {@link BuildingPlacedListener}'s own javadoc for what does and doesn't count. */
     private final List<BuildingPlacedListener> buildingPlacedListeners = new ArrayList<>();
 
+    /** Which building prototypes have ever been placed — survives demolition; see {@link PlacementDiscovery}. */
+    private final PlacementDiscovery placementDiscovery = new PlacementDiscovery();
+
     /** Who may refuse a placement before it happens — see {@link PlacementVeto}. Empty in a game with no mods, so the loop below costs nothing. */
     private final List<PlacementVeto> placementVetoes = new ArrayList<>();
 
@@ -431,6 +434,7 @@ public final class World implements TickContext {
             attachToFluidNetwork(node, x, y);
         }
         registerPowerRoles(anchor, building);
+        placementDiscovery.record(prototypeId);
         for (BuildingPlacedListener listener : buildingPlacedListeners) {
             listener.onBuildingPlaced(building.prototypeId(), x, y);
         }
@@ -613,6 +617,7 @@ public final class World implements TickContext {
         // however far back the clock just moved — far more than the "a few ticks early" this
         // field's own javadoc promises.
         manualMineReadyAtTick.clear();
+        placementDiscovery.clear();
         poles.clear();
         powerCoverage.clear();
         powerProducers.clear();
@@ -1056,6 +1061,20 @@ public final class World implements TickContext {
     @Override
     public ResearchView research() {
         return research;
+    }
+
+    /** Snapshot inputs for {@link com.rustorio.domain.building.BuildingVisibility} — one object per UI frame. */
+    public BuildingVisibilityContext visibilityContext() {
+        return BuildingVisibilityContext.of(stats, research, placementDiscovery.asSet(), buildingFactory.items(),
+                buildingFactory.buildings(), research.techs());
+    }
+
+    public PlacementDiscovery placementDiscovery() {
+        return placementDiscovery;
+    }
+
+    public void restorePlacementDiscovery(List<ContentId> placedPrototypes) {
+        placementDiscovery.restore(placedPrototypes);
     }
 
     /** Add research points (called once per finished {@code Lab} batch) — the one door for mutating research. */
