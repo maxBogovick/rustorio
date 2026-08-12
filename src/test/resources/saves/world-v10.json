@@ -1,0 +1,112 @@
+{
+  "version" : 10,
+  "stats" : {
+    "totals" : {
+      "rustorio:iron_ore" : 106
+    }
+  },
+  "research" : {
+    "points" : 0,
+    "unlocked" : [ {
+      "namespace" : "rustorio",
+      "path" : "fast_mining"
+    } ]
+  },
+  "buildings" : [ {
+    "x" : 6,
+    "y" : 5,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "miner"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "cooldown" : 1,
+      "held" : "rustorio:iron_ore",
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 7,
+    "y" : 5,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "chest"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "contents" : {
+        "rustorio:iron_ore" : 100
+      },
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 8,
+    "y" : 5,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "furnace"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "buffers" : [ 5 ],
+      "cooldown" : 5,
+      "recipeOutput" : "rustorio:iron_plate",
+      "pendingOutput" : null,
+      "fuelBuffer" : 0,
+      "selectedRecipeOutput" : null,
+      "speedLevel" : 0
+    }
+  }, {
+    "x" : 9,
+    "y" : 5,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "belt"
+    },
+    "state" : {
+      "direction" : "RIGHT",
+      "held" : null
+    }
+  }, {
+    "x" : 14,
+    "y" : 5,
+    "prototypeId" : {
+      "namespace" : "rustorio",
+      "path" : "lab"
+    },
+    "state" : {
+      "buffer" : [ ],
+      "cooldown" : 0,
+      "speedLevel" : 0
+    }
+  } ],
+  "oreLayout" : {
+    "kind" : "patch",
+    "seed" : 0,
+    "width" : 256,
+    "height" : 256
+  },
+  "inventory" : {
+    "rustorio:iron_plate" : 30
+  },
+  "oreDepletion" : {
+    "1286" : 106
+  },
+  "tickCount" : 120,
+  "placedPrototypes" : [ {
+    "namespace" : "rustorio",
+    "path" : "miner"
+  }, {
+    "namespace" : "rustorio",
+    "path" : "chest"
+  }, {
+    "namespace" : "rustorio",
+    "path" : "furnace"
+  }, {
+    "namespace" : "rustorio",
+    "path" : "belt"
+  }, {
+    "namespace" : "rustorio",
+    "path" : "lab"
+  } ]
+}
