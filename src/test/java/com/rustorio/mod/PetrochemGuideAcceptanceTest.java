@@ -237,22 +237,22 @@ class PetrochemGuideAcceptanceTest {
     }
 
     /**
-     * Ловит уход jar от исходников по составу классов — добавленный, удалённый или переименованный
-     * класс. Побайтовое сравнение здесь не годится: лежащий в репозитории jar собран другим javac,
-     * чем встроенный компилятор этого теста, и разошёлся бы на пустом месте. Значит, изменение
-     * только внутри метода этот тест не увидит — поведение при этом всё равно проверено выше, но
-     * уже на свежесобранной половине, а не на той, что получит игрок. Настоящее лекарство —
-     * собирать jar сборкой, а это правка {@code build.gradle} и решение владельца.
+     * Gradle {@code petrochemModJar} must stay aligned with {@code javasrc/} — same class list
+     * {@link TestModJarBuilder} would produce in a test fixture.
      */
     @Test
-    void theJarInTheRepositoryMatchesItsSources(@TempDir Path dir) {
+    void theGradleBuiltJarMatchesItsSources(@TempDir Path dir) {
+        Path committed = PETROCHEM.resolve("petrochem.jar");
+        assertTrue(Files.isRegularFile(committed),
+                "petrochem.jar missing — run ./gradlew modJars (or ./gradlew build) first");
+
         Path fresh = dir.resolve("fresh.jar");
         TestModJarBuilder.build(fresh, sourcesFromJavasrc(),
                 Map.of("com.rustorio.api.mod.RustorioMod", ENTRY_POINT));
 
         assertEquals(BuildOutputs.classNamesIn(fresh).stream().sorted().toList(),
-                BuildOutputs.classNamesIn(PETROCHEM.resolve("petrochem.jar")).stream().sorted().toList(),
-                "petrochem.jar собран руками и в сборке не участвует — пересобери его после правки javasrc/");
+                BuildOutputs.classNamesIn(committed).stream().sorted().toList(),
+                "petrochem.jar drifted from javasrc/ — ./gradlew petrochemModJar");
     }
 
     /** Помпа на руде → труба → НПЗ → труба → генератор, плюс столб, накрывающий всё это и потребителей рядом. */
@@ -275,14 +275,12 @@ class PetrochemGuideAcceptanceTest {
     }
 
     /**
-     * Копия всех установленных модов во временном каталоге, где jar петрохима собран прямо сейчас
-     * из {@code javasrc/}. Копия, а не правка на месте: тест не трогает рабочее дерево.
+     * Копия установленных модов во временном каталоге. Jar петрохима уже собран задачей
+     * {@code petrochemModJar} до прогона тестов — см. {@code modJars} в {@code build.gradle}.
      */
     private static LoadedGame loadWithFreshlyBuiltJar(Path dir) {
         Path mods = dir.resolve("mods");
         copyTree(MODS_ROOT, mods);
-        TestModJarBuilder.build(mods.resolve("petrochem").resolve("petrochem.jar"), sourcesFromJavasrc(),
-                Map.of("com.rustorio.api.mod.RustorioMod", ENTRY_POINT));
         return ModLoader.loadAll(ModDirectories.discover(mods));
     }
 

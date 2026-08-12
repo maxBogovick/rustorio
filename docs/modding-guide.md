@@ -1345,7 +1345,7 @@ context.placementRules().register(ContentId.of("mymod:on_bitumen"),
 
 Три способа, все рабочие. Выбирай по тому, где живёт твой код.
 
-**A. Отдельный проект (рекомендуется).** `examples/external-mod-template` — канонический **L2**
+**A. Отдельный проект (рекомендуется для сторонних модов).** `examples/external-mod-template` — канонический **L2**
 Gradle-проект (ContentDsl + SimpleCrafter). То же копирует `./gradlew initMod -PmodId=…`:
 
 ```bash
@@ -1357,7 +1357,24 @@ Gradle-проект (ContentDsl + SimpleCrafter). То же копирует `./
 
 Ключевая строка его `build.gradle` — `compileOnly 'com.rustorio:rustorio-api:0.1.0'`.
 
-**B. Вручную, `javac` + `jar`.** Ровно так собран `petrochem.jar` в этом репозитории:
+**B. В этом репозитории (`resources/mods/<id>/javasrc/`).** Учебные `petrochem` и `lightbulb`, а также
+`src/mods/webminer` (другая раскладка исходников, та же задача упаковки):
+
+```bash
+./gradlew modJars           # все jar-моды разом
+./gradlew petrochemModJar   # один мод
+./gradlew lightbulbModJar
+./gradlew webminerModJar
+```
+
+Gradle перекладывает плоский `javasrc/*.java` (с `package com.<id>`) в нормальное дерево пакетов,
+читает `entryPoint` из `mod.json`, пишет `META-INF/services/com.rustorio.api.mod.RustorioMod` и
+кладёт `<id>.jar` рядом с `mod.json`. Файл в git не коммитится (см. `.gitignore`). `./gradlew build`
+и `./gradlew test` вызывают `modJars` автоматически.
+
+Data-only моды (`rustorio`, `sandbox`, …) — только JSON в `content/`; отдельной сборки не требуют.
+
+**C. Вручную, `javac` + `jar` (устарело для in-repo модов).** Раньше так собирали `petrochem.jar`:
 
 ```bash
 ./gradlew apiJar

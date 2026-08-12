@@ -180,14 +180,18 @@ class LightbulbAcceptanceTest {
     }
 
     @Test
-    void theJarInTheRepositoryMatchesItsSources(@TempDir Path dir) {
+    void theGradleBuiltJarMatchesItsSources(@TempDir Path dir) {
+        Path committed = LIGHTBULB.resolve("lightbulb.jar");
+        assertTrue(Files.isRegularFile(committed),
+                "lightbulb.jar missing — run ./gradlew modJars (or ./gradlew build) first");
+
         Path fresh = dir.resolve("fresh.jar");
         TestModJarBuilder.build(fresh, sourcesFromJavasrc(),
                 Map.of("com.rustorio.api.mod.RustorioMod", ENTRY_POINT));
 
         assertEquals(BuildOutputs.classNamesIn(fresh).stream().sorted().toList(),
-                BuildOutputs.classNamesIn(LIGHTBULB.resolve("lightbulb.jar")).stream().sorted().toList(),
-                "lightbulb.jar drifted from javasrc/ — rebuild it (see modding-guide javac+jar recipe)");
+                BuildOutputs.classNamesIn(committed).stream().sorted().toList(),
+                "lightbulb.jar drifted from javasrc/ — ./gradlew lightbulbModJar");
     }
 
     private static World worldOn(LoadedGame content) {
@@ -208,8 +212,6 @@ class LightbulbAcceptanceTest {
     private static LoadedGame loadWithFreshlyBuiltJar(Path dir) {
         Path mods = dir.resolve("mods");
         copyTree(MODS_ROOT, mods);
-        TestModJarBuilder.build(mods.resolve("lightbulb").resolve("lightbulb.jar"), sourcesFromJavasrc(),
-                Map.of("com.rustorio.api.mod.RustorioMod", ENTRY_POINT));
         return ModLoader.loadAll(ModDirectories.discover(mods));
     }
 

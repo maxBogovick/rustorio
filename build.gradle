@@ -69,6 +69,25 @@ ext.modIds = ((file('src/mods').listFiles() ?: new File[0]) as List)
         .collect { it.name }
         .sort() // deterministic task order — a build whose task graph depends on filesystem order is a build that differs between machines
 
+// Jar-моды, чья кодовая половина лежит рядом с JSON в `resources/mods/<id>/javasrc/` (petrochem,
+// lightbulb, …). Источники там лежат плоско (`javasrc/Foo.java` с `package com.<id>`), поэтому
+// перед javac их перекладываем в нормальное дерево пакетов — см. `<id>StageContentMod` ниже.
+ext.contentModIds = ((file('resources/mods').listFiles() ?: new File[0]) as List)
+        .findAll { it.directory && new File(it, 'javasrc').isDirectory() }
+        .collect { it.name }
+        .sort()
+
+ext.allModIds = (modIds + contentModIds).unique().sort()
+
+ext.modEntryPoint = { String modId ->
+    def json = new groovy.json.JsonSlurper().parse(file("resources/mods/$modId/mod.json"))
+    def entryPoint = json.entryPoint
+    if (entryPoint == null || entryPoint.toString().isBlank()) {
+        throw new GradleException("resources/mods/$modId/mod.json must declare entryPoint for a jar mod")
+    }
+    return entryPoint.toString()
+}
+
 // A mod's OWN third-party libraries — declared per mod and packed into that mod's jar (see the
 // `<modId>ModJar` tasks below), never added to the game's classpath.
 //
@@ -80,7 +99,7 @@ ext.modIds = ((file('src/mods').listFiles() ?: new File[0]) as List)
 // `NoClassDefFoundError: com/fasterxml/jackson/databind/ObjectMapper` when loaded from the jar.
 // `ModJarLibrariesTest` is the test that now fails if a mod's library goes missing from its jar.
 configurations {
-    modIds.each { modId ->
+    allModIds.each { modId ->
         create("${modId}ModLibraries")
         // NOTE: `<modId>ModCompileOnly` is NOT created here — the java plugin already makes one per
         // source set and puts it on that source set's compile classpath. It is where a mod's
@@ -119,6 +138,51 @@ modIds.each { modId ->
         compileClasspath += configurations."${modId}ModLibraries"
         runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath +
                 configurations."${modId}ModLibraries"
+    }
+}
+
+contentModIds.each { modId ->
+    def entryPoint = modEntryPoint(modId)
+    def packagePath = entryPoint.substring(0, entryPoint.lastIndexOf('.')).replace('.', '/')
+    def stagedJavaDir = layout.buildDirectory.dir("contentMods/$modId/java/$packagePath")
+    def stagedResourcesDir = layout.buildDirectory.dir("contentMods/$modId/resources")
+
+    tasks.register("${modId}StageContentMod", Sync) {
+        group = 'build'
+        description = "Lay out $modId javasrc/ into a normal package tree before javac"
+        from("resources/mods/$modId/javasrc")
+        into(stagedJavaDir)
+    }
+
+    tasks.register("${modId}WriteServiceRegistration") {
+        group = 'build'
+        description = "Write META-INF/services for $modId from mod.json entryPoint"
+        dependsOn tasks.named("${modId}StageContentMod")
+        def serviceFile = stagedResourcesDir.map {
+            it.file('META-INF/services/com.rustorio.api.mod.RustorioMod')
+        }
+        outputs.file(serviceFile)
+        doLast {
+            def target = serviceFile.get().asFile
+            target.parentFile.mkdirs()
+            target.text = entryPoint
+        }
+    }
+
+    sourceSets.create("${modId}Mod") {
+        java.srcDirs = [stagedJavaDir]
+        resources.srcDirs = [stagedResourcesDir]
+        compileClasspath += configurations."${modId}ModLibraries"
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath +
+                configurations."${modId}ModLibraries"
+    }
+
+    tasks.named("compile${modId.capitalize()}ModJava", JavaCompile).configure {
+        dependsOn tasks.named("${modId}StageContentMod"), tasks.named("${modId}WriteServiceRegistration")
+    }
+
+    tasks.named("process${modId.capitalize()}ModResources").configure {
+        dependsOn tasks.named("${modId}WriteServiceRegistration")
     }
 }
 
@@ -193,7 +257,7 @@ dependencies {
     // broke twenty unrelated mod-loader tests with `Provider com.webminer.WebMinerMod not found`,
     // because the service file was visible where the class was not. A mod's registration must only
     // ever be found inside that mod's jar.
-    modIds.each { modId -> testImplementation sourceSets."${modId}Mod".output.classesDirs }
+    allModIds.each { modId -> testImplementation sourceSets."${modId}Mod".output.classesDirs }
 
     // What the webminer mod itself needs, and what therefore travels inside webminer.jar.
     // Jackson is listed even though the engine already has it: see the `ModLibraries` comment
@@ -206,6 +270,9 @@ dependencies {
     // classpath; it no longer has that classpath, and declaring its own is what a third-party mod
     // does anyway.
     webminerModCompileOnly "org.jspecify:jspecify:$jspecifyVersion"
+    contentModIds.each { modId ->
+        "${modId}ModCompileOnly" "org.jspecify:jspecify:$jspecifyVersion"
+    }
 
     errorprone "com.google.errorprone:error_prone_core:$errorproneVersion"
     errorprone "com.uber.nullaway:nullaway:$nullawayVersion"
@@ -242,7 +309,7 @@ tasks.named('compileEditorJava', JavaCompile).configure {
 // and an in-repo mod is here to demonstrate exactly that path. The engine's null contract stops at
 // the engine's own edge; what a mod does inside its jar is the mod's business, and enforcing it
 // here would be testing a setup no real mod has.
-modIds.each { modId ->
+allModIds.each { modId ->
     tasks.named("compile${modId.capitalize()}ModJava", JavaCompile).configure {
         options.errorprone.enabled = false
     }
@@ -254,7 +321,7 @@ modIds.each { modId ->
 //
 // These jars are build outputs that happen to live under `resources/` (which is where mods live),
 // so they are git-ignored rather than checked in — see `.gitignore`.
-modIds.each { modId ->
+allModIds.each { modId ->
     tasks.register("${modId}ModJar", Jar) {
         group = 'build'
         description = "Package the $modId mod into resources/mods/$modId/${modId}.jar"
@@ -273,6 +340,12 @@ modIds.each { modId ->
         }
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE // two libraries may ship the same module-info/LICENSE
     }
+}
+
+tasks.register('modJars') {
+    group = 'build'
+    description = 'Build every in-repo mod jar (src/mods and resources/mods/*/javasrc)'
+    dependsOn allModIds.collect { tasks.named("${it}ModJar") }
 }
 
 // What a mod compiles against: exactly the packages `ModClassLoader` will delegate to the parent at
@@ -355,7 +428,7 @@ tasks.register('apiJar', Jar) {
 // entry as a whole directory, so filtering a classes directory does not hide anything from it. The
 // jar is also literally what an external mod resolves from `mavenLocal()`, which makes the in-repo
 // mods compile against the same artifact a stranger's build would — the point of the exercise.
-modIds.each { modId ->
+allModIds.each { modId ->
     sourceSets."${modId}Mod".compileClasspath += files(tasks.named('apiJar'))
 }
 
@@ -447,7 +520,7 @@ tasks.register('benchmark', JavaExec) {
 // поэтому ломает их обычно правка домена — то есть ровно то, что `build` и должен ловить.
 tasks.named('check') {
     dependsOn tasks.named('compileToolsJava'), tasks.named('compileEditorJava')
-    dependsOn modIds.collect { tasks.named("compile${it.capitalize()}ModJava") }
+    dependsOn allModIds.collect { tasks.named("compile${it.capitalize()}ModJava") }
 }
 
 // Every entry point that loads mods needs the mod's jar to already exist on disk: a `mod.json`
@@ -455,9 +528,13 @@ tasks.named('check') {
 // (see `ModJarLoader`). That covers every way this project starts — the window, the headless demo,
 // the benchmark, the content editor — and the tests, which read `resources/mods` straight off disk.
 // Registered here, at the end, because `tasks.named` needs these tasks to exist already.
-def modJarTasks = modIds.collect { tasks.named("${it}ModJar") }
+def modJarTasks = allModIds.collect { tasks.named("${it}ModJar") }
 ['run', 'test', 'devRun', 'game', 'benchmark', 'editor'].each { name ->
     tasks.named(name) { dependsOn modJarTasks }
+}
+
+tasks.named('build') {
+    dependsOn tasks.named('modJars')
 }
 
 tasks.named('test') {
