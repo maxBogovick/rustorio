@@ -63,9 +63,33 @@ public final class RecipeBook {
     private static final Recipe CHASSIS_ASSEMBLED =
             new Recipe(recipeId("chassis_assembler"), VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15,
                     BuildingType.ASSEMBLER);
+    // Sand/oil chain: glass smelts like ore→plate; plastic is a single-input furnace craft so oil
+    // never fights furnace fuel. Silicon is press-side (sand+coal) — coal on a FURNACE is always
+    // intercepted as fuel (see Furnace.accept), so a furnace silicon recipe with coal would never
+    // fill an ingredient slot.
+    private static final Recipe GLASS =
+            new Recipe(recipeId("glass"), VanillaItems.SAND, VanillaItems.GLASS, 5, BuildingType.FURNACE);
+    private static final Recipe PLASTIC =
+            new Recipe(recipeId("plastic"), VanillaItems.OIL, VanillaItems.PLASTIC, 8, BuildingType.FURNACE);
+    private static final Recipe SILICON =
+            new Recipe(recipeId("silicon"), VanillaItems.SAND, VanillaItems.COAL, VanillaItems.SILICON, 10,
+                    BuildingType.PRESS);
+    // Electronics on ASSEMBLER (not PRESS): each has a unique non-plastic ingredient so feeding
+    // iron_plate / glass / silicon auto-commits; plastic alone is ambiguous across all three —
+    // same player-choice pattern as GEAR for ENGINE vs CHASSIS.
+    private static final Recipe RESISTOR =
+            new Recipe(recipeId("resistor"), VanillaItems.IRON_PLATE, VanillaItems.PLASTIC, VanillaItems.RESISTOR, 8,
+                    BuildingType.ASSEMBLER);
+    private static final Recipe CAPACITOR =
+            new Recipe(recipeId("capacitor"), VanillaItems.GLASS, VanillaItems.PLASTIC, VanillaItems.CAPACITOR, 10,
+                    BuildingType.ASSEMBLER);
+    private static final Recipe TRANSISTOR =
+            new Recipe(recipeId("transistor"), VanillaItems.SILICON, VanillaItems.PLASTIC, VanillaItems.TRANSISTOR, 12,
+                    BuildingType.ASSEMBLER);
 
     private static final RecipeBook STANDARD = new RecipeBook(
-            List.of(IRON, GEAR, BRONZE, MECHANISM, ENGINE, CHASSIS, ALLOY, ALLOY_GEAR, CHASSIS_ASSEMBLED));
+            List.of(IRON, GEAR, BRONZE, MECHANISM, ENGINE, CHASSIS, ALLOY, ALLOY_GEAR, CHASSIS_ASSEMBLED,
+                    GLASS, PLASTIC, SILICON, RESISTOR, CAPACITOR, TRANSISTOR));
 
     private final List<Recipe> recipes;
     /**

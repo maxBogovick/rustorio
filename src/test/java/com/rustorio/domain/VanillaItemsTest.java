@@ -20,14 +20,22 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 class VanillaItemsTest {
 
     @Test
-    void frozenRegistryHasAllThirteenItems() {
-        assertEquals(13, VanillaItems.frozen().size());
+    void frozenRegistryHasAllTwentyOneItems() {
+        assertEquals(21, VanillaItems.frozen().size());
     }
 
     @Test
     void namedConstantsMatchTheFrozenRegistry() {
         assertSame(VanillaItems.IRON_ORE, VanillaItems.frozen().get(ContentId.of("rustorio:iron_ore")));
         assertSame(VanillaItems.COAL, VanillaItems.frozen().get(ContentId.of("rustorio:coal")));
+        assertSame(VanillaItems.SAND, VanillaItems.frozen().get(ContentId.of("rustorio:sand")));
+        assertSame(VanillaItems.OIL, VanillaItems.frozen().get(ContentId.of("rustorio:oil")));
+        assertSame(VanillaItems.PLASTIC, VanillaItems.frozen().get(ContentId.of("rustorio:plastic")));
+        assertSame(VanillaItems.GLASS, VanillaItems.frozen().get(ContentId.of("rustorio:glass")));
+        assertSame(VanillaItems.SILICON, VanillaItems.frozen().get(ContentId.of("rustorio:silicon")));
+        assertSame(VanillaItems.RESISTOR, VanillaItems.frozen().get(ContentId.of("rustorio:resistor")));
+        assertSame(VanillaItems.CAPACITOR, VanillaItems.frozen().get(ContentId.of("rustorio:capacitor")));
+        assertSame(VanillaItems.TRANSISTOR, VanillaItems.frozen().get(ContentId.of("rustorio:transistor")));
     }
 
     @Test
@@ -83,6 +91,46 @@ class VanillaItemsTest {
     @Test
     void coalMatchesCurrentPaletteValues() {
         assertItem(VanillaItems.COAL, "coal", "Coal", false, 35, 33, 32, ItemShape.CIRCLE);
+    }
+
+    @Test
+    void sandMatchesRegisteredValues() {
+        assertItem(VanillaItems.SAND, "sand", "Sand", false, 194, 178, 128, ItemShape.CIRCLE);
+    }
+
+    @Test
+    void oilMatchesRegisteredValues() {
+        assertItem(VanillaItems.OIL, "oil", "Oil", false, 40, 30, 20, ItemShape.CIRCLE);
+    }
+
+    @Test
+    void plasticMatchesRegisteredValues() {
+        assertItem(VanillaItems.PLASTIC, "plastic", "Plastic", false, 90, 160, 200, ItemShape.SQUARE);
+    }
+
+    @Test
+    void glassMatchesRegisteredValues() {
+        assertItem(VanillaItems.GLASS, "glass", "Glass", false, 170, 210, 220, ItemShape.SQUARE);
+    }
+
+    @Test
+    void siliconMatchesRegisteredValues() {
+        assertItem(VanillaItems.SILICON, "silicon", "Silicon", false, 140, 150, 165, ItemShape.SQUARE);
+    }
+
+    @Test
+    void resistorMatchesRegisteredValues() {
+        assertItem(VanillaItems.RESISTOR, "resistor", "Resistor", true, 180, 100, 60, ItemShape.TRIANGLE);
+    }
+
+    @Test
+    void capacitorMatchesRegisteredValues() {
+        assertItem(VanillaItems.CAPACITOR, "capacitor", "Capacitor", true, 70, 120, 200, ItemShape.TRIANGLE);
+    }
+
+    @Test
+    void transistorMatchesRegisteredValues() {
+        assertItem(VanillaItems.TRANSISTOR, "transistor", "Transistor", true, 50, 100, 55, ItemShape.TRIANGLE);
     }
 
     @Test

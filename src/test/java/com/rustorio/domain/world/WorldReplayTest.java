@@ -171,7 +171,12 @@ class WorldReplayTest {
     // constants. Nothing produces either, so the dump gained exactly two constant "=0;" entries.
     // Verified rather than assumed: deleting those two entries from the new dump reproduces the
     // previous baseline hash byte for byte. Format change, not a behavior one.
-    private static final String EXPECTED_HASH = "99a7298746698f5e389dc6d66eedcd5add9833ced2d2b0f3b0dbbba8e2d43c49";
+    //
+    // Updated again (sand/oil + plastic/glass/silicon + electronics parts): canonicalState walks
+    // every vanilla item, and eight new always-zero production counters entered the dump. Nothing
+    // in this scene mines or crafts them, so totals for iron/gear stay the same — only the stats
+    // line grew. Format change, not a behavior one.
+    private static final String EXPECTED_HASH = "e506b2f9783480ed019f0b06fb5e7c2dd2d48dbc5f1e132eac3bfc9ab86f00ac";
 
     @Test
     void factoryStateAfterFixedTicksMatchesRecordedBaseline() {

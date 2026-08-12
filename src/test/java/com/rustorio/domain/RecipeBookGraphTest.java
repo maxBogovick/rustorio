@@ -36,9 +36,12 @@ class RecipeBookGraphTest {
      * because nothing in THAT book produced it either. Caught by the negative test below actually
      * failing during development, not by inspection.
      */
-    // COAL (D-05, DEV_TASKS.md) joined the roster: mined like ore, not crafted by any recipe —
-    // same "true root" status as IRON_ORE/BRONZE_ORE, not just "happens to have no recipe."
-    private static final Set<ItemType> BASE_ORE = new TreeSet<>(Set.of(VanillaItems.IRON_ORE, VanillaItems.BRONZE_ORE, VanillaItems.COAL));
+    // COAL joined the roster: mined like ore, not crafted by any recipe — same "true root" status
+    // as IRON_ORE/BRONZE_ORE, not just "happens to have no recipe." SAND and OIL are the same kind
+    // of root for the glass/plastic/silicon chain.
+    private static final Set<ItemType> BASE_ORE = new TreeSet<>(Set.of(
+            VanillaItems.IRON_ORE, VanillaItems.BRONZE_ORE, VanillaItems.COAL,
+            VanillaItems.SAND, VanillaItems.OIL));
 
     @Test
     void standardBookHasNoCycles() {

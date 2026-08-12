@@ -56,9 +56,12 @@ class WorldStateHashDeterminismTest {
      * the dump gained two constant {@code =0;} entries and nothing else. Verified, not assumed:
      * deleting exactly those two entries from the new dump reproduces the PREVIOUS baseline hash
      * byte for byte. Format change, not a behavior one.
+     *
+     * <p>Updated again (sand/oil + plastic/glass/silicon + electronics parts): eight new always-zero
+     * counters in the stats line. Same scene totals otherwise. Format change, not a behavior one.
      */
     private static final String EXPECTED_HASH =
-            "c0b85b5429ae856e26645820cfcc7f9883304e8d07de4d52fd7876188445817e";
+            "26bc8671db789fd2387c858978e42c6bb504788fceb2e540dc37560867e3ab62";
 
     @Test
     void sameSceneHashedTwiceInOneJvmLaunchProducesIdenticalHash() {

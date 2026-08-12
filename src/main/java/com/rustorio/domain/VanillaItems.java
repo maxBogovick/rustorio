@@ -37,6 +37,19 @@ public final class VanillaItems {
     private static final ContentId ALLOY_PLATE_ID = ContentId.of("rustorio:alloy_plate");
     private static final ContentId ALLOY_GEAR_ID = ContentId.of("rustorio:alloy_gear");
     private static final ContentId COAL_ID = ContentId.of("rustorio:coal");
+    // Raw deposits like coal: mineable cargo once an OrePatch names them. Not on RandomOreLayout /
+    // PatchOreLayout yet — those layouts stay iron/bronze/coal until a map or recipe chain needs
+    // them; registering here is enough for authored maps and future recipes to resolve the id.
+    private static final ContentId SAND_ID = ContentId.of("rustorio:sand");
+    private static final ContentId OIL_ID = ContentId.of("rustorio:oil");
+    // Processed materials (plate-shaped). Consumed by the electronics recipes below.
+    private static final ContentId PLASTIC_ID = ContentId.of("rustorio:plastic");
+    private static final ContentId GLASS_ID = ContentId.of("rustorio:glass");
+    private static final ContentId SILICON_ID = ContentId.of("rustorio:silicon");
+    // Electronics parts — research-grade triangles, same role as gear/mechanism.
+    private static final ContentId RESISTOR_ID = ContentId.of("rustorio:resistor");
+    private static final ContentId CAPACITOR_ID = ContentId.of("rustorio:capacitor");
+    private static final ContentId TRANSISTOR_ID = ContentId.of("rustorio:transistor");
     // Terrain, not cargo: these two are what a TerrainPatch names now that terrain is content
     // rather than a closed enum (see TerrainPatch and OreLayout#terrainAt). They live in the item
     // registry because that is what a patch's reference resolves against — a cell reports the
@@ -65,6 +78,14 @@ public final class VanillaItems {
     public static final ItemType ALLOY_PLATE = frozen().get(ALLOY_PLATE_ID);
     public static final ItemType ALLOY_GEAR = frozen().get(ALLOY_GEAR_ID);
     public static final ItemType COAL = frozen().get(COAL_ID);
+    public static final ItemType SAND = frozen().get(SAND_ID);
+    public static final ItemType OIL = frozen().get(OIL_ID);
+    public static final ItemType PLASTIC = frozen().get(PLASTIC_ID);
+    public static final ItemType GLASS = frozen().get(GLASS_ID);
+    public static final ItemType SILICON = frozen().get(SILICON_ID);
+    public static final ItemType RESISTOR = frozen().get(RESISTOR_ID);
+    public static final ItemType CAPACITOR = frozen().get(CAPACITOR_ID);
+    public static final ItemType TRANSISTOR = frozen().get(TRANSISTOR_ID);
     public static final ItemType WATER = frozen().get(WATER_ID);
     public static final ItemType ROCK = frozen().get(ROCK_ID);
 
@@ -92,7 +113,7 @@ public final class VanillaItems {
         return FROZEN;
     }
 
-    /** Registers all 13 vanilla items into {@code items}. For tests/custom assemblies that want their own isolated (unfrozen) copy instead of sharing {@link #frozen()}. */
+    /** Registers all 21 vanilla items into {@code items}. For tests/custom assemblies that want their own isolated (unfrozen) copy instead of sharing {@link #frozen()}. */
     public static void registerAll(Registry<ItemType> items) {
         register(items, IRON_ORE_ID, "Iron Ore", false, rgb(105, 100, 95), ItemShape.CIRCLE);
         register(items, IRON_PLATE_ID, "Iron Plate", false, rgb(170, 172, 178), ItemShape.SQUARE);
@@ -105,6 +126,16 @@ public final class VanillaItems {
         register(items, ALLOY_PLATE_ID, "Alloy Plate", false, rgb(150, 140, 130), ItemShape.SQUARE);
         register(items, ALLOY_GEAR_ID, "Alloy Gear", true, rgb(190, 170, 90), ItemShape.TRIANGLE);
         register(items, COAL_ID, "Coal", false, rgb(35, 33, 32), ItemShape.CIRCLE);
+        register(items, SAND_ID, "Sand", false, rgb(194, 178, 128), ItemShape.CIRCLE);
+        // Item cargo, not a FluidType: until a derrick/pump exists, oil is mined like coal from an
+        // OrePatch. A pipe-carried fluid twin would be a separate ContentId if needed later.
+        register(items, OIL_ID, "Oil", false, rgb(40, 30, 20), ItemShape.CIRCLE);
+        register(items, PLASTIC_ID, "Plastic", false, rgb(90, 160, 200), ItemShape.SQUARE);
+        register(items, GLASS_ID, "Glass", false, rgb(170, 210, 220), ItemShape.SQUARE);
+        register(items, SILICON_ID, "Silicon", false, rgb(140, 150, 165), ItemShape.SQUARE);
+        register(items, RESISTOR_ID, "Resistor", true, rgb(180, 100, 60), ItemShape.TRIANGLE);
+        register(items, CAPACITOR_ID, "Capacitor", true, rgb(70, 120, 200), ItemShape.TRIANGLE);
+        register(items, TRANSISTOR_ID, "Transistor", true, rgb(50, 100, 55), ItemShape.TRIANGLE);
         // Colors match the map tiles these two draw as (Textures#terrainWater/terrainRock), so a
         // renderer or editor without art for them still shows water as water.
         register(items, WATER_ID, "Water", false, rgb(58, 110, 165), ItemShape.SQUARE);

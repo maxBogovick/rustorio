@@ -202,6 +202,9 @@ public final class ModLoader {
     }
 
     private static String describeLoadOrder(List<ModDescriptor> loadOrder) {
+        if (loadOrder.isEmpty()) {
+            return "no mods";
+        }
         return loadOrder.stream()
                 .map(mod -> mod.id() + " " + mod.version())
                 .collect(Collectors.joining(", "));
@@ -225,12 +228,12 @@ public final class ModLoader {
         }
         LOGGER.log(System.Logger.Level.INFO, "Loaded {0} mod(s) [{1}]: {2}",
                 loadOrder.size(), describeLoadOrder(loadOrder), counts);
-        for (SkippedMod mod : skipped) {
-            LOGGER.log(System.Logger.Level.WARNING, "Mod ''{0}'' was skipped: {1}", mod.id(), mod.reason());
-        }
-        for (RegistryKey<?> key : context.keys()) {
-            logOverwrites(key.name(), context.registry(key).updateLog());
-        }
+
+        skipped.forEach(mod ->
+                LOGGER.log(System.Logger.Level.WARNING, "Mod ''{0}'' was skipped: {1}", mod.id(), mod.reason()));
+
+        context.keys().forEach(key -> 
+                logOverwrites(key.name(), context.registry(key).updateLog()));
     }
 
     private static void logOverwrites(String what, List<ContentId> overwritten) {
