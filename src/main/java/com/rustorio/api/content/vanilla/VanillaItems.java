@@ -39,6 +39,14 @@ public final class VanillaItems {
     private static final ContentId ALLOY_PLATE_ID = ContentId.of("rustorio:alloy_plate");
     private static final ContentId ALLOY_GEAR_ID = ContentId.of("rustorio:alloy_gear");
     private static final ContentId COAL_ID = ContentId.of("rustorio:coal");
+    private static final ContentId SAND_ID = ContentId.of("rustorio:sand");
+    private static final ContentId GLASS_ID = ContentId.of("rustorio:glass");
+    private static final ContentId OIL_ID = ContentId.of("rustorio:oil");
+    private static final ContentId PLASTIC_ID = ContentId.of("rustorio:plastic");
+    private static final ContentId SILICON_ID = ContentId.of("rustorio:silicon");
+    private static final ContentId RESISTOR_ID = ContentId.of("rustorio:resistor");
+    private static final ContentId CAPACITOR_ID = ContentId.of("rustorio:capacitor");
+    private static final ContentId TRANSISTOR_ID = ContentId.of("rustorio:transistor");
     // Terrain, not cargo: these two are what a TerrainPatch names now that terrain is content
     // rather than a closed enum (see TerrainPatch and OreLayout#terrainAt). They live in the item
     // registry because that is what a patch's reference resolves against — a cell reports the
@@ -67,6 +75,14 @@ public final class VanillaItems {
     public static final ItemType ALLOY_PLATE = frozen().get(ALLOY_PLATE_ID);
     public static final ItemType ALLOY_GEAR = frozen().get(ALLOY_GEAR_ID);
     public static final ItemType COAL = frozen().get(COAL_ID);
+    public static final ItemType SAND = frozen().get(SAND_ID);
+    public static final ItemType GLASS = frozen().get(GLASS_ID);
+    public static final ItemType OIL = frozen().get(OIL_ID);
+    public static final ItemType PLASTIC = frozen().get(PLASTIC_ID);
+    public static final ItemType SILICON = frozen().get(SILICON_ID);
+    public static final ItemType RESISTOR = frozen().get(RESISTOR_ID);
+    public static final ItemType CAPACITOR = frozen().get(CAPACITOR_ID);
+    public static final ItemType TRANSISTOR = frozen().get(TRANSISTOR_ID);
     public static final ItemType WATER = frozen().get(WATER_ID);
     public static final ItemType ROCK = frozen().get(ROCK_ID);
 
@@ -94,7 +110,7 @@ public final class VanillaItems {
         return FROZEN;
     }
 
-    /** Registers all 13 vanilla items into {@code items}. For tests/custom assemblies that want their own isolated (unfrozen) copy instead of sharing {@link #frozen()}. */
+    /** Registers all 21 vanilla items into {@code items}. For tests/custom assemblies that want their own isolated (unfrozen) copy instead of sharing {@link #frozen()}. */
     public static void registerAll(Registry<ItemType> items) {
         register(items, IRON_ORE_ID, "Iron Ore", false, rgb(105, 100, 95), ItemShape.CIRCLE);
         register(items, IRON_PLATE_ID, "Iron Plate", false, rgb(170, 172, 178), ItemShape.SQUARE);
@@ -107,6 +123,14 @@ public final class VanillaItems {
         register(items, ALLOY_PLATE_ID, "Alloy Plate", false, rgb(150, 140, 130), ItemShape.SQUARE);
         register(items, ALLOY_GEAR_ID, "Alloy Gear", true, rgb(190, 170, 90), ItemShape.TRIANGLE);
         register(items, COAL_ID, "Coal", false, rgb(35, 33, 32), ItemShape.CIRCLE);
+        register(items, SAND_ID, "Sand", false, rgb(194, 178, 128), ItemShape.CIRCLE);
+        register(items, GLASS_ID, "Glass", false, rgb(168, 212, 230), ItemShape.SQUARE);
+        register(items, OIL_ID, "Oil", false, rgb(43, 33, 24), ItemShape.CIRCLE);
+        register(items, PLASTIC_ID, "Plastic", false, rgb(226, 222, 211), ItemShape.SQUARE);
+        register(items, SILICON_ID, "Silicon", false, rgb(120, 130, 140), ItemShape.SQUARE);
+        register(items, RESISTOR_ID, "Resistor", true, rgb(180, 100, 70), ItemShape.TRIANGLE);
+        register(items, CAPACITOR_ID, "Capacitor", true, rgb(70, 120, 180), ItemShape.TRIANGLE);
+        register(items, TRANSISTOR_ID, "Transistor", true, rgb(50, 80, 60), ItemShape.TRIANGLE);
         // Colors match the map tiles these two draw as (Textures#terrainWater/terrainRock), so a
         // renderer or editor without art for them still shows water as water.
         register(items, WATER_ID, "Water", false, rgb(58, 110, 165), ItemShape.SQUARE);

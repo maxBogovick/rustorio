@@ -19,9 +19,9 @@ import com.rustorio.api.content.vanilla.VanillaItems;
  *
  * <p>The map is precomputed once, at construction, into a flat array indexed by cell (P4-03,
  * BUG_FIX_PROGRESS.md) — not scanned patch-by-patch on every {@link #oreAt} call. {@code
- * WorldRenderer} calls {@code oreAt} for every visible cell, every frame: at maximum zoom-out
- * that's the whole {@value #STANDARD_WIDTH}x{@value #STANDARD_HEIGHT} map, and a linear scan of
- * sixteen patches per cell would add up to roughly 1,048,000 {@code contains} checks a frame if it
+     * WorldRenderer} calls {@code oreAt} for every visible cell, every frame: at maximum zoom-out
+     * that's the whole {@value #STANDARD_WIDTH}x{@value #STANDARD_HEIGHT} map, and a linear scan of
+     * twenty patches per cell would add up to roughly 1,048,000 {@code contains} checks a frame if it
  * weren't precomputed — the dominant cost of drawing the ground layer.
  */
 public final class PatchOreLayout implements OreLayout {
@@ -66,6 +66,11 @@ public final class PatchOreLayout implements OreLayout {
             // is what keeps that a solvable planning puzzle instead of a scavenger hunt.
             new OrePatch(2, 10, 2, VanillaItems.COAL), new OrePatch(20, 10, 2, VanillaItems.COAL),
             new OrePatch(65, 15, 2, VanillaItems.COAL), new OrePatch(70, 48, 2, VanillaItems.COAL),
+            // Sand and oil — mined raw inputs for the glass/plastic/electronics chain in RecipeBook.
+            // Placed below the original 96×64 ore corner (y≈60+) so existing tests that hard-code
+            // spot (6,5) as "centre of the first iron patch" stay untouched.
+            new OrePatch(18, 68, 3, VanillaItems.SAND), new OrePatch(50, 72, 3, VanillaItems.SAND),
+            new OrePatch(80, 68, 2, VanillaItems.OIL), new OrePatch(35, 78, 2, VanillaItems.OIL),
     };
 
     /**
@@ -152,8 +157,8 @@ public final class PatchOreLayout implements OreLayout {
     }
 
     /**
-     * The game's built-in map — sixteen patches: eight iron, four bronze, four coal (D-05). Builds
-     * a brand-new instance every call, deliberately NOT a cached singleton (D-04, DEV_TASKS.md):
+     * The game's built-in map — twenty patches: eight iron, four bronze, four coal, two sand, two
+     * oil. Builds a brand-new instance every call, deliberately NOT a cached singleton (D-04, DEV_TASKS.md):
      * once ore depletion made this class stateful and mutable, every caller sharing one cached
      * instance would have shared its depletion too — a test exhausting a cell would leave it thin
      * for the next unrelated {@code World} built in the same JVM. Rebuilding touches each patch's

@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 import com.rustorio.api.content.model.Recipe;
 import com.rustorio.api.content.model.ItemType;
-import com.rustorio.api.content.model.VanillaItems;
+import com.rustorio.api.content.vanilla.VanillaItems;
 
 /**
  * Registry of every known {@link Recipe} — the lookup furnaces and presses search through to
@@ -36,21 +36,21 @@ public final class RecipeBook {
     }
 
     private static final Recipe IRON =
-            new Recipe(recipeId("iron_plate"), VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, 5, BuildingType.FURNACE);
+            new Recipe(recipeId("iron_plate"), VanillaItems.IRON_ORE, VanillaItems.IRON_PLATE, 5, BuildingType.FURNACE.contentId());
     private static final Recipe GEAR =
-            new Recipe(recipeId("gear"), VanillaItems.IRON_PLATE, VanillaItems.GEAR, 8, BuildingType.PRESS);
+            new Recipe(recipeId("gear"), VanillaItems.IRON_PLATE, VanillaItems.GEAR, 8, BuildingType.PRESS.contentId());
     private static final Recipe BRONZE =
-            new Recipe(recipeId("bronze_plate"), VanillaItems.BRONZE_ORE, VanillaItems.BRONZE_PLATE, 5, BuildingType.FURNACE);
+            new Recipe(recipeId("bronze_plate"), VanillaItems.BRONZE_ORE, VanillaItems.BRONZE_PLATE, 5, BuildingType.FURNACE.contentId());
     private static final Recipe MECHANISM =
-            new Recipe(recipeId("mechanism"), VanillaItems.BRONZE_PLATE, VanillaItems.MECHANISM, 8, BuildingType.PRESS);
+            new Recipe(recipeId("mechanism"), VanillaItems.BRONZE_PLATE, VanillaItems.MECHANISM, 8, BuildingType.PRESS.contentId());
     private static final Recipe ENGINE =
-            new Recipe(recipeId("engine"), VanillaItems.GEAR, VanillaItems.MECHANISM, VanillaItems.ENGINE, 12, BuildingType.PRESS);
+            new Recipe(recipeId("engine"), VanillaItems.GEAR, VanillaItems.MECHANISM, VanillaItems.ENGINE, 12, BuildingType.PRESS.contentId());
     private static final Recipe CHASSIS =
-            new Recipe(recipeId("chassis_press"), VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15, BuildingType.PRESS);
+            new Recipe(recipeId("chassis_press"), VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15, BuildingType.PRESS.contentId());
     private static final Recipe ALLOY =
-            new Recipe(recipeId("alloy_plate"), VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.ALLOY_PLATE, 10, BuildingType.FURNACE);
+            new Recipe(recipeId("alloy_plate"), VanillaItems.IRON_PLATE, VanillaItems.BRONZE_PLATE, VanillaItems.ALLOY_PLATE, 10, BuildingType.FURNACE.contentId());
     private static final Recipe ALLOY_GEAR =
-            new Recipe(recipeId("alloy_gear"), VanillaItems.ALLOY_PLATE, VanillaItems.ALLOY_GEAR, 10, BuildingType.PRESS);
+            new Recipe(recipeId("alloy_gear"), VanillaItems.ALLOY_PLATE, VanillaItems.ALLOY_GEAR, 10, BuildingType.PRESS.contentId());
     /**
      * (X-03, DEV_TASKS.md) Same ingredients/output/time as {@link #CHASSIS} — deliberately: this
      * doesn't give {@code ASSEMBLER} a new item to make, only a second, four-cell-footprint MACHINE
@@ -65,30 +65,30 @@ public final class RecipeBook {
      */
     private static final Recipe CHASSIS_ASSEMBLED =
             new Recipe(recipeId("chassis_assembler"), VanillaItems.ENGINE, VanillaItems.GEAR, VanillaItems.CHASSIS, 15,
-                    BuildingType.ASSEMBLER);
+                    BuildingType.ASSEMBLER.contentId());
     // Sand/oil chain: glass smelts like ore→plate; plastic is a single-input furnace craft so oil
     // never fights furnace fuel. Silicon is press-side (sand+coal) — coal on a FURNACE is always
     // intercepted as fuel (see Furnace.accept), so a furnace silicon recipe with coal would never
     // fill an ingredient slot.
     private static final Recipe GLASS =
-            new Recipe(recipeId("glass"), VanillaItems.SAND, VanillaItems.GLASS, 5, BuildingType.FURNACE);
+            new Recipe(recipeId("glass"), VanillaItems.SAND, VanillaItems.GLASS, 5, BuildingType.FURNACE.contentId());
     private static final Recipe PLASTIC =
-            new Recipe(recipeId("plastic"), VanillaItems.OIL, VanillaItems.PLASTIC, 8, BuildingType.FURNACE);
+            new Recipe(recipeId("plastic"), VanillaItems.OIL, VanillaItems.PLASTIC, 8, BuildingType.FURNACE.contentId());
     private static final Recipe SILICON =
             new Recipe(recipeId("silicon"), VanillaItems.SAND, VanillaItems.COAL, VanillaItems.SILICON, 10,
-                    BuildingType.PRESS);
+                    BuildingType.PRESS.contentId());
     // Electronics on ASSEMBLER (not PRESS): each has a unique non-plastic ingredient so feeding
     // iron_plate / glass / silicon auto-commits; plastic alone is ambiguous across all three —
     // same player-choice pattern as GEAR for ENGINE vs CHASSIS.
     private static final Recipe RESISTOR =
             new Recipe(recipeId("resistor"), VanillaItems.IRON_PLATE, VanillaItems.PLASTIC, VanillaItems.RESISTOR, 8,
-                    BuildingType.ASSEMBLER);
+                    BuildingType.ASSEMBLER.contentId());
     private static final Recipe CAPACITOR =
             new Recipe(recipeId("capacitor"), VanillaItems.GLASS, VanillaItems.PLASTIC, VanillaItems.CAPACITOR, 10,
-                    BuildingType.ASSEMBLER);
+                    BuildingType.ASSEMBLER.contentId());
     private static final Recipe TRANSISTOR =
             new Recipe(recipeId("transistor"), VanillaItems.SILICON, VanillaItems.PLASTIC, VanillaItems.TRANSISTOR, 12,
-                    BuildingType.ASSEMBLER);
+                    BuildingType.ASSEMBLER.contentId());
 
     private static final RecipeBook STANDARD = new RecipeBook(
             List.of(IRON, GEAR, BRONZE, MECHANISM, ENGINE, CHASSIS, ALLOY, ALLOY_GEAR, CHASSIS_ASSEMBLED,

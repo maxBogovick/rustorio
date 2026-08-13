@@ -178,6 +178,29 @@ class RandomOreLayoutTest {
         assertTrue(sawCoal, "a rolled map must have at least one coal cell");
     }
 
+    /** Sand and oil — rolled after terrain so pre-existing seeds keep the same obstacles. */
+    @Test
+    void rollsMinableSandAndOil() {
+        RandomOreLayout layout = new RandomOreLayout(7, 96, 64);
+
+        boolean sawSand = false;
+        boolean sawOil = false;
+        for (int x = 0; x < 96 && !(sawSand && sawOil); x++) {
+            for (int y = 0; y < 64 && !(sawSand && sawOil); y++) {
+                if (layout.oreAt(x, y).equals(Optional.of(VanillaItems.SAND))) {
+                    sawSand = true;
+                    assertEquals(Optional.of(VanillaItems.SAND), layout.extract(x, y));
+                }
+                if (layout.oreAt(x, y).equals(Optional.of(VanillaItems.OIL))) {
+                    sawOil = true;
+                    assertEquals(Optional.of(VanillaItems.OIL), layout.extract(x, y));
+                }
+            }
+        }
+        assertTrue(sawSand, "a rolled map must have at least one sand cell");
+        assertTrue(sawOil, "a rolled map must have at least one oil cell");
+    }
+
     private static int[] findAnOreCell(RandomOreLayout layout) {
         for (int x = 0; x < 96; x++) {
             for (int y = 0; y < 64; y++) {

@@ -23,8 +23,8 @@ import com.rustorio.api.content.vanilla.VanillaItems;
 class VanillaItemsTest {
 
     @Test
-    void frozenRegistryHasAllThirteenItems() {
-        assertEquals(13, VanillaItems.frozen().size());
+    void frozenRegistryHasAllTwentyOneItems() {
+        assertEquals(21, VanillaItems.frozen().size());
     }
 
     @Test

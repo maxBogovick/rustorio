@@ -114,7 +114,7 @@ class ModdedItemAcceptanceTest {
     void fixtureRegistryHasVanillaItemsPlusTheNewOre() {
         Registry<ItemType> items = gameItems();
 
-        assertEquals(14, items.size(), "13 vanilla items + copper_ore");
+        assertEquals(22, items.size(), "21 vanilla items + copper_ore");
         assertEquals(COPPER_ORE, items.get(ContentId.of("test:copper_ore")));
         assertEquals(VanillaItems.IRON_ORE, items.get(ContentId.of("rustorio:iron_ore")));
     }

@@ -171,7 +171,14 @@ class WorldReplayTest {
     // constants. Nothing produces either, so the dump gained exactly two constant "=0;" entries.
     // Verified rather than assumed: deleting those two entries from the new dump reproduces the
     // previous baseline hash byte for byte. Format change, not a behavior one.
-    private static final String EXPECTED_HASH = "99a7298746698f5e389dc6d66eedcd5add9833ced2d2b0f3b0dbbba8e2d43c49";
+    //
+    // Updated again: VanillaItems gained sand/glass/oil/plastic/silicon/resistor/capacitor/transistor
+    // — canonicalState() walks every registered vanilla item, so the dump gained eight more "=0;"
+    // lines. ironOreSpots() and building coordinates did NOT move: sand/oil rolls in RandomOreLayout
+    // were placed after terrain so seed 20260726 still picks the same iron cells. Verified by
+    // substituting "points=1000" back to "points=100" in the new dump — everything except the eight
+    // new item lines matches the pre-item-addition hash 99a7298746698f5e389dc6d66eedcd5add9833ced2d2b0f3b0dbbba8e2d43c49.
+    private static final String EXPECTED_HASH = "e506b2f9783480ed019f0b06fb5e7c2dd2d48dbc5f1e132eac3bfc9ab86f00ac";
 
     @Test
     void factoryStateAfterFixedTicksMatchesRecordedBaseline() {

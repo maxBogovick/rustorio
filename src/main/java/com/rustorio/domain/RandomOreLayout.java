@@ -13,14 +13,16 @@ import com.rustorio.api.content.vanilla.VanillaItems;
 
 /**
  * A second {@link OreLayout} implementation, alongside {@link PatchOreLayout}: same shape of map
- * (twelve iron/bronze patches plus four smaller coal patches, D-05), but scattered at positions
- * rolled from a seed instead of {@link PatchOreLayout}'s fixed coordinates — so a player isn't
+ * (twelve iron/bronze patches plus four smaller coal patches, two sand, two oil), but scattered at
+ * positions rolled from a seed instead of {@link PatchOreLayout}'s fixed coordinates — so a player
  * stuck mining the exact same map every game. Deterministic per {@link OreLayout}'s contract:
  * patches are rolled once, at construction, from the given seed, and immediately baked into a
  * flat grid (P4-03, BUG_FIX_PROGRESS.md — same reasoning as {@link PatchOreLayout}), so {@link
  * #oreAt} always answers the same way, by index lookup, for the life of one instance. Since X-02
  * (DEV_TASKS.md), the same seeded roll also places water/rock {@link TerrainPatch} obstacles, ore
- * always winning any accidental overlap — see the constructor.
+ * always winning any accidental overlap — see the constructor. Sand/oil rolls are deliberately
+ * taken AFTER terrain so every pre-existing seed keeps the same iron/bronze/coal/water/rock layout;
+ * only the four new sand/oil deposits are additive.
  */
 public final class RandomOreLayout implements OreLayout {
 
@@ -32,6 +34,12 @@ public final class RandomOreLayout implements OreLayout {
     /** Coal (D-05, DEV_TASKS.md) — smaller deposits than iron/bronze, same fixed radius {@link PatchOreLayout}'s coal patches use. */
     private static final int COAL_PATCHES = 4;
     private static final int COAL_RADIUS = 2;
+
+    /** Sand and oil — raw inputs for the glass/plastic/electronics chain; same small-deposit sizing as coal. */
+    private static final int SAND_PATCHES = 2;
+    private static final int SAND_RADIUS = 3;
+    private static final int OIL_PATCHES = 2;
+    private static final int OIL_RADIUS = 2;
 
     /** Obstacles (X-02, DEV_TASKS.md) — half water, half rock, same radius range as ore patches. */
     private static final int TERRAIN_PATCH_COUNT = 6;
@@ -52,7 +60,7 @@ public final class RandomOreLayout implements OreLayout {
         this.width = width;
         this.height = height;
         Random random = new Random(seed);
-        OrePatch[] patches = new OrePatch[PATCH_COUNT + COAL_PATCHES];
+        OrePatch[] patches = new OrePatch[PATCH_COUNT + COAL_PATCHES + SAND_PATCHES + OIL_PATCHES];
         for (int i = 0; i < PATCH_COUNT; i++) {
             ItemType ore = i < PATCH_COUNT - BRONZE_PATCHES ? VanillaItems.IRON_ORE : VanillaItems.BRONZE_ORE;
             int radius = fitRadius(MIN_RADIUS + random.nextInt(MAX_RADIUS - MIN_RADIUS + 1), width, height);
@@ -77,6 +85,20 @@ public final class RandomOreLayout implements OreLayout {
             int cx = radius + random.nextInt(width - 2 * radius);
             int cy = radius + random.nextInt(height - 2 * radius);
             terrainPatches[i] = new TerrainPatch(cx, cy, radius, terrain);
+        }
+        // Sand/oil AFTER terrain so existing iron/bronze/coal/water/rock rolls stay byte-for-byte
+        // identical for every seed — only these four extra patches are new (see class javadoc).
+        for (int i = 0; i < SAND_PATCHES; i++) {
+            int radius = fitRadius(SAND_RADIUS, width, height);
+            int cx = radius + random.nextInt(width - 2 * radius);
+            int cy = radius + random.nextInt(height - 2 * radius);
+            patches[PATCH_COUNT + COAL_PATCHES + i] = new OrePatch(cx, cy, radius, VanillaItems.SAND);
+        }
+        for (int i = 0; i < OIL_PATCHES; i++) {
+            int radius = fitRadius(OIL_RADIUS, width, height);
+            int cx = radius + random.nextInt(width - 2 * radius);
+            int cy = radius + random.nextInt(height - 2 * radius);
+            patches[PATCH_COUNT + COAL_PATCHES + SAND_PATCHES + i] = new OrePatch(cx, cy, radius, VanillaItems.OIL);
         }
 
         this.grid = new ItemType[width * height];

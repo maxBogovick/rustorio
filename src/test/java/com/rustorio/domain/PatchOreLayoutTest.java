@@ -106,6 +106,19 @@ class PatchOreLayoutTest {
         assertTrue(layout.isPassable(2, 10), "a coal cell must still be buildable ground, same as any other ore cell");
     }
 
+    /** Sand and oil — raw inputs for the glass/plastic/electronics chain. */
+    @Test
+    void standardMapHasMinableSandAndOil() {
+        PatchOreLayout layout = PatchOreLayout.standard();
+
+        assertEquals(Optional.of(VanillaItems.SAND), layout.oreAt(18, 68));
+        assertEquals(Optional.of(VanillaItems.SAND), layout.extract(18, 68));
+        assertEquals(Optional.of(VanillaItems.OIL), layout.oreAt(80, 68));
+        assertEquals(Optional.of(VanillaItems.OIL), layout.extract(80, 68));
+        assertTrue(layout.isPassable(18, 68));
+        assertTrue(layout.isPassable(80, 68));
+    }
+
     private static int[] findAnOreCell(PatchOreLayout layout) {
         // (6, 5) is the center of the standard map's first iron patch — same convention already
         // relied on by JsonSaveRepositoryTest/WorldTest.
